@@ -365,7 +365,69 @@ Sources: `miki151/device_owner` (package `eu.dumbdroid.deviceowner`) and
 9. Calls/contacts limits during restricted mode: optional, hard.
 10. Licence and whether to publish.
 
-## 6. Known limits (threat model, to complete)
+## 6. Threat model (DRAFT)
+
+Owner decisions (2026-11-06): R1 accepted as "detect, do not prevent"; the privileged app list
+(`com.dumbermini.apps`) is hidden by default outside parent-opened install windows; debugging is
+switched off after provisioning with an HA "maintenance window" to re-enable it; the out-of-scope
+list below stands as written.
+
+### Adversary and scope
+- **The adversary is the child:** 14, clever, at home, with physical access, time, search engines,
+  possibly a friend or family PC. No root exploits, no hardware attacks (chip-off, JTAG).
+- **Assets to protect:** the schedule and app restrictions; parent approval authority; the
+  controller itself (keys, state); visibility, meaning HA notices when something is wrong.
+- **Out of scope (stated plainly):**
+  - content inside approved apps (messages, browsing, video);
+  - other devices (a friend's phone, a hotspot, a PC);
+  - a determined attack with a PC and unlocked-bootloader tools (see R1).
+
+### Attack paths, mitigations, residual risk
+| # | Path | Mitigation | Residual |
+|---|---|---|---|
+| 1 | Factory reset from Settings or the power menu | `DISALLOW_FACTORY_RESET`; check the DumberOS power-menu reset button exists after setup | Low if the check passes |
+| 2 | Factory reset or reflash via recovery/fastboot (bootloader is unlocked) | Cannot be stopped in software | **R1: high impact, needs knowledge or a PC.** Detect by heartbeat loss, alert, re-provision |
+| 3 | Safe mode | `DISALLOW_SAFE_BOOT`; verify it holds on this build | Low |
+| 4 | adb / developer options | `DISALLOW_DEBUGGING_FEATURES` after provisioning; `ro.debuggable` is 0; no `testOnly` flag on the controller; a "maintenance window" in HA lifts it for you | Low |
+| 5 | Remove or disable Phone Guard | Device-owner apps cannot be uninstalled; `setUserControlDisabledPackages` blocks force-stop and clear-data | Low |
+| 6 | Clear device owner | Only the app or a factory reset can; do not ship `testOnly`; protect the PIN/code paths | Low |
+| 7 | Change the clock | `DISALLOW_CONFIG_DATE_TIME`, auto time zone only, anchor to `server_time`, detect clock jumps and report drift | Low (fake cell tower out of scope) |
+| 8 | Stay offline so nothing changes | Schedule is enforced locally; HA alerts on last-seen; pending boosts simply wait | Low. A stale schedule repeats |
+| 9 | Second user, guest, work profile | `DISALLOW_ADD_USER`, `DISALLOW_ADD_MANAGED_PROFILE`, `DISALLOW_USER_SWITCH` | Low |
+| 10 | Change the Home app | Pin it with a persistent preferred activity | Low |
+| 11 | VPN or private DNS to cut HA off | Restrict VPN and private DNS configuration (only if it does not break your needs) | Low. She keeps only the old schedule |
+| 12 | Sideload via browser or Files | `DISALLOW_INSTALL_UNKNOWN_SOURCES` (re-asserted: App Blocker can clear it), plus quarantine of any new package | Low. Short visible window |
+| 13 | **Install anything via the privileged app list** (`com.dumbermini.apps`, user-added repos, silent installs) | Hide that app outside parent-opened install windows; quarantine catches the result anyway | **R2: medium.** Depends on the windows being enforced |
+| 14 | A cloned or repackaged app under a new package name | New package, so quarantined | Low |
+| 15 | Turn grayscale or other display settings off in Settings | Controller re-asserts while the mode lasts | Accepted (soft control) |
+| 16 | Settings is reachable in every mode | Limit by restrictions, not hiding; a phase 2 launcher can omit the icon | **R3: accepted** |
+| 17 | App Blocker UI changes state | Our hides sit under our own policy entry; re-assert shared restrictions; check on the device | Low, to verify |
+| 18 | Steal the pairing key | Private key lives in the Android Keystore, not exportable; app storage not readable without root | Low |
+| 19 | Replay or forge HA messages or nudges | Signed requests with counters, echoed nonces, signed replies; nudge carries nothing | Low |
+| 20 | Brute-force an override code | Single-use HOTP codes, small window, rate limit and lockout back-off | Low |
+| 21 | Approve her own apps via HA | Parent-only approval by `context.user_id`, parent-only view; do not use the family tablet login | Medium if HA users are loose. Depends on HA hygiene |
+| 22 | Webhook endpoint flooded or probed | Reject unsigned requests cheaply; rate limit | Low |
+| 23 | A Phone Guard bug breaks the phone | Protected-app layers, safe failure (no hiding if the set cannot be confirmed), hides persist across crashes | Medium until tested |
+| 24 | A DumberOS OTA changes behaviour | Re-run the checklist after each OTA. Device-owner state lives in userdata | Accepted (single-maintainer supply chain) |
+
+### Detection and alerts (HA)
+- Phone not seen for N hours; controller no longer device owner or no longer enforcing.
+- Clock drift above a threshold; mode applied does not match the schedule.
+- Restriction changed or re-asserted (for example App Blocker cleared unknown sources).
+- New app installed (always); override code used; repeated wrong code attempts.
+
+### Residual risk summary
+- **R1** reflash or recovery reset with an unlocked bootloader: detect, do not prevent.
+- **R2** the privileged installer: hidden outside install windows.
+- **R3** Settings always reachable: constrained by restrictions only.
+- Content in approved apps and other devices stay with the parent.
+
+### Red-team checklist (once built, you try it as her)
+- Every row above that says "verify", plus reset, safe mode, clock, offline, guest user,
+  adding a repo in the app list, and reboot during a mode change.
+- Check that no restriction blocks emergency calls, alarms, or microG-dependent apps she needs.
+
+### Earlier notes
 
 - Software cannot stop a reflash through the bootloader or recovery from a PC. The target
   phone's bootloader will be unlocked. Accepted risk, mitigated by HA alerts when the phone
