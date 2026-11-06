@@ -128,6 +128,20 @@ Store options on a microG build (researched 2026-11-06, third-party sources, to 
 - A protected list (dialer, messages, Settings, system UI, emergency calling, Phone Guard,
   the HA Companion app, the launcher) is allowed in every mode and cannot be hidden.
 
+### Display options per mode
+- A mode can switch the screen to **grayscale** (owner's request: School, maybe Night).
+- Mechanism (proposed): Android's accessibility colour-correction setting in monochromacy mode
+  (secure settings `accessibility_display_daltonizer_enabled` and `accessibility_display_daltonizer`).
+  Writing it needs the WRITE_SECURE_SETTINGS permission, which a normal app cannot get by itself.
+  Routes: one extra `adb shell pm grant` during provisioning, or a device-owner self-grant if that
+  works (unverified). If neither route works the option is unavailable rather than faked.
+- It is a soft control: the child can switch colour correction off in Settings (Settings is
+  reachable). The controller watches the setting and re-asserts it for the rest of the mode.
+- Tested on the J36 (2026-11-06): writing the setting over adb turns the whole screen grey, and
+  the camera view too. So the effect is display-wide. Still to test: re-asserting it from an app
+  once permission is granted, and the device-owner self-grant route.
+- Grayscale only changes the display output (it does not change what apps do).
+
 ### Timetable
 - Each weekday has a list of time segments, each pointing at a mode. Uncovered time defaults to
   the parent's chosen base mode (suggested: Day). The editor can copy one day onto others, so
@@ -263,6 +277,64 @@ Clock, whose alarms would stop) quietly breaks features.
 ### Everything else
 Per-mode flags as in 4c, including the store app.
 
+### Real package list (Qin J36 running DumberOS, captured 2026-11-06)
+The phone is the Google-free (microG) build. Findings from `pm list packages -s`, the launcher
+activity query and `dpm list-owners`:
+- **There is no device owner today**, so Phone Guard can take the role. `ro.debuggable` is 0.
+- **No real Play Store.** `com.android.vending` has no launcher icon (very likely the microG
+  Companion stub), `com.google.android.gms`/`gsf` are microG. The store-like app is
+  `com.dumbermini.apps`. Other install routes: the browser (Jelly) and Files.
+- `eu.dumbdroid.deviceowner` is a **system-UID priv-app** (`/system/priv-app/DumbdroidAdmin`),
+  not a device owner despite the name. It provides the App Blocker UI (a settings page and a
+  "Play Store blocked" screen). Overlap and interference with Phone Guard is still to be checked.
+- `com.android.managedprovisioning` is present (QR provisioning support is plausible, untested).
+
+Only 13 packages have a launcher icon. Classification:
+
+| Package | Treatment |
+|---|---|
+| `com.android.dialer`, `com.android.messaging`, `com.android.contacts` | Hard protected |
+| `com.android.settings` | Hard protected |
+| `com.android.documentsui` (system file picker) | Hard protected (has an icon but is a service) |
+| `com.google.android.gms` (microG settings entry) | Hard protected |
+| `io.github.sspanak.tt9` (T9 keyboard) | Hard protected (the dynamic keyboard rule also catches it) |
+| `com.android.deskclock` | Protected by default, editable with warning (alarms) |
+| `com.dumbermini.davx` (Google contacts sync helper) | Protected by default, editable with warning (hiding stops sync) |
+| `org.lineageos.aperture` (Camera) | Allowed by default, editable per mode |
+| `org.lineageos.glimpse` (Gallery) | Per-mode |
+| `org.lineageos.jelly` (Browser) | Per-mode; also a download route, and the default for links |
+| `com.dumbermini.apps` (app list) | Per-mode; acts as the "store" |
+
+Hard protected without an icon (never touched by layer 1, listed for clarity): `eu.dumbdroid.*`
+(updater, deviceowner, settingspanel, bugreportuploader), `me.phh.treble.app`,
+`com.android.webview`, `com.android.vending`, `com.android.inputmethod.latin`.
+
+### DumberOS App Blocker and app list (source check, 2026-11-06)
+Sources: `miki151/device_owner` (package `eu.dumbdroid.deviceowner`) and
+`DumberOS/more_apps_client` (package `com.dumbermini.apps`). Partly read; some files unread.
+- **App Blocker** is a platform-signed, system-UID priv-app. It does NOT register as device owner,
+  profile owner or delegate (matches `dpm list-owners`: none). It hides apps with
+  `DevicePolicyManager.setApplicationHidden` under its own policy entry, and its PIN is optional,
+  a salted SHA-256 hash in SharedPreferences, enforced only by its UI.
+- **Collision: `DISALLOW_INSTALL_UNKNOWN_SOURCES`** is the one user restriction it sets, and it
+  clears it when its Play Store restriction is turned off. That restriction is global and
+  last-writer-wins, so App Blocker can undo ours. Phone Guard should re-assert it, and the
+  provisioning guide should say to leave App Blocker's Play Store restriction on or unused.
+- **Hide-policy coexistence:** its UI changes only its own entry, so another admin's hide should
+  survive it (the code and README say so; framework resolution unverified on the device).
+- **Undo risk:** any system-UID app can call `setApplicationHidden` directly. The PIN does not
+  stop that. Not a child-reachable path unless she finds a system-UID app that exposes it.
+- **App list (`com.dumbermini.apps`)** is a GPL-3.0 fork of Droid-ify (an F-Droid client) with
+  privileged install permissions (INSTALL_PACKAGES, update-without-user-action). It installs with
+  PackageInstaller sessions. Repositories are user-added; no default repo was found in the files
+  read. So it is a privileged, silent-capable installer: the quarantine design must treat
+  installs from it as the main route, and per-app windows for it matter. Unread: Downloader code.
+- `com.dumbermini.davx` is DAVx5 (davx5.com, a CalDAV/CardDAV sync client), per the owner. It
+  was not in any public DumberOS or miki151 repo, so it is probably a bundled build. The owner
+  is likely to disable or uninstall it; if so, drop it from the protected list.
+- Licences: `device_owner` has no licence (treat as unlicensed); `more_apps_client` GPL-3.0;
+  the patches/manifest repos show none. Phone Guard must not copy their code.
+
 ### Known limits and checks
 - Settings is reachable in every mode with a normal launcher (a launcher can only hide icons).
   A phase 2 launcher could omit it.
@@ -332,6 +404,19 @@ To build the protected list (section 4e), capture the package list and launcher 
 adb shell pm list packages -s
 adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
 ```
+
+Results so far (J36 with DumberOS): `dpm list-owners` reports no owners; `ro.debuggable` is 0;
+`ro.product.model` reports `DumberOS`. See section 4e for the package classification.
+
+Grayscale test (section 4c). adb shell can write this setting; revert straight after:
+
+```
+adb shell settings put secure accessibility_display_daltonizer 0
+adb shell settings put secure accessibility_display_daltonizer_enabled 1
+adb shell settings put secure accessibility_display_daltonizer_enabled 0
+```
+
+(Value 0 selects monochromacy. The second line turns it on, the third turns it off.)
 
 ## 8. Testing plan (outline)
 
