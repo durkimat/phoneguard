@@ -27,6 +27,12 @@ and a PIN-protected local override. Location tracking is out of scope for Phone 
 | 12 | Licence: Apache-2.0 | Owner's decision. Public repo (HACS needs one). |
 | 13 | microG is present | DumberOS installs it; the child wants some Google-dependent apps. Provisioning order: make the controller device owner BEFORE any account is added. |
 | 14 | Transport: hybrid | Controller calls an HA webhook (poll + on connectivity change + Companion nudge); signed messages, per-device secret paired by QR. Proposed, details still to confirm. |
+| 15 | Per child policy; install-then-quarantine | Section 4a/4b. |
+| 16 | Modes: Day, School, Night, plus built-in Emergency | Section 4c. No app groups in v1. |
+| 17 | Scheduling: own storage plus a week-editor card in HA | Section 4c. Calendars are not used (the child can edit them). |
+| 18 | Holiday switch turns the school schedule off | Section 4c. |
+| 19 | Boost (bonus time) and single-use local override codes | Section 4c. |
+| 20 | 10-minute warning before a mode becomes more restrictive | Section 4c. |
 
 ## 3. Architecture (outline)
 
@@ -63,6 +69,103 @@ Candidate designs (to verify before choosing):
 
 Not verified: exact command_broadcast_intent syntax and behaviour on the current minimal build;
 the Companion app's own documentation is the place to check.
+
+## 4a. Device, child and parent mapping
+
+- **Child profile** (integration): name, link to a HA `person` entity, default timetable, modes,
+  and app approvals. Policy is **per child**; a device may carry overrides.
+- **Device**: a paired phone belongs to one child profile.
+- **Phone identity**: no HA user for the phone. It authenticates to its webhook with a
+  per-device secret and signs messages. Deleting the device in HA revokes it.
+- **Parents**: a list of HA users who may approve. HA has no per-service permissions, so the
+  integration checks `context.user_id` against the parent list on every approval call, and the
+  approval UI lives on a parent-only view (not on family dashboards or the shared tablet).
+- **Pairing**: "add phone" in HA shows a QR (webhook, device id, secret) scanned by the
+  controller. If QR provisioning works on the target build, one scan could provision and pair
+  (admin extras bundle). Untested.
+
+## 4b. App control
+
+Decided: install-then-quarantine.
+- The store stays available. Any package not yet approved (including sideloaded) is hidden
+  immediately by the controller; a periodic reconcile backs up the install broadcast.
+- Parents approve in HA (actionable notification plus a parent-only view); approval assigns the
+  app to modes. Approval is per child.
+- Updates of an approved app do not need re-approval. Uninstalling is allowed unless the app is
+  on the protected list. Unknown sources stay blocked.
+- A short visible window between install and hide is accepted.
+- The store app is itself just an app: it is only reachable in per-app time windows that the
+  controller enforces, so installing is limited by the same mechanism.
+- Published as a JSON-string attribute (nested attributes lose false/0/null).
+
+Store options on a microG build (researched 2026-11-06, third-party sources, to be tested):
+- microG replaces Play Services but does not include Google's Play Store. microG Companion
+  (formerly FakeStore) has no interface and only handles licence checks and install requests.
+- The real Play Store (Phonesky) on microG is a known pain point (its signature check often
+  fails) and is not officially supported.
+- Aurora Store is the usual way to get Play-hosted apps. Anonymous logins were reported broken
+  in 2023 and may be fixed; a real Google account login is the fallback.
+- F-Droid is an alternative for open-source apps.
+- The DumberOS Google variant ships with the Play Store; switching variants is an OTA step.
+- To test on the phone: which store app works end to end, and whether the controller can detect
+  and hide installs coming from it.
+
+## 4c. Modes, schedule and overrides
+
+### Modes and apps
+- Modes are named per child. Initial set: **Day** (unrestricted list of approved apps), **School**
+  (a short allowlist), **Night** (for example alarm clock and a music app). The design supports
+  more than three modes.
+- **Emergency** is a built-in mode, always present and not part of the timetable. It allows a
+  minimal set (calls, messages, and whatever the parent adds, for example maps). It is what the
+  phone falls back to when it has no usable schedule at all (never paired, corrupt data).
+- **No app groups in v1.** Each approved app carries a simple per-mode flag (a small matrix of
+  app by mode). Approving an app asks which modes it is allowed in, with Day as the default.
+  Groups can be layered on later as a convenience without changing the model, because a mode is
+  already just a list of allowed apps.
+- A protected list (dialer, messages, Settings, system UI, emergency calling, Phone Guard,
+  the HA Companion app, the launcher) is allowed in every mode and cannot be hidden.
+
+### Timetable
+- Each weekday has a list of time segments, each pointing at a mode. Uncovered time defaults to
+  the parent's chosen base mode (suggested: Day). The editor can copy one day onto others, so
+  "day templates" are an editor convenience, not a stored concept.
+- **Holiday switch:** one switch per child. While on, every School segment behaves as Day.
+  Optional "until" date so it cannot be left on by mistake (suggestion, to confirm).
+- Authored in HA with our own storage and a week-editor card (reusing the heating card's
+  patterns). Calendars are deliberately not used: the child can edit the family calendars.
+- Resolution happens in HA. The phone receives absolute time instants for a rolling 14-day window
+  plus the mode definitions, which avoids timezone and clock-change logic on the phone.
+  Pushed again whenever the timetable, mode definitions or holiday switch change.
+- The phone sets exact alarms for each boundary and re-evaluates on boot, on alarm, and on sync.
+
+### Losing contact with HA
+- The phone keeps enforcing the pushed window.
+- After the window runs out it repeats a recent pattern. Owner's wording: "repeat the previous day".
+  Proposed refinement for confirmation: repeat the **same weekday from the last pushed week**,
+  so a weekday does not inherit a Sunday's pattern and school days stay school days.
+- HA raises an alert when a phone has not reported for a set time.
+- Open: whether the repeat should ever stop (for example after many days).
+
+### Temporary override: boost
+- A parent gives bonus time from HA: an extra N minutes with a chosen mode (default Day).
+- While a boost runs, allowed apps are the **union** of the scheduled mode and the boost mode,
+  so a boost never reduces access. It ends at an absolute expiry time, enforced on the phone, and
+  can be cancelled from HA.
+- It is wall-clock minutes, not metered use: v1 has no usage tracking, unlike Family Link's
+  bonus time which counts real screen time.
+
+### Local override: single-use code
+- When HA is unreachable a parent can still unlock the phone with a one-time code, generated in HA
+  ahead of time (HOTP-style: derived from the device secret and a counter, verified offline).
+- A code works once. Using one advances the counter, which also invalidates earlier unused codes.
+- The grant is a per-device setting (suggested default: Day mode for 30 minutes), then it reverts.
+- Rate limiting and a lockout back-off after wrong attempts.
+- Open: whether a second code type (longer) should also authorise "release this phone" offline.
+
+### Warnings
+- A phone notification 10 minutes before the phone moves to a more restrictive mode, and before
+  a boost ends. The controller's own notifications are always allowed.
 
 ## 5. Open questions
 
