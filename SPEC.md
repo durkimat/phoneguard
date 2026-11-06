@@ -33,6 +33,8 @@ and a PIN-protected local override. Location tracking is out of scope for Phone 
 | 18 | Holiday switch turns the school schedule off | Section 4c. |
 | 19 | Boost (bonus time) and single-use local override codes | Section 4c. |
 | 20 | 10-minute warning before a mode becomes more restrictive | Section 4c. |
+| 21 | Layered protected-app rules | Section 4e. Camera and Clock are default-allowed but editable. |
+| 22 | Parents may add to the protected list, never remove the hard set | Section 4e. |
 
 ## 3. Architecture (outline)
 
@@ -225,6 +227,48 @@ phone's behaviour directly.
 - A WorkManager periodic job has a 15-minute minimum and can be delayed by Doze; the design
   tolerates that (enforcement is local, boundaries use exact alarms).
 
+## 4e. Protected apps
+
+Why: a hidden app behaves almost as if uninstalled. It cannot run, receive broadcasts, or fire
+alarms and reminders. Hiding a system service (SystemUI, telephony, WebView, the keyboard,
+microG) can crash or break the phone, and hiding an app with background duties (for example the
+Clock, whose alarms would stop) quietly breaks features.
+
+### Layers
+1. **Only packages with a launcher icon can be managed.** Services and providers are never touched.
+2. **Dynamic protected set**, computed on the phone: the current default Home app, dialer, SMS
+   app and keyboard, the system WebView provider, and Phone Guard itself.
+3. **Static protected list** of package names shipped with the controller, with a DumberOS
+   profile (it ships its own apps). Built from the real package list of the target phone.
+4. **Parents may add** to the protected list in HA but can never remove entries from layers 1-3.
+5. **Safe failure:** if the controller cannot confirm the protected set is intact, it applies no
+   hiding. Hiding is always reversible.
+
+### Never hideable (hard set)
+- Dialer, SMS/Messaging, Contacts (these also cover emergency calls).
+- Emergency alerts (cell broadcast).
+- Settings (DumberOS's own changelog notes that disabling it stopped the phone booting).
+  What she can change is limited with device-owner restrictions instead of hiding.
+- Launcher, keyboard (including the T9 keyboard), system WebView, package installer, permission
+  controller.
+- microG (GmsCore and helpers): hiding it breaks notifications, maps and location for other apps.
+- HA Companion app and Phone Guard, so location and control keep working.
+- The DumberOS updater, so OTA updates keep arriving.
+
+### Protected by default, editable by a parent per mode
+- **Clock/alarm:** allowed in every mode by default. Changing it shows a warning, because a
+  hidden Clock does not ring alarms (important for Night mode).
+- **Camera:** allowed by default, can be switched off per mode (for example School).
+
+### Everything else
+Per-mode flags as in 4c, including the store app.
+
+### Known limits and checks
+- Settings is reachable in every mode with a normal launcher (a launcher can only hide icons).
+  A phase 2 launcher could omit it.
+- Check that adb can still unhide an app a device owner hid; if not, the controller needs a
+  panic/release action.
+
 ## 5. Open questions
 
 1. Transport details and authentication (section 4).
@@ -281,6 +325,13 @@ adb shell getprop ro.adb.secure
 ```
 
 A debuggable build may allow routes round device-owner restrictions (for example adb root).
+
+To build the protected list (section 4e), capture the package list and launcher apps:
+
+```
+adb shell pm list packages -s
+adb shell cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
+```
 
 ## 8. Testing plan (outline)
 
