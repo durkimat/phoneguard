@@ -35,6 +35,7 @@ and a PIN-protected local override. Location tracking is out of scope for Phone 
 | 20 | 10-minute warning before a mode becomes more restrictive | Section 4c. |
 | 21 | Layered protected-app rules | Section 4e. Camera and Clock are default-allowed but editable. |
 | 22 | Parents may add to the protected list, never remove the hard set | Section 4e. |
+| 23 | Pairing design, app id `io.github.durkimat.phoneguard` | Section 4f. App id cannot change later without breaking installs. |
 
 ## 3. Architecture (outline)
 
@@ -225,6 +226,48 @@ phone's behaviour directly.
   pushes). A phone that is offline abroad keeps the old window until it syncs. Travel can also
   be handled with the holiday switch or a temporary boost.
 
+### Companion app findings (docs and manifest check, 2026-11-06)
+Question asked: could the Companion app be the whole transport, so Phone Guard needs no webhook?
+- **Phone to HA is possible only through an intent bridge.** The user registers an intent action in
+  the Companion app (sensors, "Last update trigger"; the app must be restarted after saving). When
+  another app broadcasts that intent, the Companion app fires the HA event `android.intent_received`
+  with the action and any extras. Not documented: size limits, extra key names, sender package,
+  whether the app must be running, minimal-flavour behaviour.
+- **HA to phone** is `command_broadcast_intent` (`intent_action` and `intent_package_name`
+  required, optional `intent_class_name`, `intent_extras` as comma-separated `name:value` pairs
+  with type suffixes). No permission is documented; the docs do not say it works on the
+  minimal flavour.
+- The bridge does not verify who sent an intent, so any app can send it. Our signatures would
+  have to carry authentication, which the envelope already does.
+- Other exported Companion receivers (`UPDATE_SENSORS`, `REQUEST_SENSORS_UPDATE`,
+  `REQUEST_ACCURATE_UPDATE`) only trigger local sensor refreshes and carry no payload. The
+  Companion app has no content provider other apps can use, and no way for another app to write a
+  custom sensor value.
+- **Companion flavours and Google (source check, 2026-11-06).** The full flavour (package
+  `io.homeassistant.companion.android`) does depend on Google libraries: play-services-location,
+  Firebase Cloud Messaging, play-services-home/threadnetwork/wearable, and GMS-backed Cronet. Its
+  docs say it "requires Google Play Services". Its location code uses the fused location client and
+  returns nothing if that fails. The minimal flavour (`...minimal`) has no Google dependencies, uses
+  the platform location manager, and receives push over a websocket instead of FCM.
+  - The docs say minimal "does not support location tracking", yet the minimal source contains a
+    platform location provider and its own high-accuracy location service. The docs may be stale.
+    Test minimal's location on the J36 before assuming it is missing.
+  - Full on microG is unsupported by the maintainers (issue closed "not planned": support only on
+    Google-certified devices; a request for a Google-free build was declined in 2020). It may still
+    work through microG, but expect problems.
+  - Minimal's websocket push has a known open issue on a de-Googled phone (connection stops until
+    the app is opened; a test build reports a fix, Nov 2026). Nudges therefore may be unreliable;
+    the design already treats them as optional.
+  - Not read: minimal manifest, websocket code, callers of the Play Services availability check.
+- A possible cheap later feature: the Companion app's "Last used app" sensor reports foreground
+  app usage to HA without any Phone Guard code (if usage reporting is ever wanted).
+
+**Decision:** keep the signed webhook as the data channel. The bridge would need a manual
+registration step in the Companion app, is fire-and-forget (no reply path, so pairing and sync
+need a second correlated message), has unknown size limits, and would make enforcement-adjacent
+traffic depend on the Companion app staying alive. The envelope is transport-agnostic, so a
+Companion-bridge transport could be added later without changing the protocol.
+
 ### To verify before building
 - Nabu Casa cloudhooks: rate limits and payload size. Not found in documentation; to check on
   the Nabu Casa support site or by testing. The HA core mobile_app integration already uses a
@@ -340,6 +383,51 @@ Sources: `miki151/device_owner` (package `eu.dumbdroid.deviceowner`) and
   A phase 2 launcher could omit it.
 - Check that adb can still unhide an app a device owner hid; if not, the controller needs a
   panic/release action.
+
+## 4f. Pairing (decided 2026-11-06)
+
+App id: `io.github.durkimat.phoneguard`.
+
+### Flow
+1. **HA "Add phone":** choose the child profile and, optionally, the phone's Companion app
+   registration (used only for nudges). HA creates a device id and a one-time pairing code (valid
+   10 minutes), and shows a QR containing: protocol version, cloudhook URL, device id, the code,
+   and HA's public key. The QR holds no long-term secret.
+2. **Phone scans the QR** (ZXing, Apache-2.0, no Google dependency). Fallback: an adb intent
+   carrying the same payload (also useful during provisioning and testing).
+3. **Key generation:** the phone creates an ECDSA P-256 keypair in the Android Keystore (not
+   exportable) and posts a signed `pair` request with its public key, device model, controller
+   version and device-owner status.
+4. **Confirmation:** phone and HA each show the same 4-digit number (derived from the code and
+   the phone's public key). The parent confirms in HA that they match. Without confirmation the
+   pairing never completes. Outside an open pairing window HA rejects `pair` requests cheaply.
+5. **Reply:** signed by HA and checked against the public key from the QR. It carries the
+   override-code seed (stored encrypted) and the first schedule.
+6. **Recovery key:** HA shows a long random key once, to be saved in a password manager. The
+   phone keeps only a hash. Entering it on the phone authorises release or re-pair offline.
+   (Re-pairing must never be open, or a child could pair the phone to her own fake server.)
+
+### Message envelope
+JSON in the request body (not headers; Nabu Casa header forwarding is unverified):
+request `{v, did, ctr, n, p, s}` with `p` the payload as a JSON string and `s` an ECDSA signature
+over `v|did|ctr|n|p`; reply `{v, did, n, t, p, s}` echoing the nonce, carrying server time `t`,
+signed by HA over `v|did|n|t|p`. HA rejects counters at or below the highest seen. The counter is
+persisted before sending. Android backup is disabled for the controller, so old state and counters
+cannot be restored.
+
+### Revocation and loss
+- **Release phone:** a signed command. The controller removes restrictions and the device-owner
+  role and stays as a normal app.
+- **Forget device:** HA drops the device. The phone keeps enforcing its last schedule until it
+  is re-paired with the recovery key.
+- If HA is lost with no backup and no recovery key, the phone is orphaned: factory reset and
+  re-provision. HA backups matter; the recovery key is the second safety net.
+- The pairing payload is small enough to fit in a QR-provisioning admin-extras bundle later, so
+  one scan could provision and pair. Not planned for v1.
+
+### Open
+- Whether the J36 camera reads a QR code from a monitor (needs a test).
+- Whether a device owner can silently grant itself camera permission for scanning.
 
 ## 5. Open questions
 
