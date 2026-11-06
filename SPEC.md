@@ -44,7 +44,7 @@ and a PIN-protected local override. Location tracking is out of scope for Phone 
   battery). Owns the timetable and pushes it to the phone.
 - **Launcher** (phase 2, optional).
 
-## 4. Transport (to decide)
+## 4. Transport (options considered; the decision is in section 4d)
 
 Nabu Casa gives remote access to the HA API, so the phone connects outward only.
 MQTT is out unless a broker is reachable, which Nabu Casa alone does not provide.
@@ -166,6 +166,64 @@ Store options on a microG build (researched 2026-11-06, third-party sources, to 
 ### Warnings
 - A phone notification 10 minutes before the phone moves to a more restrictive mode, and before
   a boost ends. The controller's own notifications are always allowed.
+
+## 4d. Transport design (decided)
+
+The hybrid design: the phone only pulls and posts signed data. Nothing HA sends changes the
+phone's behaviour directly.
+
+### Shape
+- One webhook endpoint in the integration, reached through the Nabu Casa cloudhook URL.
+  Message types: `pair`, `sync`, `event` (new app installed, mode changed, override code used,
+  tamper detected).
+- **Polling is the mechanism**: sync about every 15 minutes (low battery impact), on connectivity
+  return, on boot, and on a nudge. Events (for example a new app) are posted immediately.
+- **Nudge** is an optional speed-up: HA asks the HA Companion app to send an intent to the
+  controller meaning "sync now". It carries no data, so a forged nudge only causes a
+  rate-limited sync. If nudges fail, the next poll delivers everything. Instant location updates
+  stay a Companion app concern and are not part of this transport.
+- Sync, phone to HA: current mode, schedule version held, enforcement status (device owner,
+  restrictions applied), battery, app inventory changes (hash, not the full list each time),
+  clock offset, controller version, timezone.
+- Sync, HA to phone: the 14-day schedule window, mode definitions, approved-app matrix,
+  active boost, server time.
+
+### Security
+- Pairing: HA shows a QR with the webhook URL and a one-time pairing code (valid about 10
+  minutes). The phone generates an ECDSA P-256 keypair in the Android Keystore and registers
+  only the public key. HA also supplies its own public key in the QR.
+- Every request is signed by the phone and carries a counter. HA rejects counters it has seen.
+  Every reply echoes the phone's nonce and is signed by HA, so replays and forged servers
+  cannot change the schedule.
+- Override codes need a separate symmetric seed, set at pairing, because the phone verifies
+  them offline.
+- The webhook ID is treated as a secret, but signing protects the data, not the URL.
+- Simpler alternative if needed: one shared HMAC secret (weaker: it would also sit in HA storage).
+
+### Time integrity and travel
+- The controller blocks manual date/time changes as device owner and anchors to HA's
+  `server_time` plus the device's monotonic clock. A clock jump or reboot forces a re-sync.
+- Timezones: HA computes the schedule as absolute instants, so the phone needs no timezone
+  logic. Per child there is a setting: schedule in the **home timezone** (default, predictable) or
+  **follow the device's timezone** (the phone reports its zone each sync and HA recomputes and
+  pushes). A phone that is offline abroad keeps the old window until it syncs. Travel can also
+  be handled with the holiday switch or a temporary boost.
+
+### To verify before building
+- Nabu Casa cloudhooks: rate limits and payload size. Not found in documentation; to check on
+  the Nabu Casa support site or by testing. The HA core mobile_app integration already uses a
+  cloudhook (created through the cloud component, URL stored in the config entry; creation
+  fails if the user is logged out or cloud is disconnected, and signing out unregisters hooks).
+  Whether replies come back through a cloudhook as expected still needs checking against the
+  current `homeassistant/components/mobile_app` source.
+- Companion app `command_broadcast_intent` reaching the controller on the minimal build
+  (package name has a `.minimal` suffix in community posts). Test on the J36.
+- Background reliability: Doze and vendor battery management. `setUserControlDisabledPackages`
+  (device owner, Android 13+ behaviour) should stop the user force-stopping the controller and keep
+  it out of the restricted standby bucket; whether a device owner can also exempt itself from
+  battery optimisation without a user prompt needs checking in the current developer docs.
+- A WorkManager periodic job has a 15-minute minimum and can be delayed by Doze; the design
+  tolerates that (enforcement is local, boundaries use exact alarms).
 
 ## 5. Open questions
 
