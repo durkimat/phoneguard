@@ -42,6 +42,7 @@ class NokiaSkin : LauncherSkin {
             val u = width / 480f
             val t = Themes.byId(m.theme)
             lcd = t.lcd; ink = t.ink; fill.color = ink; stroke.color = ink
+            p.typeface = if (Fonts.byId(m.font).id == "sans") Typeface.SANS_SERIF else Typeface.MONOSPACE
             c.drawColor(lcd)
             statusLine(c, i, u)
             if (m.screen == Screen.HOME) home(c, i, u) else menu(c, m, u)
