@@ -655,3 +655,31 @@ rollover with the weekday pattern; new-app quarantine within about 5 s; grayscal
 Not yet built: pairing and transport, HA integration, single-use override code, PIN-protected
 release, usage reporting, "tamper" detection and alerts, release-build signing and install order.
 
+## 10. End-to-end prototype findings (2026-11-07)
+
+Built and run against the real Home Assistant (core 2026.11.0) and the J36:
+- `controller/` (phone) and `ha/` (integration `phoneguard`, card `phoneguard-card`), with a stand-in
+  server and the rig for repeatable tests.
+- **Nabu Casa cloudhooks cannot carry replies.** The cloudhook URL (`hooks.nabu.casa/...`) answers
+  200 with an empty body at once. Our protocol needs the signed reply in the response, so the phone
+  posts to the remote UI route instead: `https://<id>.ui.nabu.casa/api/webhook/<webhook_id>`. That
+  returns the handler's body (checked). It depends on Nabu Casa remote access being on. Supersedes
+  the earlier "cloudhook URL" wording in 4d and 4f. The webhook id is a 64-character secret and every
+  message is also signed, so knowing the URL is not enough.
+- HA's webhook trigger exposes no request headers, so the body-only envelope is right.
+- Pairing, SAS confirmation, config push, app approval, boost, cancel, new-app quarantine and
+  nudge-driven sync all work through Nabu Casa. The nudge arrives within seconds. The 15-minute poll
+  runs on its own.
+- Release from HA is implemented (the phone restores everything and gives up device owner) but not yet
+  run on the live pairing.
+
+Implementation notes that matter later:
+- State lives in device-protected storage and the receivers and service are direct-boot aware, so
+  enforcement resumes after a reboot before the PIN is entered. Not yet tested by an actual reboot.
+- The phone converts HA's boost expiry to its own clock using the server time in the reply.
+- Phone-side counter is persisted before sending, so a lost reply never reuses it.
+- HA state is published as a plain `sensor.phoneguard_<child>` state with the JSON in one attribute
+  (not a registered entity), so it disappears from the entity registry. Make it a real entity later.
+- Not built: phone-side recovery key and offline release, single-use override code, webhook rate
+  limiting, week editor in the card, usage reporting, real entities, real release build and signing.
+

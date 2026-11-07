@@ -11,7 +11,7 @@ from aiohttp import web
 
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
@@ -61,12 +61,26 @@ class Manager:
     # ---- talking to the phone ----------------------------------------------------------------
 
     async def url(self) -> str:
+        """The address the phone posts to.
+
+        Nabu Casa cloudhooks are fire and forget (they answer 200 with an empty body), so they cannot
+        carry our signed reply. The remote UI route (<id>.ui.nabu.casa/api/webhook/<id>) does.
+        """
+        path = webhook.async_generate_path(self.webhook_id)
         try:
             from homeassistant.components import cloud
-            return await cloud.async_get_or_create_cloudhook(self.hass, self.webhook_id)
-        except Exception as err:  # not logged in, not connected, no subscription
-            _LOGGER.info("No cloudhook (%s); using the normal webhook URL", err)
+            return cloud.async_remote_ui_url(self.hass) + path
+        except Exception as err:  # no Nabu Casa, or remote access off
+            _LOGGER.info("No remote UI URL (%s); using the normal webhook URL", err)
             return webhook.async_generate_url(self.hass, self.webhook_id)
+
+    async def drop_cloudhook(self) -> None:
+        """Remove a cloudhook that an earlier version created for our webhook."""
+        try:
+            from homeassistant.components import cloud
+            await cloud.async_delete_cloudhook(self.hass, self.webhook_id)
+        except Exception:  # none existed, or cloud is not available
+            pass
 
     async def nudge(self, cid: str) -> None:
         svc = self.hub.data["children"][cid].get("notify", "")
@@ -106,6 +120,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr = Manager(hass, store, data)
     hass.data[DOMAIN] = mgr
     mgr.save()
+    hass.async_create_task(mgr.drop_cloudhook())
     webhook.async_register(hass, DOMAIN, "Phone Guard", mgr.webhook_id, mgr.handle_webhook, local_only=False, allowed_methods=["POST"])
 
     async def admin(call: ServiceCall) -> None:
@@ -213,7 +228,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "forget", forget, vol.Schema({vol.Required("child"): cv.slug}))
 
     # keep the published mode and boost current as time passes
-    entry.async_on_unload(async_track_time_interval(hass, lambda now: mgr.publish(), timedelta(seconds=30)))
+    @callback
+    def _tick(_now) -> None:
+        mgr.publish()
+
+    entry.async_on_unload(async_track_time_interval(hass, _tick, timedelta(seconds=30)))
     mgr.publish()
     return True
 
