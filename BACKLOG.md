@@ -239,3 +239,9 @@ launcher in the same app; (3) notification counts and the status line.
 - Themes: Green LCD (default, #a9b98d / #1b2616), Grey (#cfd3cc / #1a1a1a), Amber on dark (#1a1200 / #ffb52e). Selection style: inverted bar (default) or outlined.
 - Chosen on the phone only: Settings > Display > Theme, kept across mode changes. HA control (lock/choose) is optional later.
 - Mock-ups for home, menu, Messages, WhatsApp conversation and T9 write screen still to be shown before building.
+
+## Spike result 2: paired session (2026-11-07)
+- Pairing by phone-number code works; linked device shows as "PhoneGuard" (set with store.SetOSInfo; the PairPhone display name must stay a standard browser form such as "Chrome (Linux)", "PhoneGuard" or "PhoneGuard (Android)" gave bad-request 400).
+- Paired and connected: about 23-27 MB RSS; heavy CPU only during first minute (initial sync).
+- Found: SQLITE_BUSY ("database is locked") during post-pairing app-state sync. Real build must open the sqlite store with busy_timeout and WAL (and ideally one connection).
+- Still to measure: CPU once settled, incoming message delivery, offline queue, battery while unplugged.
