@@ -105,6 +105,10 @@ object Enforcer {
         Log.log(c, "restored: nothing hidden, no restrictions, grayscale off")
     }
 
+    fun setStatusBar(c: Context, disabled: Boolean) {
+        try { Dpm.dpm(c).setStatusBarDisabled(Dpm.admin(c), disabled) } catch (e: Exception) { Log.log(c, "status bar change failed: ${e.javaClass.simpleName}") }
+    }
+
     /** Usage access is an app-op: a device owner may be able to grant it itself, otherwise adb at setup. */
     fun tryGrantUsageAccess(c: Context): Boolean {
         if (Usage.allowed(c)) return true

@@ -67,6 +67,9 @@ object Store {
     fun wantGray(c: Context) = sp(c).getBoolean("wantGray", false)
     fun setWantGray(c: Context, v: Boolean) { sp(c).edit().putBoolean("wantGray", v).apply() }
 
+    fun pregranted(c: Context): Set<String> = sp(c).getStringSet("pregranted", emptySet()) ?: emptySet()
+    fun addPregranted(c: Context, k: String) { sp(c).edit().putStringSet("pregranted", pregranted(c) + k).apply() }
+
     fun linkText(c: Context): String? = sp(c).getString("link", null)
     fun setLinkText(c: Context, t: String?) { val e = sp(c).edit(); if (t == null) e.remove("link") else e.putString("link", t); e.apply() }
 

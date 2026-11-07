@@ -188,3 +188,34 @@ c_release() {
   adb shell dpm list-owners | grep -q DeviceOwner && fail "still device owner" || pass "device owner removed"
   note "restrictions left on phone: $(adb shell dumpsys user | grep -c 'no_factory_reset')"
 }
+
+c_lockdown() {
+  section "Controller: the School lockdown, applied by the controller (locks touch, shade and apps for about a minute, then restores)"
+  top() { adb shell dumpsys window | grep -E 'mCurrentFocus' | head -1 | sed 's/.*{[^ ]* [^ ]* //; s/}//' | tr -d '\r'; }
+  adb shell appops set $CPKG SYSTEM_ALERT_WINDOW allow
+  push_config 7 lockdown >/dev/null; wake; home
+  set_time 2026-11-09 10:00; sleep 4
+  expect "evaluation reports the School lockdown" "$(last_eval)" "lock=nokia/touchOff/shadeOff/kioskOn"
+  r=$(dbg lockdown); note "$r"
+  expect "our launcher is the pinned Home app" "$r" "pinnedNokia=true"
+  expect "touch is blocked" "$r" "touchBlocked=true"
+  expect "kiosk is on" "$r" "locked=true"
+  expect "focus is on our launcher" "$(top)" "LauncherActivity"
+  adb shell input swipe 240 2 240 500 300; sleep 1; expect "shade does not open" "$(top)" "LauncherActivity"
+  adb shell am start -n com.android.settings/.Settings 2>&1 | grep -q "error code 101" && pass "Settings is refused" || fail "Settings was not refused"
+  launcher_has com.android.deskclock && fail "Clock should be hidden in School" || pass "Clock is hidden in School (no alarms can ring)"
+  adb shell dumpsys package com.android.contacts | grep -q 'android.permission.READ_CONTACTS: granted=true' && pass "Contacts permissions were pre-granted" || fail "Contacts permission not granted"
+  adb shell input keyevent KEYCODE_ENTER; sleep 1; adb shell input keyevent KEYCODE_1; sleep 2
+  expect "key 1 opens Phone under the lock" "$(top)" "dialer"
+  b=$(screen_text | cut -c1-120); adb shell input tap 239 375; sleep 1.5; a=$(screen_text | cut -c1-120)
+  [ "$a" = "$b" ] && pass "a touch on the dialler does nothing" || fail "touch got through the overlay"
+  adb shell input keyevent KEYCODE_HOME; sleep 2
+  echo "--- back to Day"
+  set_time 2026-11-09 16:00; sleep 4
+  expect "evaluation reports the open Day" "$(last_eval)" "lock=default/touchOn/shadeOn/kioskOff"
+  r=$(dbg lockdown); expect "normal Home app is back" "$r" "pinnedNokia=false"; expect "touch is back" "$r" "touchBlocked=false"; expect "kiosk is off" "$r" "locked=false"
+  adb shell input swipe 240 2 240 500 300; sleep 1; screen_text | grep -q "Internet" && pass "shade opens again" || fail "shade still blocked"
+  home; launcher_has com.android.deskclock && pass "Clock is back" || fail "Clock is still hidden"
+  expect "Home key reaches the normal launcher" "$(top)" "launcher3"
+  dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
+}
