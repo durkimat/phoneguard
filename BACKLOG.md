@@ -245,3 +245,8 @@ launcher in the same app; (3) notification counts and the status line.
 - Paired and connected: about 23-27 MB RSS; heavy CPU only during first minute (initial sync).
 - Found: SQLITE_BUSY ("database is locked") during post-pairing app-state sync. Real build must open the sqlite store with busy_timeout and WAL (and ideally one connection).
 - Still to measure: CPU once settled, incoming message delivery, offline queue, battery while unplugged.
+
+## Nokia launcher key rules (decided 2026-11-07)
+- Green LCD mock-ups approved (home, menu, Messages, WhatsApp conversation, T9 write).
+- Everywhere: D-pad Left/Right = the left/right label, same as the two keys under the screen.
+- Exception: the write screen, where D-pad Left/Right move the cursor; Send/Clear stay on the keys under the screen.
