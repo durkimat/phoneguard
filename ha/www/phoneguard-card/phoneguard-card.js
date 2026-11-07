@@ -1,14 +1,14 @@
-/* Phone Guard card v0.1.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.2.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card, entity: sensor.phoneguard_<child>
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.1.0";
+const PG_VERSION = "0.2.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity) throw new Error("entity is required (sensor.phoneguard_<child>)");
     this._config = config;
     this._last = null;
-    this._ui = this._ui || { sas: "", from: "", until: "", boostMode: "day", pickModes: {} };
+    this._ui = this._ui || { sas: "", from: "", until: "", boostMode: "day", pickModes: {}, tt: { sel: 1, draft: null, dirty: false } };
     if (!this._root) {
       this._root = this.attachShadow({ mode: "open" });
     }
@@ -27,6 +27,7 @@ class PhoneGuardCard extends HTMLElement {
     if (this._root.activeElement && this._root.activeElement.tagName === "INPUT") return;
     this._last = key;
     try { this._d = raw ? JSON.parse(raw) : null; } catch (e) { this._d = null; }
+    if (!this._ui.tt.dirty) this._ui.tt.draft = null; // saved: show what Home Assistant now holds
     this._render();
   }
 
@@ -79,6 +80,20 @@ class PhoneGuardCard extends HTMLElement {
       .code { font-family: monospace; font-size: 12px; word-break: break-all; }
       .bigsas { font-size: 34px; font-weight: 600; letter-spacing: .2em; }
       .mut { opacity: .6; }
+      .days { display:flex; gap:4px; }
+      .day { flex:1; min-width:0; padding:4px 2px 6px; border-radius:8px; border:2px solid transparent; background:none; text-align:center; font-size:12px; min-height:0; }
+      .day.sel { border-color: var(--primary-color); }
+      .bar { display:flex; height:46px; width:70%; margin:4px auto 0; border-radius:6px; overflow:hidden; flex-direction:column; }
+      .bar i { display:block; width:100%; }
+      .legend { display:flex; gap:12px; flex-wrap:wrap; margin:8px 0; font-size:13px; }
+      .legend b { display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+      .chg { display:flex; gap:8px; align-items:center; margin:6px 0; }
+      .chg input[type=time] { width: 8em; }
+      .chg select { font: inherit; padding: 8px; border-radius: 8px; min-height: 40px; border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: inherit; }
+      .chg button { min-width: 40px; padding: 8px; }
+      .copyrow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; }
+      button:disabled { opacity: .4; cursor: default; }
+      .unsaved { color: var(--warning-color, #e67e22); font-weight: 600; font-size: 13px; }
     `;
     if (!d) {
       this._root.innerHTML = `<style>${css}</style><div class="hcard">Waiting for ${this._esc(this._config.entity)}…</div>`;
@@ -136,6 +151,9 @@ class PhoneGuardCard extends HTMLElement {
         <button data-act="holiday" class="primary">Set</button><button data-act="holiday_clear">Clear</button></div>`;
       if (d.holiday) html += `<div class="sub">On from ${this._esc(h.from)} to ${this._esc(h.until)}.</div>`;
 
+      // weekly timetable
+      html += this._timetableHtml(d);
+
       // new apps
       if (d.pending_apps.length) {
         html += `<h3>New apps waiting</h3>`;
@@ -171,6 +189,124 @@ class PhoneGuardCard extends HTMLElement {
     this._wire();
   }
 
+  // ---- weekly timetable: a day is a list of changes ("from 08:30 it is School") ----------------------
+
+  static get DAYS() { return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; }
+  static get PALETTE() { return { day: "#7fb069", school: "#4a90d9", night: "#6c5ba7" }; }
+  static get EXTRA() { return ["#e0a030", "#d9643a", "#3aa6a0", "#a0a0a0"]; }
+
+  _modeColor(id) {
+    const known = PhoneGuardCard.PALETTE[id];
+    if (known) return known;
+    const ids = Object.keys(this._d.modes).filter((m) => !PhoneGuardCard.PALETTE[m]);
+    return PhoneGuardCard.EXTRA[Math.max(0, ids.indexOf(id)) % PhoneGuardCard.EXTRA.length];
+  }
+
+  _weekToEntries(week, base) {
+    const out = {};
+    for (let dow = 1; dow <= 7; dow++) {
+      const segs = (week[String(dow)] || []).slice().sort((a, b) => a[0] - b[0]);
+      let cur = 0; const e = [];
+      for (const [st, en, mode] of segs) {
+        if (st > cur) e.push([cur, base]);
+        e.push([st, mode]); cur = Math.max(cur, en);
+      }
+      if (cur < 1440) e.push([cur, base]);
+      if (!e.length) e.push([0, base]);
+      out[dow] = this._tidy(e);
+    }
+    return out;
+  }
+
+  // sort, force a start at midnight, drop duplicates at one time and merge neighbours with the same mode
+  _tidy(list) {
+    const byTime = new Map();
+    for (const [t, m] of list) byTime.set(Math.max(0, Math.min(1435, t)), m);
+    const sorted = [...byTime.entries()].sort((a, b) => a[0] - b[0]);
+    if (!sorted.length || sorted[0][0] !== 0) sorted.unshift([0, sorted.length ? sorted[0][1] : this._d.base]);
+    const out = [];
+    for (const [t, m] of sorted) if (!out.length || out[out.length - 1][1] !== m) out.push([t, m]);
+    return out;
+  }
+
+  _entriesToWeek(entries) {
+    const week = {};
+    for (let dow = 1; dow <= 7; dow++) {
+      const e = this._tidy(entries[dow]);
+      week[String(dow)] = e.map(([t, m], i) => [t, i + 1 < e.length ? e[i + 1][0] : 1440, m]);
+    }
+    return week;
+  }
+
+  _tt() { return this._ui.tt; }
+  _entries() { return this._tt().draft || this._weekToEntries(this._d.week, this._d.base); }
+  _edit(fn) {
+    const tt = this._tt();
+    tt.draft = tt.draft || this._weekToEntries(this._d.week, this._d.base);
+    fn(tt.draft); tt.dirty = true; this._render();
+  }
+
+  _hm(min) { return String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0"); }
+
+  _bar(list) {
+    return `<div class="bar">${list.map(([t, m], i) => {
+      const end = i + 1 < list.length ? list[i + 1][0] : 1440;
+      return `<i style="flex:${end - t};background:${this._modeColor(m)}" title="${this._hm(t)}"></i>`;
+    }).join("")}</div>`;
+  }
+
+  _timetableHtml(d) {
+    const tt = this._tt(), entries = this._entries(), sel = tt.sel, list = entries[sel];
+    const modeIds = Object.keys(d.modes);
+    let h = `<h3>Weekly timetable</h3><div class="legend">${modeIds.map((m) => `<span><b style="background:${this._modeColor(m)}"></b>${this._esc(d.modes[m].name)}</span>`).join("")}</div>`;
+    h += `<div class="days">${PhoneGuardCard.DAYS.map((n, i) => `<button class="day ${sel === i + 1 ? "sel" : ""}" data-tt="day" data-d="${i + 1}">${n}${this._bar(entries[i + 1])}</button>`).join("")}</div>`;
+    h += `<div class="sub" style="margin-top:6px">The bars run from midnight (top) to midnight (bottom).</div><div class="sub" style="margin-top:8px">${PhoneGuardCard.DAYS[sel - 1]}: each line says what the phone does from that time until the next line.</div>`;
+    list.forEach(([t, m], i) => {
+      h += `<div class="chg"><input type="time" step="300" value="${this._hm(t)}" data-tt="time" data-i="${i}" ${i === 0 ? "disabled" : ""}>
+        <select data-tt="mode" data-i="${i}">${modeIds.map((id) => `<option value="${id}" ${id === m ? "selected" : ""}>${this._esc(d.modes[id].name)}</option>`).join("")}</select>
+        <button data-tt="del" data-i="${i}" ${i === 0 ? "disabled" : ""} aria-label="Remove this change">✕</button></div>`;
+    });
+    h += `<div class="row"><button data-tt="add">+ Add a change</button></div>`;
+    h += `<div class="copyrow"><span class="sub">Copy ${PhoneGuardCard.DAYS[sel - 1]} to</span>
+      <button data-tt="copy" data-to="weekdays">Mon–Fri</button><button data-tt="copy" data-to="weekend">Sat–Sun</button><button data-tt="copy" data-to="all">every day</button></div>`;
+    h += `<div class="row" style="margin-top:12px"><button class="primary" data-tt="save" ${tt.dirty ? "" : "disabled"}>Save timetable</button>
+      <button data-tt="discard" ${tt.dirty ? "" : "disabled"}>Discard</button>${tt.dirty ? `<span class="unsaved">Unsaved changes</span>` : ""}</div>`;
+    h += `<div class="sub" style="margin-top:6px">Holiday dates above turn School into Day. Saving sends the new timetable to the phone straight away.</div>`;
+    return h;
+  }
+
+  _ttEvent(el) {
+    const a = el.dataset.tt, tt = this._tt(), sel = tt.sel;
+    if (a === "day") { tt.sel = Number(el.dataset.d); return this._render(); }
+    if (a === "add") return this._edit((e) => {
+      const day = e[sel], last = day[day.length - 1];
+      let t = Math.min(1435, last[0] + 60);
+      while (day.some((x) => x[0] === t) && t > 5) t -= 5; // keep it free of an existing change
+      const other = Object.keys(this._d.modes).find((m) => m !== last[1]) || last[1];
+      e[sel] = this._tidy(day.concat([[t, other]]));
+    });
+    if (a === "del") return this._edit((e) => { e[sel].splice(Number(el.dataset.i), 1); e[sel] = this._tidy(e[sel]); });
+    if (a === "time" || a === "mode") {
+      const i = Number(el.dataset.i);
+      return this._edit((e) => {
+        const row = e[sel][i];
+        if (a === "time" && el.value) { const [hh, mm] = el.value.split(":").map(Number); row[0] = hh * 60 + mm; }
+        if (a === "mode") row[1] = el.value;
+        e[sel] = this._tidy(e[sel]);
+      });
+    }
+    if (a === "copy") {
+      const to = el.dataset.to === "weekdays" ? [1, 2, 3, 4, 5] : el.dataset.to === "weekend" ? [6, 7] : [1, 2, 3, 4, 5, 6, 7];
+      return this._edit((e) => { for (const dow of to) if (dow !== sel) e[dow] = e[sel].map((x) => x.slice()); });
+    }
+    if (a === "discard") { tt.draft = null; tt.dirty = false; return this._render(); }
+    if (a === "save") {
+      const week = this._entriesToWeek(this._entries());
+      tt.dirty = false;
+      return this._svc("set_child", { config: { week } }).catch((err) => { tt.dirty = true; this._render(); alert("Not saved: " + (err.message || err)); });
+    }
+  }
+
   _wire() {
     const r = this._root;
     const sas = r.querySelector("input.sas");
@@ -179,6 +315,10 @@ class PhoneGuardCard extends HTMLElement {
     r.querySelectorAll("input[data-app]").forEach((i) =>
       i.addEventListener("change", () => this._svc("set_app_mode", { package: i.dataset.app, mode: i.dataset.mode, allowed: i.checked })));
     r.querySelectorAll("button[data-act]").forEach((b) => b.addEventListener("click", () => this._act(b)));
+    r.querySelectorAll("[data-tt]").forEach((el) => {
+      const ev = el.tagName === "BUTTON" ? "click" : "change";
+      el.addEventListener(ev, () => this._ttEvent(el));
+    });
   }
 
   _act(b) {
