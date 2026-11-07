@@ -6,7 +6,7 @@
 const now = Date.now();
 const view = {child:"her",name:"Her",tz:"Europe/London",base:"day",notify:"notify.mobile_app_dumbphone2",
  modes:{day:{name:"Day",allowAll:true,allow:[],gray:false},school:{name:"School",allowAll:false,allow:["org.lineageos.aperture"],gray:true},night:{name:"Night",allowAll:false,allow:["org.lineageos.glimpse"],gray:false}},
- week:{},holiday:{from:"2026-12-19",until:"2027-01-04"},mode_now:"school",boost:{mode:"day",until:now+11*60000},now,
+ week:(()=>{const w={};for(let d=1;d<=7;d++){const x=[[0,420,'night']];if(d<=5)x.push([510,930,'school']);x.push([1260,1440,'night']);w[d]=x;}return w})(),holiday:{from:"2026-12-19",until:"2027-01-04"},mode_now:"school",boost:{mode:"day",until:now+11*60000},now,
  device:{did:"abc",pending:false,sas:null,last_seen:now-95000,state:{mode:"school",hidden:5,gray:true,canGray:true,battery:84,owner:true},model:"DumberOS",in_sync:true},
  apps:[{pkg:"org.lineageos.aperture",label:"Camera",hidden:false},{pkg:"org.lineageos.glimpse",label:"Gallery"},{pkg:"org.lineageos.jelly",label:"Browser"},{pkg:"com.dumbermini.davx",label:"DAVx5"},{pkg:"io.github.durkimat.phoneguard.lab",label:"Phone Guard Lab"}],
  pending_apps:["io.github.durkimat.phoneguard.lab"]};
