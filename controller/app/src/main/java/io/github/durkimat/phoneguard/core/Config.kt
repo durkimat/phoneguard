@@ -22,6 +22,17 @@ data class ModeDef(
     val sound: String = "normal",
     /** Whether incoming calls are allowed. Off hangs up on every incoming call. */
     val inbound: Boolean = true,
+    /** WhatsApp checks: "off", "open" (only when the owner opens WhatsApp), "30" or "60" (minutes between checks). */
+    val wa: String = "open",
+)
+
+/** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
+data class WaConfig(
+    val all: Boolean = false,
+    /** Phone numbers and "g:Group name" entries. */
+    val allowed: List<String> = emptyList(),
+    val perMinute: Int = 5,
+    val perDay: Int = 200,
 )
 
 /** An absolute span of time with one mode. HA resolves holidays and timezones into these. */
@@ -48,6 +59,7 @@ data class Config(
     val restrictions: Set<String>?,
     /** A parent forcing one mode regardless of the timetable, until HA clears it. */
     val override: String? = null,
+    val whatsapp: WaConfig? = null,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -73,6 +85,7 @@ data class Config(
                     kiosk = m.optBoolean("kiosk", false),
                     sound = m.optString("sound", "normal"),
                     inbound = m.optBoolean("inbound", true),
+                    wa = m.optString("wa", "open"),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
@@ -104,6 +117,14 @@ data class Config(
                 unprotect = strings(o.optJSONArray("unprotect")),
                 restrictions = if (o.has("restrictions")) strings(o.getJSONArray("restrictions")) else null,
                 override = o.optString("override", "").ifEmpty { null },
+                whatsapp = o.optJSONObject("whatsapp")?.let { w ->
+                    WaConfig(
+                        all = w.optBoolean("all", false),
+                        allowed = (w.optJSONArray("allowed") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
+                        perMinute = w.optInt("perMinute", 5),
+                        perDay = w.optInt("perDay", 200),
+                    )
+                },
             )
         }
     }

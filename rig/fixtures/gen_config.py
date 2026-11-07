@@ -49,4 +49,9 @@ if "sound" in sys.argv[2:]:
     cfg["modes"]["school"]["sound"] = "silent"
     cfg["modes"]["school"]["inbound"] = False
     cfg["modes"]["night"]["sound"] = "vibrate"
+if "wa" in sys.argv[2:]:
+    cfg["modes"]["school"]["wa"] = "off"
+    cfg["modes"]["night"]["wa"] = "60"
+    cfg["modes"]["day"]["wa"] = "30"
+    cfg["whatsapp"] = {"all": False, "allowed": ["447855260768"], "perMinute": 4, "perDay": 60}
 print(json.dumps(cfg))

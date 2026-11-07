@@ -192,4 +192,19 @@ class EngineTest {
         assertTrue(Engine.effective(c, Boost("day", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).inbound) // a Day boost lets calls in
         assertFalse(Engine.effective(c, Boost("school", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).inbound)
     }
+
+    @Test fun whatsAppChecksFollowTheModeAndABoostOnlyEverChecksMoreOften() {
+        val m2 = modes + mapOf("school" to ModeDef("school", "School", false, setOf("a.calc"), false, wa = "off"), "day" to ModeDef("day", "Day", true, emptySet(), false, wa = "60"))
+        val c = cfg().copy(modes = m2)
+        assertEquals("off", Engine.effective(c, null, at(2026, 11, 3, 10)).wa)
+        assertEquals("60", Engine.effective(c, null, at(2026, 11, 3, 18)).wa)
+        assertEquals("60", Engine.effective(c, Boost("day", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).wa) // a Day boost lets checks happen
+        assertEquals("30", Engine.moreOften("60", "30")); assertEquals("open", Engine.moreOften("off", "open"))
+    }
+
+    @Test fun whatsAppSettingsAreReadFromTheConfig() {
+        val c = Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day","wa":"30"},"school":{"name":"School"}},"segments":[],"whatsapp":{"all":false,"allowed":["+44 7700 900111","g:Family"],"perMinute":3,"perDay":50}}""")
+        assertEquals("30", c.modes["day"]!!.wa); assertEquals("open", c.modes["school"]!!.wa)
+        assertEquals(listOf("+44 7700 900111", "g:Family"), c.whatsapp!!.allowed); assertEquals(3, c.whatsapp!!.perMinute); assertEquals(false, c.whatsapp!!.all)
+    }
 }

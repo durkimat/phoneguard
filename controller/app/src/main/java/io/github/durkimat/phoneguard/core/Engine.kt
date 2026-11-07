@@ -13,7 +13,7 @@ data class Lockdown(val launcher: String, val touch: Boolean, val shade: Boolean
 }
 
 /** Everything the enforcer needs for one moment. Equal values mean no visible change. */
-data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true)
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open")
 
 object Engine {
     const val EMERGENCY = "emergency"
@@ -49,6 +49,7 @@ object Engine {
         var ld = Lockdown(s.launcher, s.touch, s.shade, s.kiosk)
         var sound = s.sound
         var inbound = s.inbound
+        var wa = s.wa
         if (boost != null && now < boost.until) {
             val b = modeDef(cfg, boost.mode)
             all = all || b.allowAll
@@ -56,12 +57,19 @@ object Engine {
             gray = gray && b.gray
             sound = louder(sound, b.sound)
             inbound = inbound || b.inbound
+            wa = moreOften(wa, b.wa)
             ld = Lockdown(
                 launcher = if (ld.launcher == "default" || b.launcher == "default") "default" else ld.launcher,
                 touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
             )
         }
-        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound)
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa)
+    }
+
+    /** The more frequent of two WhatsApp check settings (a boost never makes it check less). */
+    fun moreOften(a: String, b: String): String {
+        val order = listOf("off", "open", "60", "30")
+        return if (order.indexOf(a) >= order.indexOf(b)) a else b
     }
 
     /** The louder of two sound settings: normal beats vibrate beats silent (a boost never makes the phone quieter). */
