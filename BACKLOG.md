@@ -27,6 +27,51 @@ Design notes to settle when it is picked up:
   `school.sound = "silent"`. Existing devices have no value and keep behaving as normal until set.
 - Add to the rig: set a mode, read `AudioManager.ringerMode`, try to change the volume, check it holds.
 
+### Full Nokia interface for School (added 2026-11-07)
+Owner's brief: every screen in School mode replicates the original Nokia interface, with only slight
+tweaks where a feature needs one (for example WhatsApp). The phone must read as a plain dumb phone
+because the school bans smartphones. Today only the home screen and the main menu are ours; Messaging,
+Contacts and the dialler are the stock Android apps.
+
+To build, one built-in Nokia screen at a time, inside the launcher engine so every skin can draw them:
+- **Messages**: the original SMS interface (inbox, write message, sent, drafts, templates, delivery
+  reports, message settings). **WhatsApp lives in this same interface** (see the open question below),
+  not as a separate smartphone app.
+- **Contacts** (Phonebook): the original list, search, view, add, edit, delete, speed dials, my number.
+- **Calculator**: add it to the menu with an original-style calculator screen.
+- **Check what else Nokia had** and decide each (candidates below).
+
+Original-Nokia features to consider (to be confirmed against a reference model's manual):
+- Call register: missed, received and dialled calls, call duration.
+- Profiles (General, Silent, Meeting, Outdoor, Pager): ties in with the sound-profile item above, so
+  one "profile" setting per mode could be the same thing.
+- Settings: time and date, tones, display, call settings (parents' choice what is exposed).
+- Organiser: alarm clock (off in School by design), calendar, to-do, notes.
+- Extras: stopwatch, countdown timer, unit converter; games (Snake) as an optional Day or Night item
+  only, never in School unless a parent turns it on.
+- Predictive text: T9 is already the keyboard (`io.github.sspanak.tt9`); keep it.
+
+Open questions:
+- **Which Nokia is the reference?** A monochrome Series 30 (3310 or 3410 style), a 6310, or another.
+  This decides the look, the menu numbering, and what exists.
+- **WhatsApp inside the Nokia messages screen: how?** WhatsApp has no public API and no official
+  non-touch client (searched 2026-11-07). The realistic route is a notification listener (needs the
+  notification-access adb grant): show incoming WhatsApp messages as threads in our inbox, and reply
+  through the notification's own reply action. Limits to expect: no history before a message arrived,
+  no voice notes, photos or calls, and it only works while WhatsApp runs and keeps its notifications.
+  Alternative: open the real WhatsApp app from the menu and live with its D-pad limits. Needs a spike.
+- **Our own SMS app or the stock one?** A built-in screen needs to be the default SMS app; a device
+  owner can set the default SMS application. The stock app would then be hidden in School.
+- **Our own call screens?** Replacing the incoming-call and in-call screens means becoming the default
+  dialler (an InCallService). Emergency calls must always work. Needs a SIM to test.
+- **Contacts**: read and write through the Android contacts provider (the permissions can be
+  pre-granted by the device owner); decide whether a parent controls the list from Home Assistant.
+
+Approach: build each screen as engine behaviour (lists, text viewer, text editor, number entry,
+dialogs, status line) plus Nokia skin drawing, with unit tests for the behaviour. Start with
+Contacts and the calculator (no SIM, no WhatsApp dependency), then Messages, then WhatsApp, then
+call screens.
+
 ### Lockdown for School and a custom launcher (see SPEC section 11)
 Owner's brief (2026-11-07): School should look and behave like a classic Nokia: no pull-down menus,
 very few apps (dialler, messages, maybe WhatsApp), keypad and D-pad only. Mock-up shown and discussed
