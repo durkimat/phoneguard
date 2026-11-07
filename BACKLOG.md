@@ -334,3 +334,8 @@ launcher in the same app; (3) notification counts and the status line.
 - NOT done: the app is not yet the Dialer on the phone. With no SIM there is no call to hand it, and I did not want an untested call handler in place overnight (emergency calls go through it). Tomorrow with the SIM: set the role (README has the command and the way back), then test answer, reject, end, mute, speaker, key tones, an outgoing call from our dial screen, and a call under the School lock-task. Dial 112/999 is never to be tested.
 - Contacts "Call" and the call log's Call now open our dial screen with the number typed (one more press rings).
 - Cosmetic: Android's location indicator pill can cover the status line.
+
+## Spike result 3: offline queue (2026-11-07)
+- wa-spike stopped 18:17, restarted 20:18 on the J36 (two hours offline). On reconnect it received the queued messages at once: two texts the owner sent to themselves while it was off, plus two media messages from group chats. So a linked device is caught up after at least two hours offline. Longer gaps (overnight, days) still to measure.
+- The linked device sees ALL the account's chats and groups, including group messages and channels. The real bridge must filter by the allowlist on the phone before storing or showing anything, and should drop everything else without keeping it.
+- Idle after catching up: about 22 MB RSS, connected; battery use over hours not yet measured (needs the phone unplugged).
