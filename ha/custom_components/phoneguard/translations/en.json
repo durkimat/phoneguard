@@ -1,0 +1,6 @@
+{
+  "config": {
+    "step": {"user": {"title": "Phone Guard", "description": "Set up Phone Guard. Children and phones are added afterwards from the Phone Guard card."}},
+    "abort": {"already_configured": "Phone Guard is already set up."}
+  }
+}

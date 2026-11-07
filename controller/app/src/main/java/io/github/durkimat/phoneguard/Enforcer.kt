@@ -86,9 +86,21 @@ object Enforcer {
 
     fun grantOwnPermissions(c: Context) {
         val dpm = Dpm.dpm(c)
-        for (p in listOf(android.Manifest.permission.POST_NOTIFICATIONS)) {
+        for (p in listOf(android.Manifest.permission.POST_NOTIFICATIONS, android.Manifest.permission.CAMERA)) {
             try { dpm.setPermissionGrantState(Dpm.admin(c), c.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
         }
+    }
+
+    /** Undo everything we did: used when a parent releases the phone. */
+    fun restoreEverything(c: Context) {
+        val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+        Store.hidden(c).forEach { try { dpm.setApplicationHidden(admin, it, false) } catch (_: Exception) { } }
+        Store.setHidden(c, emptySet())
+        Store.restrictions(c).forEach { try { dpm.clearUserRestriction(admin, it) } catch (_: Exception) { } }
+        Store.setRestrictions(c, emptySet())
+        try { dpm.setUserControlDisabledPackages(admin, emptyList()) } catch (_: Exception) { }
+        setGray(c, false)
+        Log.log(c, "restored: nothing hidden, no restrictions, grayscale off")
     }
 
     private const val GRAY = "accessibility_display_daltonizer_enabled"

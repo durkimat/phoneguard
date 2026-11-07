@@ -16,8 +16,13 @@ class DebugReceiver : BroadcastReceiver() {
         val cmd = i.getStringExtra("c") ?: return
         val a = i.getStringExtra("a") ?: ""
         val b = i.getStringExtra("b") ?: ""
-        val out = try { run(c, cmd, a, b) } catch (e: Exception) { "EXCEPTION ${e.javaClass.simpleName}: ${e.message}" }
-        Log.log(c, "DBG $cmd $a => $out")
+        fun go(): String = try { run(c, cmd, a, b) } catch (e: Exception) { "EXCEPTION ${e.javaClass.simpleName}: ${e.message}" }
+        if (cmd == "pair" || cmd == "sync") { // these use the network
+            val pending = goAsync()
+            Thread { val out = go(); Log.log(c, "DBG $cmd $a => $out"); pending.finish() }.start()
+            return
+        }
+        Log.log(c, "DBG $cmd $a => ${go()}")
     }
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
@@ -44,8 +49,17 @@ class DebugReceiver : BroadcastReceiver() {
             Store.hidden(c).forEach { try { dpm.setApplicationHidden(admin, it, false) } catch (_: Exception) { } }
             Store.setHidden(c, emptySet())
             Store.restrictions(c).forEach { try { dpm.clearUserRestriction(admin, it) } catch (_: Exception) { } }
-            Store.setRestrictions(c, emptySet()); Enforcer.setGray(c, false); "reset"
+            Store.setRestrictions(c, emptySet()); Enforcer.setGray(c, false); Link.clear(c); "reset"
         }
+        "pair" -> { // a = file in the app's files dir holding the pairing QR text
+            val r = Link.pair(c, File(c.getExternalFilesDir(null), a).readText().trim())
+            if (r.startsWith("ok")) Link.runAsync(c, "after pairing")
+            r
+        }
+        "sync" -> Link.sync(c, "debug")
+        "link" -> Link.summary(c)
+        "unpair" -> { Link.clear(c); "unpaired" }
+        "pollms" -> { Link.pollMs = a.toLong(); "poll every ${Link.pollMs}ms" }
         "release" -> { Dpm.dpm(c).clearDeviceOwnerApp(c.packageName); "device owner released" }
         else -> "unknown command"
     }

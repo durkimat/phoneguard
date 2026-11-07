@@ -1,0 +1,71 @@
+create_pairing:
+  name: Create pairing
+  description: Start pairing a phone for a child. Shows a QR code on the Phone Guard card.
+  fields:
+    child: {required: true, example: "her", selector: {text: {}}}
+    name: {required: false, example: "Her", selector: {text: {}}}
+confirm_pairing:
+  name: Confirm pairing
+  description: Confirm the 4-digit number shown on the phone.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    sas: {required: true, selector: {text: {}}}
+boost:
+  name: Boost
+  description: Give extra time in a mode. Pressing again adds more.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    mode: {required: false, default: day, selector: {text: {}}}
+    minutes: {required: false, default: 15, selector: {number: {min: 1, max: 180}}}
+    extend: {required: false, default: true, selector: {boolean: {}}}
+cancel_boost:
+  name: Cancel boost
+  fields:
+    child: {required: true, selector: {text: {}}}
+set_holiday:
+  name: Set holiday
+  description: Turn School into Day between two dates. Leave both empty to clear.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    from: {required: false, selector: {date: {}}}
+    until: {required: false, selector: {date: {}}}
+set_app_mode:
+  name: Set app in mode
+  fields:
+    child: {required: true, selector: {text: {}}}
+    package: {required: true, selector: {text: {}}}
+    mode: {required: true, selector: {text: {}}}
+    allowed: {required: true, selector: {boolean: {}}}
+approve_app:
+  name: Approve app
+  fields:
+    child: {required: true, selector: {text: {}}}
+    package: {required: true, selector: {text: {}}}
+    modes: {required: true, example: "[day, night]", selector: {object: {}}}
+dismiss_app:
+  name: Dismiss app
+  description: Keep a new app hidden everywhere and stop listing it as new.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    package: {required: true, selector: {text: {}}}
+set_child:
+  name: Set child settings
+  description: Patch name, tz, base, notify, modes, week, protect_extra, unprotect, restrictions.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    config: {required: true, selector: {object: {}}}
+nudge:
+  name: Nudge phone
+  description: Ask the phone to sync now.
+  fields:
+    child: {required: true, selector: {text: {}}}
+release:
+  name: Release phone
+  description: Tell the phone to stop being managed (removes device owner) on its next sync.
+  fields:
+    child: {required: true, selector: {text: {}}}
+forget:
+  name: Forget phone
+  description: Remove a phone and any pending pairing from Home Assistant.
+  fields:
+    child: {required: true, selector: {text: {}}}
