@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Debug builds only: testOnly so `dpm remove-active-admin` always works, plus the rig's command channel. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application android:testOnly="true" android:networkSecurityConfig="@xml/network_security_config">
         <receiver android:name=".DebugReceiver" android:exported="true">
             <intent-filter>

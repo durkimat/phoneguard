@@ -697,3 +697,36 @@ Implementation notes that matter later:
   holiday, restrictions, per-mode grey screen and everything-allowed; never app lists), configurable
   Day mode, restrictions panel and screen time by app.
 
+### Lock-task and touch-overlay experiments (2026-11-07, J36, stock Trebuchet as the locked launcher)
+
+Lock-task (`setLockTaskPackages` plus `setLockTaskFeatures(0)`, started with `ActivityOptions.setLockTaskEnabled`):
+- It only engages when the launcher is started as a **new task** (`NEW_TASK | CLEAR_TASK`). Started into an existing task, nothing locks.
+- Blocked: the pull-down shade and quick settings, starting a non-allowed app (Settings refuses with
+  error 101), and the power menu (no power off, restart or lockdown).
+- Allowed: apps on the list open normally (dialler tested). Home returns to the launcher. Recents still
+  opens but lists only the locked-task apps.
+- **Problem: alarms.** The clock alarm rings but its notification is hidden, so there is nothing on
+  screen to snooze or dismiss. Options: let our launcher show an alarm screen from the notification
+  (needs notification access, one more adb grant), test lock-task `NOTIFICATIONS` together with a
+  disabled status bar, or keep alarms out of School. Not yet decided or tested.
+- Not testable here: incoming calls (no SIM).
+
+Touch overlay (a transparent full-screen `TYPE_APPLICATION_OVERLAY` window that consumes touches):
+- Blocks touches, including injected ones, in a real app. Hardware keys are unaffected.
+- With it on, D-pad focus moved through the dialler's controls and OK activated a tab, so
+  keypad-only navigation works in at least that app.
+- Needs the "draw over other apps" app-op, which a device owner cannot self-grant: one more adb setup
+  step (`appops set <pkg> SYSTEM_ALERT_WINDOW allow`).
+
+WhatsApp without touch (web search): no non-touch WhatsApp client turned up. WhatsApp for KaiOS has
+ended. Android keypad phones (Smilyphone, the Dumber Mini) run the stock WhatsApp app; a reviewer
+describes moving a cursor with the D-pad to reach Send. So stock WhatsApp with keypad only has to be
+tested by us.
+
+### Launcher variants (design requirement, 2026-11-07)
+The owner may want several "dumb" launcher styles later, for example a later Nokia look that is not text
+only. Build the launcher as a small engine with replaceable skins: one place owns what the launcher
+must do (current mode's apps, key handling and focus, status line data, notification counts, alarm and
+call handling, touch and shade policy), and each skin only draws it. The skin is a per-mode setting
+next to "launcher: normal or Phone Guard". The first skin is the monochrome Nokia list style from the
+mock-up.
