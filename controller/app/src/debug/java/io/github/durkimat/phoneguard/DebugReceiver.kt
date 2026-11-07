@@ -61,6 +61,7 @@ class DebugReceiver : BroadcastReceiver() {
         "wa" -> {
             val w = io.github.durkimat.phoneguard.whatsapp.WhatsApp
             when (a) {
+                "close" -> { w.close(); "closed" }
                 "open" -> { w.open(c); "status=${w.status} paired=${w.isPaired(c)}" }
                 "pair" -> { val r = w.pair(c, b); Thread.sleep(6000); "$r code=${w.pairCode}" }
                 "connect" -> w.connect(c)

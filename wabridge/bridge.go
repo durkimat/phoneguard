@@ -41,6 +41,7 @@ type Listener interface {
 
 type Bridge struct {
 	cli *whatsmeow.Client
+	db  *sql.DB
 	l   Listener
 
 	mu      sync.Mutex
@@ -78,10 +79,18 @@ func Open(dir string, l Listener) (*Bridge, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Bridge{l: l, allowed: map[string]bool{}, perMin: 5, perDay: 200}
+	b := &Bridge{db: db, l: l, allowed: map[string]bool{}, perMin: 5, perDay: 200}
 	b.cli = whatsmeow.NewClient(device, log)
 	b.cli.AddEventHandler(b.onEvent)
 	return b, nil
+}
+
+// Close disconnects and releases the data files. The Bridge must not be used afterwards; call Open again.
+func (b *Bridge) Close() {
+	b.cli.Disconnect()
+	if b.db != nil {
+		_ = b.db.Close()
+	}
 }
 
 // IsPaired says whether an account is linked.
