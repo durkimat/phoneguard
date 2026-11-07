@@ -34,6 +34,7 @@ class LauncherActivity : Activity() {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
+        model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         setContentView(skin.create(this))
         refresh()
         if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
@@ -104,6 +105,7 @@ class LauncherActivity : Activity() {
         when (a) {
             Action.None -> {}
             Action.Redraw -> refresh()
+            is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
             is Action.Launch -> launch(a.pkg)
             is Action.Dial -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.digits))))
