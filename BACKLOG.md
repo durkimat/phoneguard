@@ -361,3 +361,6 @@ launcher in the same app; (3) notification counts and the status line.
 - Not working because of this phone, not our code: speaker (no audible difference in our screen or the stock one).
 - Not tested: call waiting (a second call is rejected as busy), emergency calls (deliberately not), an outgoing call to a number that does not answer ("Calling..." phase never seen: the test line answers at once), VoIP/WhatsApp calls, Bluetooth, headset.
 - State left on the phone: our app holds the Dialer role (stock dialler kept installed; README has the way back), School forced, SIM in.
+
+## Speakerphone setting (2026-11-07)
+- Settings > Speakerphone: Show or Hide, saved on the phone. Hidden removes Speaker from the call Options and from the Calling screen's left key. Set to Hide on the J36 (no usable loudspeaker). Default is Show.
