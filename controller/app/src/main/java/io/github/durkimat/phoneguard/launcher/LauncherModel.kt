@@ -24,7 +24,7 @@ object Themes {
 data class FontChoice(val id: String, val name: String)
 
 object Fonts {
-    val all = listOf(FontChoice("mono", "Monospace"), FontChoice("sans", "Sans-serif"))
+    val all = listOf(FontChoice("mono", "Monospace"), FontChoice("sans", "Sans-serif"), FontChoice("vt323", "Pixel VT323"), FontChoice("pixelify", "Pixelify"))
     const val DEFAULT = "mono"
     fun byId(id: String?): FontChoice = all.firstOrNull { it.id == id } ?: all.first { it.id == DEFAULT }
 }

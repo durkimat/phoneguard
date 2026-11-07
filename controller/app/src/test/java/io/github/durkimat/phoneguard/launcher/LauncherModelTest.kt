@@ -112,7 +112,7 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
         assertEquals(listOf("Theme", "Font"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
-        assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *", "Sans-serif"), m.rows)
+        assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *", "Sans-serif", "Pixel VT323", "Pixelify"), m.rows)
         m.onKey(Key.DOWN)
         assertEquals(Action.SaveFont("sans"), m.onKey(Key.OK))
         assertEquals("sans", m.font); assertEquals(Screen.SETTINGS, m.screen)
