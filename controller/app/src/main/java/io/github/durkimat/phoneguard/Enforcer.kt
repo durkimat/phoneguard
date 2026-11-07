@@ -89,7 +89,7 @@ object Enforcer {
         tryGrantUsageAccess(c)
         try { dpm.setPermissionGrantState(Dpm.admin(c), c.packageName, "android.permission.WRITE_SETTINGS", DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
         for (p in listOf(android.Manifest.permission.POST_NOTIFICATIONS, android.Manifest.permission.CAMERA,
-            android.Manifest.permission.READ_CALL_LOG, android.Manifest.permission.READ_SMS, android.Manifest.permission.READ_PHONE_STATE, android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.SEND_SMS)) {
+            android.Manifest.permission.READ_CALL_LOG, android.Manifest.permission.READ_SMS, android.Manifest.permission.READ_PHONE_STATE, android.Manifest.permission.READ_CONTACTS, android.Manifest.permission.SEND_SMS, android.Manifest.permission.CALL_PHONE)) {
             try { dpm.setPermissionGrantState(Dpm.admin(c), c.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
         }
     }

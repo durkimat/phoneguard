@@ -34,9 +34,10 @@ class LauncherModelTest {
 
     @Test fun digitsOnHomeStartDialling() {
         val m = model()
-        assertEquals(Action.Dial("7"), m.onKey(Key.DIGIT, 7))
-        assertEquals(Action.Dial("*"), m.onKey(Key.STAR))
-        assertEquals(Action.Dial("#"), m.onKey(Key.POUND))
+        assertEquals(Action.Redraw, m.onKey(Key.DIGIT, 7)); assertEquals(Screen.DIAL, m.screen); assertEquals("7", m.dialNumber)
+        m.onKey(Key.END); assertEquals(Screen.HOME, m.screen)
+        m.onKey(Key.STAR); assertEquals("*", m.dialNumber); m.onKey(Key.END)
+        m.onKey(Key.POUND); assertEquals("#", m.dialNumber); m.onKey(Key.END)
         m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 
@@ -334,5 +335,23 @@ class LauncherModelTest {
         m.onKey(Key.UP); m.onKey(Key.DIGIT, 1); m.onKey(Key.LEFT); assertEquals("3.5", m.calc.display)
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CALC, m.screen) // clears the answer
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
+    }
+
+    @Test fun dialScreenTypesCallsAndClears() {
+        val m = LauncherModel(emptyList()); m.contacts = listOf(Contact("Mum", listOf("+44 7700 900 222")))
+        m.onKey(Key.DIGIT, 0); m.onKey(Key.DIGIT, 7); m.onKey(Key.DIGIT, 7); m.onKey(Key.DIGIT, 0); m.onKey(Key.DIGIT, 0)
+        assertEquals("07700", m.dialNumber); assertEquals(null, m.dialName) // too early to match
+        "900222".forEach { m.onKey(Key.DIGIT, it - '0') }
+        assertEquals("Mum", m.dialName) // the 07... form matches the +44 form
+        assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.CALL))
+        assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.SOFT_LEFT))
+        m.onKey(Key.SOFT_RIGHT); assertEquals("0770090022", m.dialNumber)
+        repeat(10) { m.onKey(Key.SOFT_RIGHT) }; assertEquals(Screen.HOME, m.screen) // clearing the last digit goes home
+    }
+
+    @Test fun starTwiceMakesAPlusAndTheGreenKeyOnAnEmptyNumberShowsRecentCalls() {
+        val m = LauncherModel(emptyList()); m.onKey(Key.STAR); m.onKey(Key.STAR); assertEquals("+", m.dialNumber)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 }

@@ -128,10 +128,19 @@ class LauncherActivity : Activity() {
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
             is Action.Launch -> launch(a.pkg)
-            is Action.Dial -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.digits))))
+            is Action.PlaceCall -> placeCall(a.number)
             is Action.Call -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.number))))
             is Action.Send -> { model.notify(LauncherData.sendSms(this, a.to, a.body)); refresh() }
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
+        }
+    }
+
+    private fun placeCall(number: String) {
+        try {
+            getSystemService(android.telecom.TelecomManager::class.java).placeCall(Uri.fromParts("tel", number, null), null)
+        } catch (e: Exception) {
+            Log.log(this, "launcher: could not place call: ${e.javaClass.simpleName}")
+            model.notify("Cannot call"); refresh()
         }
     }
 
