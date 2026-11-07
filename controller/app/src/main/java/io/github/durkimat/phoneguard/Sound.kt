@@ -7,7 +7,8 @@ import io.github.durkimat.phoneguard.core.Engine
 
 /**
  * The sound profile of a mode. Normal leaves the phone alone; vibrate keeps the ringer on vibrate; silent
- * uses Do Not Disturb so that only starred contacts and repeat callers (parents) can ring through.
+ * uses Do Not Disturb "total silence": nothing sounds or buzzes, with no exceptions. Whether calls may come
+ * in at all is a separate setting (see CallBlocker).
  * Silent needs Do Not Disturb access, which a device owner cannot give itself: one adb setup grant.
  * Without it silent falls back to vibrate. We deliberately do not use DISALLOW_ADJUST_VOLUME, because
  * that mutes the whole device, call audio included; GuardService puts the setting back if it is changed.
@@ -31,13 +32,9 @@ object SoundEnforcer {
                         .putInt("filter", if (access) nm.currentInterruptionFilter else NotificationManager.INTERRUPTION_FILTER_ALL).apply()
                 }
                 if (want == "silent" && access) {
-                    val p = NotificationManager.Policy(
-                        NotificationManager.Policy.PRIORITY_CATEGORY_CALLS or NotificationManager.Policy.PRIORITY_CATEGORY_REPEAT_CALLERS,
-                        NotificationManager.Policy.PRIORITY_SENDERS_STARRED, 0,
-                    )
-                    if (nm.notificationPolicy.priorityCategories != p.priorityCategories || nm.notificationPolicy.priorityCallSenders != p.priorityCallSenders) nm.notificationPolicy = p
-                    if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_PRIORITY) nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY)
-                    return "silent (starred callers ring)"
+                    // total silence: nothing rings, buzzes or alerts, and there are no exceptions
+                    if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_NONE) nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_NONE)
+                    return "silent (total silence)"
                 }
                 if (access && nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL)
                 if (am.ringerMode != AudioManager.RINGER_MODE_VIBRATE) am.ringerMode = AudioManager.RINGER_MODE_VIBRATE

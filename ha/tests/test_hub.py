@@ -262,6 +262,7 @@ def test_sound_defaults_validation_and_copy(hub):
     ch = hub.data["children"]["her"]
     cfg = S.build_config(ch, hub.now())
     assert cfg["modes"]["school"]["sound"] == "silent" and cfg["modes"]["day"]["sound"] == "normal"
+    assert cfg["modes"]["school"]["inbound"] is False and cfg["modes"]["day"]["inbound"] is True
     modes = json.loads(json.dumps(ch["modes"])); modes["night"]["sound"] = "vibrate"
     hub.update_child("her", {"modes": modes})
     assert S.build_config(hub.data["children"]["her"], hub.now())["modes"]["night"]["sound"] == "vibrate"

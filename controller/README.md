@@ -52,8 +52,8 @@ Order for a new phone (no accounts on it, or device owner is refused):
 2. `adb shell dpm set-device-owner io.github.durkimat.phoneguard/.AdminReceiver`
 3. The one-time grants above (`WRITE_SECURE_SETTINGS`, `SYSTEM_ALERT_WINDOW` and `WRITE_SETTINGS` app-ops, `allow_dnd`).
 4. Open the app and pair it with the Phone Guard card in HA (scan the QR code, check the matching words on both).
-5. Set the parents as starred contacts on the phone (so they ring through in silent), then set up WhatsApp and
-   any other app that needs a tap in Day mode, before School's touch lock.
+5. Set up WhatsApp and any other app that needs a tap in Day mode, before School's touch lock. In School the
+   phone is totally silent and blocks incoming calls (parents ring the school office).
 
 Moving from a debug build to release: remove the debug build first (`dpm remove-active-admin`, then
 uninstall), because the signing key differs. That also loses the pairing, so pair again.

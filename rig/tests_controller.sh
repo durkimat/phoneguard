@@ -225,19 +225,21 @@ c_lockdown() {
 }
 
 c_sound() {
-  section "Controller: sound profiles (School silent through Do Not Disturb, Night vibrate; restored afterwards; nothing makes a noise)"
+  section "Controller: sound profiles (School totally silent with incoming calls blocked, Night vibrate; restored afterwards; nothing makes a noise)"
   adb shell cmd notification allow_dnd $CPKG >/dev/null 2>&1
   expect "Do Not Disturb access is granted" "$(dbg lockdown)" "canSilence=true"
   base=$(dbg lockdown); note "before: $(echo "$base" | grep -o 'ringer=[0-9]* filter=[0-9]*')"
   push_config 8 sound >/dev/null
   set_time 2026-11-09 10:00; sleep 4
-  expect "evaluation reports silent through Do Not Disturb" "$(last_eval)" "sound=silent (starred callers ring)"
-  expect "Do Not Disturb is on, priority only (filter 2)" "$(dbg lockdown)" "filter=2"
+  expect "evaluation reports total silence" "$(last_eval)" "sound=silent (total silence)"
+  expect "incoming calls are blocked in School" "$(last_eval)" "inbound=BLOCKED"
+  expect "Do Not Disturb is on, total silence (filter 3)" "$(dbg lockdown)" "filter=3"
+  expect "the call blocker is armed" "$(dbg lockdown)" "inboundBlocked=true"
   adb shell cmd notification set_dnd off >/dev/null 2>&1; sleep 4
-  expect "switching Do Not Disturb off is undone" "$(dbg lockdown)" "filter=2"
+  expect "switching Do Not Disturb off is undone" "$(dbg lockdown)" "filter=3"
   set_time 2026-11-09 22:00; sleep 4
   expect "Night reports vibrate" "$(last_eval)" "sound=vibrate"
-  r=$(dbg lockdown); expect "ringer is on vibrate (1)" "$r" "ringer=1"; expect "Do Not Disturb is off in Night (filter 1)" "$r" "filter=1"
+  r=$(dbg lockdown); expect "incoming calls are allowed in Night" "$r" "inboundBlocked=false"; expect "ringer is on vibrate (1)" "$r" "ringer=1"; expect "Do Not Disturb is off in Night (filter 1)" "$r" "filter=1"
   adb shell cmd audio set-ringer-mode NORMAL >/dev/null 2>&1; adb shell input keyevent KEYCODE_VOLUME_UP; sleep 3
   expect "a volume key cannot take vibrate back to ringing" "$(dbg lockdown)" "ringer=1"
   set_time 2026-11-09 16:00; sleep 4

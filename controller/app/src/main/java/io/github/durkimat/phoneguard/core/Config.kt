@@ -20,6 +20,8 @@ data class ModeDef(
     val kiosk: Boolean = false,
     /** "normal", "vibrate" or "silent". Silent still lets starred contacts ring through. */
     val sound: String = "normal",
+    /** Whether incoming calls are allowed. Off hangs up on every incoming call. */
+    val inbound: Boolean = true,
 )
 
 /** An absolute span of time with one mode. HA resolves holidays and timezones into these. */
@@ -70,6 +72,7 @@ data class Config(
                     shade = m.optBoolean("shade", true),
                     kiosk = m.optBoolean("kiosk", false),
                     sound = m.optString("sound", "normal"),
+                    inbound = m.optBoolean("inbound", true),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->

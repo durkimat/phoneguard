@@ -183,4 +183,13 @@ class EngineTest {
         val c = Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"},"school":{"name":"School","sound":"silent"}},"segments":[]}""")
         assertEquals("silent", c.modes["school"]!!.sound); assertEquals("normal", c.modes["day"]!!.sound)
     }
+
+    @Test fun incomingCallsFollowTheModeAndABoostOnlyEverOpensThem() {
+        val m2 = modes + ("school" to ModeDef("school", "School", false, setOf("a.calc"), false, inbound = false))
+        val c = cfg().copy(modes = m2)
+        assertFalse(Engine.effective(c, null, at(2026, 11, 3, 10)).inbound)
+        assertTrue(Engine.effective(c, null, at(2026, 11, 3, 18)).inbound)
+        assertTrue(Engine.effective(c, Boost("day", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).inbound) // a Day boost lets calls in
+        assertFalse(Engine.effective(c, Boost("school", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).inbound)
+    }
 }

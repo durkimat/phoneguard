@@ -222,7 +222,7 @@ class PhoneGuardCard extends HTMLElement {
       if (s.hidden != null) bits.push(s.hidden + " apps hidden");
       if (s.gray) bits.push("grayscale on");
       if (s.canGray === false) bits.push("grayscale not permitted on the phone");
-      if (s.canSilence === false && Object.values(d.modes).some((m) => m.sound === "silent")) bits.push("silent needs Do Not Disturb access on the phone (it vibrates instead)");
+      if (s.canSilence === false && Object.values(d.modes).some((m) => m.sound === "silent")) bits.push("Silent needs Do Not Disturb access on the phone (it vibrates instead)");
       if (!dev.in_sync) bits.push("changes not on the phone yet");
       html += `<div class="sub">${this._esc(bits.join(" · "))}</div>`;
     }
@@ -379,6 +379,7 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>Touchscreen works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="touch" data-mode="${m}" ${d.modes[m].touch !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Pull-down shade works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="shade" data-mode="${m}" ${d.modes[m].shade !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Sound</td>${ids.map((m) => `<td><select data-mode-opt="sound" data-mode="${m}">${[["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].sound || "normal") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
+      <tr class="opt"><td>Incoming calls allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="inbound" data-mode="${m}" ${d.modes[m].inbound !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
       h += `<tr><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
@@ -387,7 +388,7 @@ class PhoneGuardCard extends HTMLElement {
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
         }).join("") + `</tr>`;
     }
-    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. Sound: silent still lets starred contacts and repeat callers ring through, so mark parents as starred contacts on the phone. A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
+    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
       <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
   }
 
@@ -402,7 +403,7 @@ class PhoneGuardCard extends HTMLElement {
       <label class="rs"><input type="checkbox" data-cp="timetable" ${P.timetable ? "checked" : ""}><span>Weekly timetable<small>Including the base mode and time zone.</small></span></label>
       <label class="rs"><input type="checkbox" data-cp="holiday" ${P.holiday ? "checked" : ""}><span>Holiday dates</span></label>
       <label class="rs"><input type="checkbox" data-cp="restrictions" ${P.restrictions ? "checked" : ""}><span>Phone restrictions</span></label>
-      <label class="rs"><input type="checkbox" data-cp="mode_options" ${P.mode_options ? "checked" : ""}><span>Grey screen, sound and "Everything allowed" for each mode<small>Only for modes both devices have.</small></span></label>
+      <label class="rs"><input type="checkbox" data-cp="mode_options" ${P.mode_options ? "checked" : ""}><span>Grey screen, sound, incoming calls and "Everything allowed" for each mode<small>Only for modes both devices have.</small></span></label>
       <div class="sub">App lists are never copied: each device has its own apps, so choose those on that device.</div>
       <div class="row" style="margin-top:8px"><button class="primary" data-act="copy_go">Copy</button><button data-act="copy_toggle">Close</button></div></div>`;
     return h;
@@ -613,7 +614,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "gray") modes[mode].gray = i.checked;
     if (opt === "launcher") modes[mode].launcher = i.value;
     if (opt === "sound") modes[mode].sound = i.value;
-    if (opt === "touch" || opt === "shade" || opt === "kiosk") modes[mode][opt] = i.checked;
+    if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
       modes[mode].allowAll = i.checked;
       // leaving "everything allowed": start from every current app ticked, so nothing changes until you untick something
