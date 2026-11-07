@@ -37,6 +37,27 @@ Other one-time grants used by the launcher: `appops set <pkg> SYSTEM_ALERT_WINDO
 Then run the rig: `cd ../rig && ./run_controller.sh` (see `rig/`). Get out with the rig's
 `dbg release` or `adb shell dpm remove-active-admin io.github.durkimat.phoneguard/.AdminReceiver`.
 
+## Release build and install order
+`./release.sh` builds the unit tests, then the release APK, signs it with the key in `~/.phoneguard-release/`
+(created on first run; **back up that folder**: updates must be signed with the same key) and checks the
+result: not testOnly, no debug receiver, no cleartext setting, no lab code. Lint is skipped (its plugin is not
+cached for offline builds). The APK is `app/build/outputs/apk/release/phoneguard-release.apk`.
+
+A release build is **not testOnly**, so `dpm remove-active-admin` will not remove it. The way out is the
+parent's Release in HA (the phone drops device owner and removes its changes), or a factory reset. Test the
+release flow on a spare phone first.
+
+Order for a new phone (no accounts on it, or device owner is refused):
+1. `adb install phoneguard-release.apk`
+2. `adb shell dpm set-device-owner io.github.durkimat.phoneguard/.AdminReceiver`
+3. The one-time grants above (`WRITE_SECURE_SETTINGS`, `SYSTEM_ALERT_WINDOW` and `WRITE_SETTINGS` app-ops, `allow_dnd`).
+4. Open the app and pair it with the Phone Guard card in HA (scan the QR code, check the matching words on both).
+5. Set the parents as starred contacts on the phone (so they ring through in silent), then set up WhatsApp and
+   any other app that needs a tap in Day mode, before School's touch lock.
+
+Moving from a debug build to release: remove the debug build first (`dpm remove-active-admin`, then
+uninstall), because the signing key differs. That also loses the pairing, so pair again.
+
 ## Config format (what HA will push)
 See `rig/fixtures/gen_config.py`: `modes` (allowAll / allow list / gray), `base`, `segments` with
 absolute epoch-millisecond spans for the next 14 days, `windowEnd`, a same-weekday `pattern` used
