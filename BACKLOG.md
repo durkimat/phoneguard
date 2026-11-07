@@ -233,3 +233,9 @@ launcher in the same app; (3) notification counts and the status line.
 - Second launcher fallback and a controller watchdog if the launcher ever crashes.
 - Pairing QR printed from HA works in tests via a debug command; scan it on the phone's camera at least once for real.
 - Push the latest commits to GitHub (the owner approves each push).
+
+## Nokia launcher themes (decided 2026-11-07)
+- Layout (skin) and theme are separate. Theme = background colour + ink colour + selection style; font is monospace for all.
+- Themes: Green LCD (default, #a9b98d / #1b2616), Grey (#cfd3cc / #1a1a1a), Amber on dark (#1a1200 / #ffb52e). Selection style: inverted bar (default) or outlined.
+- Chosen on the phone only: Settings > Display > Theme, kept across mode changes. HA control (lock/choose) is optional later.
+- Mock-ups for home, menu, Messages, WhatsApp conversation and T9 write screen still to be shown before building.
