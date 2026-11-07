@@ -364,3 +364,9 @@ launcher in the same app; (3) notification counts and the status line.
 
 ## Speakerphone setting (2026-11-07)
 - Settings > Speakerphone: Show or Hide, saved on the phone. Hidden removes Speaker from the call Options and from the Calling screen's left key. Set to Hide on the J36 (no usable loudspeaker). Default is Show.
+
+## WhatsApp bridge library built into the app (2026-11-07)
+- wabridge/ (Go, whatsmeow): Open, PairWithPhone, Connect/Disconnect, Send, SetAllowed, SetLimits, Logout, Listener (status, pair code, message). Rules enforced in Go before anything reaches Kotlin: text only, one-to-one chats only (groups, broadcast lists and channels dropped), allowlisted numbers only (LID addresses resolved to phone numbers or dropped), send limits (5 a minute, 200 a day by default), messages up to 1000 characters. SQLite store with one connection, WAL and a 15 s busy timeout (the spike's "database is locked" fix). Unit tests found and fixed an allowlist bug (numbers written with spaces were split).
+- wabridge/build.sh builds out/wabridge.aar (arm64, about 7 MB, not committed) with gomobile and NDK 26.3 (installed under ~/Android/Sdk/ndk). App: whatsapp/WhatsApp.kt (wrapper) and WaStore.kt (last 20 messages per allowed chat, private SQLite, drops chats that stop being allowed); debug command `wa` (open, pair, connect, allow, send, status, logout).
+- Verified on the J36: the library loads in the app and opens ("not linked"). Not yet linked to an account in the app, no screens yet.
+- Next: link the owner's account in the app (needs the owner), Messages > WhatsApp screens, HA settings (on/off, allowlist, limits), connection policy and battery checks.

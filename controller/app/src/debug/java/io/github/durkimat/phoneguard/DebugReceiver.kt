@@ -57,6 +57,20 @@ class DebugReceiver : BroadcastReceiver() {
             r
         }
         "sync" -> Link.sync(c, "debug")
+        // WhatsApp bridge: a = open | pair | connect | disconnect | allow | send | status | logout; b = number / numbers / "number|text"
+        "wa" -> {
+            val w = io.github.durkimat.phoneguard.whatsapp.WhatsApp
+            when (a) {
+                "open" -> { w.open(c); "status=${w.status} paired=${w.isPaired(c)}" }
+                "pair" -> { val r = w.pair(c, b); Thread.sleep(6000); "$r code=${w.pairCode}" }
+                "connect" -> w.connect(c)
+                "disconnect" -> { w.disconnect(); "ok" }
+                "allow" -> { w.setAllowed(c, b); "allowed=$b" }
+                "send" -> w.send(c, b.substringBefore('|'), b.substringAfter('|'))
+                "logout" -> w.logout(c)
+                else -> "status=${w.status} connected=${w.isConnected()} paired=${w.isPaired(c)} unread=${w.store(c).unreadTotal()} chats=${w.store(c).chats().map { it.number + ":" + (it.last?.body?.length ?: 0) }}"
+            }
+        }
         // show a made-up call on the call screen without a SIM: a = ringing | dialling | active | ended | off, b = name or number
         "fakecall" -> {
             val who = b.ifBlank { "Mum" }
