@@ -196,13 +196,31 @@ class NokiaSkin : LauncherSkin {
             text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
             val lines = wrap(msg.body)
             val whenText = SimpleDateFormat(if (sameDay(msg.date)) "HH:mm" else "d MMM HH:mm", Locale.UK).format(Date(msg.date))
-            text(c, (if (msg.mine) "Me" else convo.name.take(12)) + "  " + whenText, 16f, 134f, 24f, u, bold = true)
-            text(c, "${m.selected + 1}/${convo.msgs.size}", 464f, 134f, 24f, u, align = Paint.Align.RIGHT)
+            val pos = "${m.selected + 1}/${convo.msgs.size}"
+            val who = if (msg.mine) "Me" else convo.name
+            val room = 448f - measureBold(pos, 24f) - measureBold("  $whenText", 24f)
+            text(c, fit(who, room, 24f) + "  " + whenText, 16f, 134f, 24f, u, bold = true)
+            text(c, pos, 464f, 134f, 24f, u, align = Paint.Align.RIGHT)
             val page = lines.drop(m.scroll).take(m.pageLines)
             page.forEachIndexed { n, s -> text(c, s, 16f, 176f + n * 36f, BODY, u) }
             if (m.scroll > 0) arrowV(c, 456f, 150f, -1, u)
             if (m.scroll + m.pageLines < lines.size) arrowV(c, 456f, 548f, 1, u)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun measureBold(s: String, size: Float): Float {
+            val paint = bodyPaint(); paint.textSize = size * (if (Fonts.byId(model?.font).id == "vt323") 1.3f else 1f); paint.isFakeBoldText = true
+            val w = paint.measureText(s); paint.isFakeBoldText = false
+            return w
+        }
+
+        /** Shortens a name to fit: names lose their end, numbers lose their front so the last digits stay visible. */
+        private fun fit(s: String, room: Float, size: Float): String {
+            if (measureBold(s, size) <= room) return s
+            val number = s.firstOrNull()?.let { it.isDigit() || it == '+' } == true
+            var t = s
+            while (t.length > 1 && measureBold((if (number) "…$t" else "$t…"), size) > room) t = if (number) t.drop(1) else t.dropLast(1)
+            return if (number) "…$t" else "$t…"
         }
 
         private fun sameDay(t: Long): Boolean {

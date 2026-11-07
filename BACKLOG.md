@@ -319,3 +319,10 @@ launcher in the same app; (3) notification counts and the status line.
   - Some MediaTek phones keep the warning picture in a logo partition, but the delay and the message are in the bootloader itself.
   - Ask the DumberOS maker (Dumbermini) whether a signed build or a patched bootloader exists for the J36.
 - Not a blocker. Revisit with a spare phone.
+
+## First SIM tests (2026-11-07)
+- SIM (3 UK) works: signal bars, text sent from our Write screen to its own number arrived (sent and received copies in the SMS store), inbox shows the unread star, conversation shows both.
+- Incoming call in School: phone saw the call, hung up once, no sound or screen; the caller heard the network's "cannot accept the call" message. Double log line fixed (hang up once per call).
+- Fixed: conversation header cut a phone number's last digit; "Message sent" notice now clears itself after 1.5 s.
+- T9 ranking: "ii" beats "hi" (web text); tune the word list towards texting. First suggestion is not always right, * steps through the rest.
+- Note: voice calls on this SIM run over IMS/VoLTE (the circuit-switched domain reports "not registered"); calls reached the phone, so it works on 3 UK.

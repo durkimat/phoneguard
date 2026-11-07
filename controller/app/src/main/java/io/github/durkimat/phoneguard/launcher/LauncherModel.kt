@@ -163,6 +163,7 @@ class LauncherModel(
     var notice: String? = null
         private set
     fun notify(text: String) { notice = text }
+    fun clearNotice() { notice = null }
 
     fun goHome() { screen = Screen.HOME; selected = 0 }
 
