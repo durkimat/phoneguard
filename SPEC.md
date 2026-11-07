@@ -730,3 +730,12 @@ must do (current mode's apps, key handling and focus, status line data, notifica
 call handling, touch and shade policy), and each skin only draws it. The skin is a per-mode setting
 next to "launcher: normal or Phone Guard". The first skin is the monochrome Nokia list style from the
 mock-up.
+
+### Decision on alarms in School (2026-11-07)
+School excludes the Clock app, and School is silent, so nothing can ring and there is no alarm screen
+to build under lock-task. Hiding the Clock removes all its scheduled alarms, so none can fire (checked:
+0 registered while hidden). Unhiding it re-registers them at the right times (checked with a 03:00
+alarm: back at 03:00 the next day), so a morning alarm still works after School. A silent sound
+profile alone would not have stopped alarms (they use their own volume); hiding the Clock does.
+Consequences: the Clock must be manageable (listed in `unprotect`) so a mode can hide it; alarms set
+for School hours are skipped, not delayed; the launcher shows the time itself.
