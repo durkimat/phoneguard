@@ -124,7 +124,10 @@ object WhatsApp {
         main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
         if (!isConnected()) { connect(c); for (i in 1..20) { if (isConnected()) break; Thread.sleep(500) } }
         if (!isConnected()) return "not connected"
-        return send(c, chat, text)
+        val r = send(c, chat, text)
+        // WhatsApp does not echo a message back to the device that sent it, so keep our own copy
+        if (r == "sent") { store(c).add(chat, "", "Me", text.trim(), System.currentTimeMillis() / 1000, true); fire() }
+        return r
     }
 
     fun pair(c: Context, number: String): String = try { open(c)?.pairWithPhone(number); "pairing started" } catch (e: Throwable) { "error: ${e.message}" }
