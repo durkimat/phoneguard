@@ -15,6 +15,7 @@ import android.view.WindowManager
 import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.VOICE_ASSIST
 import io.github.durkimat.phoneguard.WEB_SEARCH
+import io.github.durkimat.phoneguard.whatsapp.WhatsApp
 
 /**
  * A keypad-driven Home screen. It owns no behaviour of its own: [LauncherModel] decides what a key
@@ -40,6 +41,7 @@ class LauncherActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
+        WhatsApp.onChange(waChanged)
         model.predictiveOn = prefs().getBoolean("predictive", true)
         model.speakerShown = prefs().getBoolean("speaker", true)
         loadWords()
@@ -97,6 +99,10 @@ class LauncherActivity : Activity() {
 
     private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
+    private val waChanged: () -> Unit = { runOnUiThread { refresh() } }
+
+    override fun onDestroy() { WhatsApp.offChange(waChanged); super.onDestroy() }
+
     private val hideNotice = Runnable { model.clearNotice(); refresh() }
 
     private fun refresh() {
@@ -108,6 +114,12 @@ class LauncherActivity : Activity() {
         if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)
         // not while reading or writing, so a message arriving cannot shift what is on the screen
         if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
+        model.waEnabled = WhatsApp.linked(this)
+        if (model.waEnabled) {
+            model.waStatus = WhatsApp.status
+            model.waUnread = WhatsApp.store(this).unreadTotal()
+            if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.waConvos = WhatsApp.convos(this, model.contacts)
+        }
         skin.render(model, LauncherData.info(this))
     }
 
@@ -123,6 +135,12 @@ class LauncherActivity : Activity() {
         when (a) {
             Action.None -> {}
             Action.Redraw -> refresh()
+            Action.WaOpen -> { WhatsApp.touch(this); refresh() }
+            is Action.WaRead -> { WhatsApp.store(this).markRead(a.chat); refresh() }
+            is Action.SendWa -> Thread {
+                val r = WhatsApp.sendNow(this, a.chat, a.body)
+                ui.post { if (r != "sent") model.notify("Not sent: $r"); refresh() }
+            }.start()
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
