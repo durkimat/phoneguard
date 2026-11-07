@@ -251,6 +251,22 @@ class Hub:
         for old in sorted(store)[:-USAGE_DAYS]:
             del store[old]
 
+    def rename_child(self, old: str, new: str) -> None:
+        """Change the key (and so the sensor name) of a guarded device without losing anything."""
+        if old not in self.data["children"]:
+            raise KeyError(old)
+        if new == old:
+            return
+        if new in self.data["children"]:
+            raise ValueError(f"{new!r} already exists")
+        self.data["children"][new] = self.data["children"].pop(old)
+        if old in self.data["boosts"]:
+            self.data["boosts"][new] = self.data["boosts"].pop(old)
+        for table in ("devices", "pairing"):
+            for rec in self.data[table].values():
+                if rec.get("child") == old:
+                    rec["child"] = new
+
     def remove_child(self, cid: str) -> None:
         self.forget(cid)
         self.data["children"].pop(cid, None)

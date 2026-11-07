@@ -210,3 +210,17 @@ def test_copy_settings_between_devices_and_validation(hub):
     with pytest.raises(ValueError):
         hub.copy_settings("her", "tablet", ["timetable"])
     assert json.dumps(hub.data["children"]["tablet"], sort_keys=True) == before
+
+
+def test_rename_child_keeps_everything(hub):
+    ph = Phone(); pair(hub, ph); hub.confirm_pairing("her", hub.device_of("her")[1]["sas"])
+    hub.boost("her", "day", 15)
+    hub.set_app_mode("her", "a.one", "school", True)
+    hub.ensure_child("other", "Other")
+    with pytest.raises(ValueError):
+        hub.rename_child("her", "other")
+    hub.rename_child("her", "dumbo_phone")
+    assert "her" not in hub.data["children"] and hub.data["children"]["dumbo_phone"]["modes"]["school"]["allow"] == ["a.one"]
+    assert hub.device_of("dumbo_phone") is not None and hub.active_boost("dumbo_phone")
+    r = sync(hub, ph)  # the paired phone carries on syncing, and gets this child's config
+    assert "a.one" in r["cfg"]["modes"]["school"]["allow"]

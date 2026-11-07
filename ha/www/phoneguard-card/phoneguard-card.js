@@ -1,8 +1,8 @@
-/* Phone Guard card v0.4.1. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.5.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.4.1";
+const PG_VERSION = "0.5.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -27,6 +27,31 @@ class PhoneGuardCard extends HTMLElement {
     }).sort((x, y) => x.name.localeCompare(y.name));
   }
 
+  // The Home Assistant device behind a notify.mobile_app_<name> service: its name, tracker and owner
+  _companion(hass, notify, persons) {
+    const m = /^notify\.mobile_app_(.+)$/.exec(notify || "");
+    if (!m) return null;
+    const want = m[1].replace(/[^a-z0-9]/g, "");
+    for (const id of Object.keys(hass.states)) {
+      if (!id.startsWith("device_tracker.")) continue;
+      const fn = String(hass.states[id].attributes.friendly_name || "");
+      if (fn.toLowerCase().replace(/[^a-z0-9]/g, "") === want || id.slice(15).replace(/[^a-z0-9]/g, "") === want) {
+        const owner = persons.find((x) => x.trackers.includes(id));
+        return { tracker: id, name: fn || m[1], person: owner || null };
+      }
+    }
+    return { tracker: null, name: m[1].replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), person: null };
+  }
+
+  // every phone running the Companion app, as a choice for "Add a device"
+  _companionChoices(hass, persons) {
+    const svc = (hass.services && hass.services.notify) || {};
+    return Object.keys(svc).filter((k) => k.startsWith("mobile_app_")).map((k) => {
+      const c = this._companion(hass, "notify." + k, persons);
+      return { service: "notify." + k, name: c.name, person: c.person };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   // the device's "person" is either a person entity id (linked to Home Assistant) or plain text
   _resolvePerson(hass, d, persons) {
     const link = d.person && d.person.startsWith("person.") ? d.person : null;
@@ -35,20 +60,9 @@ class PhoneGuardCard extends HTMLElement {
       if (p) return { key: p.id, name: p.name, picture: p.picture, linked: true };
     }
     if (!link) {
-      // no link saved: find the person that owns the Companion app's tracker for this phone
-      const m = /^notify\.mobile_app_(.+)$/.exec(d.notify || "");
-      if (m) {
-        const want = m[1].replace(/[^a-z0-9]/g, "");
-        for (const id of Object.keys(hass.states)) {
-          if (!id.startsWith("device_tracker.")) continue;
-          const fn = String(hass.states[id].attributes.friendly_name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-          const idn = id.slice(15).replace(/[^a-z0-9]/g, "");
-          if (fn === want || idn === want) {
-            const p = persons.find((x) => x.trackers.includes(id));
-            if (p) return { key: p.id, name: p.name, picture: p.picture, linked: true, auto: true };
-          }
-        }
-      }
+      // no link saved: the person that owns the Companion app's tracker for this phone
+      const c = this._companion(hass, d.notify, persons);
+      if (c && c.person) return { key: c.person.id, name: c.person.name, picture: c.person.picture, linked: true, auto: true };
     }
     const text = (d.person || d.name || "").replace(/^person\./, "");
     return { key: "text:" + text, name: text, picture: "", linked: false };
@@ -79,7 +93,8 @@ class PhoneGuardCard extends HTMLElement {
       try {
         const v = JSON.parse(hass.states[id].attributes.data);
         const who = this._resolvePerson(hass, v, people);
-        this._all[id] = { child: v.child, name: v.name, person: who.name, personKey: who.key, picture: who.picture, linked: who.linked };
+        const comp = this._companion(hass, v.notify, people);
+        this._all[id] = { child: v.child, name: comp ? comp.name : v.name, followsHA: !!comp, person: who.name, personKey: who.key, picture: who.picture, linked: who.linked };
       } catch (e) { /* skip */ }
     }
     try { this._d = raw ? JSON.parse(raw) : null; } catch (e) { this._d = null; }
@@ -189,7 +204,8 @@ class PhoneGuardCard extends HTMLElement {
     let html = tabs;
 
     // header: name, mode, how recently heard from, and the refresh button
-    html += `<div class="row"><h2 style="font-size:18px">${this._esc(d.name)}</h2><span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
+    const shownName = (this._all && this._all[this._ui.sel]) ? this._all[this._ui.sel].name : d.name;
+    html += `<div class="row"><h2 style="font-size:18px">${this._esc(shownName)}</h2><span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
     if (dev && !dev.pending) {
       html += `<span class="chip ${stale ? "warn" : "off"}">${stale ? "not heard " : "seen "}${this._ago(dev.last_seen)}</span>
         <button class="small" data-act="nudge" title="Ask the phone to check in now">⟳ Sync now</button>`;
@@ -224,7 +240,9 @@ class PhoneGuardCard extends HTMLElement {
       const cur = this._ui.rnPerson;
       html += `<div class="row"><select data-f="rnPerson">${people.map((p) => `<option value="${this._esc(p.id)}" ${cur === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}
         <option value="${this._esc(cur && !cur.startsWith("person.") ? cur : "")}" ${cur && !cur.startsWith("person.") ? "selected" : ""}>${this._esc(cur && !cur.startsWith("person.") ? cur + " (not a Home Assistant person)" : "No Home Assistant person")}</option></select>
-        <input type="text" data-f="rnName" placeholder="Device name" value="${this._esc(this._ui.rnName)}">
+        ${(this._all[this._ui.sel] || {}).followsHA
+          ? `<span class="sub">Device name follows Home Assistant: ${this._esc(this._all[this._ui.sel].name)}</span>`
+          : `<input type="text" data-f="rnName" placeholder="Device name" value="${this._esc(this._ui.rnName)}">`}
         <button class="primary" data-act="rename_go">Save</button><button data-act="rename_toggle">Cancel</button></div>
         <div class="sub" style="margin-top:4px">The person is the Home Assistant person this phone belongs to. Their name and picture come from there.</div>`;
     } else html += `<div class="row"><button data-act="rename_toggle">Change person or device name…</button></div>`;
@@ -274,13 +292,17 @@ class PhoneGuardCard extends HTMLElement {
     }
     if (this._ui.adding) {
       const people = this._people || [];
-      const sel = this._ui.newPerson || (me && people.find((p) => p.id === me.personKey) ? me.personKey : (people[0] ? people[0].id : "__new"));
+      const phones = this._companionChoices(this._hass, people);
+      const phone = this._ui.newPhone !== undefined && this._ui.newPhone !== "" ? this._ui.newPhone : (phones[0] ? phones[0].service : "__other");
+      const chosen = phones.find((p) => p.service === phone);
+      const sel = this._ui.newPerson || (chosen && chosen.person ? chosen.person.id : (me && people.find((p) => p.id === me.personKey) ? me.personKey : (people[0] ? people[0].id : "__new")));
       h += `<div class="addform"><b>Add a device</b>
+        <select data-f="newPhone">${phones.map((p) => `<option value="${this._esc(p.service)}" ${phone === p.service ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__other" ${phone === "__other" ? "selected" : ""}>Not in Home Assistant yet…</option></select>
+        ${phone === "__other" ? `<input type="text" data-f="newName" placeholder="Device name, e.g. Tablet" value="${this._esc(this._ui.newName)}">` : ""}
         <select data-f="newPerson">${people.map((p) => `<option value="${this._esc(p.id)}" ${sel === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__new" ${sel === "__new" ? "selected" : ""}>Someone without a Home Assistant person…</option></select>
         ${sel === "__new" ? `<input type="text" data-f="newPersonName" placeholder="Name" value="${this._esc(this._ui.newPersonName)}">` : ""}
-        <input type="text" data-f="newName" placeholder="Device, e.g. Phone or Tablet" value="${this._esc(this._ui.newName)}">
         <button class="primary" data-act="add_go">Create</button><button data-act="add_cancel">Cancel</button></div>
-        <div class="sub" style="width:100%">People come from Home Assistant (Settings, People), so the name and picture follow what you set there.</div>`;
+        <div class="sub" style="width:100%">Pick the phone running the Home Assistant app and its name and owner follow Home Assistant (Settings, Devices, and People).</div>`;
     } else h += `<button data-act="add">＋ Add a device</button>`;
     return h + `</div>`;
   }
@@ -556,6 +578,7 @@ class PhoneGuardCard extends HTMLElement {
       i.addEventListener("change", () => this._svc("set_app_mode", { package: i.dataset.app, mode: i.dataset.mode, allowed: i.checked })));
     r.querySelectorAll("input[data-mode-opt]").forEach((i) => i.addEventListener("change", () => this._modeOpt(i)));
     r.querySelectorAll("input[data-cp]").forEach((i) => i.addEventListener("change", () => { this._ui.copyParts[i.dataset.cp] = i.checked; }));
+    r.querySelectorAll("select[data-f=newPhone]").forEach((i) => i.addEventListener("change", () => { this._ui.newPerson = ""; this._render(); }));
     r.querySelectorAll("select[data-f=newPerson], select[data-f=copyTo]").forEach((i) => i.addEventListener("change", () => this._render()));
     r.querySelectorAll("input[data-rs]").forEach((i) => i.addEventListener("change", () => this._restrict(i)));
     r.querySelectorAll("button[data-act]").forEach((b) => b.addEventListener("click", () => this._act(b)));
@@ -603,16 +626,21 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "add_cancel") { ui.adding = false; ui.newName = ""; return this._render(); }
     if (a === "add_go") {
       const known = this._people || [];
-      const choice = ui.newPerson || (known[0] ? known[0].id : "__new");
-      const person = (choice === "__new" ? ui.newPersonName : choice).trim(), name = ui.newName.trim();
+      const phones = this._companionChoices(this._hass, known);
+      const phone = ui.newPhone !== undefined && ui.newPhone !== "" ? ui.newPhone : (phones[0] ? phones[0].service : "__other");
+      const chosen = phones.find((p) => p.service === phone);
+      const choice = ui.newPerson || (chosen && chosen.person ? chosen.person.id : (known[0] ? known[0].id : "__new"));
+      const person = (choice === "__new" ? ui.newPersonName : choice).trim();
+      const name = (chosen ? chosen.name : ui.newName).trim();
       const shown = choice === "__new" ? person : (known.find((p) => p.id === choice) || { name: person }).name;
       const slug = this._slug(shown + "_" + name);
-      if (!person || !name || !slug) return alert("Give the person and the device a name first.");
+      if (!person || !name || !slug) return alert("Choose the phone and the person, or give them names.");
       if ((this._ids || []).includes("sensor.phoneguard_" + slug)) return alert("That device already exists.");
-      ui.adding = false; ui.newName = ""; ui.newPersonName = ""; ui.newPerson = "";
+      ui.adding = false; ui.newName = ""; ui.newPersonName = ""; ui.newPerson = ""; ui.newPhone = undefined;
       ui.sel = "sensor.phoneguard_" + slug;
       try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ }
-      return this._hass.callService("phoneguard", "create_pairing", { child: slug, name, person });
+      const made = this._hass.callService("phoneguard", "create_pairing", { child: slug, name, person });
+      return chosen ? made.then(() => this._hass.callService("phoneguard", "set_child", { child: slug, config: { notify: chosen.service } })) : made;
     }
     if (a === "rename_toggle") {
       ui.renaming = !ui.renaming;
