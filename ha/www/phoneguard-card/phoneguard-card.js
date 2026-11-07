@@ -1,8 +1,8 @@
-/* Phone Guard card v0.3.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.4.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.3.0";
+const PG_VERSION = "0.4.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -19,6 +19,41 @@ class PhoneGuardCard extends HTMLElement {
   getCardSize() { return 8; }
   static getStubConfig() { return {}; }
 
+  // HA people (person.*), with their picture and the trackers assigned to them
+  _persons(hass) {
+    return Object.keys(hass.states).filter((id) => id.startsWith("person.")).map((id) => {
+      const a = hass.states[id].attributes;
+      return { id, name: a.friendly_name || id.slice(7), picture: a.entity_picture || "", trackers: a.device_trackers || [] };
+    }).sort((x, y) => x.name.localeCompare(y.name));
+  }
+
+  // the device's "person" is either a person entity id (linked to Home Assistant) or plain text
+  _resolvePerson(hass, d, persons) {
+    const link = d.person && d.person.startsWith("person.") ? d.person : null;
+    if (link) {
+      const p = persons.find((x) => x.id === link);
+      if (p) return { key: p.id, name: p.name, picture: p.picture, linked: true };
+    }
+    if (!link) {
+      // no link saved: find the person that owns the Companion app's tracker for this phone
+      const m = /^notify\.mobile_app_(.+)$/.exec(d.notify || "");
+      if (m) {
+        const want = m[1].replace(/[^a-z0-9]/g, "");
+        for (const id of Object.keys(hass.states)) {
+          if (!id.startsWith("device_tracker.")) continue;
+          const fn = String(hass.states[id].attributes.friendly_name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const idn = id.slice(15).replace(/[^a-z0-9]/g, "");
+          if (fn === want || idn === want) {
+            const p = persons.find((x) => x.trackers.includes(id));
+            if (p) return { key: p.id, name: p.name, picture: p.picture, linked: true, auto: true };
+          }
+        }
+      }
+    }
+    const text = (d.person || d.name || "").replace(/^person\./, "");
+    return { key: "text:" + text, name: text, picture: "", linked: false };
+  }
+
   _entities(hass) {
     if (this._config.entity) return [this._config.entity];
     return Object.keys(hass.states).filter((id) => id.startsWith("sensor.phoneguard_") && hass.states[id].attributes.data).sort();
@@ -30,15 +65,22 @@ class PhoneGuardCard extends HTMLElement {
     if (!ids.includes(this._ui.sel)) this._ui.sel = ids[0] || null;
     const st = this._ui.sel ? hass.states[this._ui.sel] : null;
     const raw = st ? st.attributes.data : null;
-    const key = ids.map((i) => i + ":" + ((hass.states[i].attributes.data || "").length)).join(",") + "|" + this._ui.sel + "|" + (raw || "") + (st ? st.state : "");
+    const people = this._persons(hass);
+    const psig = people.map((p) => p.id + p.name + p.picture + p.trackers.join("+")).join(";");
+    const key = ids.map((i) => i + ":" + ((hass.states[i].attributes.data || "").length)).join(",") + "|" + psig + "|" + this._ui.sel + "|" + (raw || "") + (st ? st.state : "");
     // do not rebuild while a field inside the card has focus: that would eat what is being typed
     if (key === this._last) return;
     if (this._root.activeElement && this._root.activeElement.tagName === "INPUT") return;
     this._last = key;
     this._ids = ids;
+    this._people = people;
     this._all = {};
     for (const id of ids) {
-      try { const v = JSON.parse(hass.states[id].attributes.data); this._all[id] = { child: v.child, name: v.name, person: v.person || v.name }; } catch (e) { /* skip */ }
+      try {
+        const v = JSON.parse(hass.states[id].attributes.data);
+        const who = this._resolvePerson(hass, v, people);
+        this._all[id] = { child: v.child, name: v.name, person: who.name, personKey: who.key, picture: who.picture, linked: who.linked };
+      } catch (e) { /* skip */ }
     }
     try { this._d = raw ? JSON.parse(raw) : null; } catch (e) { this._d = null; }
     const tt = this._tt();
@@ -86,6 +128,8 @@ class PhoneGuardCard extends HTMLElement {
         border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: inherit; }
       input.sas { width: 7em; font-size: 20px; letter-spacing: .2em; text-align: center; }
       .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 12px; }
+      .av { border-radius: 50%; object-fit: cover; display:inline-block; flex: none; }
+      .av.ph { background: var(--primary-color); color: var(--text-primary-color, #fff); text-align: center; font-weight: 600; font-size: 14px; }
       .person { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding-right:10px; margin-right:4px; border-right:1px solid var(--divider-color, #ddd); }
       .addform { display:flex; gap:6px; flex-wrap:wrap; align-items:center; width:100%; margin-top:6px; }
       .addform input[type=text], .addform select { flex:1; min-width: 9em; }
@@ -142,7 +186,8 @@ class PhoneGuardCard extends HTMLElement {
     let html = tabs;
 
     // header: name, mode, how recently heard from, and the refresh button
-    html += `<div class="row"><h2>${this._esc(d.person || d.name)}</h2>${d.person && d.person !== d.name ? `<span class="sub" style="font-size:15px">${this._esc(d.name)}</span>` : ""}<span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
+    const me = (this._all && this._all[this._ui.sel]) || { person: d.person || d.name, picture: "" };
+    html += `<div class="row">${this._avatar(me.picture, me.person, 40)}<h2>${this._esc(me.person)}</h2><span class="sub" style="font-size:15px">${this._esc(d.name)}</span><span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
     if (dev && !dev.pending) {
       html += `<span class="chip ${stale ? "warn" : "off"}">${stale ? "not heard " : "seen "}${this._ago(dev.last_seen)}</span>
         <button class="small" data-act="nudge" title="Ask the phone to check in now">⟳ Sync now</button>`;
@@ -173,9 +218,14 @@ class PhoneGuardCard extends HTMLElement {
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
-      html += `<div class="row"><input type="text" data-f="rnPerson" placeholder="Person" value="${this._esc(this._ui.rnPerson)}"><input type="text" data-f="rnName" placeholder="Device" value="${this._esc(this._ui.rnName)}">
-        <button class="primary" data-act="rename_go">Save names</button><button data-act="rename_toggle">Cancel</button></div>`;
-    } else html += `<div class="row"><button data-act="rename_toggle">Rename…</button></div>`;
+      const people = this._people || [];
+      const cur = this._ui.rnPerson;
+      html += `<div class="row"><select data-f="rnPerson">${people.map((p) => `<option value="${this._esc(p.id)}" ${cur === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}
+        <option value="${this._esc(cur && !cur.startsWith("person.") ? cur : "")}" ${cur && !cur.startsWith("person.") ? "selected" : ""}>${this._esc(cur && !cur.startsWith("person.") ? cur + " (not a Home Assistant person)" : "No Home Assistant person")}</option></select>
+        <input type="text" data-f="rnName" placeholder="Device name" value="${this._esc(this._ui.rnName)}">
+        <button class="primary" data-act="rename_go">Save</button><button data-act="rename_toggle">Cancel</button></div>
+        <div class="sub" style="margin-top:4px">The person is the Home Assistant person this phone belongs to. Their name and picture come from there.</div>`;
+    } else html += `<div class="row"><button data-act="rename_toggle">Change person or device name…</button></div>`;
     html += `<div class="row" style="margin-top:8px">
       ${dev && !dev.pending ? `<button data-act="release" class="danger">Release phone…</button>` : ""}
       <button data-act="remove" class="danger">Remove this device…</button></div>
@@ -184,26 +234,31 @@ class PhoneGuardCard extends HTMLElement {
     this._wire();
   }
 
+  _avatar(pic, name, size) {
+    const initial = this._esc((name || "?").trim().charAt(0).toUpperCase());
+    if (pic) return `<img class="av" style="width:${size}px;height:${size}px" src="${this._esc(pic)}" alt="">`;
+    return `<span class="av ph" style="width:${size}px;height:${size}px;line-height:${size}px">${initial}</span>`;
+  }
+
   _tabsHtml() {
     if (this._config.entity) return "";
     const ids = this._ids || [], all = this._all || {};
-    const people = {};
-    for (const id of ids) { const p = (all[id] && all[id].person) || id; (people[p] = people[p] || []).push(id); }
+    const groups = {};
+    for (const id of ids) { if (!all[id]) continue; const g = (groups[all[id].personKey] = groups[all[id].personKey] || { name: all[id].person, picture: all[id].picture, ids: [] }); g.ids.push(id); }
     let h = `<div class="tabs">`;
-    for (const person of Object.keys(people).sort((x, y) => x.localeCompare(y))) {
-      h += `<div class="person"><span class="sub">${this._esc(person)}</span>` + people[person].map((id) => {
-        const n = all[id] ? all[id].name : id;
-        return `<button class="${id === this._ui.sel ? "sel" : ""}" data-act="select" data-id="${this._esc(id)}">${this._esc(n)}</button>`;
-      }).join("") + `</div>`;
+    for (const g of Object.values(groups).sort((x, y) => x.name.localeCompare(y.name))) {
+      h += `<div class="person">${this._avatar(g.picture, g.name, 28)}<span class="sub">${this._esc(g.name)}</span>` + g.ids.map((id) =>
+        `<button class="${id === this._ui.sel ? "sel" : ""}" data-act="select" data-id="${this._esc(id)}">${this._esc(all[id].name)}</button>`).join("") + `</div>`;
     }
     if (this._ui.adding) {
-      const names = Object.keys(people).sort();
-      const sel = this._ui.newPerson || names[0] || "__new";
+      const people = this._people || [];
+      const sel = this._ui.newPerson || (people[0] ? people[0].id : "__new");
       h += `<div class="addform"><b>Add a device</b>
-        <select data-f="newPerson">${names.map((n) => `<option value="${this._esc(n)}" ${sel === n ? "selected" : ""}>${this._esc(n)}</option>`).join("")}<option value="__new" ${sel === "__new" ? "selected" : ""}>A new person…</option></select>
-        ${sel === "__new" ? `<input type="text" data-f="newPersonName" placeholder="Person's name" value="${this._esc(this._ui.newPersonName)}">` : ""}
+        <select data-f="newPerson">${people.map((p) => `<option value="${this._esc(p.id)}" ${sel === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__new" ${sel === "__new" ? "selected" : ""}>Someone without a Home Assistant person…</option></select>
+        ${sel === "__new" ? `<input type="text" data-f="newPersonName" placeholder="Name" value="${this._esc(this._ui.newPersonName)}">` : ""}
         <input type="text" data-f="newName" placeholder="Device, e.g. Phone or Tablet" value="${this._esc(this._ui.newName)}">
-        <button class="primary" data-act="add_go">Create</button><button data-act="add_cancel">Cancel</button></div>`;
+        <button class="primary" data-act="add_go">Create</button><button data-act="add_cancel">Cancel</button></div>
+        <div class="sub" style="width:100%">People come from Home Assistant (Settings, People), so the name and picture follow what you set there.</div>`;
     } else h += `<button data-act="add">＋ Add a device</button>`;
     return h + `</div>`;
   }
@@ -517,10 +572,11 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "add") { ui.adding = true; return this._render(); }
     if (a === "add_cancel") { ui.adding = false; ui.newName = ""; return this._render(); }
     if (a === "add_go") {
-      const people = Object.values(this._all || {}).map((x) => x.person);
-      const choice = ui.newPerson || [...new Set(people)].sort()[0] || "__new";
+      const known = this._people || [];
+      const choice = ui.newPerson || (known[0] ? known[0].id : "__new");
       const person = (choice === "__new" ? ui.newPersonName : choice).trim(), name = ui.newName.trim();
-      const slug = this._slug(person + "_" + name);
+      const shown = choice === "__new" ? person : (known.find((p) => p.id === choice) || { name: person }).name;
+      const slug = this._slug(shown + "_" + name);
       if (!person || !name || !slug) return alert("Give the person and the device a name first.");
       if ((this._ids || []).includes("sensor.phoneguard_" + slug)) return alert("That device already exists.");
       ui.adding = false; ui.newName = ""; ui.newPersonName = ""; ui.newPerson = "";
@@ -528,8 +584,12 @@ class PhoneGuardCard extends HTMLElement {
       try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ }
       return this._hass.callService("phoneguard", "create_pairing", { child: slug, name, person });
     }
-    if (a === "rename_toggle") { ui.renaming = !ui.renaming; if (ui.renaming && d) { ui.rnPerson = d.person || d.name; ui.rnName = d.name; } return this._render(); }
-    if (a === "rename_go") { ui.renaming = false; return this._svc("set_child", { config: { person: ui.rnPerson.trim(), name: ui.rnName.trim() } }); }
+    if (a === "rename_toggle") {
+      ui.renaming = !ui.renaming;
+      if (ui.renaming && d) { const me = (this._all || {})[ui.sel]; ui.rnPerson = me && me.linked ? me.personKey : (d.person || ""); ui.rnName = d.name; }
+      return this._render();
+    }
+    if (a === "rename_go") { ui.renaming = false; return this._svc("set_child", { config: { person: (ui.rnPerson || "").trim() || d.name, name: ui.rnName.trim() || d.name } }); }
     if (a === "copy_toggle") { ui.copyOpen = !ui.copyOpen; return this._render(); }
     if (a === "copy_go") {
       const others = (this._ids || []).filter((id) => id !== ui.sel);

@@ -13,9 +13,14 @@ const mk = (child, person, name, extra) => Object.assign({ child, person, name, 
   apps, pending_apps: [], usage: { [day(0)]: { "org.lineageos.aperture": 1500, "org.lineageos.jelly": 5400, "com.android.dialer": 600 }, [day(1)]: { "org.lineageos.jelly": 9000, "org.lineageos.glimpse": 1200 }, [day(2)]: { "org.lineageos.jelly": 3000 }, [day(3)]: { "org.lineageos.aperture": 400 } } }, extra || {});
 const states = {};
 const put = (v) => { states["sensor.phoneguard_" + v.child] = { state: v.mode_now, attributes: { data: JSON.stringify(v) } }; };
-put(mk("her_phone", "Her", "Phone", { boost: { mode: "day", until: now + 11 * 60000 }, holiday: { from: "2026-12-19", until: "2027-01-04" }, pending_apps: ["com.dumbermini.davx"] }));
-put(mk("her_tablet", "Her", "Tablet", { mode_now: "day" }));
-put(mk("sam_phone", "Sam", "Phone", { device: null, apps: [], usage: {}, pairing: { expires: now + 600000, code: "271531" } }));
+put(mk("her_phone", "Her", "Phone", { notify: "notify.mobile_app_dumbphone2", boost: { mode: "day", until: now + 11 * 60000 }, holiday: { from: "2026-12-19", until: "2027-01-04" }, pending_apps: ["com.dumbermini.davx"] }));
+put(mk("dumbo_tablet", "person.sam", "Tablet", { mode_now: "day" }));
+put(mk("alex_old_phone", "Alex", "Old phone", { device: null, apps: [], usage: {}, pairing: { expires: now + 600000, code: "271531" } }));
+// Home Assistant people and the Companion app's tracker, as on the real system
+const pic = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#d9643a"/><circle cx="32" cy="24" r="12" fill="#fff"/><rect x="12" y="40" width="40" height="30" rx="14" fill="#fff"/></svg>');
+states["person.dumbo"] = { state: "home", attributes: { friendly_name: "dumbo", entity_picture: pic, device_trackers: ["device_tracker.dumbphone"] } };
+states["person.sam"] = { state: "away", attributes: { friendly_name: "Sam", entity_picture: "", device_trackers: [] } };
+states["device_tracker.dumbphone"] = { state: "home", attributes: { friendly_name: "Dumbphone2" } };
 const calls = [];
 const el = document.createElement("phoneguard-card"); el.setConfig({});
 el.hass = { states, callService: (d, s, x) => { calls.push([d, s, x]); return Promise.resolve(); } };
