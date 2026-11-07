@@ -432,6 +432,18 @@ cannot be restored.
 - Whether the J36 camera reads a QR code from a monitor (needs a test).
 - Whether a device owner can silently grant itself camera permission for scanning.
 
+## 4g. Location requests (decided 2026-11-07)
+
+Location comes from the Companion app, not the controller. Baseline is its normal 15-minute
+update. To save the small battery, real-time tracking is a **boost**, not a mode:
+- A parent button in HA for one-off "where is she now" (`request_location_update`).
+- A stepped boost like the heating boost: each press adds time (5, 10, 15 minutes, and so on up to a
+  cap). While the boost runs HA sends `command_high_accuracy_mode` on, then off when it expires.
+  Pressing again extends it; a cancel button turns it off at once.
+- Built in HA (a script or our integration), against `notify.mobile_app_<phone>`, so no controller
+  change is needed. The controller only has to keep the Companion app alive (protected from
+  force-stop, never hidden).
+
 ## 5. Open questions
 
 1. Transport details and authentication (section 4).
@@ -622,3 +634,24 @@ Overall: the core control (hide, protect, restrict, force-stop protection) works
 
 Emulator first, then a spare/reset phone, then the J36. Nothing goes on the daughter's phone
 until it works end to end, and a stock ROM backup exists.
+
+## 9. Implementation status (controller core, 2026-11-07)
+
+Built under `controller/`, verified on the J36 with the rig (`rig/run_controller.sh`):
+- Mode and schedule engine (pure Kotlin, unit tested): segments, same-weekday pattern after the
+  window, boost as a union, warnings only when a change removes apps, DST-correct pattern edges.
+- Enforcement: hide and unhide only apps we hid ourselves (never touches apps hidden by DumberOS
+  App Blocker or anything else), layered protected apps, default restriction set
+  (factory reset, safe boot, date and time, add user, add managed profile), force-stop protection
+  for the controller and Companion app, grayscale held by a foreground service.
+- One evaluate entry point on every trigger (alarm, boot, time or timezone change, package change,
+  config change), one exact alarm for the next change or 10-minute warning, 30-minute safety re-check.
+- Storage is device-protected so it works after a reboot before the PIN is entered.
+- Debug build only: `testOnly`, a rig command channel, and a debug clock offset for jumping through
+  the timetable. The release build has none of these.
+
+Rig result: 40 checks passed (Emergency with no config; night, school, day; boost; warning; window
+rollover with the weekday pattern; new-app quarantine within about 5 s; grayscale re-assert).
+Not yet built: pairing and transport, HA integration, single-use override code, PIN-protected
+release, usage reporting, "tamper" detection and alerts, release-build signing and install order.
+
