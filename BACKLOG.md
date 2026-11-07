@@ -84,7 +84,31 @@ Open questions:
   launcher and the stock Messaging, Contacts and Phone apps. Messages and contacts live in the shared
   system databases, so both interfaces show the same data. The default SMS and dialler roles would be
   switched per mode by the controller.
-- **WhatsApp bridge: owner's decision (2026-11-07).** Use a bridge so a chat can be started and a little history seen,
+- **WhatsApp bridge runs ON THE PHONE, not in HA: owner's later decision (2026-11-07). This supersedes the
+  HA-hosted bridge design below.** Reason: HA should only control and monitor what the phone can do;
+  messaging must not stop when HA is down.
+  - Approach: embed the open-source Go library `whatsmeow` (the one `mautrix-whatsapp` and Beeper's
+    bridge use; licence MPL-2.0, fine as a library in an Apache-2.0 app) in the controller app as an
+    Android library built with `gomobile`, behind a thin Go wrapper: connect, pair, receive events,
+    send text, list contacts. Arm64 only (the J36 is `arm64-v8a`, 2.9 GB RAM, 21 GB free). No
+    precedent for this exact combination turned up in a quick search, so it is unproven until a spike.
+  - Pairing: the phone asks for a pairing code (link by phone number) and she or a parent types it into
+    Linked devices on her smartphone. No camera or QR needed. Done once, in a normal (touch) mode.
+  - Where things live: the session keys, the allowlist copy, and the last ~20 messages per allowed chat
+    sit in the app's private storage on the phone. HA holds only settings (allowlist, rate limits, on
+    or off) and monitoring (connected or logged out, counts). Settings are cached, so it all works with
+    HA down. Parents cannot read chats.
+  - Connection and battery: a linked device needs a live connection; the foreground service keeps it,
+    but the J36 battery is small. Policy to measure: connect in modes that need it (School), reconnect
+    periodically elsewhere to collect queued messages. Needs a battery measurement before committing.
+  - Unknowns the spike must answer: does whatsmeow build and run under gomobile on this phone; RAM and
+    battery cost of the connection; how long WhatsApp queues messages for a linked device that is
+    offline; how often the library needs updating when WhatsApp bumps its client version (it needs
+    updating from time to time, so the app needs an update path); pairing by code works.
+  - Toolchain needed on this computer (not installed): Go, `gomobile`, Android NDK (about 1 GB).
+    Ask before downloading.
+  - Same account-ban risk as any unofficial linked device: low volume and allowlist only help.
+- (Superseded, HA-hosted variant) **WhatsApp bridge: owner's decision (2026-11-07).** Use a bridge so a chat can be started and a little history seen,
   accepting the unofficial-library risk because School use is low volume. Design brainstorm:
   - Existing "WhatsApp Gateway" app on the owner's HA (FaserF, Baileys) is a bot gateway: REST with
     `X-Auth-Token`, `POST /send_message {number, message}`, `GET /contacts`, a polling `GET /events` queue
