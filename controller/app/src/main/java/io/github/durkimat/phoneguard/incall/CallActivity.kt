@@ -32,6 +32,7 @@ class CallActivity : Activity() {
         val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
         model.theme = prefs.getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs.getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
+        model.speakerShown = prefs.getBoolean("speaker", true)
         setContentView(skin.create(this))
         CallState.listen(listener)
         // the left key under the screen only reaches us if it is remapped, in any mode, for the length of the call

@@ -41,6 +41,7 @@ class LauncherActivity : Activity() {
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         model.predictiveOn = prefs().getBoolean("predictive", true)
+        model.speakerShown = prefs().getBoolean("speaker", true)
         loadWords()
         setContentView(skin.create(this))
         refresh()
@@ -122,6 +123,7 @@ class LauncherActivity : Activity() {
         when (a) {
             Action.None -> {}
             Action.Redraw -> refresh()
+            is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }

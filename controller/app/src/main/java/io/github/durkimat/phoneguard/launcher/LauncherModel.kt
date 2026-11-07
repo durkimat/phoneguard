@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -71,6 +71,7 @@ sealed class Action {
     data class SaveTheme(val id: String) : Action()
     data class SaveFont(val id: String) : Action()
     data class SavePredictive(val on: Boolean) : Action()
+    data class SaveSpeaker(val shown: Boolean) : Action()
     /** Start a call to this number. */
     data class Call(val number: String) : Action()
     object Answer : Action()
@@ -117,7 +118,7 @@ class LauncherModel(
     private var contact: Contact? = null
     private var contactsFrom = Screen.HOME
 
-    private val settingsRows = listOf("Theme", "Font", "Predictive text")
+    private val settingsRows = listOf("Theme", "Font", "Predictive text", "Speakerphone")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -171,6 +172,8 @@ class LauncherModel(
     var predictor: Predictor? = null
     /** The user's choice in Settings. */
     var predictiveOn = true
+    /** Whether calls offer a speaker. Hidden on a phone with no loudspeaker. */
+    var speakerShown = true
     private var seq = ""
     private var cands: List<String> = emptyList()
     private var candIdx = 0
@@ -207,6 +210,7 @@ class LauncherModel(
         Screen.THREAD -> convo?.name ?: "Messages"
         Screen.WRITE -> "Write message"
         Screen.TYPING -> "Predictive text"
+        Screen.SPEAKER -> "Speakerphone"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -224,7 +228,7 @@ class LauncherModel(
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
             CallPhase.RINGING -> "Answer" to "Reject"
-            CallPhase.DIALING -> "Speaker" to "End"
+            CallPhase.DIALING -> (if (speakerShown) "Speaker" else "") to "End"
             CallPhase.ACTIVE -> "Options" to "End"
             else -> "" to ""
         }
@@ -244,7 +248,8 @@ class LauncherModel(
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
         Screen.CALC, Screen.DIAL, Screen.CALL -> emptyList()
-        Screen.CALLMENU -> listOf(if (call?.speaker == true) "Speaker off" else "Speaker on", if (call?.muted == true) "Unmute" else "Mute")
+        Screen.CALLMENU -> (if (speakerShown) listOf(if (call?.speaker == true) "Speaker off" else "Speaker on") else emptyList()) + (if (call?.muted == true) "Unmute" else "Mute")
+        Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
@@ -258,7 +263,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.INBOX, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -278,6 +283,7 @@ class LauncherModel(
         Screen.THREAD -> thread(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
         Screen.TYPING -> typing(key, digit)
+        Screen.SPEAKER -> speakerSetting(key, digit)
         Screen.CALC -> calculator(key, digit)
         Screen.CALLLOG -> callLog(key, digit)
         Screen.DIAL -> dial(key, digit)
@@ -294,7 +300,7 @@ class LauncherModel(
                 else -> Action.None
             }
             CallPhase.DIALING -> when (key) {
-                Key.LEFT, Key.SOFT_LEFT -> Action.ToggleSpeaker
+                Key.LEFT, Key.SOFT_LEFT -> if (speakerShown) Action.ToggleSpeaker else Action.None
                 Key.RIGHT, Key.SOFT_RIGHT, Key.END, Key.OK -> Action.EndCall
                 else -> Action.None
             }
@@ -312,8 +318,8 @@ class LauncherModel(
         }
     }
 
-    private fun callMenu(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { val a = if (selected == 0) Action.ToggleSpeaker else Action.ToggleMute; screen = Screen.CALL; a }
+    private fun callMenu(key: Key, digit: Int): Action = move(key, rows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { val a = if (speakerShown && selected == 0) Action.ToggleSpeaker else Action.ToggleMute; screen = Screen.CALL; a }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CALL; Action.Redraw }
         Key.END -> Action.EndCall
         else -> Action.None
@@ -354,6 +360,14 @@ class LauncherModel(
             else -> return Action.None
         }
         return Action.Redraw
+    }
+
+    private fun speakerSetting(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { speakerShown = selected == 0; screen = Screen.SETTINGS; selected = 3; Action.SaveSpeaker(speakerShown) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 3; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
     }
 
     private fun typing(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
@@ -595,7 +609,8 @@ class LauncherModel(
             when (selected) {
                 0 -> { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
                 1 -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
-                else -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
+                2 -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
+                else -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
             }
             Action.Redraw
         }
