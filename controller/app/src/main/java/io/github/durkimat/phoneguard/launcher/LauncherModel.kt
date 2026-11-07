@@ -5,9 +5,17 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
+
+enum class CallPhase { RINGING, DIALING, ACTIVE, ENDED }
+
+/** The call on screen. [startedAt] is when it was answered (epoch ms), [seconds] its length once ended. */
+data class CallInfo(
+    val number: String, val name: String?, val phase: CallPhase,
+    val startedAt: Long = 0, val seconds: Int = 0, val muted: Boolean = false, val speaker: Boolean = false,
+)
 
 /** One call in the log: [type] is 1 received, 2 dialled, 3 missed. */
 data class CallEntry(val number: String, val name: String, val type: Int, val date: Long)
@@ -65,6 +73,17 @@ sealed class Action {
     data class SavePredictive(val on: Boolean) : Action()
     /** Start a call to this number. */
     data class Call(val number: String) : Action()
+    object Answer : Action()
+    object Reject : Action()
+    object EndCall : Action()
+    object ToggleSpeaker : Action()
+    object ToggleMute : Action()
+    /** Send a key tone during a call. */
+    data class Dtmf(val tone: Char) : Action()
+    /** Call volume up (+1) or down (-1). */
+    data class CallVolume(val delta: Int) : Action()
+    /** The call screen is finished with. */
+    object CloseCall : Action()
     /** Place a call to the number just dialled. */
     data class PlaceCall(val number: String) : Action()
     /** Send this text message. */
@@ -106,6 +125,16 @@ class LauncherModel(
     /** Recent calls, newest first. The activity fills this in. */
     var calls: List<CallEntry> = emptyList()
     val calc = Calculator()
+    /** The call being shown, set by the call screen's activity. */
+    var call: CallInfo? = null
+        private set
+    fun setCall(info: CallInfo?) {
+        call = info
+        if (info == null) { goHome(); return }
+        if (screen != Screen.CALLMENU || info.phase != CallPhase.ACTIVE) screen = Screen.CALL
+    }
+    /** Opens the dial screen with a number already typed (a tel: link, or a button in another app). */
+    fun startDial(number: String) { dialNumber = number.filter { it.isDigit() || it in "*#+" }.take(24); screen = Screen.DIAL }
     var dialNumber = ""
         private set
     /** The contact whose number matches what has been dialled, shown under it like a Nokia. */
@@ -181,6 +210,8 @@ class LauncherModel(
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
+        Screen.CALLMENU -> "Options"
+        Screen.CALL -> "Call"
         else -> "Menu"
     }
 
@@ -190,6 +221,13 @@ class LauncherModel(
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> "Call" to "Back"
         Screen.DIAL -> "Call" to "Clear"
+        Screen.CALLMENU -> "Select" to "Back"
+        Screen.CALL -> when (call?.phase) {
+            CallPhase.RINGING -> "Answer" to "Reject"
+            CallPhase.DIALING -> "Speaker" to "End"
+            CallPhase.ACTIVE -> "Options" to "End"
+            else -> "" to ""
+        }
         Screen.INBOX -> "Open" to "Back"
         Screen.THREAD -> "Reply" to "Back"
         Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
@@ -205,7 +243,8 @@ class LauncherModel(
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
-        Screen.CALC, Screen.DIAL -> emptyList()
+        Screen.CALC, Screen.DIAL, Screen.CALL -> emptyList()
+        Screen.CALLMENU -> listOf(if (call?.speaker == true) "Speaker off" else "Speaker on", if (call?.muted == true) "Unmute" else "Mute")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
@@ -234,6 +273,42 @@ class LauncherModel(
         Screen.CALC -> calculator(key, digit)
         Screen.CALLLOG -> callLog(key, digit)
         Screen.DIAL -> dial(key, digit)
+        Screen.CALL -> callScreen(key, digit)
+        Screen.CALLMENU -> callMenu(key, digit)
+    }
+
+    private fun callScreen(key: Key, digit: Int): Action {
+        val c = call ?: return Action.None
+        return when (c.phase) {
+            CallPhase.RINGING -> when (key) {
+                Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> Action.Answer
+                Key.RIGHT, Key.SOFT_RIGHT, Key.END -> Action.Reject
+                else -> Action.None
+            }
+            CallPhase.DIALING -> when (key) {
+                Key.LEFT, Key.SOFT_LEFT -> Action.ToggleSpeaker
+                Key.RIGHT, Key.SOFT_RIGHT, Key.END, Key.OK -> Action.EndCall
+                else -> Action.None
+            }
+            CallPhase.ACTIVE -> when (key) {
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.CALLMENU; selected = 0; Action.Redraw }
+                Key.RIGHT, Key.SOFT_RIGHT, Key.END -> Action.EndCall
+                Key.DIGIT -> if (digit in 0..9) Action.Dtmf('0' + digit) else Action.None
+                Key.STAR -> Action.Dtmf('*')
+                Key.POUND -> Action.Dtmf('#')
+                Key.UP -> Action.CallVolume(1)
+                Key.DOWN -> Action.CallVolume(-1)
+                else -> Action.None
+            }
+            CallPhase.ENDED -> Action.CloseCall
+        }
+    }
+
+    private fun callMenu(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { val a = if (selected == 0) Action.ToggleSpeaker else Action.ToggleMute; screen = Screen.CALL; a }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CALL; Action.Redraw }
+        Key.END -> Action.EndCall
+        else -> Action.None
     }
 
     private fun dial(key: Key, digit: Int): Action {
