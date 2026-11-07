@@ -3,7 +3,8 @@ create_pairing:
   description: Start pairing a phone for a child. Shows a QR code on the Phone Guard card.
   fields:
     child: {required: true, example: "her", selector: {text: {}}}
-    name: {required: false, example: "Her", selector: {text: {}}}
+    name: {required: false, example: "Phone", selector: {text: {}}}
+    person: {required: false, example: "Her", selector: {text: {}}}
 confirm_pairing:
   name: Confirm pairing
   description: Confirm the 4-digit number shown on the phone.
@@ -69,3 +70,15 @@ forget:
   description: Remove a phone and any pending pairing from Home Assistant.
   fields:
     child: {required: true, selector: {text: {}}}
+remove_child:
+  name: Remove device
+  description: Delete a guarded device entirely (timetable, apps, pairing and usage history).
+  fields:
+    child: {required: true, selector: {text: {}}}
+copy_settings:
+  name: Copy settings to another device
+  description: Copy the timetable and other settings from one guarded device to another. App lists are never copied.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    to: {required: true, selector: {text: {}}}
+    parts: {required: true, example: "[timetable, holiday, restrictions, mode_options]", selector: {object: {}}}

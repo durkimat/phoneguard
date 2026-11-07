@@ -4,16 +4,21 @@
 <script src="../www/phoneguard-card/phoneguard-card.js"></script>
 <script>
 const now = Date.now();
-const view = {child:"her",name:"Her",tz:"Europe/London",base:"day",notify:"notify.mobile_app_dumbphone2",
- modes:{day:{name:"Day",allowAll:true,allow:[],gray:false},school:{name:"School",allowAll:false,allow:["org.lineageos.aperture"],gray:true},night:{name:"Night",allowAll:false,allow:["org.lineageos.glimpse"],gray:false}},
- week:(()=>{const w={};for(let d=1;d<=7;d++){const x=[[0,420,'night']];if(d<=5)x.push([510,930,'school']);x.push([1260,1440,'night']);w[d]=x;}return w})(),holiday:{from:"2026-12-19",until:"2027-01-04"},mode_now:"school",boost:{mode:"day",until:now+11*60000},now,
- device:{did:"abc",pending:false,sas:null,last_seen:now-95000,state:{mode:"school",hidden:5,gray:true,canGray:true,battery:84,owner:true},model:"DumberOS",in_sync:true},
- apps:[{pkg:"org.lineageos.aperture",label:"Camera",hidden:false},{pkg:"org.lineageos.glimpse",label:"Gallery"},{pkg:"org.lineageos.jelly",label:"Browser"},{pkg:"com.dumbermini.davx",label:"DAVx5"},{pkg:"io.github.durkimat.phoneguard.lab",label:"Phone Guard Lab"}],
- pending_apps:["io.github.durkimat.phoneguard.lab"]};
-const states={"sensor.phoneguard_her":{state:"School",attributes:{data:JSON.stringify(view)}}};
-const el=document.createElement("phoneguard-card");el.setConfig({entity:"sensor.phoneguard_her"});
-el.hass={states,callService:(d,s,x)=>{console.log("SERVICE",d,s,JSON.stringify(x));return Promise.resolve()}};
+const day = (n) => new Date(now - n * 86400000).toISOString().slice(0, 10);
+const week = (() => { const w = {}; for (let d = 1; d <= 7; d++) { const x = [[0, 420, "night"]]; if (d <= 5) x.push([510, 930, "school"]); x.push([1260, 1440, "night"]); w[d] = x; } return w; })();
+const modes = () => ({ day: { name: "Day", allowAll: true, allow: [], gray: false }, school: { name: "School", allowAll: false, allow: ["org.lineageos.aperture"], gray: true }, night: { name: "Night", allowAll: false, allow: ["org.lineageos.glimpse"], gray: false } });
+const apps = [{ pkg: "org.lineageos.aperture", label: "Camera" }, { pkg: "org.lineageos.glimpse", label: "Gallery" }, { pkg: "org.lineageos.jelly", label: "Browser" }, { pkg: "com.dumbermini.davx", label: "DAVx5" }];
+const mk = (child, person, name, extra) => Object.assign({ child, person, name, tz: "Europe/London", base: "day", notify: "", modes: modes(), week, holiday: null, mode_now: "school", boost: null, now, restrictions: null,
+  device: { did: "x", pending: false, last_seen: now - 95000, state: { mode: "school", hidden: 5, gray: true, canGray: true, battery: 84, usageAllowed: true }, model: "DumberOS", in_sync: true },
+  apps, pending_apps: [], usage: { [day(0)]: { "org.lineageos.aperture": 1500, "org.lineageos.jelly": 5400, "com.android.dialer": 600 }, [day(1)]: { "org.lineageos.jelly": 9000, "org.lineageos.glimpse": 1200 }, [day(2)]: { "org.lineageos.jelly": 3000 }, [day(3)]: { "org.lineageos.aperture": 400 } } }, extra || {});
+const states = {};
+const put = (v) => { states["sensor.phoneguard_" + v.child] = { state: v.mode_now, attributes: { data: JSON.stringify(v) } }; };
+put(mk("her_phone", "Her", "Phone", { boost: { mode: "day", until: now + 11 * 60000 }, holiday: { from: "2026-12-19", until: "2027-01-04" }, pending_apps: ["com.dumbermini.davx"] }));
+put(mk("her_tablet", "Her", "Tablet", { mode_now: "day" }));
+put(mk("sam_phone", "Sam", "Phone", { device: null, apps: [], usage: {}, pairing: { expires: now + 600000, code: "271531" } }));
+const calls = [];
+const el = document.createElement("phoneguard-card"); el.setConfig({});
+el.hass = { states, callService: (d, s, x) => { calls.push([d, s, x]); return Promise.resolve(); } };
 document.getElementById("app").appendChild(el);
-window.setView=(v)=>{states["sensor.phoneguard_her"].attributes.data=JSON.stringify(v);el._last=null;el.hass=el._hass};
-window.VIEW=view;
+window.CALLS = calls; window.EL = el;
 </script>

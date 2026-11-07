@@ -683,3 +683,17 @@ Implementation notes that matter later:
 - Not built: phone-side recovery key and offline release, single-use override code, webhook rate
   limiting, week editor in the card, usage reporting, real entities, real release build and signing.
 
+## 11. Lockdown and launcher (measured 2026-11-07, J36)
+
+- `DevicePolicyManager.setStatusBarDisabled(true)` works on this DumberOS build with the stock
+  launcher: the swipe that normally opens quick settings and notifications does nothing. Turned off
+  again, the shade returns. It does not need a custom launcher.
+- Hardware keys on the J36 keypad (`mtk-kpd`): 0-9, star, hash, Enter, D-pad up/down/left/right,
+  Volume up/down, Menu, Back, Send (call). `mtk-pmic-keys`: Power. The touch panel also reports Home,
+  Menu, Back and some letters.
+- Usage access (`GET_USAGE_STATS` app-op) cannot be self-granted by a device owner; it is an adb
+  setup step like WRITE_SECURE_SETTINGS.
+- Card 0.3.0 adds several devices grouped by person, copy settings between devices (timetable,
+  holiday, restrictions, per-mode grey screen and everything-allowed; never app lists), configurable
+  Day mode, restrictions panel and screen time by app.
+
