@@ -54,6 +54,9 @@ class Hub:
             for _start, _end, mode in segs:
                 if mode not in ch["modes"]:
                     raise ValueError(f"the timetable uses mode {mode!r}, which this device does not have")
+        for mid, m in ch["modes"].items():
+            if m.get("sound", "normal") not in S.SOUNDS:
+                raise ValueError(f"mode {mid!r} has an unknown sound setting {m['sound']!r}")
         if ch["base"] not in ch["modes"]:
             raise ValueError(f"base mode {ch['base']!r} does not exist")
         if ch.get("override") is not None and ch["override"] not in ch["modes"]:

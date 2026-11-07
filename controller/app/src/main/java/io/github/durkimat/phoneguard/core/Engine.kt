@@ -13,7 +13,7 @@ data class Lockdown(val launcher: String, val touch: Boolean, val shade: Boolean
 }
 
 /** Everything the enforcer needs for one moment. Equal values mean no visible change. */
-data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN)
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal")
 
 object Engine {
     const val EMERGENCY = "emergency"
@@ -47,17 +47,25 @@ object Engine {
         val pkgs = s.allow.toMutableSet()
         var gray = s.gray
         var ld = Lockdown(s.launcher, s.touch, s.shade, s.kiosk)
+        var sound = s.sound
         if (boost != null && now < boost.until) {
             val b = modeDef(cfg, boost.mode)
             all = all || b.allowAll
             pkgs += b.allow
             gray = gray && b.gray
+            sound = louder(sound, b.sound)
             ld = Lockdown(
                 launcher = if (ld.launcher == "default" || b.launcher == "default") "default" else ld.launcher,
                 touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
             )
         }
-        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld)
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound)
+    }
+
+    /** The louder of two sound settings: normal beats vibrate beats silent (a boost never makes the phone quieter). */
+    fun louder(a: String, b: String): String {
+        val order = listOf("silent", "vibrate", "normal")
+        return if (order.indexOf(a) >= order.indexOf(b)) a else b
     }
 
     /** Next instant at which the inputs to `effective` can change (some may not change it). */

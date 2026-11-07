@@ -45,4 +45,7 @@ if lockdown:
     cfg["modes"]["school"].update({"launcher": "nokia", "touch": False, "shade": False, "kiosk": True})
     cfg["unprotect"] = ["com.android.deskclock"]
     cfg["modes"]["night"]["allow"].append("com.android.deskclock")
+if "sound" in sys.argv[2:]:
+    cfg["modes"]["school"]["sound"] = "silent"
+    cfg["modes"]["night"]["sound"] = "vibrate"
 print(json.dumps(cfg))

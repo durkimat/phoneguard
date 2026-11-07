@@ -18,6 +18,8 @@ data class ModeDef(
     val shade: Boolean = true,
     /** Lock the phone to the allowed apps: no recents, no power menu, no leaving the task. */
     val kiosk: Boolean = false,
+    /** "normal", "vibrate" or "silent". Silent still lets starred contacts ring through. */
+    val sound: String = "normal",
 )
 
 /** An absolute span of time with one mode. HA resolves holidays and timezones into these. */
@@ -67,6 +69,7 @@ data class Config(
                     touch = m.optBoolean("touch", true),
                     shade = m.optBoolean("shade", true),
                     kiosk = m.optBoolean("kiosk", false),
+                    sound = m.optString("sound", "normal"),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->

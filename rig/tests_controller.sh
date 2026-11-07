@@ -224,6 +224,27 @@ c_lockdown() {
   dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
 }
 
+c_sound() {
+  section "Controller: sound profiles (School silent through Do Not Disturb, Night vibrate; restored afterwards; nothing makes a noise)"
+  adb shell cmd notification allow_dnd $CPKG >/dev/null 2>&1
+  expect "Do Not Disturb access is granted" "$(dbg lockdown)" "canSilence=true"
+  base=$(dbg lockdown); note "before: $(echo "$base" | grep -o 'ringer=[0-9]* filter=[0-9]*')"
+  push_config 8 sound >/dev/null
+  set_time 2026-11-09 10:00; sleep 4
+  expect "evaluation reports silent through Do Not Disturb" "$(last_eval)" "sound=silent (starred callers ring)"
+  expect "Do Not Disturb is on, priority only (filter 2)" "$(dbg lockdown)" "filter=2"
+  adb shell cmd notification set_dnd off >/dev/null 2>&1; sleep 4
+  expect "switching Do Not Disturb off is undone" "$(dbg lockdown)" "filter=2"
+  set_time 2026-11-09 22:00; sleep 4
+  expect "Night reports vibrate" "$(last_eval)" "sound=vibrate"
+  r=$(dbg lockdown); expect "ringer is on vibrate (1)" "$r" "ringer=1"; expect "Do Not Disturb is off in Night (filter 1)" "$r" "filter=1"
+  adb shell cmd audio set-ringer-mode NORMAL >/dev/null 2>&1; adb shell input keyevent KEYCODE_VOLUME_UP; sleep 3
+  expect "a volume key cannot take vibrate back to ringing" "$(dbg lockdown)" "ringer=1"
+  set_time 2026-11-09 16:00; sleep 4
+  r=$(dbg lockdown); expect "Day puts the ringer back as it was" "$r" "$(echo "$base" | grep -o 'ringer=[0-9]*')"; expect "and Do Not Disturb as it was" "$r" "$(echo "$base" | grep -o 'filter=[0-9]*')"
+  dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
+}
+
 c_lockscreen() {
   section "Controller: the PIN screen still comes back in School (leaves the phone locked: unlock it afterwards)"
   kg() { adb shell dumpsys window | grep -E 'isKeyguardShowing' | tr -s ' ' | tr -d '\n'; }

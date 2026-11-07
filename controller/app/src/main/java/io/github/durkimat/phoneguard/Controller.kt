@@ -41,6 +41,7 @@ object Controller {
         Enforcer.protectProcesses(app)
         Enforcer.setGray(app, eff.gray)
         LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app))
+        val soundNote = SoundEnforcer.apply(app, eff.sound)
 
         // Warning before a change that removes apps, and the next alarm.
         val change = Engine.nextChange(cfg, boost, now)
@@ -69,7 +70,7 @@ object Controller {
         Store.summary(app, line)
         Notifier.status(app, line)
         Log.log(app, "EVAL $reason: mode=${eff.modeId}${if (boost != null) "+boost(${boost.mode})" else ""} all=${eff.allowed.all} " +
-            "allow=${eff.allowed.pkgs.size} gray=${eff.gray} hid=${res.hid} unhid=${res.unhid} failed=${res.failed} " +
+            "allow=${eff.allowed.pkgs.size} gray=${eff.gray} sound=$soundNote hid=${res.hid} unhid=${res.unhid} failed=${res.failed} " +
             "lock=${eff.lockdown.launcher}/touch${if (eff.lockdown.touch) "On" else "Off"}/shade${if (eff.lockdown.shade) "On" else "Off"}/kiosk${if (eff.lockdown.kiosk) "On" else "Off"} " +
             "ours=${Store.hidden(app).size} next=${change?.first?.let { Date(it) }} alarm=${Date(alarmAt)}$warnNote")
     }

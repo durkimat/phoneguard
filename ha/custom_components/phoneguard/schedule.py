@@ -11,14 +11,15 @@ WINDOW_DAYS = 14
 
 
 # What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
-LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk")
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound")
+SOUNDS = ("normal", "vibrate", "silent")
 CLOCK = "com.android.deskclock"
 
 
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
-        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True}
-    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False}
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent"}
+    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False, "sound": "normal"}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:
@@ -92,7 +93,8 @@ def build_config(child: dict, now_ms: int) -> dict:
         modes[mid] = {"name": m.get("name", mid), "allowAll": bool(m.get("allowAll")),
                       "allow": sorted(set(m.get("allow", []))), "gray": bool(m.get("gray")),
                       "launcher": "nokia" if m["launcher"] == "nokia" else "default",
-                      "touch": bool(m["touch"]), "shade": bool(m["shade"]), "kiosk": bool(m["kiosk"])}
+                      "touch": bool(m["touch"]), "shade": bool(m["shade"]), "kiosk": bool(m["kiosk"]),
+                      "sound": m["sound"] if m["sound"] in SOUNDS else "normal"}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,

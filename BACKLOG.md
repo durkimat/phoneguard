@@ -285,3 +285,11 @@ launcher in the same app; (3) notification counts and the status line.
 - Calculator (Calculator.kt, unit tested): digits, # decimal point, * cycles + - x /, Up/Down give + and -, Equals on the left key, Clear removes a digit then the sum, then leaves. 12 digits, division to 12 significant figures, "Error" on divide by zero.
 - Call log: the green key from Home or Menu (and the Call log menu entry) opens our own list, newest first, > dialled, < received, ! missed; Call rings the highlighted number via the Dialler (opens with the number filled in). Names come from Contacts. Debug builds can read made-up calls from the "fakecalls" prefs key.
 - To do: call times and a detail view, delete entry, missed-call count clearing when viewed, call directly instead of filling in the Dialler, and our own in-call screens.
+
+## Sound profile built (2026-11-07)
+- Per-mode `sound`: normal | vibrate | silent. School defaults to silent, the others normal. Silent uses Do Not Disturb "priority only" with starred contacts and repeat callers allowed, so parents who are starred contacts on the phone still ring through; alarms and messages stay quiet. Vibrate keeps the ringer on vibrate. Normal puts back what the owner had before (ringer and Do Not Disturb), not a fixed value.
+- Needs one adb setup grant: `adb shell cmd notification allow_dnd io.github.durkimat.phoneguard`. Without it silent falls back to vibrate and the card says so.
+- DISALLOW_ADJUST_VOLUME is NOT used: it mutes the whole device including call audio. Instead GuardService watches ringer and Do Not Disturb changes and puts the profile back.
+- A boost takes the louder of the two modes. Rig test `sound` (10 checks) passes on the J36; engine and HA tests added.
+- Deployed to the live HA? NO, pending the owner's OK for a HA restart (the integration is Python and needs one); the card is v0.7.0 with a Sound row per mode.
+- To do: star the parents as contacts on the phone and test a real incoming call under silent (needs a SIM); decide whether Night should default to vibrate; messages/WhatsApp alert sounds in School (silent covers them).
