@@ -25,6 +25,18 @@ class NokiaSkin : LauncherSkin {
     }
 
     private inner class Canvas2(context: Context) : View(context) {
+        private val typefaces = HashMap<String, Typeface>()
+        private var sizeScale = 1f
+
+        private fun load(id: String): Typeface = try {
+            when (id) {
+                "sans" -> Typeface.SANS_SERIF
+                "vt323" -> Typeface.createFromAsset(context.assets, "fonts/VT323-Regular.ttf")
+                "pixelify" -> Typeface.createFromAsset(context.assets, "fonts/PixelifySans.ttf")
+                else -> Typeface.MONOSPACE
+            }
+        } catch (_: Exception) { Typeface.MONOSPACE }
+
         private var lcd = 0
         private var ink = 0
         private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE }
@@ -42,14 +54,16 @@ class NokiaSkin : LauncherSkin {
             val u = width / 480f
             val t = Themes.byId(m.theme)
             lcd = t.lcd; ink = t.ink; fill.color = ink; stroke.color = ink
-            p.typeface = if (Fonts.byId(m.font).id == "sans") Typeface.SANS_SERIF else Typeface.MONOSPACE
+            val f = Fonts.byId(m.font).id
+            p.typeface = typefaces.getOrPut(f) { load(f) }
+            sizeScale = if (f == "vt323") 1.3f else 1f
             c.drawColor(lcd)
             statusLine(c, i, u)
             if (m.screen == Screen.HOME) home(c, i, u) else menu(c, m, u)
         }
 
         private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
-            p.textSize = size * u; p.isFakeBoldText = bold; p.textAlign = align; p.color = color
+            p.textSize = size * sizeScale * u; p.isFakeBoldText = bold; p.textAlign = align; p.color = color
             c.drawText(s, x * u, y * u, p)
         }
 
