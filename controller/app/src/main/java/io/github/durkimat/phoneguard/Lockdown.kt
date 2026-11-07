@@ -40,6 +40,7 @@ object LockdownEnforcer {
         Kiosk.apply(c, false, emptySet())
         Enforcer.setStatusBar(c, disabled = false)
         HardKeys.menuKeyOverlay(c, allowed = true)
+        try { Dpm.dpm(c).clearPackagePersistentPreferredActivities(Dpm.admin(c), c.packageName) } catch (_: Exception) { }
         HomeApp.apply(c, false)
     }
 }
@@ -72,16 +73,33 @@ object HardKeys {
                     keys.forEach { snap.put(it, read(c, it) ?: org.json.JSONObject.NULL) }
                     Store.setMenuKeySaved(c, snap.toString())
                 }
-                keys.forEach { if (read(c, it) != "0") write(c, it, "0") }
+                // press: "voice search" (4) starts a VOICE_ASSIST activity our launcher catches; long press: nothing
+                write(c, "key_menu_action", "4"); write(c, "key_menu_long_press_action", "0")
+                AssistPin.apply(c, true)
             } else if (saved != null) {
                 val snap = org.json.JSONObject(saved)
                 keys.forEach { write(c, it, if (snap.isNull(it)) null else snap.getString(it)) }
                 Store.setMenuKeySaved(c, null)
+                AssistPin.apply(c, false)
             }
         } catch (e: Exception) { Log.log(c, "menu key setting unavailable: ${e.javaClass.simpleName}") }
     }
 
-    fun isDisabled(c: Context) = read(c, "key_menu_action") == "0"
+    fun isDisabled(c: Context) = read(c, "key_menu_action") == "4"
+}
+
+/** Makes our launcher the one and only handler of VOICE_ASSIST, so the left key never shows a chooser. */
+const val VOICE_ASSIST = "android.intent.action.VOICE_ASSIST"
+
+object AssistPin {
+    fun apply(c: Context, on: Boolean) {
+        val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+        try {
+            if (!on) return // the pin is cleared with the Home pin when the Home app changes back
+            val f = IntentFilter(VOICE_ASSIST).apply { addCategory(Intent.CATEGORY_DEFAULT) }
+            dpm.addPersistentPreferredActivity(admin, f, ComponentName(c, LauncherActivity::class.java))
+        } catch (e: Exception) { Log.log(c, "assist pin failed: ${e.javaClass.simpleName}") }
+    }
 }
 
 /** Which Home app is the default. Set explicitly, because a second Home app makes Android ask every time. */

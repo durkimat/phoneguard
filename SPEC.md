@@ -786,9 +786,15 @@ Gotchas found:
   On DumberOS the left one opens a system window called `DumbDroidQuickSettingsOverlay` (notifications
   and quick settings), from `PhoneWindowManager`, whatever the status bar or lock-task say. It is a
   standard LineageOS button setting (`key_menu_action`, default Menu, 0 means Nothing).
-- Fix: while the shade is meant to be off, the controller sets `key_menu_action` and
-  `key_menu_long_press_action` to Nothing, remembering the originals, and restores them afterwards.
-  The key then reaches our launcher as a normal Menu key. Writing that setting needs the standard
+- First fix tried and wrong: setting the action to Nothing makes DumberOS swallow the key completely
+  (its key handler returns "consumed"), so the app never sees it. An injected key over adb takes a
+  different path and misled the first test.
+- Working fix: while the shade is meant to be off, the controller sets `key_menu_action` to "voice
+  search" (value 4) and the long press to Nothing, remembering the originals and restoring them
+  afterwards. DumberOS then starts a plain `android.intent.action.VOICE_ASSIST` activity when the key
+  is pressed. Our launcher is the only handler (pinned as the preferred one) and treats that intent as
+  the left key. Raw key injection with `sendevent` is blocked by the phone, so only the physical key
+  tests the whole path; the VOICE_ASSIST step was tested by starting that intent from adb. Writing that setting needs the standard
   "Modify system settings" app-op, which cannot be self-granted: another adb setup grant
   (`appops set <pkg> WRITE_SETTINGS allow`).
 - Launcher mapping, like a classic Nokia: left key = left label (Menu, then Select); right key =
