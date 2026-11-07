@@ -16,12 +16,19 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 1) {
 
     data class ChatRow(val number: String, val name: String, val last: Msg?, val unread: Int)
 
-    @Synchronized fun add(chat: String, name: String, text: String, ts: Long, mine: Boolean, keep: Int = KEEP) {
+    /**
+     * Keeps one message. [chatName] is the person's or group's name; [sender] writes it (shown in front of group
+     * messages, so the reader knows who is talking).
+     */
+    @Synchronized fun add(chat: String, chatName: String, sender: String, text0: String, ts: Long, mine: Boolean, keep: Int = KEEP) {
+        val isGroup = chat.startsWith("g")
+        val text = if (isGroup && !mine && sender.isNotBlank()) "$sender: $text0" else text0
+        val name = chatName
         val db = writableDatabase
         // the same message can arrive twice (queued, then live): ignore an exact repeat
         db.rawQuery("SELECT 1 FROM msg WHERE chat=? AND ts=? AND mine=? AND text=?", arrayOf(chat, ts.toString(), if (mine) "1" else "0", text)).use { if (it.moveToFirst()) return }
         db.insert("msg", null, ContentValues().apply { put("chat", chat); put("ts", ts); put("mine", if (mine) 1 else 0); put("text", text); put("unread", if (mine) 0 else 1) })
-        if (name.isNotBlank() && !mine) db.insertWithOnConflict("chat", null, ContentValues().apply { put("number", chat); put("name", name) }, SQLiteDatabase.CONFLICT_REPLACE)
+        if (name.isNotBlank() && (!mine || isGroup)) db.insertWithOnConflict("chat", null, ContentValues().apply { put("number", chat); put("name", name) }, SQLiteDatabase.CONFLICT_REPLACE)
         db.execSQL("DELETE FROM msg WHERE chat=? AND id NOT IN (SELECT id FROM msg WHERE chat=? ORDER BY ts DESC, id DESC LIMIT ?)", arrayOf(chat, chat, keep))
     }
 
@@ -53,11 +60,18 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 1) {
 
     @Synchronized fun unreadTotal(): Int = readableDatabase.rawQuery("SELECT COALESCE(SUM(unread),0) FROM msg", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
-    /** Forget every chat that is no longer allowed. */
-    @Synchronized fun keepOnly(numbers: Set<String>) {
+    /** Forget every chat that is no longer allowed: people by number, groups by name (lower case), or keep all. */
+    @Synchronized fun keepOnly(numbers: Set<String>, groups: Set<String>, all: Boolean) {
+        if (all) return
         val db = writableDatabase
         val have = db.rawQuery("SELECT DISTINCT chat FROM msg", null).use { c -> generateSequence { if (c.moveToNext()) c.getString(0) else null }.toList() }
-        for (n in have) if (n !in numbers) { db.execSQL("DELETE FROM msg WHERE chat=?", arrayOf(n)); db.execSQL("DELETE FROM chat WHERE number=?", arrayOf(n)) }
+        for (n in have) {
+            val keep = if (n.startsWith("g")) {
+                val name = db.rawQuery("SELECT name FROM chat WHERE number=?", arrayOf(n)).use { if (it.moveToFirst()) it.getString(0) else null }
+                name != null && name.lowercase() in groups
+            } else n in numbers
+            if (!keep) { db.execSQL("DELETE FROM msg WHERE chat=?", arrayOf(n)); db.execSQL("DELETE FROM chat WHERE number=?", arrayOf(n)) }
+        }
     }
 
     @Synchronized fun wipe() { writableDatabase.execSQL("DELETE FROM msg"); writableDatabase.execSQL("DELETE FROM chat") }

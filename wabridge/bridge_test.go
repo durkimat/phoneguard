@@ -16,13 +16,17 @@ type rec struct {
 
 func (r *rec) OnStatus(string)   {}
 func (r *rec) OnPairCode(string) {}
-func (r *rec) OnMessage(chat, name, text string, ts int64, fromMe bool) {
+func (r *rec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe bool) {
 	r.msgs = append(r.msgs, chat+"|"+text)
+}
+
+func (r *rec) OnCall(chat, chatName string, ts int64, rejected bool) {
+	r.msgs = append(r.msgs, "call:"+chat)
 }
 
 func bridge() (*Bridge, *rec) {
 	r := &rec{}
-	b := &Bridge{l: r, allowed: map[string]bool{}, perMin: 2, perDay: 3}
+	b := &Bridge{l: r, allowed: map[string]bool{}, groups: map[string]bool{}, gnames: map[string]string{}, perMin: 2, perDay: 3}
 	b.SetAllowed("+44 7700 900111, 07700 900222")
 	return b, r
 }
@@ -44,21 +48,76 @@ func TestOnlyAllowedNumbersGetThrough(t *testing.T) {
 	}
 }
 
-func TestGroupsChannelsAndNonTextAreDropped(t *testing.T) {
+func TestChannelsAndEmptyMessagesAreDropped(t *testing.T) {
 	b, r := bridge()
-	g := dm("447700900111", "in a group")
-	g.Info.IsGroup = true
-	b.onMessage(g)
 	n := dm("447700900111", "channel")
 	n.Info.Chat = types.NewJID("120363", types.NewsletterServer)
 	b.onMessage(n)
-	pic := dm("447700900111", "")
-	pic.Message = &waE2E.Message{ImageMessage: &waE2E.ImageMessage{}}
-	b.onMessage(pic)
+	react := dm("447700900111", "")
+	react.Message = &waE2E.Message{ReactionMessage: &waE2E.ReactionMessage{}}
+	b.onMessage(react)
 	ext := dm("447700900111", "")
 	ext.Message = &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{Text: proto.String("a reply")}}
 	b.onMessage(ext)
 	if len(r.msgs) != 1 || r.msgs[0] != "447700900111|a reply" {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestOtherKindsShowAsMarkers(t *testing.T) {
+	cases := map[string]*waE2E.Message{
+		"[photo]":              {ImageMessage: &waE2E.ImageMessage{}},
+		"[photo] look at this": {ImageMessage: &waE2E.ImageMessage{Caption: proto.String("look at this")}},
+		"[video]":              {VideoMessage: &waE2E.VideoMessage{}},
+		"[voice note]":         {AudioMessage: &waE2E.AudioMessage{PTT: proto.Bool(true)}},
+		"[audio]":              {AudioMessage: &waE2E.AudioMessage{}},
+		"[document]":           {DocumentMessage: &waE2E.DocumentMessage{}},
+		"[sticker]":            {StickerMessage: &waE2E.StickerMessage{}},
+		"[location]":           {LocationMessage: &waE2E.LocationMessage{}},
+		"[contact]":            {ContactMessage: &waE2E.ContactMessage{}},
+	}
+	for want, m := range cases {
+		if got := textOf(m); got != want {
+			t.Errorf("want %q got %q", want, got)
+		}
+	}
+	if textOf(&waE2E.Message{ReactionMessage: &waE2E.ReactionMessage{}}) != "" {
+		t.Error("a reaction should show nothing")
+	}
+}
+
+func group(name, id string, text string) (*events.Message, *Bridge, *rec) {
+	b, r := bridge()
+	b.gnames[id] = name
+	m := dm("447700900999", text)
+	m.Info.Chat = types.NewJID(id, types.GroupServer)
+	m.Info.IsGroup = true
+	m.Info.PushName = "Mum"
+	return m, b, r
+}
+
+func TestGroupsFollowTheAllowlistByName(t *testing.T) {
+	m, b, r := group("Family", "12036311", "dinner?")
+	b.onMessage(m)
+	if len(r.msgs) != 0 {
+		t.Fatalf("a group that is not allowed got through: %v", r.msgs)
+	}
+	b.SetAllowed("g:family, 07700 900222")
+	b.onMessage(m)
+	if len(r.msgs) != 1 || r.msgs[0] != "g12036311|dinner?" {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestAllowAllLetsEveryPersonAndGroupThroughButNotChannels(t *testing.T) {
+	m, b, r := group("Football", "12036322", "see you")
+	b.SetAllowAll(true)
+	b.onMessage(m)
+	b.onMessage(dm("447700900999", "a stranger"))
+	n := dm("447700900111", "channel post")
+	n.Info.Chat = types.NewJID("120363", types.NewsletterServer)
+	b.onMessage(n)
+	if len(r.msgs) != 2 {
 		t.Fatalf("got %v", r.msgs)
 	}
 }
@@ -117,9 +176,21 @@ func TestDigitsAndAllowlistParsing(t *testing.T) {
 	if digits("+44 (0)7700-900111") != "4407700900111" {
 		t.Fatal("digits")
 	}
-	b := &Bridge{allowed: map[string]bool{}}
+	b := &Bridge{allowed: map[string]bool{}, groups: map[string]bool{}}
 	b.SetAllowed("")
 	if b.isAllowed("") {
 		t.Fatal("empty allowlist allowed something")
+	}
+}
+
+func TestCallsAreReportedForAllowedPeopleOnly(t *testing.T) {
+	b, r := bridge()
+	mk := func(user string) *events.CallOffer {
+		return &events.CallOffer{BasicCallMeta: types.BasicCallMeta{CallCreator: types.NewJID(user, types.DefaultUserServer), Timestamp: time.Unix(5, 0), CallID: "x"}}
+	}
+	b.onCall(mk("447700900111"))
+	b.onCall(mk("447700900999"))
+	if len(r.msgs) != 1 || r.msgs[0] != "call:447700900111" {
+		t.Fatalf("got %v", r.msgs)
 	}
 }
