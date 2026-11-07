@@ -106,7 +106,7 @@ object AssistPin {
             if (!on) return // the pin is cleared with the Home pin when the Home app changes back
             for (a in listOf(VOICE_ASSIST, WEB_SEARCH)) {
                 val f = IntentFilter(a).apply { addCategory(Intent.CATEGORY_DEFAULT) }
-                dpm.addPersistentPreferredActivity(admin, f, ComponentName(c, LauncherActivity::class.java))
+                dpm.addPersistentPreferredActivity(admin, f, ComponentName(c, io.github.durkimat.phoneguard.incall.KeyRouter::class.java))
             }
         } catch (e: Exception) { Log.log(c, "assist pin failed: ${e.javaClass.simpleName}") }
     }
