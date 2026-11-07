@@ -105,8 +105,17 @@ Open questions:
     battery cost of the connection; how long WhatsApp queues messages for a linked device that is
     offline; how often the library needs updating when WhatsApp bumps its client version (it needs
     updating from time to time, so the app needs an update path); pairing by code works.
-  - Toolchain needed on this computer (not installed): Go, `gomobile`, Android NDK (about 1 GB).
-    Ask before downloading.
+  - **Spike result 1 (2026-11-07, `spikes/wa-size/`, no account linked):** `whatsmeow` (latest, a commit dated
+    the same day, so it is actively maintained) plus a pure-Go SQLite store builds to a **16 MB static
+    arm64 program** with no NDK (about a third of that once compressed in an APK). Run on the J36 it
+    connected to WhatsApp's servers and held the connection for 90 s using **19 MB of memory** (2 MB Go
+    heap, 9 goroutines) and about **0.03 s of CPU in 80 s idle**. Android needs two small workarounds in
+    plain Go: its own DNS resolver and embedded root certificates. So size and idle weight are not a
+    problem. Still unmeasured: a *paired* session (initial sync, keeping contacts, receiving and
+    sending) and real battery drain over hours. Both need an account linked by pairing code, which is
+    a user action on a smartphone.
+  - Toolchain: Go 1.27.3 is installed in `~/.local/gotool` (no sudo). `gomobile` and the Android NDK
+    (about 1 GB) are only needed to turn it into an Android library later. Ask before downloading.
   - Same account-ban risk as any unofficial linked device: low volume and allowlist only help.
 - (Superseded, HA-hosted variant) **WhatsApp bridge: owner's decision (2026-11-07).** Use a bridge so a chat can be started and a little history seen,
   accepting the unofficial-library risk because School use is low volume. Design brainstorm:
