@@ -79,7 +79,11 @@ func main() {
 		case *events.PairSuccess:
 			fmt.Println("EVENT paired as", v.ID)
 		case *events.Message:
-			fmt.Println("EVENT message from", v.Info.Sender.User, "chars:", len(v.Message.GetConversation()))
+			txt := v.Message.GetConversation()
+			if txt == "" {
+				txt = v.Message.GetExtendedTextMessage().GetText()
+			}
+			fmt.Println("EVENT message from", v.Info.Sender.User, "type:", v.Info.Type, "mine:", v.Info.IsFromMe, "chars:", len(txt))
 		case *events.LoggedOut:
 			fmt.Println("EVENT logged out")
 		case *events.Disconnected:

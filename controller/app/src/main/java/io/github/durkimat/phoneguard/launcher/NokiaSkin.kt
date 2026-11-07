@@ -25,11 +25,11 @@ class NokiaSkin : LauncherSkin {
     }
 
     private inner class Canvas2(context: Context) : View(context) {
-        private val lcd = 0xFFCFD3CC.toInt()
-        private val ink = 0xFF1A1A1A.toInt()
-        private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE; color = ink }
-        private val fill = Paint().apply { color = ink }
-        private val stroke = Paint().apply { color = ink; style = Paint.Style.STROKE }
+        private var lcd = 0
+        private var ink = 0
+        private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE }
+        private val fill = Paint()
+        private val stroke = Paint().apply { style = Paint.Style.STROKE }
 
         init {
             isFocusable = false
@@ -40,9 +40,11 @@ class NokiaSkin : LauncherSkin {
             val m = model ?: return
             val i = info ?: return
             val u = width / 480f
+            val t = Themes.byId(m.theme)
+            lcd = t.lcd; ink = t.ink; fill.color = ink; stroke.color = ink
             c.drawColor(lcd)
             statusLine(c, i, u)
-            if (m.screen == Screen.HOME) home(c, i, u) else menu(c, m, i, u)
+            if (m.screen == Screen.HOME) home(c, i, u) else menu(c, m, u)
         }
 
         private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
@@ -100,24 +102,24 @@ class NokiaSkin : LauncherSkin {
             softKeys(c, i.softLeft, i.softRight, u)
         }
 
-        private fun menu(c: Canvas, m: LauncherModel, i: HomeInfo, u: Float) {
+        private fun menu(c: Canvas, m: LauncherModel, u: Float) {
             // title bar
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, "Menu", 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
             val rowH = 62f
             val visible = ((640f - 64 - 100) / rowH).toInt().coerceAtLeast(1)
-            val first = (m.selected - visible + 1).coerceAtLeast(0).coerceAtMost((m.items.size - visible).coerceAtLeast(0))
+            val first = (m.selected - visible + 1).coerceAtLeast(0).coerceAtMost((m.rows.size - visible).coerceAtLeast(0))
             for (n in 0 until visible) {
                 val idx = first + n
-                val item = m.items.getOrNull(idx) ?: break
+                val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
-                val label = (if (idx < 9) "${idx + 1}  " else "   ") + item.label
+                val label = (if (idx < 9) "${idx + 1}  " else "   ") + row
                 if (idx == m.selected) {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
                     text(c, label, 20f, top + 42f, 32f, u, bold = true, color = lcd)
                 } else text(c, label, 20f, top + 42f, 32f, u)
             }
-            if (m.items.isEmpty()) text(c, "No apps", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
+            if (m.rows.isEmpty()) text(c, "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             softKeys(c, "Select", "Back", u)
         }
 
