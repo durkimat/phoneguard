@@ -247,6 +247,28 @@ c_sound() {
   dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
 }
 
+c_wa() {
+  section "Controller: WhatsApp check policy (School off, Night hourly, Day every 30 minutes; connects only briefly; nothing is sent)"
+  adb shell cmd role get-role-holders --user 0 android.app.role.DIALER >/dev/null 2>&1
+  expect "the bridge is linked" "$(dbg wa open)" "paired=true"
+  push_config 9 wa >/dev/null
+  set_time 2026-11-09 16:00; sleep 4
+  expect "Day: evaluation reports checks every 30 minutes" "$(last_eval)" "wa=30"
+  note "alarms: $(adb shell dumpsys alarm | grep -c 'whatsapp.WaAlarmReceiver')"
+  adb shell dumpsys alarm | grep -q 'whatsapp.WaAlarmReceiver' && pass "a background check is armed" || fail "no background check armed"
+  dbg wa disconnect >/dev/null; sleep 1
+  r=$(dbg wa poll); sleep 22; expect "a check connects, collects and lets go again" "$(adb shell "grep -E 'whatsapp: (checked|connected)' $CLOG | tail -3")" "connected briefly"
+  expect "and the bridge is disconnected after it" "$(dbg wa status)" "connected=false"
+  set_time 2026-11-09 22:00; sleep 4
+  expect "Night: hourly" "$(last_eval)" "wa=60"
+  set_time 2026-11-09 10:00; sleep 4
+  expect "School: no checks" "$(last_eval)" "wa=off"
+  last=$(adb shell dumpsys alarm | awk '/Reason=/{r=$0} /WaAlarmReceiver/{print r; exit}')
+  echo "$last" | grep -q "alarm_cancelled" && pass "the background check was cancelled in School" || fail "a check may still be armed in School: $last"
+  expect "the account is still linked after the mode changes" "$(dbg wa status)" "paired=true"
+  dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
+}
+
 c_lockscreen() {
   section "Controller: the PIN screen still comes back in School (leaves the phone locked: unlock it afterwards)"
   kg() { adb shell dumpsys window | grep -E 'isKeyguardShowing' | tr -s ' ' | tr -d '\n'; }

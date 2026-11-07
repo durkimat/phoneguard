@@ -3,7 +3,12 @@ package io.github.durkimat.phoneguard.whatsapp
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import io.github.durkimat.phoneguard.Clock
 import io.github.durkimat.phoneguard.Log
+import io.github.durkimat.phoneguard.Store
+import io.github.durkimat.phoneguard.core.Config
+import io.github.durkimat.phoneguard.core.Effective
+import io.github.durkimat.phoneguard.core.Engine
 import io.github.durkimat.phoneguard.launcher.Contact
 import io.github.durkimat.phoneguard.launcher.Convo
 import wabridge.Bridge
@@ -81,6 +86,7 @@ object WhatsApp {
 
     /** [entries]: numbers and "g:Group name" entries, separated by commas or new lines. [all] allows everyone and every group. */
     fun setAllowed(c: Context, entries: String, all: Boolean = false) {
+        if (prefs(c).getString("wa_allowed", null) == entries && prefs(c).getBoolean("wa_all", false) == all && bridge != null) return
         prefs(c).edit().putString("wa_allowed", entries).putBoolean("wa_all", all).apply()
         val b = open(c)
         b?.setAllowed(entries); b?.setAllowAll(all)
@@ -111,6 +117,7 @@ object WhatsApp {
      * by WhatsApp and delivered at once on reconnect (the spike caught up two hours of messages instantly).
      */
     fun touch(c: Context) {
+        if (policy(c) == "off") { status = "off"; fire(); return } // the mode says no WhatsApp at all
         main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
         if (isConnected()) return
         status = "connecting"; fire()
@@ -118,6 +125,60 @@ object WhatsApp {
     }
 
     private const val IDLE_MS = 3 * 60_000L
+
+    /** The WhatsApp check setting of the mode in force: "off", "open", "30" or "60". */
+    fun policy(c: Context): String = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).wa
+
+    /**
+     * Called whenever the controller re-evaluates: applies who may be read, the send limits, whether WhatsApp calls are
+     * declined (when the mode blocks incoming calls) and arms or cancels the background check.
+     */
+    fun apply(c: Context, cfg: Config?, eff: Effective) {
+        if (!linked(c)) { cancelAlarm(c); return }
+        cfg?.whatsapp?.let { w ->
+            setAllowed(c, w.allowed.joinToString("\n"), w.all)
+            open(c)?.setLimits(w.perMinute.toLong(), w.perDay.toLong())
+        }
+        rejectCalls(c, !eff.inbound)
+        when (eff.wa) {
+            "off" -> { cancelAlarm(c); main.removeCallbacks(idleOff); bridge?.disconnect() }
+            "30" -> schedule(c, 30)
+            "60" -> schedule(c, 60)
+            else -> cancelAlarm(c) // "open": only when WhatsApp is opened
+        }
+    }
+
+    private fun pending(c: Context) = android.app.PendingIntent.getBroadcast(
+        c, 21, android.content.Intent(c, WaAlarmReceiver::class.java), android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+
+    private fun schedule(c: Context, minutes: Int) {
+        val am = c.getSystemService(android.app.AlarmManager::class.java)
+        am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + minutes * 60_000L, pending(c))
+    }
+
+    private fun cancelAlarm(c: Context) { c.getSystemService(android.app.AlarmManager::class.java).cancel(pending(c)) }
+
+    private val polling = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** One background check: connect, let WhatsApp deliver what it has queued, disconnect, and arm the next one. */
+    fun poll(c: Context) {
+        val app = c.applicationContext
+        val p = policy(app)
+        if (!linked(app) || (p != "30" && p != "60")) return
+        if (!polling.compareAndSet(false, true)) return
+        try {
+            val wasOn = isConnected()
+            if (!wasOn) { connect(app); for (i in 1..40) { if (isConnected()) break; Thread.sleep(500) } }
+            if (isConnected()) Thread.sleep(if (wasOn) 0 else SETTLE_MS) // queued messages arrive straight after connecting
+            if (!wasOn) bridge?.disconnect()
+            Log.log(app, "whatsapp: checked (${if (wasOn) "already connected" else "connected briefly"})")
+        } finally {
+            polling.set(false)
+            schedule(app, if (p == "60") 60 else 30)
+        }
+    }
+
+    private const val SETTLE_MS = 10_000L
 
     /** Sends a message, connecting first if needed. Returns "sent" or the reason it was not. */
     fun sendNow(c: Context, chat: String, text: String): String {

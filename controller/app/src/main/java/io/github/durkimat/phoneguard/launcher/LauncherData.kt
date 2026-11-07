@@ -81,7 +81,7 @@ object LauncherData {
             date = SimpleDateFormat("EEE d MMM", Locale.UK).format(date),
             modeLine = if (cfg?.override != null && cfg.modes.containsKey(cfg.override)) name else if (until != null) "$name until $until" else name,
             missedCalls = missedCalls(c),
-            newMessages = newMessages(c),
+            newMessages = newMessages(c) + (if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
             batteryPct = if (level >= 0) level * 100 / scale else 0,
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
             signalBars = signal(c),

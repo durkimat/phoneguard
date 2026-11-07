@@ -143,6 +143,8 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name=".whatsapp.WaAlarmReceiver" android:exported="false" />
+
         <receiver android:name=".AlarmReceiver" android:directBootAware="true" android:exported="false" />
 
         <service
