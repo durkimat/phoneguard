@@ -223,3 +223,12 @@ c_lockdown() {
   expect "Home key reaches the normal launcher" "$(top)" "launcher3"
   dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
 }
+
+c_lockscreen() {
+  section "Controller: the PIN screen still comes back in School (leaves the phone locked: unlock it afterwards)"
+  kg() { adb shell dumpsys window | grep -E 'isKeyguardShowing' | tr -s ' ' | tr -d '\n'; }
+  expect "School lockdown is on" "$(dbg lockdown)" "locked=true"
+  adb shell input keyevent KEYCODE_SLEEP; sleep 3; adb shell input keyevent KEYCODE_WAKEUP; sleep 3
+  expect "waking the phone shows the lock screen, not the launcher" "$(kg)" "isKeyguardShowing=true"
+  note "the phone is now locked: enter the PIN to carry on"
+}

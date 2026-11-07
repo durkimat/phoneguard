@@ -818,3 +818,12 @@ touches LineageOS settings: insert only, and check `adb logcat -b crash` after a
 The crash also gave an unplanned reboot-path check: after the system process restarted, the
 controller re-evaluated at `LOCKED_BOOT_COMPLETED` (before unlock) and again at `BOOT_COMPLETED`, and
 came back in the right state.
+
+### Lock screen bypass found and fixed (2026-11-07)
+In School the phone could be locked and woken without asking for the PIN. Cause: lock-task mode
+switches the keyguard off unless `LOCK_TASK_FEATURE_KEYGUARD` is set, and the controller set the
+feature flags to 0. Now kiosk mode sets exactly that one feature, so the PIN is required as normal and
+the shade, notifications, recents and power menu stay off. Checked: after sleep and wake in School,
+`isKeyguardShowing=true`. Rig test `lockscreen` repeats this (it leaves the phone locked).
+Related: any security feature a lock-task flag can disable should be reviewed the same way
+(home, overview, notifications, global actions, system info are the other flags).
