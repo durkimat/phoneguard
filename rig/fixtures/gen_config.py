@@ -47,5 +47,6 @@ if lockdown:
     cfg["modes"]["night"]["allow"].append("com.android.deskclock")
 if "sound" in sys.argv[2:]:
     cfg["modes"]["school"]["sound"] = "silent"
+    cfg["modes"]["school"]["inbound"] = False
     cfg["modes"]["night"]["sound"] = "vibrate"
 print(json.dumps(cfg))

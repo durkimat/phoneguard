@@ -55,6 +55,7 @@ class GuardService : Service() {
             Context.RECEIVER_EXPORTED,
         )
         contentResolver.registerContentObserver(Settings.Secure.getUriFor(Enforcer.grayKey()), false, gray)
+        registerReceiver(CallBlocker.receiver, IntentFilter(android.telephony.TelephonyManager.ACTION_PHONE_STATE_CHANGED), Context.RECEIVER_EXPORTED)
         registerReceiver(sound, IntentFilter().apply {
             addAction(android.media.AudioManager.RINGER_MODE_CHANGED_ACTION)
             addAction(android.app.NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
@@ -70,6 +71,7 @@ class GuardService : Service() {
     override fun onDestroy() {
         unregisterReceiver(packages)
         unregisterReceiver(sound)
+        unregisterReceiver(CallBlocker.receiver)
         contentResolver.unregisterContentObserver(gray)
         super.onDestroy()
     }
