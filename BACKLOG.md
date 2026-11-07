@@ -60,6 +60,19 @@ School hours are skipped. Calls under lock-task are still untested (no SIM here)
 Order: (1) lock-task and touch-overlay experiments with the current launcher (done, results in SPEC); (2) minimal Nokia
 launcher in the same app; (3) notification counts and the status line.
 
+### Launcher follow-ups (from the first build)
+- Wire the per-mode settings into the controller: launcher (normal or Nokia), touch overlay, shade, lock
+  task. Today they only exist as debug commands.
+- Pin the Home app explicitly for every mode; otherwise a second Home app makes Android show a chooser.
+- Pre-grant runtime permissions for every allowed app so no prompt ever appears (Contacts, Phone,
+  Messaging, WhatsApp, Camera). Keypad cannot reliably answer them.
+- Skins: add a second skin to prove the split; config field for the skin id.
+- Unread counts for WhatsApp and others (needs notification access, an adb grant).
+- Test with a SIM: signal bars, incoming call screen under lock-task, call log counts.
+- Menu: which apps appear is "visible launcher apps minus plumbing". Make the exclusions and ordering
+  configurable from HA.
+- Home banner shows "<mode> until <time>"; decide wording for boosts and for Emergency.
+
 ## To verify or finish
 
 - Reboot test of the controller with the real PIN entered (direct-boot code is in, untested by an actual reboot).

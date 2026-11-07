@@ -63,8 +63,21 @@ class DebugReceiver : BroadcastReceiver() {
         "overlay_grant" -> LabLockdown.tryGrantOverlay(c)
         "overlay_on" -> LabLockdown.overlayOn(c, a.toIntOrNull() ?: 60)
         "overlay_off" -> LabLockdown.overlayOff(c)
+        "launcher" -> { // a = pin | unpin: make our launcher the Home app (or give Home back to the old one)
+            val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+            if (a == "unpin") { dpm.clearPackagePersistentPreferredActivities(admin, c.packageName); "unpinned" }
+            else {
+                val f = android.content.IntentFilter(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME); addCategory(Intent.CATEGORY_DEFAULT) }
+                dpm.addPersistentPreferredActivity(admin, f, android.content.ComponentName(c.packageName, "io.github.durkimat.phoneguard.launcher.LauncherActivity"))
+                "pinned Phone Guard Home"
+            }
+        }
         "statusbar" -> { // a = on|off: disable the pull-down shade and the status bar
             val ok = Dpm.dpm(c).setStatusBarDisabled(Dpm.admin(c), a == "on"); "setStatusBarDisabled($a) ok=$ok"
+        }
+        "forgetcfg" -> { // drop the local config and its version so the next sync fetches HA's again
+            val r = org.json.JSONObject(Store.linkText(c) ?: "{}").put("cfgh", "")
+            Store.setLinkText(c, r.toString()); Store.clearConfig(c); "config forgotten"
         }
         "usage" -> Usage.recent(c)?.toString() ?: "usage access not granted"
         "link" -> Link.summary(c)

@@ -87,7 +87,8 @@ object Enforcer {
     fun grantOwnPermissions(c: Context) {
         val dpm = Dpm.dpm(c)
         tryGrantUsageAccess(c)
-        for (p in listOf(android.Manifest.permission.POST_NOTIFICATIONS, android.Manifest.permission.CAMERA)) {
+        for (p in listOf(android.Manifest.permission.POST_NOTIFICATIONS, android.Manifest.permission.CAMERA,
+            android.Manifest.permission.READ_CALL_LOG, android.Manifest.permission.READ_SMS, android.Manifest.permission.READ_PHONE_STATE)) {
             try { dpm.setPermissionGrantState(Dpm.admin(c), c.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
         }
     }
