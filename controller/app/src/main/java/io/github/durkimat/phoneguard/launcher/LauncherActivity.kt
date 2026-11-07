@@ -92,6 +92,7 @@ class LauncherActivity : Activity() {
     private fun refresh() {
         model.setItems(LauncherData.items(this))
         if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
+        if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)
         // not while reading or writing, so a message arriving cannot shift what is on the screen
         if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
         skin.render(model, LauncherData.info(this))

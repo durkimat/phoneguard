@@ -5,9 +5,12 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG }
 
 data class Contact(val name: String, val numbers: List<String>)
+
+/** One call in the log: [type] is 1 received, 2 dialled, 3 missed. */
+data class CallEntry(val number: String, val name: String, val type: Int, val date: Long)
 
 /** One text message. [mine] is true for messages this phone sent. */
 data class Msg(val body: String, val date: Long, val mine: Boolean)
@@ -40,6 +43,8 @@ object Fonts {
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+const val CALC_PKG = "pg:calculator"
+const val CALLLOG_PKG = "pg:calllog"
 
 /** The keys a keypad phone has, however the hardware reports them. */
 enum class Key { UP, DOWN, LEFT, RIGHT, OK, SOFT_LEFT, SOFT_RIGHT, CALL, END, STAR, POUND, DIGIT }
@@ -98,6 +103,10 @@ class LauncherModel(
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
     var convos: List<Convo> = emptyList()
+    /** Recent calls, newest first. The activity fills this in. */
+    var calls: List<CallEntry> = emptyList()
+    val calc = Calculator()
+    private var callsFrom = Screen.HOME
     /** Splits text into the lines that fit the screen. The skin sets this, because only it knows the font. */
     var wrapper: (String) -> List<String> = { listOf(it) }
     var pageLines = 11
@@ -160,12 +169,16 @@ class LauncherModel(
         Screen.THREAD -> convo?.name ?: "Messages"
         Screen.WRITE -> "Write message"
         Screen.TYPING -> "Predictive text"
+        Screen.CALC -> "Calculator"
+        Screen.CALLLOG -> "Call log"
         else -> "Menu"
     }
 
     /** The two labels under the screen, which the two keys beneath it and D-pad Left/Right carry out. */
     val softKeys: Pair<String, String> get() = when (screen) {
         Screen.HOME -> "Menu" to "Contacts"
+        Screen.CALC -> "Equals" to "Clear"
+        Screen.CALLLOG -> "Call" to "Back"
         Screen.INBOX -> "Open" to "Back"
         Screen.THREAD -> "Reply" to "Back"
         Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
@@ -180,6 +193,8 @@ class LauncherModel(
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
+        Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
+        Screen.CALC -> emptyList()
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
@@ -205,6 +220,32 @@ class LauncherModel(
         Screen.THREAD -> thread(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
         Screen.TYPING -> typing(key, digit)
+        Screen.CALC -> calculator(key, digit)
+        Screen.CALLLOG -> callLog(key, digit)
+    }
+
+    private fun openCallLog(from: Screen): Action { callsFrom = from; screen = Screen.CALLLOG; selected = 0; return Action.Redraw }
+
+    private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun calculator(key: Key, digit: Int): Action {
+        when (key) {
+            Key.DIGIT -> calc.digit(digit)
+            Key.POUND -> calc.point()
+            Key.STAR -> calc.cycleOperator()
+            Key.UP -> calc.operator('+')
+            Key.DOWN -> calc.operator('-')
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> calc.equals()
+            Key.RIGHT, Key.SOFT_RIGHT -> if (!calc.clear()) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALC_PKG }.coerceAtLeast(0) }
+            Key.END -> { calc.allClear(); goHome() }
+            else -> return Action.None
+        }
+        return Action.Redraw
     }
 
     private fun typing(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
@@ -436,6 +477,8 @@ class LauncherModel(
         item.pkg == SETTINGS_PKG -> { screen = Screen.SETTINGS; selected = 0; Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
+        item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
+        item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         else -> Action.Launch(item.pkg)
     }
 
@@ -475,7 +518,7 @@ class LauncherModel(
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME)
-        Key.CALL -> Action.CallKey
+        Key.CALL -> openCallLog(Screen.HOME)
         Key.DIGIT -> if (digit in 0..9) Action.Dial(digit.toString()) else Action.None
         Key.STAR -> Action.Dial("*")
         Key.POUND -> Action.Dial("#")
@@ -487,7 +530,7 @@ class LauncherModel(
         Key.DOWN -> if (items.isEmpty()) Action.None else { selected = (selected + 1) % items.size; Action.Redraw }
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(items.getOrNull(selected))
         Key.RIGHT, Key.SOFT_RIGHT, Key.END -> { goHome(); Action.Redraw }
-        Key.CALL -> Action.CallKey
+        Key.CALL -> openCallLog(Screen.MENU)
         // 1 to 9 jump straight to that entry, like a Nokia menu
         Key.DIGIT -> if (digit in 1..9) items.getOrNull(digit - 1)?.let { selected = digit - 1; open(it) } ?: Action.None else Action.None
         else -> Action.None
