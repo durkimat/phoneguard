@@ -17,6 +17,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
@@ -64,6 +65,7 @@ func main() {
 		fmt.Println("store error:", err)
 		os.Exit(1)
 	}
+	store.SetOSInfo("PhoneGuard", [3]uint32{0, 1, 0})
 	device, err := container.GetFirstDevice(ctx)
 	if err != nil {
 		fmt.Println("device error:", err)
