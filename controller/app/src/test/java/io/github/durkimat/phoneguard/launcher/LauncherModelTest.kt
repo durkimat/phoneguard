@@ -93,7 +93,7 @@ class LauncherModelTest {
     @Test fun choosingAThemeSavesItAndMarksIt() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK)
         assertEquals(Screen.THEME, m.screen)
-        assertEquals(listOf("Green *", "Grey", "Amber"), m.rows)
+        assertEquals(listOf("Green *", "Grey", "Amber", "Orange"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.DOWN)
         assertEquals(Action.SaveTheme("amber"), m.onKey(Key.SOFT_LEFT))
         assertEquals("amber", m.theme); assertEquals(Screen.SETTINGS, m.screen)
