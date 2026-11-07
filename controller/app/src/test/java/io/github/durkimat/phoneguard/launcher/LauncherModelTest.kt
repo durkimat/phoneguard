@@ -6,7 +6,7 @@ import org.junit.Test
 
 class LauncherModelTest {
     private val items = listOf(MenuItem("p.phone", "Phone"), MenuItem("p.msg", "Messages"), MenuItem("p.wa", "WhatsApp"))
-    private fun model() = LauncherModel(items, contactsPkg = "p.contacts")
+    private fun model() = LauncherModel(items, contactsApp = "p.contacts")
 
     @Test fun startsOnHome() { assertEquals(Screen.HOME, model().screen) }
 
@@ -19,13 +19,13 @@ class LauncherModelTest {
     }
 
     @Test fun rightKeyAndDpadRightOnHomeOpenContacts() {
-        for (k in listOf(Key.RIGHT, Key.SOFT_RIGHT)) assertEquals(Action.Launch("p.contacts"), model().onKey(k))
-        assertEquals(Action.None, LauncherModel(items, null).onKey(Key.SOFT_RIGHT))
+        for (k in listOf(Key.RIGHT, Key.SOFT_RIGHT)) { val m = model(); assertEquals(Action.Redraw, m.onKey(k)); assertEquals(Screen.CONTACTS, m.screen) }
     }
 
     @Test fun theTwoKeysUnderTheScreenWorkLikeANokia() {
         val m = model()
-        assertEquals(Action.Launch("p.contacts"), m.onKey(Key.SOFT_RIGHT)) // first press on Home: Contacts
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.CONTACTS, m.screen) // first press on Home: Contacts
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // second press: back
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_LEFT)) // left key: the menu
         assertEquals(Screen.MENU, m.screen)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // right key in the menu: Back
@@ -79,7 +79,7 @@ class LauncherModelTest {
         m.setItems(items.take(1)); assertTrue(m.selected in 0..0)
     }
 
-    private fun withSettings() = LauncherModel(items + MenuItem(SETTINGS_PKG, "Settings"), contactsPkg = null)
+    private fun withSettings() = LauncherModel(items + MenuItem(SETTINGS_PKG, "Settings"), contactsApp = null)
 
     @Test fun settingsEntryOpensTheLaunchersOwnSettingsNotAnApp() {
         val m = withSettings(); m.onKey(Key.OK)
@@ -116,5 +116,35 @@ class LauncherModelTest {
         m.onKey(Key.DOWN)
         assertEquals(Action.SaveFont("sans"), m.onKey(Key.OK))
         assertEquals("sans", m.font); assertEquals(Screen.SETTINGS, m.screen)
+    }
+
+    private fun withContacts() = model().also { it.contacts = listOf(Contact("Dad", listOf("0111")), Contact("Mum", listOf("0222", "0333"))) }
+
+    @Test fun contactsListShowsNamesAndOpensDetail() {
+        val m = withContacts(); m.onKey(Key.SOFT_RIGHT)
+        assertEquals(listOf("Dad", "Mum"), m.rows)
+        m.onKey(Key.DOWN); assertEquals(Action.Redraw, m.onKey(Key.OK))
+        assertEquals(Screen.CONTACT, m.screen); assertEquals("Mum", m.title)
+        assertEquals(listOf("Call 0222", "Call 0333", "Message"), m.rows)
+    }
+
+    @Test fun contactDetailCallsMessagesAndGoesBack() {
+        val m = withContacts(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DOWN); m.onKey(Key.OK)
+        assertEquals(Action.Call("0222"), m.onKey(Key.OK))
+        m.onKey(Key.DOWN); assertEquals(Action.Call("0333"), m.onKey(Key.SOFT_LEFT))
+        m.onKey(Key.DOWN); assertEquals(Action.Message("0222"), m.onKey(Key.LEFT))
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.CONTACTS, m.screen); assertEquals(1, m.selected)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+    }
+
+    @Test fun contactsFromTheMenuReturnToTheMenu() {
+        val m = LauncherModel(listOf(MenuItem("com.android.contacts", "Contacts")), "com.android.contacts"); m.onKey(Key.OK)
+        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.CONTACTS, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
+    }
+
+    @Test fun greenKeyCallsTheSelectedNumber() {
+        val m = withContacts(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.OK)
+        assertEquals(Action.Call("0111"), m.onKey(Key.CALL))
     }
 }

@@ -5,7 +5,9 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT }
+
+data class Contact(val name: String, val numbers: List<String>)
 
 /** A colour scheme: LCD background and ink. Plain ints so the model stays free of Android classes. */
 data class Theme(val id: String, val name: String, val lcd: Int, val ink: Int)
@@ -51,9 +53,13 @@ sealed class Action {
     /** The user chose a theme: the activity saves it and redraws. */
     data class SaveTheme(val id: String) : Action()
     data class SaveFont(val id: String) : Action()
+    /** Start a call to this number. */
+    data class Call(val number: String) : Action()
+    /** Open a new text message to this number. */
+    data class Message(val number: String) : Action()
 }
 
-class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String? = null) {
+class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String? = "com.android.contacts") {
     var screen = Screen.HOME
         private set
     var items: List<MenuItem> = items
@@ -71,6 +77,11 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
 
     var font: String = Fonts.DEFAULT
 
+    /** The phone's contacts, sorted by name. The activity fills this in. */
+    var contacts: List<Contact> = emptyList()
+    private var contact: Contact? = null
+    private var contactsFrom = Screen.HOME
+
     private val settingsRows = listOf("Theme", "Font")
 
     fun goHome() { screen = Screen.HOME; selected = 0 }
@@ -79,6 +90,8 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
         Screen.SETTINGS -> "Settings"
         Screen.THEME -> "Theme"
         Screen.FONT -> "Font"
+        Screen.CONTACTS -> "Contacts"
+        Screen.CONTACT -> contact?.name ?: "Contact"
         else -> "Menu"
     }
 
@@ -88,6 +101,8 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
+        Screen.CONTACTS -> contacts.map { it.name }
+        Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.HOME -> emptyList()
     }
 
@@ -98,6 +113,32 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
         Screen.SETTINGS -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
         Screen.FONT -> fonts(key, digit)
+        Screen.CONTACTS -> contactList(key, digit)
+        Screen.CONTACT -> contactDetail(key, digit)
+    }
+
+    private fun openContacts(from: Screen): Action { contactsFrom = from; screen = Screen.CONTACTS; selected = 0; return Action.Redraw }
+
+    private fun contactList(key: Key, digit: Int): Action = move(key, contacts.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> contacts.getOrNull(selected)?.let { contact = it; screen = Screen.CONTACT; selected = 0; Action.Redraw } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (contactsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
+    }
+
+    private fun contactDetail(key: Key, digit: Int): Action {
+        val c = contact ?: run { goHome(); return Action.Redraw }
+        val count = c.numbers.size + 1
+        return move(key, count) ?: when (key) {
+            Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL ->
+                if (key == Key.CALL && c.numbers.isNotEmpty()) Action.Call(c.numbers[selected.coerceAtMost(c.numbers.size - 1)])
+                else if (selected < c.numbers.size) Action.Call(c.numbers[selected])
+                else Action.Message(c.numbers.firstOrNull() ?: "")
+            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONTACTS; selected = contacts.indexOf(c).coerceAtLeast(0); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
     }
 
     private fun move(key: Key, size: Int): Action? = when (key) {
@@ -109,6 +150,7 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
     private fun open(item: MenuItem?): Action = when {
         item == null -> Action.None
         item.pkg == SETTINGS_PKG -> { screen = Screen.SETTINGS; selected = 0; Action.Redraw }
+        item.pkg == contactsApp -> openContacts(Screen.MENU)
         else -> Action.Launch(item.pkg)
     }
 
@@ -144,7 +186,7 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
     // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> contactsPkg?.let { Action.Launch(it) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME)
         Key.CALL -> Action.CallKey
         Key.DIGIT -> if (digit in 0..9) Action.Dial(digit.toString()) else Action.None
         Key.STAR -> Action.Dial("*")
