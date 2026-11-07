@@ -32,6 +32,10 @@ adb shell dpm set-device-owner io.github.durkimat.phoneguard/.AdminReceiver   # 
 adb shell pm grant io.github.durkimat.phoneguard android.permission.WRITE_SECURE_SETTINGS  # grayscale
 adb shell cmd notification allow_dnd io.github.durkimat.phoneguard   # silent sound profile (Do Not Disturb)
 ```
+To use our own call screens, make the app the phone's Dialer (one grant, replaces the stock one):
+`adb shell cmd role add-role-holder --user 0 android.app.role.DIALER io.github.durkimat.phoneguard`.
+**To go back to the stock dialler at any time:**
+`adb shell cmd role add-role-holder --user 0 android.app.role.DIALER com.android.dialer`.
 Other one-time grants used by the launcher: `appops set <pkg> SYSTEM_ALERT_WINDOW allow` (touch off) and
 `appops set <pkg> WRITE_SETTINGS allow` (left-key behaviour). Usage access is self-granted.
 Then run the rig: `cd ../rig && ./run_controller.sh` (see `rig/`). Get out with the rig's

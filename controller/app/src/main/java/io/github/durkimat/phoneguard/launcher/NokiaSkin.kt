@@ -71,6 +71,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
                 Screen.DIAL -> dial(c, m, u)
+                Screen.CALL -> callScreen(c, m, u)
                 else -> menu(c, m, u)
             }
             m.notice?.let { notice(c, it, u) }
@@ -299,6 +300,43 @@ class NokiaSkin : LauncherSkin {
             m.dialName?.let { text(c, it, 464f, 350f, 30f, u, align = Paint.Align.RIGHT) }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
+
+        private fun callScreen(c: Canvas, m: LauncherModel, u: Float) {
+            val call = m.call ?: return
+            val who = call.name ?: call.number.ifBlank { "Unknown" }
+            val scale = if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f
+            fun fitted(s: String, start: Float): Float {
+                var size = start; val paint = bodyPaint(); paint.textSize = size * scale; paint.isFakeBoldText = true
+                while (paint.measureText(s) > 440f && size > 24f) { size -= 2f; paint.textSize = size * scale }
+                paint.isFakeBoldText = false
+                return size
+            }
+            when (call.phase) {
+                CallPhase.RINGING, CallPhase.DIALING -> {
+                    text(c, if (call.phase == CallPhase.RINGING) "Incoming call" else "Calling...", 240f, 150f, 30f, u, align = Paint.Align.CENTER)
+                    text(c, who, 240f, 280f, fitted(who, 52f), u, bold = true, align = Paint.Align.CENTER)
+                    if (call.name != null) text(c, call.number, 240f, 335f, 30f, u, align = Paint.Align.CENTER)
+                }
+                CallPhase.ACTIVE -> {
+                    text(c, who, 240f, 130f, fitted(who, 34f), u, bold = true, align = Paint.Align.CENTER)
+                    val secs = ((io.github.durkimat.phoneguard.Clock.now() - call.startedAt) / 1000).toInt().coerceAtLeast(0)
+                    text(c, clock(secs), 240f, 270f, 96f, u, bold = true, align = Paint.Align.CENTER)
+                    if (call.name != null) text(c, call.number, 240f, 325f, 28f, u, align = Paint.Align.CENTER)
+                    var y = 400f
+                    if (call.muted) { text(c, "Muted", 240f, y, 30f, u, align = Paint.Align.CENTER); y += 44f }
+                    if (call.speaker) text(c, "Speaker", 240f, y, 30f, u, align = Paint.Align.CENTER)
+                }
+                CallPhase.ENDED -> {
+                    text(c, who, 240f, 130f, fitted(who, 34f), u, bold = true, align = Paint.Align.CENTER)
+                    c.drawRect(60 * u, 230 * u, 420 * u, 370 * u, fill)
+                    text(c, "Call ended", 240f, 292f, 36f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                    text(c, clock(call.seconds), 240f, 342f, 36f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                }
+            }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun clock(secs: Int): String = if (secs >= 3600) "%d:%02d:%02d".format(secs / 3600, secs / 60 % 60, secs % 60) else "%02d:%02d".format(secs / 60, secs % 60)
 
         private fun notice(c: Canvas, s: String, u: Float) {
             c.drawRect(30 * u, 250 * u, 450 * u, 350 * u, fill)

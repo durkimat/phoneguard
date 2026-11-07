@@ -21,7 +21,10 @@ import io.github.durkimat.phoneguard.WEB_SEARCH
  * does and a [LauncherSkin] draws the result. Touch is ignored.
  */
 class LauncherActivity : Activity() {
-    companion object { @Volatile private var words: WordList? = null }
+    companion object {
+        @Volatile private var words: WordList? = null
+        const val EXTRA_DIAL = "dial"
+    }
 
     private val skin: LauncherSkin = NokiaSkin()
     private val model = LauncherModel()
@@ -41,16 +44,19 @@ class LauncherActivity : Activity() {
         loadWords()
         setContentView(skin.create(this))
         refresh()
+        pendingDial = intent?.getStringExtra(EXTRA_DIAL)
         if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
     }
 
     /** The left key under the screen arrives as a voice-assist request (see HardKeys). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (intent.hasExtra(EXTRA_DIAL)) pendingDial = intent.getStringExtra(EXTRA_DIAL)
         // onResume follows and resets to the home screen, so remember the key and apply it after that
         if (intent.action == VOICE_ASSIST || intent.action == WEB_SEARCH) leftKeyPending = true
     }
 
+    private var pendingDial: String? = null
     private var leftKeyPending = false
     private var cameBack = true
 
@@ -61,6 +67,7 @@ class LauncherActivity : Activity() {
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { model.goHome(); cameBack = false }
         refresh()
+        pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
         if (leftKeyPending) { leftKeyPending = false; perform(model.onKey(Key.SOFT_LEFT, -1)) }
         registerReceiver(changes, IntentFilter().apply {
             addAction(Intent.ACTION_BATTERY_CHANGED); addAction(Intent.ACTION_TIME_TICK); addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -103,21 +110,7 @@ class LauncherActivity : Activity() {
         skin.render(model, LauncherData.info(this))
     }
 
-    private fun key(code: Int): Pair<Key, Int>? = when (code) {
-        KeyEvent.KEYCODE_DPAD_UP -> Key.UP to -1
-        KeyEvent.KEYCODE_DPAD_DOWN -> Key.DOWN to -1
-        KeyEvent.KEYCODE_DPAD_LEFT -> Key.LEFT to -1
-        KeyEvent.KEYCODE_DPAD_RIGHT -> Key.RIGHT to -1
-        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> Key.OK to -1
-        KeyEvent.KEYCODE_MENU -> Key.SOFT_LEFT to -1
-        KeyEvent.KEYCODE_BACK -> Key.SOFT_RIGHT to -1
-        KeyEvent.KEYCODE_CALL -> Key.CALL to -1
-        KeyEvent.KEYCODE_ENDCALL -> Key.END to -1
-        KeyEvent.KEYCODE_STAR -> Key.STAR to -1
-        KeyEvent.KEYCODE_POUND -> Key.POUND to -1
-        in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> Key.DIGIT to (code - KeyEvent.KEYCODE_0)
-        else -> null
-    }
+    private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)
 
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
@@ -134,9 +127,11 @@ class LauncherActivity : Activity() {
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)
-            is Action.Call -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.number))))
+            // "Call" on a contact or in the call log opens our own dial screen with the number typed; one more press rings
+            is Action.Call -> { model.startDial(a.number); refresh() }
             is Action.Send -> { model.notify(LauncherData.sendSms(this, a.to, a.body)); refresh() }
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
+            else -> {} // the call actions belong to the call screen
         }
     }
 

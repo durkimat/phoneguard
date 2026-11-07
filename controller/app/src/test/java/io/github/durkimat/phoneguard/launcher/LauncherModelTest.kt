@@ -354,4 +354,55 @@ class LauncherModelTest {
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
         m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
+
+    // ---- Call screens
+    private fun inCall(phase: CallPhase, muted: Boolean = false, speaker: Boolean = false): LauncherModel {
+        val m = LauncherModel(emptyList()); m.setCall(CallInfo("0222", "Mum", phase, startedAt = 1000, muted = muted, speaker = speaker)); return m
+    }
+
+    @Test fun incomingCallAnswerAndRejectKeys() {
+        for (k in listOf(Key.SOFT_LEFT, Key.LEFT, Key.OK, Key.CALL)) assertEquals(Action.Answer, inCall(CallPhase.RINGING).onKey(k))
+        for (k in listOf(Key.SOFT_RIGHT, Key.RIGHT, Key.END)) assertEquals(Action.Reject, inCall(CallPhase.RINGING).onKey(k))
+        assertEquals("Answer" to "Reject", inCall(CallPhase.RINGING).softKeys)
+        assertEquals(Action.None, inCall(CallPhase.RINGING).onKey(Key.DIGIT, 5)) // a stray key does not answer
+    }
+
+    @Test fun callingScreenHasSpeakerAndEnd() {
+        val m = inCall(CallPhase.DIALING)
+        assertEquals("Speaker" to "End", m.softKeys)
+        assertEquals(Action.ToggleSpeaker, m.onKey(Key.SOFT_LEFT)); assertEquals(Action.EndCall, m.onKey(Key.SOFT_RIGHT))
+    }
+
+    @Test fun inCallKeysSendTonesAdjustVolumeAndOpenOptions() {
+        val m = inCall(CallPhase.ACTIVE)
+        assertEquals(Action.Dtmf('5'), m.onKey(Key.DIGIT, 5)); assertEquals(Action.Dtmf('*'), m.onKey(Key.STAR)); assertEquals(Action.Dtmf('#'), m.onKey(Key.POUND))
+        assertEquals(Action.CallVolume(1), m.onKey(Key.UP)); assertEquals(Action.CallVolume(-1), m.onKey(Key.DOWN))
+        assertEquals(Action.EndCall, m.onKey(Key.SOFT_RIGHT))
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_LEFT)); assertEquals(Screen.CALLMENU, m.screen)
+        assertEquals(listOf("Speaker on", "Mute"), m.rows)
+    }
+
+    @Test fun optionsToggleSpeakerAndMuteThenReturnToTheCall() {
+        val m = inCall(CallPhase.ACTIVE, muted = true, speaker = true); m.onKey(Key.SOFT_LEFT)
+        assertEquals(listOf("Speaker off", "Unmute"), m.rows)
+        assertEquals(Action.ToggleSpeaker, m.onKey(Key.OK)); assertEquals(Screen.CALL, m.screen)
+        m.onKey(Key.SOFT_LEFT); m.onKey(Key.DOWN); assertEquals(Action.ToggleMute, m.onKey(Key.OK))
+        m.onKey(Key.SOFT_LEFT); assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.CALL, m.screen) // Back
+    }
+
+    @Test fun anEndedCallClosesOnAnyKeyAndNoCallGoesHome() {
+        val m = inCall(CallPhase.ENDED); assertEquals(Action.CloseCall, m.onKey(Key.DIGIT, 1))
+        m.setCall(null); assertEquals(Screen.HOME, m.screen)
+    }
+
+    @Test fun theOptionsMenuStaysOpenWhileTheCallStateUpdates() {
+        val m = inCall(CallPhase.ACTIVE); m.onKey(Key.SOFT_LEFT)
+        m.setCall(CallInfo("0222", "Mum", CallPhase.ACTIVE, startedAt = 1000, muted = true)); assertEquals(Screen.CALLMENU, m.screen)
+        m.setCall(CallInfo("0222", "Mum", CallPhase.ENDED, seconds = 9)); assertEquals(Screen.CALL, m.screen)
+    }
+
+    @Test fun startDialFillsTheNumber() {
+        val m = LauncherModel(emptyList()); m.startDial("tel 07700-900 111".replace("tel ", ""))
+        assertEquals(Screen.DIAL, m.screen); assertEquals("07700900111", m.dialNumber)
+    }
 }

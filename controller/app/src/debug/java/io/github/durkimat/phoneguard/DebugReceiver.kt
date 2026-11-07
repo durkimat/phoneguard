@@ -57,6 +57,20 @@ class DebugReceiver : BroadcastReceiver() {
             r
         }
         "sync" -> Link.sync(c, "debug")
+        // show a made-up call on the call screen without a SIM: a = ringing | dialling | active | ended | off, b = name or number
+        "fakecall" -> {
+            val who = b.ifBlank { "Mum" }
+            val info = when (a) {
+                "ringing" -> io.github.durkimat.phoneguard.launcher.CallInfo("07700900111", who, io.github.durkimat.phoneguard.launcher.CallPhase.RINGING)
+                "dialling" -> io.github.durkimat.phoneguard.launcher.CallInfo("07700900222", who, io.github.durkimat.phoneguard.launcher.CallPhase.DIALING)
+                "active" -> io.github.durkimat.phoneguard.launcher.CallInfo("07700900222", who, io.github.durkimat.phoneguard.launcher.CallPhase.ACTIVE, startedAt = Clock.now() - 42_000, muted = true, speaker = true)
+                "ended" -> io.github.durkimat.phoneguard.launcher.CallInfo("07700900222", who, io.github.durkimat.phoneguard.launcher.CallPhase.ENDED, seconds = 42)
+                else -> null
+            }
+            io.github.durkimat.phoneguard.incall.CallState.set(info)
+            if (info != null) c.startActivity(Intent(c, io.github.durkimat.phoneguard.incall.CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "fakecall $a"
+        }
         "lockdown" -> "home=${HomeApp.target(c, false)?.packageName} pinnedNokia=${c.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.name?.endsWith("LauncherActivity")} touchBlocked=${TouchBlocker.isOn()} menuKeyOff=${HardKeys.isDisabled(c)} canDraw=${TouchBlocker.canDraw(c)} locked=${Kiosk.locked(c)} ringer=${c.getSystemService(android.media.AudioManager::class.java).ringerMode} filter=${c.getSystemService(android.app.NotificationManager::class.java).currentInterruptionFilter} canSilence=${SoundEnforcer.canSilence(c)} inboundBlocked=${CallBlocker.blocking(c)}"
         "lt_start" -> LabLockdown.lockStart(c, a.toIntOrNull() ?: 0)
         "lt_stop" -> LabLockdown.lockStop(c)
