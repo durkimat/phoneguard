@@ -739,3 +739,29 @@ alarm: back at 03:00 the next day), so a morning alarm still works after School.
 profile alone would not have stopped alarms (they use their own volume); hiding the Clock does.
 Consequences: the Clock must be manageable (listed in `unprotect`) so a mode can hide it; alarms set
 for School hours are skipped, not delayed; the launcher shows the time itself.
+
+### Nokia launcher, first build (2026-11-07)
+Code: `controller/.../launcher/`. `LauncherModel` (engine: screens, key handling, menu; plain Kotlin,
+10 unit tests), `LauncherSkin` (the interface a skin implements), `NokiaSkin` (first skin: monochrome
+grey list style, drawn on a 480 by 640 design grid), `LauncherData` (reads mode, time, battery, signal,
+missed calls and new messages), `LauncherActivity` (Home activity, keypad only, touch ignored).
+
+Checked on the J36 with the keypad over adb:
+- Home screen matches the mock-up (status line, clock, date, mode banner, counts, softkeys).
+- Menu: numbered entries, black selection bar, scrolling, Enter or 1 to 9 to open, Back to return.
+  Digits on the home screen start dialling. Back on Home opens Contacts.
+- The menu lists exactly the apps the mode leaves visible: in School only Phone, Messaging, Contacts
+  and Camera; Browser, Clock and DAVx5 are gone.
+- Inside lock-task (no shade, no power menu, Settings refused) the launcher works, key 1 opens Phone
+  and Home returns to the launcher.
+- A device owner can silently grant the launcher's own read permissions (call log, SMS, phone state).
+
+Gotchas found:
+- Installing a second Home app makes Android forget its default Home and ask which to use on the Home
+  key. The controller must set the Home app explicitly (persistent preferred activity) for every mode,
+  never leave it to the system.
+- Allowed apps show first-run permission prompts (Contacts asked for notifications). The keypad did not
+  answer one reliably, and with touch off it would be stuck. The controller should pre-grant the
+  runtime permissions of every allowed app (device owner can grant for other apps) before School.
+- Counts come from the call log and SMS inbox. WhatsApp unread counts need notification access
+  (an adb grant) and are not built.
