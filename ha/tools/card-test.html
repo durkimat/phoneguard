@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>:root{--card-background-color:#fff;--primary-text-color:#222;--secondary-text-color:#666;--primary-color:#03a9f4;--divider-color:#ddd;--warning-color:#e67e22;--error-color:#c0392b;--secondary-background-color:#f3f3f3}body{background:#eee;margin:0;padding:12px;font-family:system-ui}</style>
+<div id="app" style="max-width:640px;margin:auto"></div>
+<script src="../www/phoneguard-card/phoneguard-card.js"></script>
+<script>
+const now = Date.now();
+const view = {child:"her",name:"Her",tz:"Europe/London",base:"day",notify:"notify.mobile_app_dumbphone2",
+ modes:{day:{name:"Day",allowAll:true,allow:[],gray:false},school:{name:"School",allowAll:false,allow:["org.lineageos.aperture"],gray:true},night:{name:"Night",allowAll:false,allow:["org.lineageos.glimpse"],gray:false}},
+ week:{},holiday:{from:"2026-12-19",until:"2027-01-04"},mode_now:"school",boost:{mode:"day",until:now+11*60000},now,
+ device:{did:"abc",pending:false,sas:null,last_seen:now-95000,state:{mode:"school",hidden:5,gray:true,canGray:true,battery:84,owner:true},model:"DumberOS",in_sync:true},
+ apps:[{pkg:"org.lineageos.aperture",label:"Camera",hidden:false},{pkg:"org.lineageos.glimpse",label:"Gallery"},{pkg:"org.lineageos.jelly",label:"Browser"},{pkg:"com.dumbermini.davx",label:"DAVx5"},{pkg:"io.github.durkimat.phoneguard.lab",label:"Phone Guard Lab"}],
+ pending_apps:["io.github.durkimat.phoneguard.lab"]};
+const states={"sensor.phoneguard_her":{state:"School",attributes:{data:JSON.stringify(view)}}};
+const el=document.createElement("phoneguard-card");el.setConfig({entity:"sensor.phoneguard_her"});
+el.hass={states,callService:(d,s,x)=>{console.log("SERVICE",d,s,JSON.stringify(x));return Promise.resolve()}};
+document.getElementById("app").appendChild(el);
+window.setView=(v)=>{states["sensor.phoneguard_her"].attributes.data=JSON.stringify(v);el._last=null;el.hass=el._hass};
+window.VIEW=view;
+</script>

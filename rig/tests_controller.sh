@@ -134,3 +134,57 @@ PY
   launcher_has $CJELLY && fail "browser still visible after boost" || pass "browser hidden again after boost"
   dbg reset >/dev/null
 }
+
+# ---- the HA link (stand-in server on :8099 reached over adb reverse; or any hub at HA_ADMIN) ----
+HA_ADMIN=${HA_ADMIN:-http://127.0.0.1:8099/admin}
+ha() { curl -s "$HA_ADMIN/$1"; }
+havw() { ha "view?child=her" | python3 -c "import json,sys; v=json.load(sys.stdin); print(eval(sys.argv[1]))" "$1"; }
+
+c_link() {
+  section "HA link: confirm, config push, app approval, boost, release"
+  ha "forget?child=her" >/dev/null; dbg unpair >/dev/null
+  ha "pair?child=her" > "$OUT/pair.json"
+  python3 -c "import json; print(json.load(open('$OUT/pair.json'))['qr'], end='')" > "$OUT/qr.txt"
+  adb push "$OUT/qr.txt" /sdcard/Android/data/$CPKG/files/qr.txt >/dev/null
+  expect "pairing succeeds" "$(dbg pair qr.txt)" "ok sas="; sleep 3
+  expect "phone is paired (pending)" "$(dbg link)" "waiting for parent"
+  sas=$(havw "v['device']['sas']"); note "SAS shown by HA: $sas  phone says: $(dbg link)"
+  expect "wrong number is refused" "$(ha "confirm?child=her&sas=0000")" '"ok": false'
+  expect "right number confirms" "$(ha "confirm?child=her&sas=$sas")" '"ok": true'
+  dbg sync >/dev/null; sleep 1
+  expect "config arrived and applied" "$(dbg status)" "cfg="
+  [ "$(dbg status | grep -o 'cfg=[0-9]*')" != "cfg=null" ] && pass "phone holds a pushed config" || fail "no config on phone"
+  expect "HA sees the phone in sync" "$(havw "v['device']['in_sync']")" "True"
+  note "apps HA sees: $(havw "[a['pkg'].split('.')[-1] for a in v['apps']]")"
+  ha "set_app?child=her&pkg=$CCAM&mode=school&allowed=1" >/dev/null
+  ha "set_app?child=her&pkg=$CGAL&mode=night&allowed=1" >/dev/null
+  dbg sync >/dev/null; sleep 1
+  set_time 2026-11-09 10:00 ; expect "Monday 10:00 -> School from HA's timetable" "$(last_eval)" "mode=school"
+  launcher_has $CCAM && pass "school: camera visible (approved in HA)" || fail "camera hidden"
+  launcher_has $CJELLY && fail "school: browser should be hidden" || pass "school: browser hidden"
+  ha "boost?child=her&mode=day&minutes=15" >/dev/null; dbg sync >/dev/null; sleep 1
+  expect "boost from HA applied" "$(last_eval)" "+boost(day)"
+  launcher_has $CJELLY && pass "boost: browser visible" || fail "boost not applied"
+  ha "cancel_boost?child=her" >/dev/null; dbg sync >/dev/null; sleep 1
+  launcher_has $CJELLY && fail "browser should be hidden after cancel" || pass "cancel_boost re-hides it"
+  dbg clock real >/dev/null
+}
+
+c_link_newapp() {
+  section "HA link: a newly installed app is reported and held until approved"
+  dbg clock real >/dev/null
+  ha "unknown?child=her&pkg=io.github.durkimat.phoneguard.lab" >/dev/null
+  adb uninstall io.github.durkimat.phoneguard.lab >/dev/null 2>&1
+  adb install -t "$HERE/../prototype/app/build/outputs/apk/debug/app-debug.apk" >/dev/null 2>&1; sleep 6
+  expect "HA lists the new app as pending" "$(havw "v['pending_apps']")" "phoneguard.lab"
+  ha "approve?child=her&pkg=io.github.durkimat.phoneguard.lab&modes=day,night" >/dev/null
+  expect "approval clears it" "$(havw "v['pending_apps']")" "[]"
+}
+
+c_release() {
+  section "HA link: parent releases the phone (this removes device owner; re-provision afterwards)"
+  expect "release queued" "$(ha "release?child=her")" '"ok": true'
+  dbg sync >/dev/null; sleep 2
+  adb shell dpm list-owners | grep -q DeviceOwner && fail "still device owner" || pass "device owner removed"
+  note "restrictions left on phone: $(adb shell dumpsys user | grep -c 'no_factory_reset')"
+}

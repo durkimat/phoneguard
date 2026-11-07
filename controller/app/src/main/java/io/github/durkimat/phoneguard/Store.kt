@@ -67,6 +67,9 @@ object Store {
     fun wantGray(c: Context) = sp(c).getBoolean("wantGray", false)
     fun setWantGray(c: Context, v: Boolean) { sp(c).edit().putBoolean("wantGray", v).apply() }
 
+    fun linkText(c: Context): String? = sp(c).getString("link", null)
+    fun setLinkText(c: Context, t: String?) { val e = sp(c).edit(); if (t == null) e.remove("link") else e.putString("link", t); e.apply() }
+
     fun summary(c: Context, s: String) { sp(c).edit().putString("summary", s).apply() }
     fun summary(c: Context): String = sp(c).getString("summary", "not evaluated yet") ?: ""
 }

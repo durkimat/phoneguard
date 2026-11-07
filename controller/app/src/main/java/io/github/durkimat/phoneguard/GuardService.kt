@@ -18,7 +18,7 @@ import android.provider.Settings
  */
 class GuardService : Service() {
     private val main = Handler(Looper.getMainLooper())
-    private val evalSoon = Runnable { Controller.evaluate(this, "package change") }
+    private val evalSoon = Runnable { Controller.evaluate(this, "package change"); Link.runAsync(this, "package change") }
 
     private val packages = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
