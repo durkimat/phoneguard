@@ -15,6 +15,7 @@ object Themes {
         Theme("green", "Green", 0xFF9DC25A.toInt(), 0xFF1A2A08.toInt()),
         Theme("grey", "Grey", 0xFFCFD3CC.toInt(), 0xFF1A1A1A.toInt()),
         Theme("amber", "Amber", 0xFF1A1200.toInt(), 0xFFFFB52E.toInt()),
+        Theme("orange", "Orange", 0xFFF2A33A.toInt(), 0xFF3A1A00.toInt()),
     )
     const val DEFAULT = "green"
     fun byId(id: String?): Theme = all.firstOrNull { it.id == id } ?: all.first { it.id == DEFAULT }

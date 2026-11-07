@@ -262,3 +262,8 @@ launcher in the same app; (3) notification counts and the status line.
 - Needs design work: some apps should use the whole screen and others perhaps not. Decide per app (or per category) which get the full screen and which get the split layout.
 - Open questions to settle then: how the split is enforced on stock Android (window insets, a custom keyboard, split-screen or an overlay), touch versus D-pad navigation, and how it works with the existing modes and lockdown.
 - Not started; pick up when we reach this item.
+
+## Greyscale setting shelved (2026-11-07)
+- The Android grey-screen option is redundant now the launcher has its own themes. School no longer uses it (set off in HA). Keep the code and card row for now; consider removing later.
+- Lesson: grey screen filters adb screenshots? No: screencap shows colour even when the filter is on, so check the setting (accessibility_display_daltonizer_enabled), not the screenshot.
+- Themes now: Green, Grey, Amber (dark), Orange (light). Selection style variants (outlined) still optional.
