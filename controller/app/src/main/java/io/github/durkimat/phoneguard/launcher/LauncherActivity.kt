@@ -89,7 +89,12 @@ class LauncherActivity : Activity() {
 
     private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
+    private val hideNotice = Runnable { model.clearNotice(); refresh() }
+
     private fun refresh() {
+        // a notice ("Message sent") goes by itself after a moment
+        ui.removeCallbacks(hideNotice)
+        if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
         model.setItems(LauncherData.items(this))
         if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
         if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)
