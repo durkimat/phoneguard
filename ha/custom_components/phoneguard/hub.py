@@ -37,7 +37,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions"}
         before = {k: ch.get(k) for k in allowed}
         for k, v in patch.items():
             if k in allowed:
@@ -56,6 +56,12 @@ class Hub:
                     raise ValueError(f"the timetable uses mode {mode!r}, which this device does not have")
         if ch["base"] not in ch["modes"]:
             raise ValueError(f"base mode {ch['base']!r} does not exist")
+        if ch.get("override") is not None and ch["override"] not in ch["modes"]:
+            raise ValueError(f"mode {ch['override']!r} does not exist")
+
+    def set_override(self, cid: str, mode: str | None) -> None:
+        """Force one mode regardless of the timetable (None or "auto" goes back to the timetable)."""
+        self.update_child(cid, {"override": None if mode in (None, "", "auto") else mode})
 
     COPY_PARTS = ("timetable", "holiday", "restrictions", "mode_options")
 
@@ -76,9 +82,12 @@ class Hub:
             elif part == "mode_options":
                 modes = json.loads(json.dumps(b["modes"]))
                 for mid, m in a["modes"].items():
-                    if mid in modes:  # same mode on both: take grey screen and everything-allowed, keep this device's own app list
+                    if mid in modes:  # same mode on both: take the options, keep this device's own app list
+                        m = S.mode_with_defaults(mid, m)
                         modes[mid]["gray"] = m.get("gray", False)
                         modes[mid]["allowAll"] = m.get("allowAll", False)
+                        for k in S.LOCKDOWN_KEYS:
+                            modes[mid][k] = m[k]
                 patch["modes"] = modes
             else:
                 raise ValueError(f"unknown part {part!r}")
@@ -282,7 +291,8 @@ class Hub:
         boost = self.active_boost(cid)
         out: dict = {
             "child": cid, "name": ch["name"], "person": ch.get("person") or ch["name"], "tz": ch["tz"], "base": ch["base"], "notify": ch["notify"],
-            "modes": ch["modes"], "week": ch["week"], "holiday": ch["holiday"],
+            "modes": {mid: S.mode_with_defaults(mid, m) for mid, m in ch["modes"].items()},
+            "override": ch.get("override") if ch.get("override") in ch["modes"] else None, "week": ch["week"], "holiday": ch["holiday"],
             "mode_now": S.resolve_mode(cfg, boost, now), "boost": boost, "now": now,
             "device": None, "apps": [], "pending_apps": [], "usage": {}, "labels": {},
             "restrictions": ch.get("restrictions"),

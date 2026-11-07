@@ -213,6 +213,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await admin(call)
         cid = child_of(call); mgr.hub.forget(cid); mgr.qr.pop(cid, None); mgr.changed()
 
+    async def set_override(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call)
+        try:
+            mgr.hub.set_override(cid, call.data["mode"])
+        except ValueError as err:
+            raise HomeAssistantError(f"Not changed: {err}") from err
+        mgr.changed(cid)
+
     async def copy_settings(call: ServiceCall) -> None:
         await admin(call)
         src, dst = child_of(call), call.data["to"]
@@ -254,6 +263,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "set_child", set_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("config"): dict}))
     reg(DOMAIN, "nudge", nudge, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "release", release, vol.Schema({vol.Required("child"): cv.slug}))
+    reg(DOMAIN, "set_override", set_override, vol.Schema({vol.Required("child"): cv.slug, vol.Required("mode"): cv.string}))
     reg(DOMAIN, "copy_settings", copy_settings, vol.Schema({vol.Required("child"): cv.slug, vol.Required("to"): cv.slug, vol.Required("parts"): [cv.string]}))
     reg(DOMAIN, "rename_child", rename_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("new_child"): cv.slug}))
     reg(DOMAIN, "remove_child", remove_child, vol.Schema({vol.Required("child"): cv.slug}))
@@ -273,7 +283,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child"):
+                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True

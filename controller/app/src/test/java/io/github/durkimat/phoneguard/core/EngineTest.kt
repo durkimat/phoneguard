@@ -136,6 +136,19 @@ class EngineTest {
         assertEquals("day", Engine.nextChange(c, null, 1000)!!.second.modeId)
     }
 
+    @Test fun aForcedModeBeatsTheTimetable() {
+        val base = cfg()
+        val tue10 = at(2026, 11, 3, 10) // normally School
+        assertEquals("school", Engine.scheduledMode(base, tue10))
+        val forced = base.copy(override = "night")
+        assertEquals("night", Engine.scheduledMode(forced, tue10))
+        assertEquals("night", Engine.scheduledMode(forced, at(2026, 11, 8, 12))) // and on a Sunday afternoon
+        assertEquals("school", Engine.scheduledMode(base.copy(override = "nonsense"), tue10)) // an unknown mode is ignored
+        assertEquals(null, Engine.nextChange(forced, null, tue10)) // nothing changes by itself while forced
+        assertEquals("night", Config.parse("""{"modes":{"night":{"name":"N"}},"override":"night"}""").override)
+        assertEquals(null, Config.parse("""{"modes":{"night":{}},"override":""}""").override)
+    }
+
     @Test fun parsesJson() {
         val j = """{"version":3,"base":"day","windowEnd":10,
           "modes":{"day":{"name":"Day","allowAll":true},"school":{"allow":["x"],"gray":true}},

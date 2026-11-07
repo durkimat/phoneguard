@@ -28,6 +28,7 @@ object Engine {
     /** The mode the timetable wants at `now`, before any boost. */
     fun scheduledMode(cfg: Config?, now: Long): String {
         if (cfg == null) return EMERGENCY
+        cfg.override?.let { if (cfg.modes.containsKey(it)) return it } // a parent forced a mode; an unknown one is ignored
         cfg.segments.firstOrNull { now >= it.from && now < it.to }?.let { return it.mode }
         if (now >= cfg.windowEnd) cfg.pattern?.let { p -> patternMode(p, now)?.let { return it } }
         return cfg.base

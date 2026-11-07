@@ -6,7 +6,7 @@
 const now = Date.now();
 const day = (n) => new Date(now - n * 86400000).toISOString().slice(0, 10);
 const week = (() => { const w = {}; for (let d = 1; d <= 7; d++) { const x = [[0, 420, "night"]]; if (d <= 5) x.push([510, 930, "school"]); x.push([1260, 1440, "night"]); w[d] = x; } return w; })();
-const modes = () => ({ day: { name: "Day", allowAll: true, allow: [], gray: false }, school: { name: "School", allowAll: false, allow: ["org.lineageos.aperture"], gray: true }, night: { name: "Night", allowAll: false, allow: ["org.lineageos.glimpse"], gray: false } });
+const modes = () => ({ day: { name: "Day", allowAll: true, allow: [], gray: false, launcher: "default", touch: true, shade: true, kiosk: false }, school: { name: "School", allowAll: false, allow: ["org.lineageos.aperture"], gray: true, launcher: "nokia", touch: false, shade: false, kiosk: true }, night: { name: "Night", allowAll: false, allow: ["org.lineageos.glimpse"], gray: false, launcher: "default", touch: true, shade: true, kiosk: false } });
 const apps = [{ pkg: "org.lineageos.aperture", label: "Camera" }, { pkg: "org.lineageos.glimpse", label: "Gallery" }, { pkg: "org.lineageos.jelly", label: "Browser" }, { pkg: "com.dumbermini.davx", label: "DAVx5" }];
 const mk = (child, person, name, extra) => Object.assign({ child, person, name, tz: "Europe/London", base: "day", notify: "", modes: modes(), week, holiday: null, mode_now: "school", boost: null, now, restrictions: null,
   device: { did: "x", pending: false, last_seen: now - 95000, state: { mode: "school", hidden: 5, gray: true, canGray: true, battery: 84, usageAllowed: true }, model: "DumberOS", in_sync: true },

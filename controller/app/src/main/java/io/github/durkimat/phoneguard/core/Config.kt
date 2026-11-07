@@ -42,6 +42,8 @@ data class Config(
     val unprotect: Set<String>,
     /** User restriction keys to enforce, or null for the built-in default set. */
     val restrictions: Set<String>?,
+    /** A parent forcing one mode regardless of the timetable, until HA clears it. */
+    val override: String? = null,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -95,6 +97,7 @@ data class Config(
                 protectExtra = strings(o.optJSONArray("protectExtra")),
                 unprotect = strings(o.optJSONArray("unprotect")),
                 restrictions = if (o.has("restrictions")) strings(o.getJSONArray("restrictions")) else null,
+                override = o.optString("override", "").ifEmpty { null },
             )
         }
     }

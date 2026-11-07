@@ -60,7 +60,14 @@ School hours are skipped. Calls under lock-task are still untested (no SIM here)
 Order: (1) lock-task and touch-overlay experiments with the current launcher (done, results in SPEC); (2) minimal Nokia
 launcher in the same app; (3) notification counts and the status line.
 
+### Done 2026-11-07 (kept for the record)
+- Per-mode lockdown wired end to end: launcher, touchscreen, shade, kiosk, Home pin, permission pre-grants.
+- Mode override (Auto/Day/School/Night) next to Boost in the card.
+- Card controls for the lockdown settings; School locked down by default; Clock left out of School, kept in Night.
+
 ### Launcher follow-ups (from the first build)
+- The strip behind the launcher's status line is drawn darker than the rest of the screen while locked
+  down (looks like the system status bar background). Cosmetic.
 - Wire the per-mode settings into the controller: launcher (normal or Nokia), touch overlay, shade, lock
   task. Today they only exist as debug commands.
 - Pin the Home app explicitly for every mode; otherwise a second Home app makes Android show a chooser.

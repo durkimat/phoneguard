@@ -88,3 +88,9 @@ rename_child:
   fields:
     child: {required: true, selector: {text: {}}}
     new_child: {required: true, selector: {text: {}}}
+set_override:
+  name: Force a mode
+  description: Hold one mode regardless of the timetable. Use auto to go back to the timetable.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    mode: {required: true, example: school, selector: {text: {}}}
