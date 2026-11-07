@@ -10,6 +10,25 @@ from zoneinfo import ZoneInfo
 WINDOW_DAYS = 14
 
 
+# What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk")
+CLOCK = "com.android.deskclock"
+
+
+def lockdown_defaults(mode_id: str) -> dict:
+    if mode_id == "school":
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True}
+    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False}
+
+
+def mode_with_defaults(mode_id: str, mode: dict) -> dict:
+    """A mode with every lockdown setting filled in (older data has none of them)."""
+    out = dict(mode)
+    for k, v in lockdown_defaults(mode_id).items():
+        out.setdefault(k, v)
+    return out
+
+
 def default_child(name: str) -> dict:
     week = {}
     for dow in range(1, 8):
@@ -24,14 +43,16 @@ def default_child(name: str) -> dict:
         "base": "day",
         "notify": "",  # e.g. notify.mobile_app_dumbphone2, used for the sync-now nudge
         "modes": {
-            "day": {"name": "Day", "allowAll": True, "allow": [], "gray": False},
-            "school": {"name": "School", "allowAll": False, "allow": [], "gray": True},
-            "night": {"name": "Night", "allowAll": False, "allow": [], "gray": False},
+            "day": {"name": "Day", "allowAll": True, "allow": [], "gray": False, **lockdown_defaults("day")},
+            # School leaves the Clock out so no alarm can ring; Night keeps it so the morning alarm works
+            "school": {"name": "School", "allowAll": False, "allow": [], "gray": True, **lockdown_defaults("school")},
+            "night": {"name": "Night", "allowAll": False, "allow": [CLOCK], "gray": False, **lockdown_defaults("night")},
         },
+        "override": None,  # a mode id to force, or None for the timetable
         "week": week,
         "holiday": None,  # {"from": "2026-12-19", "until": "2027-01-04"}
         "protect_extra": [],
-        "unprotect": [],
+        "unprotect": [CLOCK],  # a mode can hide the Clock
         "restrictions": None,
         "known": None,  # packages the parent has already seen; None until the first sync
     }
@@ -66,9 +87,12 @@ def build_config(child: dict, now_ms: int) -> dict:
                 mode = "day"
             segments.append({"from": _local_ms(tz, d, start), "to": _local_ms(tz, d, end), "mode": mode})
     modes = {}
-    for mid, m in child["modes"].items():
+    for mid, m0 in child["modes"].items():
+        m = mode_with_defaults(mid, m0)
         modes[mid] = {"name": m.get("name", mid), "allowAll": bool(m.get("allowAll")),
-                      "allow": sorted(set(m.get("allow", []))), "gray": bool(m.get("gray"))}
+                      "allow": sorted(set(m.get("allow", []))), "gray": bool(m.get("gray")),
+                      "launcher": "nokia" if m["launcher"] == "nokia" else "default",
+                      "touch": bool(m["touch"]), "shade": bool(m["shade"]), "kiosk": bool(m["kiosk"])}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,
@@ -80,6 +104,8 @@ def build_config(child: dict, now_ms: int) -> dict:
     }
     if child.get("restrictions") is not None:
         cfg["restrictions"] = sorted(child["restrictions"])
+    if child.get("override") in modes:
+        cfg["override"] = child["override"]
     digest = hashlib.sha1(json.dumps(cfg, sort_keys=True).encode()).hexdigest()[:12]
     cfg["version"] = int(digest, 16)
     return cfg
@@ -91,6 +117,8 @@ def cfg_hash(cfg: dict) -> str:
 
 def resolve_mode(cfg: dict, boost: dict | None, now_ms: int) -> str:
     """Mirror of the controller's Engine.scheduledMode, for display only."""
+    if cfg.get("override") in cfg["modes"]:
+        return cfg["override"]
     for s in cfg["segments"]:
         if s["from"] <= now_ms < s["to"]:
             return s["mode"]

@@ -65,7 +65,7 @@ object LauncherData {
         return HomeInfo(
             time = SimpleDateFormat("HH:mm", Locale.UK).format(date),
             date = SimpleDateFormat("EEE d MMM", Locale.UK).format(date),
-            modeLine = if (until != null) "$name until $until" else name,
+            modeLine = if (cfg?.override != null && cfg.modes.containsKey(cfg.override)) name else if (until != null) "$name until $until" else name,
             missedCalls = missedCalls(c),
             newMessages = newMessages(c),
             batteryPct = if (level >= 0) level * 100 / scale else 0,

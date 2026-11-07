@@ -1,8 +1,8 @@
-/* Phone Guard card v0.5.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.6.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.5.0";
+const PG_VERSION = "0.6.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -142,6 +142,10 @@ class PhoneGuardCard extends HTMLElement {
       input[type=text], input[type=date], select { font: inherit; padding: 8px; border-radius: 8px; min-height: 40px; box-sizing: border-box;
         border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: inherit; }
       input.sas { width: 7em; font-size: 20px; letter-spacing: .2em; text-align: center; }
+      .split { display:flex; flex-wrap:wrap; gap: 0 32px; }
+      .blk { flex: 1 1 280px; min-width: 0; }
+      .seg { display:flex; flex-wrap:wrap; gap:6px; }
+      .seg button.sel { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
       .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 12px; }
       .who { display:flex; align-items:center; gap:14px; margin-bottom: 12px; }
       .pname { font-size: 24px; margin: 0; }
@@ -205,7 +209,7 @@ class PhoneGuardCard extends HTMLElement {
 
     // header: name, mode, how recently heard from, and the refresh button
     const shownName = (this._all && this._all[this._ui.sel]) ? this._all[this._ui.sel].name : d.name;
-    html += `<div class="row"><h2 style="font-size:18px">${this._esc(shownName)}</h2><span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
+    html += `<div class="row"><h2 style="font-size:18px">${this._esc(shownName)}</h2><span class="chip">${this._esc(modeName)}${d.override ? " (held)" : ""}${d.boost ? " + boost" : ""}</span>`;
     if (dev && !dev.pending) {
       html += `<span class="chip ${stale ? "warn" : "off"}">${stale ? "not heard " : "seen "}${this._ago(dev.last_seen)}</span>
         <button class="small" data-act="nudge" title="Ask the phone to check in now">⟳ Sync now</button>`;
@@ -318,17 +322,25 @@ class PhoneGuardCard extends HTMLElement {
     return h + `<div class="row" style="margin-top:8px"><button class="primary" data-act="pair">${d.pairing ? "New QR code" : "Start pairing"}</button></div>`;
   }
 
+  // Boost (extra access for a while) and Mode (hold one mode) sit side by side
   _boostHtml(d) {
     const modes = Object.keys(d.modes);
     const sel = this._ui.boostMode && d.modes[this._ui.boostMode] ? this._ui.boostMode : (d.modes.day ? "day" : modes[0]);
-    let h = `<h3>Boost</h3>
-      <div class="row"><span>Give</span><select data-f="boostMode">${modes.map((m) => `<option value="${m}" ${m === sel ? "selected" : ""}>${this._esc(d.modes[m].name)}</option>`).join("")}</select><span>access for</span></div>
+    const name = (m) => (d.modes[m] || { name: m }).name;
+    const boost = `<h3>Boost</h3>
+      <div class="row"><span>Give</span><select data-f="boostMode">${modes.map((m) => `<option value="${m}" ${m === sel ? "selected" : ""}>${this._esc(name(m))}</option>`).join("")}</select><span>access for</span></div>
       <div class="row" style="margin-top:8px"><button data-act="boost" data-min="15">+15 min</button><button data-act="boost" data-min="30">+30 min</button>
       <button data-act="boost" data-min="60">+1 h</button>${d.boost ? `<button data-act="cancel_boost" class="danger">Cancel boost</button>` : ""}</div>
       <div class="sub" style="margin-top:6px">${d.boost
-        ? `${this._esc((d.modes[d.boost.mode] || { name: d.boost.mode }).name)} access until ${this._fmtTime(d.boost.until)}. Each press adds time.`
-        : "Adds that mode's apps on top of what is allowed right now, then ends by itself. It never takes anything away."}</div>`;
-    return h;
+        ? `${this._esc(name(d.boost.mode))} access until ${this._fmtTime(d.boost.until)}. Each press adds time.`
+        : "Adds that mode's apps on top of what is allowed right now, then ends by itself."}</div>`;
+    const mode = `<h3>Mode</h3>
+      <div class="seg"><button class="${d.override ? "" : "sel"}" data-act="override" data-mode="auto">Auto</button>${modes.map((m) =>
+        `<button class="${d.override === m ? "sel" : ""}" data-act="override" data-mode="${m}">${this._esc(name(m))}</button>`).join("")}</div>
+      <div class="sub" style="margin-top:6px">${d.override
+        ? `Held in ${this._esc(name(d.override))} whatever the timetable says, until you choose Auto.`
+        : `Following the timetable (${this._esc(name(d.mode_now))} now). Pick a mode to hold it.`}</div>`;
+    return `<div class="split"><div class="blk">${boost}</div><div class="blk">${mode}</div></div>`;
   }
 
   _holidayHtml(d) {
@@ -361,7 +373,11 @@ class PhoneGuardCard extends HTMLElement {
     if (!d.apps.length) return h + `<div class="sub">The phone has not reported its apps yet.</div>`;
     h += `<table><tr><th>App</th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}</tr>
       <tr class="opt"><td>Everything allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="allowAll" data-mode="${m}" ${d.modes[m].allowAll ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Grey screen</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="gray" data-mode="${m}" ${d.modes[m].gray ? "checked" : ""}></td>`).join("")}</tr>`;
+      <tr class="opt"><td>Grey screen</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="gray" data-mode="${m}" ${d.modes[m].gray ? "checked" : ""}></td>`).join("")}</tr>
+      <tr class="opt"><td>Home screen</td>${ids.map((m) => `<td><select data-mode-opt="launcher" data-mode="${m}"><option value="default" ${d.modes[m].launcher !== "nokia" ? "selected" : ""}>Normal</option><option value="nokia" ${d.modes[m].launcher === "nokia" ? "selected" : ""}>Nokia</option></select></td>`).join("")}</tr>
+      <tr class="opt"><td>Touchscreen works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="touch" data-mode="${m}" ${d.modes[m].touch !== false ? "checked" : ""}></td>`).join("")}</tr>
+      <tr class="opt"><td>Pull-down shade works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="shade" data-mode="${m}" ${d.modes[m].shade !== false ? "checked" : ""}></td>`).join("")}</tr>
+      <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
       h += `<tr><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
         ids.map((m) => {
@@ -369,7 +385,8 @@ class PhoneGuardCard extends HTMLElement {
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
         }).join("") + `</tr>`;
     }
-    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white.</div>`;
+    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
+      <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
   }
 
   _copyHtml(d) {
@@ -576,7 +593,7 @@ class PhoneGuardCard extends HTMLElement {
     if (sas) sas.addEventListener("input", () => { this._ui.sas = sas.value; });
     r.querySelectorAll("input[data-app]").forEach((i) =>
       i.addEventListener("change", () => this._svc("set_app_mode", { package: i.dataset.app, mode: i.dataset.mode, allowed: i.checked })));
-    r.querySelectorAll("input[data-mode-opt]").forEach((i) => i.addEventListener("change", () => this._modeOpt(i)));
+    r.querySelectorAll("input[data-mode-opt], select[data-mode-opt]").forEach((i) => i.addEventListener("change", () => this._modeOpt(i)));
     r.querySelectorAll("input[data-cp]").forEach((i) => i.addEventListener("change", () => { this._ui.copyParts[i.dataset.cp] = i.checked; }));
     r.querySelectorAll("select[data-f=newPhone]").forEach((i) => i.addEventListener("change", () => { this._ui.newPerson = ""; this._render(); }));
     r.querySelectorAll("select[data-f=newPerson], select[data-f=copyTo]").forEach((i) => i.addEventListener("change", () => this._render()));
@@ -592,6 +609,8 @@ class PhoneGuardCard extends HTMLElement {
     const d = this._d, mode = i.dataset.mode, opt = i.dataset.modeOpt;
     const modes = JSON.parse(JSON.stringify(d.modes));
     if (opt === "gray") modes[mode].gray = i.checked;
+    if (opt === "launcher") modes[mode].launcher = i.value;
+    if (opt === "touch" || opt === "shade" || opt === "kiosk") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
       modes[mode].allowAll = i.checked;
       // leaving "everything allowed": start from every current app ticked, so nothing changes until you untick something
@@ -666,6 +685,7 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "forget") return this._svc("forget");
     if (a === "boost") return this._svc("boost", { mode: ui.boostMode && d.modes[ui.boostMode] ? ui.boostMode : (d.modes.day ? "day" : Object.keys(d.modes)[0]), minutes: Number(b.dataset.min) });
     if (a === "cancel_boost") return this._svc("cancel_boost");
+    if (a === "override") return this._svc("set_override", { mode: b.dataset.mode });
     if (a === "nudge") return this._svc("nudge");
     if (a === "holiday") return this._svc("set_holiday", { from: ui.from || (d.holiday || {}).from, until: ui.until || (d.holiday || {}).until });
     if (a === "holiday_clear") { ui.from = ui.until = ""; return this._svc("set_holiday", {}); }

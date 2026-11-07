@@ -765,3 +765,18 @@ Gotchas found:
   runtime permissions of every allowed app (device owner can grant for other apps) before School.
 - Counts come from the call log and SMS inbox. WhatsApp unread counts need notification access
   (an adb grant) and are not built.
+
+### Per-mode lockdown and mode override (built 2026-11-07)
+- Each mode has: `launcher` (default or nokia), `touch`, `shade`, `kiosk`, plus the existing grey
+  screen and app list. School defaults to nokia, touch off, shade off, kiosk on; everything else is open.
+  Boost takes the least restrictive value of each setting. Emergency (no config) never locks anything.
+- The controller applies them on every evaluation: Home app pinned explicitly, status bar, touch
+  overlay, lock-task with the apps the launcher menu shows (plus calling plumbing), and pre-grants
+  the allowed apps' non-sensor permissions. Leaving the mode puts everything back.
+- Checked on the J36: 18 rig checks, including School and Day round trips, Settings refused, touch
+  blocked inside the dialler, Clock hidden then restored, Home key reaching the right launcher.
+- Mode override: HA forces a mode by adding `override` to the config it sends. It beats the timetable
+  until set back to Auto. Checked live: forcing School on a Saturday locked the phone down within
+  about ten seconds and Auto restored it.
+- Setup needs these adb grants once: device owner, `WRITE_SECURE_SETTINGS` (grayscale),
+  `GET_USAGE_STATS` (usage), `SYSTEM_ALERT_WINDOW` (touch blocking).

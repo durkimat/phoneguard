@@ -224,3 +224,35 @@ def test_rename_child_keeps_everything(hub):
     assert hub.device_of("dumbo_phone") is not None and hub.active_boost("dumbo_phone")
     r = sync(hub, ph)  # the paired phone carries on syncing, and gets this child's config
     assert "a.one" in r["cfg"]["modes"]["school"]["allow"]
+
+
+def test_lockdown_defaults_override_and_copy(hub):
+    ph = Phone(); pair(hub, ph); hub.confirm_pairing("her", hub.device_of("her")[1]["sas"])
+    cfg = S.build_config(hub.data["children"]["her"], T0)
+    sc = cfg["modes"]["school"]
+    assert (sc["launcher"], sc["touch"], sc["shade"], sc["kiosk"]) == ("nokia", False, False, True)
+    d = cfg["modes"]["day"]
+    assert (d["launcher"], d["touch"], d["shade"], d["kiosk"]) == ("default", True, True, False)
+    assert "com.android.deskclock" in cfg["modes"]["night"]["allow"] and "com.android.deskclock" not in sc["allow"]
+    assert cfg["unprotect"] == ["com.android.deskclock"]
+    # older data without the settings still gets the defaults
+    for m in hub.data["children"]["her"]["modes"].values():
+        for k in S.LOCKDOWN_KEYS: m.pop(k, None)
+    assert S.build_config(hub.data["children"]["her"], T0)["modes"]["school"]["kiosk"] is True
+    # forcing a mode
+    h0 = S.cfg_hash(cfg)
+    hub.set_override("her", "night")
+    forced = S.build_config(hub.data["children"]["her"], T0)
+    assert forced["override"] == "night" and S.cfg_hash(forced) != h0
+    assert S.resolve_mode(forced, None, T0) == "night"
+    assert hub.view("her")["override"] == "night"
+    with pytest.raises(ValueError):
+        hub.set_override("her", "nonsense")
+    assert hub.view("her")["override"] == "night"  # a refused change leaves it as it was
+    hub.set_override("her", "auto")
+    assert "override" not in S.build_config(hub.data["children"]["her"], T0)
+    # copy keeps each device's own app lists but takes the lockdown options
+    hub.ensure_child("tab", "Tab", "Her")
+    hub.data["children"]["her"]["modes"]["day"].update({"touch": False, "launcher": "nokia"})
+    hub.copy_settings("her", "tab", ["mode_options"])
+    assert hub.data["children"]["tab"]["modes"]["day"]["touch"] is False and hub.data["children"]["tab"]["modes"]["day"]["launcher"] == "nokia"
