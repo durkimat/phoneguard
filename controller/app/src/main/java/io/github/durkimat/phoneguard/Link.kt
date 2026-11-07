@@ -157,7 +157,19 @@ object Link {
             .put("hidden", Store.hidden(c).size).put("gray", Enforcer.isGray(c)).put("canGray", Enforcer.canWriteSecure(c))
             .put("owner", Dpm.isOwner(c)).put("battery", bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
             .put("version", BuildConfig.VERSION_NAME).put("tz", TimeZone.getDefault().id).put("clock", now)
-        return JSONObject().put("kind", "sync").put("cfgh", cfgh).put("state", state).put("apps", apps)
+        state.put("usageAllowed", Usage.allowed(c))
+        val out = JSONObject().put("kind", "sync").put("cfgh", cfgh).put("state", state).put("apps", apps)
+        try {
+            Usage.recent(c)?.let { usage ->
+                out.put("usage", usage)
+                val labels = JSONObject()
+                for (day in usage.keys()) for (pkg in usage.getJSONObject(day).keys()) if (!labels.has(pkg)) {
+                    labels.put(pkg, try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES)).toString() } catch (_: Exception) { pkg })
+                }
+                out.put("labels", labels)
+            }
+        } catch (e: Exception) { Log.log(c, "usage failed: ${e.javaClass.simpleName}") }
+        return out
     }
 
     private fun post(url: String, body: String): String {

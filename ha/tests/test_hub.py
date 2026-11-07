@@ -158,3 +158,55 @@ def test_schedule_window_holiday_and_dst():
     from datetime import datetime
     from zoneinfo import ZoneInfo
     assert datetime.fromtimestamp(first_mon["from"] / 1000, ZoneInfo("Europe/London")).strftime("%H:%M") == "08:30"
+
+
+def test_usage_is_merged_trimmed_and_shown(hub):
+    ph = Phone(); pair(hub, ph); hub.confirm_pairing("her", hub.device_of("her")[1]["sas"])
+    def send(usage):
+        env = ph.envelope({"kind": "sync", "cfgh": "", "state": {}, "apps": [], "usage": usage})
+        ph.check_reply(hub.handle(env), env)
+    send({"2026-11-07": {"a.one": 600, "a.two": 60}, "2026-11-06": {"a.one": 1200}})
+    send({"2026-11-07": {"a.one": 900}})  # later today replaces earlier numbers for that day
+    u = hub.view("her")["usage"]
+    assert u["2026-11-07"] == {"a.one": 900} and u["2026-11-06"] == {"a.one": 1200}
+    for d in range(1, 41):
+        send({f"2026-10-{d:02d}"[:10] if d < 32 else "2026-09-01": {"x": 1}})
+    assert len(hub.device_of("her")[1]["usage"]) == 30
+    send("garbage"); send({"bad": 1})
+    assert len(hub.device_of("her")[1]["usage"]) == 30
+
+
+def test_remove_child_and_restrictions_patch(hub):
+    ph = Phone(); pair(hub, ph)
+    hub.update_child("her", {"restrictions": ["no_factory_reset", "no_config_vpn"]})
+    assert hub.view("her")["restrictions"] == ["no_factory_reset", "no_config_vpn"]
+    hub.update_child("her", {"modes": {**hub.data["children"]["her"]["modes"], "day": {"name": "Day", "allowAll": False, "allow": ["a.one"], "gray": False}}})
+    cfg = S.build_config(hub.data["children"]["her"], T0)
+    assert cfg["modes"]["day"]["allowAll"] is False and cfg["modes"]["day"]["allow"] == ["a.one"]
+    hub.remove_child("her")
+    assert "her" not in hub.data["children"] and not hub.data["devices"]
+
+
+def test_copy_settings_between_devices_and_validation(hub):
+    hub.ensure_child("tablet", "Tablet", "Her")
+    hub.update_child("her", {"restrictions": ["no_config_vpn"], "week": {**hub.data["children"]["her"]["week"], "6": [[0, 600, "night"], [600, 1440, "day"]]}})
+    hub.set_app_mode("her", "a.only.on.phone", "school", True)
+    hub.data["children"]["her"]["modes"]["school"]["gray"] = False
+    done = hub.copy_settings("her", "tablet", ["timetable", "restrictions", "mode_options"])
+    t = hub.data["children"]["tablet"]
+    assert done == ["timetable", "restrictions", "mode_options"]
+    assert t["week"]["6"] == [[0, 600, "night"], [600, 1440, "day"]]
+    assert t["restrictions"] == ["no_config_vpn"] and t["modes"]["school"]["gray"] is False
+    assert "a.only.on.phone" not in t["modes"]["school"]["allow"]  # app lists stay per device
+    assert hub.view("tablet")["person"] == "Her"
+    with pytest.raises(ValueError):
+        hub.copy_settings("her", "her", ["timetable"])
+    with pytest.raises(ValueError):
+        hub.copy_settings("her", "tablet", ["nonsense"])
+    # a timetable naming a mode the target lacks is refused and leaves the target unchanged
+    hub.data["children"]["tablet"]["modes"].pop("night")
+    hub.data["children"]["tablet"]["week"] = {str(d): [[0, 1440, "day"]] for d in range(1, 8)}
+    before = json.dumps(hub.data["children"]["tablet"], sort_keys=True)
+    with pytest.raises(ValueError):
+        hub.copy_settings("her", "tablet", ["timetable"])
+    assert json.dumps(hub.data["children"]["tablet"], sort_keys=True) == before

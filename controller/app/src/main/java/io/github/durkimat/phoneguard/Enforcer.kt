@@ -86,6 +86,7 @@ object Enforcer {
 
     fun grantOwnPermissions(c: Context) {
         val dpm = Dpm.dpm(c)
+        tryGrantUsageAccess(c)
         for (p in listOf(android.Manifest.permission.POST_NOTIFICATIONS, android.Manifest.permission.CAMERA)) {
             try { dpm.setPermissionGrantState(Dpm.admin(c), c.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
         }
@@ -101,6 +102,16 @@ object Enforcer {
         try { dpm.setUserControlDisabledPackages(admin, emptyList()) } catch (_: Exception) { }
         setGray(c, false)
         Log.log(c, "restored: nothing hidden, no restrictions, grayscale off")
+    }
+
+    /** Usage access is an app-op: a device owner may be able to grant it itself, otherwise adb at setup. */
+    fun tryGrantUsageAccess(c: Context): Boolean {
+        if (Usage.allowed(c)) return true
+        try {
+            Dpm.dpm(c).setPermissionGrantState(Dpm.admin(c), c.packageName, "android.permission.PACKAGE_USAGE_STATS",
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+        } catch (_: Exception) { }
+        return Usage.allowed(c)
     }
 
     private const val GRAY = "accessibility_display_daltonizer_enabled"

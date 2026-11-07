@@ -139,7 +139,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def create_pairing(call: ServiceCall) -> ServiceResponse:
         await admin(call)
         cid = call.data["child"]
-        mgr.hub.ensure_child(cid, call.data.get("name"))
+        mgr.hub.ensure_child(cid, call.data.get("name"), call.data.get("person"))
         info = mgr.hub.create_pairing(cid, await mgr.url())
         card = {"code": info["code"], "qr_text": info["qr"]}
         try:
@@ -213,8 +213,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await admin(call)
         cid = child_of(call); mgr.hub.forget(cid); mgr.qr.pop(cid, None); mgr.changed()
 
+    async def copy_settings(call: ServiceCall) -> None:
+        await admin(call)
+        src, dst = child_of(call), call.data["to"]
+        if dst not in mgr.hub.data["children"]:
+            raise HomeAssistantError(f"Unknown device {dst!r}")
+        try:
+            mgr.hub.copy_settings(src, dst, list(call.data["parts"]))
+        except (ValueError, KeyError) as err:
+            raise HomeAssistantError(f"Not copied: {err}") from err
+        mgr.changed(dst)
+
+    async def remove_child(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call); mgr.hub.remove_child(cid); mgr.qr.pop(cid, None)
+        hass.states.async_remove(f"sensor.phoneguard_{cid}")
+        mgr.changed()
+
     reg = hass.services.async_register
-    reg(DOMAIN, "create_pairing", create_pairing, vol.Schema({vol.Required("child"): cv.slug, vol.Optional("name"): cv.string}), supports_response=SupportsResponse.OPTIONAL)
+    reg(DOMAIN, "create_pairing", create_pairing, vol.Schema({vol.Required("child"): cv.slug, vol.Optional("name"): cv.string, vol.Optional("person"): cv.string}), supports_response=SupportsResponse.OPTIONAL)
     reg(DOMAIN, "confirm_pairing", confirm_pairing, vol.Schema({vol.Required("child"): cv.slug, vol.Required("sas"): cv.string}))
     reg(DOMAIN, "boost", boost, vol.Schema({vol.Required("child"): cv.slug, vol.Optional("mode", default="day"): cv.string, vol.Optional("minutes", default=15): vol.All(int, vol.Range(min=1, max=180)), vol.Optional("extend", default=True): cv.boolean}))
     reg(DOMAIN, "cancel_boost", cancel_boost, vol.Schema({vol.Required("child"): cv.slug}))
@@ -225,6 +242,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "set_child", set_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("config"): dict}))
     reg(DOMAIN, "nudge", nudge, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "release", release, vol.Schema({vol.Required("child"): cv.slug}))
+    reg(DOMAIN, "copy_settings", copy_settings, vol.Schema({vol.Required("child"): cv.slug, vol.Required("to"): cv.slug, vol.Required("parts"): [cv.string]}))
+    reg(DOMAIN, "remove_child", remove_child, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "forget", forget, vol.Schema({vol.Required("child"): cv.slug}))
 
     # keep the published mode and boost current as time passes
@@ -241,7 +260,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget"):
+                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget", "remove_child", "copy_settings"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True

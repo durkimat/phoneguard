@@ -57,6 +57,10 @@ class DebugReceiver : BroadcastReceiver() {
             r
         }
         "sync" -> Link.sync(c, "debug")
+        "statusbar" -> { // a = on|off: disable the pull-down shade and the status bar
+            val ok = Dpm.dpm(c).setStatusBarDisabled(Dpm.admin(c), a == "on"); "setStatusBarDisabled($a) ok=$ok"
+        }
+        "usage" -> Usage.recent(c)?.toString() ?: "usage access not granted"
         "link" -> Link.summary(c)
         "unpair" -> { Link.clear(c); "unpaired" }
         "pollms" -> { Link.pollMs = a.toLong(); "poll every ${Link.pollMs}ms" }

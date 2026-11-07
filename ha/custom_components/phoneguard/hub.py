@@ -12,6 +12,7 @@ from . import schedule as S
 
 PAIRING_TTL_MS = 10 * 60_000
 BOOST_CAP_MIN = 180
+USAGE_DAYS = 30
 
 
 class Hub:
@@ -26,21 +27,64 @@ class Hub:
 
     # ---- children ------------------------------------------------------------------------------
 
-    def ensure_child(self, cid: str, name: str | None = None) -> dict:
+    def ensure_child(self, cid: str, name: str | None = None, person: str | None = None) -> dict:
         ch = self.data["children"].get(cid)
         if ch is None:
             ch = S.default_child(name or cid)
+            ch["person"] = person or ch["name"]
             self.data["children"][cid] = ch
         return ch
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions"}
+        allowed = {"name", "person", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions"}
+        before = {k: ch.get(k) for k in allowed}
         for k, v in patch.items():
             if k in allowed:
                 ch[k] = v
-        # a bad timezone or timetable must never reach the phone
-        S.build_config(ch, self.now())
+        try:
+            self._validate(ch)
+        except Exception:
+            ch.update(before)  # a bad change must never be kept, let alone reach the phone
+            raise
+
+    def _validate(self, ch: dict) -> None:
+        S.build_config(ch, self.now())  # bad timezone or timetable shape
+        for dow, segs in ch["week"].items():
+            for _start, _end, mode in segs:
+                if mode not in ch["modes"]:
+                    raise ValueError(f"the timetable uses mode {mode!r}, which this device does not have")
+        if ch["base"] not in ch["modes"]:
+            raise ValueError(f"base mode {ch['base']!r} does not exist")
+
+    COPY_PARTS = ("timetable", "holiday", "restrictions", "mode_options")
+
+    def copy_settings(self, src: str, dst: str, parts: list[str]) -> list[str]:
+        """Copy settings between two guarded devices. App lists are never copied: they depend on what is installed."""
+        if src == dst:
+            raise ValueError("choose a different device to copy to")
+        a, b = self.data["children"][src], self.data["children"][dst]
+        patch: dict = {}
+        done = []
+        for part in parts:
+            if part == "timetable":
+                patch["week"] = json.loads(json.dumps(a["week"])); patch["base"] = a["base"]; patch["tz"] = a["tz"]
+            elif part == "holiday":
+                patch["holiday"] = json.loads(json.dumps(a["holiday"]))
+            elif part == "restrictions":
+                patch["restrictions"] = json.loads(json.dumps(a.get("restrictions")))
+            elif part == "mode_options":
+                modes = json.loads(json.dumps(b["modes"]))
+                for mid, m in a["modes"].items():
+                    if mid in modes:  # same mode on both: take grey screen and everything-allowed, keep this device's own app list
+                        modes[mid]["gray"] = m.get("gray", False)
+                        modes[mid]["allowAll"] = m.get("allowAll", False)
+                patch["modes"] = modes
+            else:
+                raise ValueError(f"unknown part {part!r}")
+            done.append(part)
+        self.update_child(dst, patch)
+        return done
 
     def set_holiday(self, cid: str, frm: str | None, until: str | None) -> None:
         self.data["children"][cid]["holiday"] = {"from": frm, "until": until} if frm and until else None
@@ -173,6 +217,9 @@ class Hub:
         dev["state"] = payload.get("state", {})
         dev["apps"] = payload.get("apps", [])
         dev["cfgh"] = payload.get("cfgh", "")
+        self._merge_usage(dev, payload.get("usage"))
+        if isinstance(payload.get("labels"), dict):
+            dev.setdefault("labels", {}).update({k: v for k, v in payload["labels"].items() if isinstance(k, str) and isinstance(v, str)})
         ch = self.data["children"][dev["child"]]
         if ch.get("known") is None and dev["apps"]:
             ch["known"] = sorted(a["pkg"] for a in dev["apps"])  # the apps already on the phone are not "new"
@@ -193,6 +240,22 @@ class Hub:
         }
         return P.make_reply(self.priv, did, n, reply, now)
 
+    def _merge_usage(self, dev: dict, usage: Any) -> None:
+        """Seconds in the foreground per app per day. The phone sends today and yesterday every sync."""
+        if not isinstance(usage, dict):
+            return
+        store = dev.setdefault("usage", {})
+        for day, apps in usage.items():
+            if isinstance(day, str) and len(day) == 10 and isinstance(apps, dict):
+                store[day] = {k: int(v) for k, v in apps.items() if isinstance(k, str) and isinstance(v, (int, float))}
+        for old in sorted(store)[:-USAGE_DAYS]:
+            del store[old]
+
+    def remove_child(self, cid: str) -> None:
+        self.forget(cid)
+        self.data["children"].pop(cid, None)
+        self.data["boosts"].pop(cid, None)
+
     # ---- what the card shows -------------------------------------------------------------------
 
     def view(self, cid: str) -> dict:
@@ -202,10 +265,11 @@ class Hub:
         cfg = S.build_config(ch, now)
         boost = self.active_boost(cid)
         out: dict = {
-            "child": cid, "name": ch["name"], "tz": ch["tz"], "base": ch["base"], "notify": ch["notify"],
+            "child": cid, "name": ch["name"], "person": ch.get("person") or ch["name"], "tz": ch["tz"], "base": ch["base"], "notify": ch["notify"],
             "modes": ch["modes"], "week": ch["week"], "holiday": ch["holiday"],
             "mode_now": S.resolve_mode(cfg, boost, now), "boost": boost, "now": now,
-            "device": None, "apps": [], "pending_apps": [],
+            "device": None, "apps": [], "pending_apps": [], "usage": {}, "labels": {},
+            "restrictions": ch.get("restrictions"),
         }
         pairing = next(((d, p) for d, p in self.data["pairing"].items() if p["child"] == cid), None)
         if pairing and pairing[1]["expires"] > now:
@@ -218,6 +282,8 @@ class Hub:
                 "last_seen": dev["last_seen"], "state": dev["state"], "model": dev.get("model", ""),
                 "in_sync": dev["cfgh"] == S.cfg_hash(cfg), "releasing": bool(dev.get("release")),
             }
+            out["usage"] = dev.get("usage", {})
+            out["labels"] = dev.get("labels", {})
             out["apps"] = sorted(dev["apps"], key=lambda a: a.get("label", a["pkg"]).lower())
             out["pending_apps"] = [a["pkg"] for a in dev["apps"] if a["pkg"] not in known]
         return out
