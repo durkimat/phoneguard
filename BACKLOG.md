@@ -84,6 +84,39 @@ Open questions:
   launcher and the stock Messaging, Contacts and Phone apps. Messages and contacts live in the shared
   system databases, so both interfaces show the same data. The default SMS and dialler roles would be
   switched per mode by the controller.
+- **WhatsApp bridge: owner's decision (2026-11-07).** Use a bridge so a chat can be started and a little history seen,
+  accepting the unofficial-library risk because School use is low volume. Design brainstorm:
+  - Existing "WhatsApp Gateway" app on the owner's HA (FaserF, Baileys) is a bot gateway: REST with
+    `X-Auth-Token`, `POST /send_message {number, message}`, `GET /contacts`, a polling `GET /events` queue
+    that empties when read, and an optional webhook. No history, one account, and polling it would steal
+    events from the owner's own automations. So build our own small bridge app ("Phone Guard WhatsApp
+    bridge", a Home Assistant app) as an extra linked device on her account (another slot, no clash).
+  - Bridge: pairs by QR or pairing code scanned on her smartphone (Linked devices); allowlist of chats;
+    drops everything else on arrival (nothing stored for other chats, groups, media or status); text
+    only; rate limits (messages per hour and per day, minimum gap, typing presence like the existing
+    app); alerts in HA when the session drops or is logged out; credentials stored in the app's private
+    storage. Stored retention is a family decision, see below.
+  - Plumbing: bridge talks only to our HA integration (internal). The integration pushes a nudge when a
+    message arrives and answers new signed request kinds from the phone: `wa_threads`, `wa_thread`
+    (a chat, newest page), `wa_send` (text, to an allowed contact, with a client id so a retry never
+    double sends). No persistent socket on the phone; battery as today.
+  - Phone: one Messages screen shows SMS and WhatsApp chats together (a chat is one entry with an
+    [SMS] or [WA] tag and an unread count); open a chat to scroll the last ~20 messages with Up and
+    Down; Reply and Write message use our own text field with the T9 keyboard; recipient picked from
+    the allowed contacts; marks for sent, delivered, read; photos and voice notes show as [photo] and
+    [voice message] placeholders; unread count on the home screen.
+  - Card: a list of her WhatsApp contacts with a tick for "may message in School", plus the limits.
+  - Open decisions for the owner: (1) where does history live: only on the phone (HA keeps an in-transit
+    queue and delivery marks, parents cannot read chats) or also in HA (parents can read, needs an
+    honest conversation with her first); (2) which modes the bridge serves (School only, or the Nokia
+    screens whenever that launcher is on); (3) reuse the owner's own session for a first test or use a
+    spare number.
+  - Lower-risk alternative kept in reserve: official companion mode on the J36 plus a notification
+    listener (read and reply, no history, no new chats), optionally plus an accessibility service to
+    press Send after a `wa.me` deep link opens a new chat. No unofficial protocol at all.
+  - Phases: mock-ups and choice of look; bridge app and integration plumbing with a one-contact
+    end-to-end test; Messages screens on the phone (SMS first, then WhatsApp); the card controls;
+    hardening (reconnect, session loss alerts, rate limits, backups of the session).
 - **Our own SMS app or the stock one?** A built-in screen needs to be the default SMS app; a device
   owner can set the default SMS application. The stock app would then be hidden in School.
 - **Our own call screens?** Replacing the incoming-call and in-call screens means becoming the default
