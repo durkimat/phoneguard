@@ -1,8 +1,8 @@
-/* Phone Guard card v0.4.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.4.1. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.4.0";
+const PG_VERSION = "0.4.1";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -128,6 +128,9 @@ class PhoneGuardCard extends HTMLElement {
         border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: inherit; }
       input.sas { width: 7em; font-size: 20px; letter-spacing: .2em; text-align: center; }
       .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 12px; }
+      .who { display:flex; align-items:center; gap:14px; margin-bottom: 12px; }
+      .pname { font-size: 24px; margin: 0; }
+      .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
       .av { border-radius: 50%; object-fit: cover; display:inline-block; flex: none; }
       .av.ph { background: var(--primary-color); color: var(--text-primary-color, #fff); text-align: center; font-weight: 600; font-size: 14px; }
       .person { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding-right:10px; margin-right:4px; border-right:1px solid var(--divider-color, #ddd); }
@@ -186,8 +189,7 @@ class PhoneGuardCard extends HTMLElement {
     let html = tabs;
 
     // header: name, mode, how recently heard from, and the refresh button
-    const me = (this._all && this._all[this._ui.sel]) || { person: d.person || d.name, picture: "" };
-    html += `<div class="row">${this._avatar(me.picture, me.person, 40)}<h2>${this._esc(me.person)}</h2><span class="sub" style="font-size:15px">${this._esc(d.name)}</span><span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
+    html += `<div class="row"><h2 style="font-size:18px">${this._esc(d.name)}</h2><span class="chip">${this._esc(modeName)}${d.boost ? " + boost" : ""}</span>`;
     if (dev && !dev.pending) {
       html += `<span class="chip ${stale ? "warn" : "off"}">${stale ? "not heard " : "seen "}${this._ago(dev.last_seen)}</span>
         <button class="small" data-act="nudge" title="Ask the phone to check in now">⟳ Sync now</button>`;
@@ -240,19 +242,39 @@ class PhoneGuardCard extends HTMLElement {
     return `<span class="av ph" style="width:${size}px;height:${size}px;line-height:${size}px">${initial}</span>`;
   }
 
+  // the person, once, at the top: a big picture and the name; other people as plain name chips
+  _personHtml() {
+    const all = this._all || {}, me = all[this._ui.sel];
+    if (!me) return "";
+    let h = `<div class="who">${this._avatar(me.picture, me.person, 56)}<div><h2 class="pname">${this._esc(me.person)}</h2>`;
+    const others = this._groups().filter((g) => g.key !== me.personKey);
+    if (others.length && !this._config.entity) {
+      h += `<div class="chips">${others.map((g) => `<button class="small" data-act="select_person" data-key="${this._esc(g.key)}">${this._esc(g.name)}</button>`).join("")}</div>`;
+    }
+    return h + `</div></div>`;
+  }
+
+  _groups() {
+    const all = this._all || {}, groups = {};
+    for (const id of this._ids || []) {
+      if (!all[id]) continue;
+      const g = (groups[all[id].personKey] = groups[all[id].personKey] || { key: all[id].personKey, name: all[id].person, ids: [] });
+      g.ids.push(id);
+    }
+    return Object.values(groups).sort((x, y) => x.name.localeCompare(y.name));
+  }
+
   _tabsHtml() {
-    if (this._config.entity) return "";
-    const ids = this._ids || [], all = this._all || {};
-    const groups = {};
-    for (const id of ids) { if (!all[id]) continue; const g = (groups[all[id].personKey] = groups[all[id].personKey] || { name: all[id].person, picture: all[id].picture, ids: [] }); g.ids.push(id); }
-    let h = `<div class="tabs">`;
-    for (const g of Object.values(groups).sort((x, y) => x.name.localeCompare(y.name))) {
-      h += `<div class="person">${this._avatar(g.picture, g.name, 28)}<span class="sub">${this._esc(g.name)}</span>` + g.ids.map((id) =>
-        `<button class="${id === this._ui.sel ? "sel" : ""}" data-act="select" data-id="${this._esc(id)}">${this._esc(all[id].name)}</button>`).join("") + `</div>`;
+    if (this._config.entity) return this._personHtml();
+    const all = this._all || {}, me = all[this._ui.sel];
+    let h = this._personHtml() + `<div class="tabs">`;
+    const mine = this._groups().find((g) => me && g.key === me.personKey);
+    for (const id of mine ? mine.ids : []) {
+      h += `<button class="${id === this._ui.sel ? "sel" : ""}" data-act="select" data-id="${this._esc(id)}">${this._esc(all[id].name)}</button>`;
     }
     if (this._ui.adding) {
       const people = this._people || [];
-      const sel = this._ui.newPerson || (people[0] ? people[0].id : "__new");
+      const sel = this._ui.newPerson || (me && people.find((p) => p.id === me.personKey) ? me.personKey : (people[0] ? people[0].id : "__new"));
       h += `<div class="addform"><b>Add a device</b>
         <select data-f="newPerson">${people.map((p) => `<option value="${this._esc(p.id)}" ${sel === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__new" ${sel === "__new" ? "selected" : ""}>Someone without a Home Assistant person…</option></select>
         ${sel === "__new" ? `<input type="text" data-f="newPersonName" placeholder="Name" value="${this._esc(this._ui.newPersonName)}">` : ""}
@@ -568,7 +590,15 @@ class PhoneGuardCard extends HTMLElement {
     const a = b.dataset.act;
     const d = this._d;
     const ui = this._ui;
-    if (a === "select") { ui.sel = b.dataset.id; try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ } this._last = null; return (this.hass = this._hass); }
+    ui.lastDev = ui.lastDev || {};
+    if (a === "select_person") {
+      const g = this._groups().find((x) => x.key === b.dataset.key);
+      if (!g) return;
+      ui.sel = g.ids.includes(ui.lastDev[g.key]) ? ui.lastDev[g.key] : g.ids[0];
+      try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ }
+      this._last = null; return (this.hass = this._hass);
+    }
+    if (a === "select") { ui.sel = b.dataset.id; if (this._all && this._all[ui.sel]) ui.lastDev[this._all[ui.sel].personKey] = ui.sel; try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ } this._last = null; return (this.hass = this._hass); }
     if (a === "add") { ui.adding = true; return this._render(); }
     if (a === "add_cancel") { ui.adding = false; ui.newName = ""; return this._render(); }
     if (a === "add_go") {
