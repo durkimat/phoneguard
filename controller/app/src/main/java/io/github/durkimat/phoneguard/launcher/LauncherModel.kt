@@ -257,7 +257,15 @@ class LauncherModel(
         return dispatch(key, digit, nowMs)
     }
 
-    private fun dispatch(key: Key, digit: Int, nowMs: Long): Action = when (screen) {
+    /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.INBOX, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
+
+    private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
+        if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
+        return route(key, digit, nowMs)
+    }
+
+    private fun route(key: Key, digit: Int, nowMs: Long): Action = when (screen) {
         Screen.HOME -> home(key, digit)
         Screen.MENU -> menu(key, digit)
         Screen.SETTINGS -> settings(key, digit)

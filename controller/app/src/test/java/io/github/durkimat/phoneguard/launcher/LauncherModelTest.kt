@@ -405,4 +405,18 @@ class LauncherModelTest {
         val m = LauncherModel(emptyList()); m.startDial("tel 07700-900 111".replace("tel ", ""))
         assertEquals(Screen.DIAL, m.screen); assertEquals("07700900111", m.dialNumber)
     }
+
+    @Test fun numberKeysChooseNumberedEntriesInEveryList() {
+        // call options: 1 is speaker, 2 is mute
+        val c = LauncherModel(emptyList()); c.setCall(CallInfo("0222", "Mum", CallPhase.ACTIVE, startedAt = 1)); c.onKey(Key.SOFT_LEFT)
+        assertEquals(Action.ToggleMute, c.onKey(Key.DIGIT, 2)); assertEquals(Screen.CALL, c.screen)
+        c.onKey(Key.SOFT_LEFT); assertEquals(Action.ToggleSpeaker, c.onKey(Key.DIGIT, 1))
+        // theme: 3 picks the third theme and saves it
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
+        assertEquals(Screen.THEME, m.screen); assertEquals(Action.SaveTheme("amber"), m.onKey(Key.DIGIT, 3))
+        // a number with no entry does nothing
+        val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK); assertEquals(Action.None, s.onKey(Key.DIGIT, 9))
+        // the call log: 2 rings (opens the dial screen with) the second entry
+        val l = withTools(); l.onKey(Key.CALL); assertEquals(Action.Call("0111"), l.onKey(Key.DIGIT, 2))
+    }
 }
