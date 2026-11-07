@@ -326,3 +326,4 @@ launcher in the same app; (3) notification counts and the status line.
 - Fixed: conversation header cut a phone number's last digit; "Message sent" notice now clears itself after 1.5 s.
 - T9 ranking: "ii" beats "hi" (web text); tune the word list towards texting. First suggestion is not always right, * steps through the rest.
 - Note: voice calls on this SIM run over IMS/VoLTE (the circuit-switched domain reports "not registered"); calls reached the phone, so it works on 3 UK.
+- Incoming call, both ways proven on the SIM (2026-11-07): blocked and silent in School (rejected, no UI), answered normally in Day (20:04:52, 3 s). Still stock Android call screens, in-call screens to build.
