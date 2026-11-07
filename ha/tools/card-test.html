@@ -21,9 +21,11 @@ const pic = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://
 states["person.dumbo"] = { state: "home", attributes: { friendly_name: "dumbo", entity_picture: pic, device_trackers: ["device_tracker.dumbphone"] } };
 states["person.sam"] = { state: "away", attributes: { friendly_name: "Sam", entity_picture: "", device_trackers: [] } };
 states["device_tracker.dumbphone"] = { state: "home", attributes: { friendly_name: "Dumbphone2" } };
+states["device_tracker.old_tablet"] = { state: "home", attributes: { friendly_name: "Old tablet" } };
+states["person.sam"].attributes.device_trackers = ["device_tracker.old_tablet"];
 const calls = [];
 const el = document.createElement("phoneguard-card"); el.setConfig({});
-el.hass = { states, callService: (d, s, x) => { calls.push([d, s, x]); return Promise.resolve(); } };
+el.hass = { states, services: { notify: { mobile_app_dumbphone2: {}, mobile_app_old_tablet: {}, notify: {} } }, callService: (d, s, x) => { calls.push([d, s, x]); return Promise.resolve(); } };
 document.getElementById("app").appendChild(el);
 window.CALLS = calls; window.EL = el;
 </script>

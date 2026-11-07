@@ -28,10 +28,29 @@ Design notes to settle when it is picked up:
 - Add to the rig: set a mode, read `AudioManager.ringerMode`, try to change the volume, check it holds.
 
 ### Lockdown for School and a custom launcher (see SPEC section 11)
-Quiet School mode: no pull-down shade (measured: works with the stock launcher), very few apps
-(dialler, messages, maybe WhatsApp), Nokia-style look and keypad navigation. Next step is a lock-task
-test with the current launcher, then a minimal launcher in the same app. Open: touch in School,
-WhatsApp in School, incoming calls under lock task (the J36 has no SIM here to test).
+Owner's brief (2026-11-07): School should look and behave like a classic Nokia: no pull-down menus,
+very few apps (dialler, messages, maybe WhatsApp), keypad and D-pad only. Mock-up shown and discussed
+before building. Non-School modes use the normal launcher.
+
+Per-mode "lockdown" settings to add to the mode model and the card:
+- Launcher: Nokia-style (ours) or normal. School = ours, Day and Night = normal by default.
+- Touchscreen: on or off. Off in School by default; configurable.
+- Pull-down shade: on or off (measured: `setStatusBarDisabled` works with the stock launcher).
+- Sound profile (the item above).
+- During a boost the less restrictive of the scheduled mode and the boost mode wins for each setting.
+
+How touch can be turned off: our launcher ignores touch itself. For other apps there is no device
+owner switch for the touch panel; the plan is an invisible full-screen overlay that swallows touches
+(needs "draw over other apps", one more adb setup grant). Dialogs that need a tap (WhatsApp first run,
+permission prompts) cannot be answered in School, so set those up in Day first.
+
+Test plan once built: run WhatsApp (read, reply with T9, voice note, answer a call, send a photo) with
+touch off and only the D-pad and keypad, and decide what is usable. A later option is touch on only
+while a named app (WhatsApp) is in front. Also test: incoming calls under lock-task mode (no SIM
+here), alarm clock over lock task, power menu, launcher crash fallback.
+
+Order: (1) lock-task and touch-overlay experiments with the current launcher; (2) minimal Nokia
+launcher in the same app; (3) notification counts and the status line.
 
 ## To verify or finish
 

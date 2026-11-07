@@ -224,6 +224,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise HomeAssistantError(f"Not copied: {err}") from err
         mgr.changed(dst)
 
+    async def rename_child(call: ServiceCall) -> None:
+        await admin(call)
+        old, new = child_of(call), call.data["new_child"]
+        try:
+            mgr.hub.rename_child(old, new)
+        except ValueError as err:
+            raise HomeAssistantError(f"Not renamed: {err}") from err
+        if old in mgr.qr:
+            mgr.qr[new] = mgr.qr.pop(old)
+        hass.states.async_remove(f"sensor.phoneguard_{old}")
+        mgr.changed()
+
     async def remove_child(call: ServiceCall) -> None:
         await admin(call)
         cid = child_of(call); mgr.hub.remove_child(cid); mgr.qr.pop(cid, None)
@@ -243,6 +255,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "nudge", nudge, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "release", release, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "copy_settings", copy_settings, vol.Schema({vol.Required("child"): cv.slug, vol.Required("to"): cv.slug, vol.Required("parts"): [cv.string]}))
+    reg(DOMAIN, "rename_child", rename_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("new_child"): cv.slug}))
     reg(DOMAIN, "remove_child", remove_child, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "forget", forget, vol.Schema({vol.Required("child"): cv.slug}))
 
@@ -260,7 +273,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget", "remove_child", "copy_settings"):
+                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True

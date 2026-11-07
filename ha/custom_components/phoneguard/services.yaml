@@ -82,3 +82,9 @@ copy_settings:
     child: {required: true, selector: {text: {}}}
     to: {required: true, selector: {text: {}}}
     parts: {required: true, example: "[timetable, holiday, restrictions, mode_options]", selector: {object: {}}}
+rename_child:
+  name: Rename a device's id
+  description: Change the id used in the sensor name (sensor.phoneguard_<id>). Settings, pairing and history are kept.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    new_child: {required: true, selector: {text: {}}}
