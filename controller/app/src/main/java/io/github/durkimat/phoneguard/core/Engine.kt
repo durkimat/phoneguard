@@ -1,0 +1,108 @@
+package io.github.durkimat.phoneguard.core
+
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
+
+/** Which apps are visible. `all` means every manageable app. */
+data class Allowed(val all: Boolean, val pkgs: Set<String>)
+
+/** Everything the enforcer needs for one moment. Equal values mean no visible change. */
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean)
+
+object Engine {
+    const val EMERGENCY = "emergency"
+    const val DAY_MS = 24L * 60 * 60 * 1000
+    const val WARN_MS = 10L * 60 * 1000
+
+    /** Built in: only protected apps stay visible. Used when there is no usable schedule. */
+    val emergencyMode = ModeDef(EMERGENCY, "Emergency", false, emptySet(), false)
+
+    fun modeDef(cfg: Config?, id: String): ModeDef = cfg?.modes?.get(id) ?: emergencyMode
+
+    /** The mode the timetable wants at `now`, before any boost. */
+    fun scheduledMode(cfg: Config?, now: Long): String {
+        if (cfg == null) return EMERGENCY
+        cfg.segments.firstOrNull { now >= it.from && now < it.to }?.let { return it.mode }
+        if (now >= cfg.windowEnd) cfg.pattern?.let { p -> patternMode(p, now)?.let { return it } }
+        return cfg.base
+    }
+
+    private fun patternMode(p: Pattern, now: Long): String? {
+        val z = Instant.ofEpochMilli(now).atZone(ZoneId.of(p.tz))
+        val min = z.hour * 60 + z.minute
+        return p.days[z.dayOfWeek.value]?.firstOrNull { min >= it.startMin && min < it.endMin }?.mode
+    }
+
+    fun effective(cfg: Config?, boost: Boost?, now: Long): Effective {
+        val id = scheduledMode(cfg, now)
+        val s = modeDef(cfg, id)
+        var all = s.allowAll
+        val pkgs = s.allow.toMutableSet()
+        var gray = s.gray
+        if (boost != null && now < boost.until) {
+            val b = modeDef(cfg, boost.mode)
+            all = all || b.allowAll
+            pkgs += b.allow
+            gray = gray && b.gray
+        }
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray)
+    }
+
+    /** Next instant at which the inputs to `effective` can change (some may not change it). */
+    fun nextBoundary(cfg: Config?, boost: Boost?, now: Long): Long {
+        var best = now + DAY_MS
+        fun c(t: Long) { if (t > now && t < best) best = t }
+        if (cfg != null) {
+            cfg.segments.forEach { c(it.from); c(it.to) }
+            c(cfg.windowEnd)
+            cfg.pattern?.let { p -> patternEdges(p, now).forEach(::c) }
+        }
+        boost?.let { c(it.until) }
+        return best
+    }
+
+    private fun patternEdges(p: Pattern, now: Long): List<Long> {
+        val zone = ZoneId.of(p.tz)
+        val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        val out = mutableListOf<Long>()
+        for (d in 0L..3L) {
+            val date = today.plusDays(d)
+            for (seg in p.days[date.dayOfWeek.value].orEmpty()) {
+                for (m in listOf(seg.startMin, seg.endMin)) {
+                    val t = if (m >= 1440) date.plusDays(1).atStartOfDay(zone)
+                    else date.atTime(LocalTime.of(m / 60, m % 60)).atZone(zone)
+                    out += t.toInstant().toEpochMilli()
+                }
+            }
+        }
+        return out
+    }
+
+    /** The next moment the effective state actually differs from now, or null if nothing changes within a few days. */
+    fun nextChange(cfg: Config?, boost: Boost?, now: Long): Pair<Long, Effective>? {
+        val cur = effective(cfg, boost, now)
+        var t = now
+        repeat(80) {
+            t = nextBoundary(cfg, boost, t)
+            val e = effective(cfg, boost, t)
+            if (e != cur) return t to e
+        }
+        return null
+    }
+
+    /** Packages visible under `a`, out of everything we can manage. */
+    fun visible(a: Allowed, manageable: Set<String>): Set<String> =
+        if (a.all) manageable else manageable intersect a.pkgs
+
+    /** True when moving from `cur` to `next` takes away at least one visible app. */
+    fun removesAccess(cur: Allowed, next: Allowed, manageable: Set<String>): Boolean =
+        (visible(cur, manageable) - visible(next, manageable)).isNotEmpty()
+
+    /** When to warn: [WARN_MS] before the next change, but only if that change removes access. */
+    fun warningFor(cfg: Config?, boost: Boost?, now: Long, manageable: Set<String>): Pair<Long, Effective>? {
+        val (t, next) = nextChange(cfg, boost, now) ?: return null
+        val cur = effective(cfg, boost, now)
+        return if (removesAccess(cur.allowed, next.allowed, manageable)) t to next else null
+    }
+}
