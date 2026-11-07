@@ -33,6 +33,7 @@ class LauncherActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         setContentView(skin.create(this))
         refresh()
         if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
@@ -69,6 +70,8 @@ class LauncherActivity : Activity() {
         super.onPause()
     }
 
+    private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
+
     private fun refresh() {
         model.setItems(LauncherData.items(this))
         model.contactsPkg = LauncherData.contactsPackage(this)
@@ -101,6 +104,7 @@ class LauncherActivity : Activity() {
         when (a) {
             Action.None -> {}
             Action.Redraw -> refresh()
+            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
             is Action.Launch -> launch(a.pkg)
             is Action.Dial -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.digits))))
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))

@@ -78,4 +78,33 @@ class LauncherModelTest {
         val m = model(); m.onKey(Key.OK); m.onKey(Key.DOWN); m.onKey(Key.DOWN)
         m.setItems(items.take(1)); assertTrue(m.selected in 0..0)
     }
+
+    private fun withSettings() = LauncherModel(items + MenuItem(SETTINGS_PKG, "Settings"), contactsPkg = null)
+
+    @Test fun settingsEntryOpensTheLaunchersOwnSettingsNotAnApp() {
+        val m = withSettings(); m.onKey(Key.OK)
+        m.onKey(Key.UP) // wraps to the last entry, Settings
+        assertEquals(Action.Redraw, m.onKey(Key.OK))
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme"), m.rows)
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
+        assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
+    }
+
+    @Test fun choosingAThemeSavesItAndMarksIt() {
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK)
+        assertEquals(Screen.THEME, m.screen)
+        assertEquals(listOf("Green *", "Grey", "Amber"), m.rows)
+        m.onKey(Key.DOWN); m.onKey(Key.DOWN)
+        assertEquals(Action.SaveTheme("amber"), m.onKey(Key.SOFT_LEFT))
+        assertEquals("amber", m.theme); assertEquals(Screen.SETTINGS, m.screen)
+    }
+
+    @Test fun themeBackLeavesTheThemeAlone() {
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK)
+        m.onKey(Key.DOWN)
+        assertEquals(Action.Redraw, m.onKey(Key.RIGHT))
+        assertEquals("green", m.theme); assertEquals(Screen.SETTINGS, m.screen)
+    }
+
+    @Test fun unknownThemeFallsBackToGreen() { assertEquals("green", Themes.byId("nope").id) }
 }

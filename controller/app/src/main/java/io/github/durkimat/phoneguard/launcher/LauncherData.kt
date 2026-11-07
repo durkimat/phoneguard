@@ -38,7 +38,8 @@ object LauncherData {
         val pm = c.packageManager
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName
         return pkgs.map { MenuItem(it, try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
-            .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() }))
+            .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
+            MenuItem(SETTINGS_PKG, "Settings")
     }
 
     fun contactsPackage(c: Context): String? =
