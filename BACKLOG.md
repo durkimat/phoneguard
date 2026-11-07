@@ -250,3 +250,9 @@ launcher in the same app; (3) notification counts and the status line.
 - Green LCD mock-ups approved (home, menu, Messages, WhatsApp conversation, T9 write).
 - Everywhere: D-pad Left/Right = the left/right label, same as the two keys under the screen.
 - Exception: the write screen, where D-pad Left/Right move the cursor; Send/Clear stay on the keys under the screen.
+
+## Browser and apps suited to the tiny screen (added 2026-11-07)
+- Find a browser that suits the 2.8" screen and keypad: possibly text-only or simple-graphics browsing (D-pad navigation, no touch).
+- Wider idea: the Nokia-style School mode may suit adults too, with more flexibility in the non-school modes. That needs a shortlist of apps that fit this device (keypad-friendly, small-screen, low battery use) and a way to include them in the launcher menu.
+- To research: keypad/D-pad friendly browsers on Android, text-mode browsers, F-Droid apps for small screens. Keep to open-source where possible. Ask before downloading anything.
+- Design question: should the launcher be usable outside HA control, as a standalone "dumbphone" product? Parked, needs a decision later.
