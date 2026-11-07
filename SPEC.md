@@ -148,7 +148,7 @@ Store options on a microG build (researched 2026-11-06, third-party sources, to 
   the parent's chosen base mode (suggested: Day). The editor can copy one day onto others, so
   "day templates" are an editor convenience, not a stored concept.
 - **Holiday switch:** one switch per child. While on, every School segment behaves as Day.
-  Optional "until" date so it cannot be left on by mistake (suggestion, to confirm).
+  Takes an optional date range (from and until) so it cannot be left on by mistake. **Decided 2026-11-07.**
 - Authored in HA with our own storage and a week-editor card (reusing the heating card's
   patterns). Calendars are deliberately not used: the child can edit the family calendars.
 - Resolution happens in HA. The phone receives absolute time instants for a rolling 14-day window
@@ -158,11 +158,10 @@ Store options on a microG build (researched 2026-11-06, third-party sources, to 
 
 ### Losing contact with HA
 - The phone keeps enforcing the pushed window.
-- After the window runs out it repeats a recent pattern. Owner's wording: "repeat the previous day".
-  Proposed refinement for confirmation: repeat the **same weekday from the last pushed week**,
-  so a weekday does not inherit a Sunday's pattern and school days stay school days.
+- After the window runs out it repeats the **same weekday from the last pushed week**, so a weekday
+  does not inherit a Sunday's pattern and school days stay school days. **Decided 2026-11-07:** it
+  keeps repeating indefinitely, it does not stop or fall back to Emergency mode.
 - HA raises an alert when a phone has not reported for a set time.
-- Open: whether the repeat should ever stop (for example after many days).
 
 ### Temporary override: boost
 - A parent gives bonus time from HA: an extra N minutes with a chosen mode (default Day).
@@ -178,7 +177,11 @@ Store options on a microG build (researched 2026-11-06, third-party sources, to 
 - A code works once. Using one advances the counter, which also invalidates earlier unused codes.
 - The grant is a per-device setting (suggested default: Day mode for 30 minutes), then it reverts.
 - Rate limiting and a lockout back-off after wrong attempts.
-- Open: whether a second code type (longer) should also authorise "release this phone" offline.
+- Decided 2026-11-07: no second code type in v1. Releasing a phone offline uses the recovery key
+  shown at pairing (section 4f).
+- The controller runs as a foreground service (permanent low-priority notification). Needed to hold
+  grayscale (rig test: the settings watcher only fires while our process is running) and accepted
+  by the owner on 2026-11-07.
 
 ### Warnings
 - A phone notification 10 minutes before the phone moves to a more restrictive mode, and before
@@ -567,6 +570,40 @@ adb shell settings put secure accessibility_display_daltonizer_enabled 0
 ```
 
 (Value 0 selects monochromacy. The second line turns it on, the third turns it off.)
+
+### Lab app results on the J36 (2026-11-07, first pass, tested by hand)
+
+The lab app (`prototype/`) was device owner on the J36 running DumberOS.
+
+| Area | Result | Consequence for the design |
+|---|---|---|
+| Hide (`setApplicationHidden`) | Works. Gallery vanishes and unhide restores it. DumberOS App Blocker lists it as "Restricted by another controller such as parental controls or a work administrator". | Hiding is the right primitive. App Blocker sees our hides but does not fight them. Still to check: can App Blocker unhide it? |
+| Suspend | App goes grey but stays listed; App Blocker shows nothing; launching says "blocked by work policy". | Suspend is visible to the child and still shows the app. Use hide, not suspend. |
+| Protected apps | Hiding or suspending the dialler is refused (log shows `blocked`). | The protected-app layer works. |
+| Factory reset / safe boot | Power menu has no reset or safe-mode entry on this build, so the restriction could not be tested. Probably already removed by DumberOS. | Still set both restrictions, but record that the J36 gives no test. Retest on another build later. |
+| Date and time | Greyed out by the restriction. | Works. |
+| Add user | Reported as "worked". | Works (assumed to mean the restriction blocked it; confirm if unsure). |
+| Debugging restriction | Works as a lock, but is **destructive**: setting it switched off developer options, OEM unlock and USB debugging, and unticking it did not turn them back on. They had to be re-enabled by hand. The 3-minute auto-revert only clears the restriction, it cannot restore those switches. | Treat as one-way for the child. For a maintenance window, HA must tell the parent that debugging must be re-enabled by hand on the phone. Test again later. |
+| Other restrictions (VPN, private DNS, USB, apps control, accounts, unknown sources) | Not tested. | Test later. |
+| Grayscale | `adb shell pm grant ... WRITE_SECURE_SETTINGS` was needed. The device-owner self-grant and the other routes failed. With the grant, the grey switches work. | The real controller needs the adb grant, or a provisioning route that grants it. Record as a setup step. Re-assert watcher result still unknown. |
+| Force stop protection | `setUserControlDisabledPackages` stopped force stop. | Works. Clear data not checked. |
+| Battery exemption | The system prompt appeared (assumed granted). Self-grant result not recorded. | Needs the log line to confirm. |
+| Heartbeat, Doze, exact alarms | Overnight test replaced by a forced-Doze test in the rig (see below). | See rig result. |
+| Home pin | Inconclusive by hand (only one launcher); see the rig row below, where a second launcher was added. | See rig row. |
+| Camera | Device-owner self-grant of CAMERA worked (`call=true`, `now=true`), unlike the Android 12+ expectation. | The controller can grant itself CAMERA, so QR pairing needs no prompt. |
+| QR scan | Read quickly from a monitor. | Works. |
+| Keystore | `level=software` (no hardware-backed key on this chipset). | Signing works. A root-level attacker could extract the key, which is out of scope. |
+| Companion nudge | `command_broadcast_intent` reached our receiver almost instantly, including with the screen off. | Works as the sync-now nudge. Sender identity (`from=`) not recorded. |
+| Network | Plain HTTPS POST works (httpbin echoed body and the `X-PG-Lab` header). Typing URLs on the J36 is impractical, so the lab app now takes network tests by `adb shell am broadcast`. | See next row. |
+| Nabu Casa webhook (2026-11-07, driven over adb) | Through the Remote UI domain (`<id>.ui.nabu.casa/api/webhook/<id>`), POSTs of 1 KB, 64 KB, 256 KB and 512 KB all returned 200 in 23 to 348 ms, and six 1 KB posts 5 s apart all returned 200 (about 25 to 50 ms). HA ran the automation 9 times; the six small ones were read back intact. A plain webhook automation returns an empty body. HA's webhook trigger does not expose request headers at all. | Body-only envelope confirmed as the right choice. 512 KB is not a limit worth worrying about. The reply test needs a custom integration (a webhook handler can return a body). Not tested: the separate `hooks.nabu.casa` cloudhook URL, and long-run rate limits. |
+| Rig run (2026-11-07, `rig/`, driven over adb) | 14 restriction keys set and read back as effective: factory reset, safe boot, date/time, add user, add managed profile, unknown sources, VPN, private DNS (`disallow_config_private_dns`), USB file transfer, apps control, modify accounts, credentials, user switch, mobile networks. DumberOS itself already sets `no_add_private_profile`, `no_add_managed_profile` and `no_add_clone_profile`. Date settings screen shows "Enabled by admin" on the time and time-zone rows. | Restrictions work on this build. We must clear only our own keys, never DumberOS's (the DPM clear call only removes ours). |
+| Force-stop protection (rig) | With `setUserControlDisabledPackages` on Gallery, tapping Force stop in Settings shows "Blocked by work policy"; without it, the normal "Force stop?" dialog appears. (The device-owner app's own Force stop is always greyed, so it is not a valid test target.) | Works. Use it for the controller and, optionally, for the HA Companion app. |
+| Grayscale re-assert (rig) | Watcher re-asserts within about one second of the setting being switched off, **but only while the app's process is running in the foreground**. As a plain cached broadcast-receiver process it never fired. Screenshots cannot show the filter (applied after capture). | The controller must run a foreground service (or equivalent) to hold grayscale. Add a periodic re-assert on the alarm as a backstop. |
+| Home pin (rig) | With Trebuchet pinned via `addPersistentPreferredActivity` and a second launcher installed, the Home button still opens Trebuchet even after `set-home-activity` and the Settings screen show the other launcher as selected. | Pin holds, but the Settings radio is misleading: the child may think she changed it. Acceptable; note it in the HA UI help. |
+| Battery exemption | Already exempt (`exempt=true`, standby bucket 5 = exempted, exact alarms allowed). | Good for the heartbeat. Whether the DO can self-grant is still unknown (it was exempted by hand earlier). |
+| Forced Doze (rig, 2026-11-07) | Phone unplugged (simulated), screen off, `dumpsys deviceidle force-idle`: six 1-minute exact alarms all fired on the minute (`late=0s`, `deviceIdle=true`). The app was battery-exempt with exact alarms allowed. | Exact alarms survive forced deep Doze when exempt. Caveats: forced idle is not a real night, and the exemption may be hiding the usual limit on `setExactAndAllowWhileIdle` (about one per 9 minutes when not exempt). Still worth one real overnight run before relying on it. |
+
+Overall: the core control (hide, protect, restrict, force-stop protection) works on this device. Items marked "test later" are not blockers for starting the real controller, but the overnight alarm test and the debugging-restriction recovery should be done before relying on them.
 
 ## 8. Testing plan (outline)
 
