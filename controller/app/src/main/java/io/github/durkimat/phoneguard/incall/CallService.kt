@@ -103,7 +103,10 @@ class CallService : InCallService() {
     /** Brings the call screen up. A ringing call also gets a full-screen notification, which is how Android lets a call interrupt. */
     private fun show(ringing: Boolean) {
         val intent = Intent(this, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if (ringing) {
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        val kg = getSystemService(android.app.KeyguardManager::class.java)
+        // the banner is only needed to wake a sleeping or locked phone; otherwise it would cover the call screen
+        if (ringing && (!pm.isInteractive || kg.isKeyguardLocked)) {
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "Calls", NotificationManager.IMPORTANCE_HIGH).apply { setSound(null, null); enableVibration(false) })
             val pi = PendingIntent.getActivity(this, 7, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -131,6 +134,6 @@ class CallService : InCallService() {
     companion object {
         @Volatile var instance: CallService? = null
         private const val CHANNEL = "calls"
-        private const val NOTE = 77
+        const val NOTE = 77
     }
 }

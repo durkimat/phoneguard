@@ -34,14 +34,27 @@ class CallActivity : Activity() {
         model.font = prefs.getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         setContentView(skin.create(this))
         CallState.listen(listener)
+        // the left key under the screen only reaches us if it is remapped, in any mode, for the length of the call
+        io.github.durkimat.phoneguard.HardKeys.menuKeyOverlay(this, false)
+        LeftKey.listener = { perform(model.onKey(io.github.durkimat.phoneguard.launcher.Key.SOFT_LEFT, -1)) }
         update()
     }
 
     override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent); update() }
 
-    override fun onResume() { super.onResume(); ui.postDelayed(tick, 1_000) }
+    override fun onResume() {
+        super.onResume()
+        getSystemService(android.app.NotificationManager::class.java).cancel(CallService.NOTE)
+        ui.postDelayed(tick, 1_000)
+    }
     override fun onPause() { ui.removeCallbacks(tick); super.onPause() }
-    override fun onDestroy() { CallState.unlisten(listener); super.onDestroy() }
+    override fun onDestroy() {
+        CallState.unlisten(listener)
+        LeftKey.listener = null
+        // give the left key back to whatever the current mode wants
+        io.github.durkimat.phoneguard.Controller.evaluate(this, "call screen closed")
+        super.onDestroy()
+    }
 
     private fun update() {
         val info = CallState.info

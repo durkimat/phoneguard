@@ -52,8 +52,17 @@
                 <category android:name="android.intent.category.HOME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <!-- DumberOS swallows the left key under the screen; with its action set to "voice search" it
-                 starts a web-search intent instead (the assist one for other actions), which we treat as the left key. -->
+        </activity>
+
+        <!-- DumberOS swallows the left key under the screen; with its action set to "voice search" it
+             starts a web-search intent instead (the assist one for other actions), which we treat as the left key.
+             This invisible activity catches it: it goes to the call screen during a call, otherwise to the launcher. -->
+        <activity
+            android:name=".incall.KeyRouter"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.VOICE_ASSIST" />
                 <action android:name="android.speech.action.WEB_SEARCH" />
