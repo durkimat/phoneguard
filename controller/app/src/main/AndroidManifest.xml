@@ -48,9 +48,10 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <!-- DumberOS swallows the left key under the screen; with its action set to "voice search" it
-                 starts this intent instead, which we treat as the left key. -->
+                 starts a web-search intent instead (the assist one for other actions), which we treat as the left key. -->
             <intent-filter>
                 <action android:name="android.intent.action.VOICE_ASSIST" />
+                <action android:name="android.speech.action.WEB_SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

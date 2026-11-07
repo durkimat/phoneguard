@@ -14,6 +14,7 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.VOICE_ASSIST
+import io.github.durkimat.phoneguard.WEB_SEARCH
 
 /**
  * A keypad-driven Home screen. It owns no behaviour of its own: [LauncherModel] decides what a key
@@ -34,14 +35,14 @@ class LauncherActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(skin.create(this))
         refresh()
-        if (intent?.action == VOICE_ASSIST) leftKeyPending = true
+        if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
     }
 
     /** The left key under the screen arrives as a voice-assist request (see HardKeys). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // onResume follows and resets to the home screen, so remember the key and apply it after that
-        if (intent.action == VOICE_ASSIST) leftKeyPending = true
+        if (intent.action == VOICE_ASSIST || intent.action == WEB_SEARCH) leftKeyPending = true
     }
 
     private var leftKeyPending = false

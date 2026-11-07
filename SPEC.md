@@ -791,9 +791,11 @@ Gotchas found:
   different path and misled the first test.
 - Working fix: while the shade is meant to be off, the controller sets `key_menu_action` to "voice
   search" (value 4) and the long press to Nothing, remembering the originals and restoring them
-  afterwards. DumberOS then starts a plain `android.intent.action.VOICE_ASSIST` activity when the key
-  is pressed. Our launcher is the only handler (pinned as the preferred one) and treats that intent as
-  the left key. Raw key injection with `sendevent` is blocked by the phone, so only the physical key
+  afterwards. DumberOS then starts a plain `android.speech.action.WEB_SEARCH` activity when the key
+  is pressed (not `VOICE_ASSIST`: that was a misreading, and the first physical test showed "intent not
+  resolved" because nothing handled it). Our launcher is the only handler (pinned as the preferred one)
+  and treats that intent, and VOICE_ASSIST, as the left key. A recording of the real key showed the
+  start succeeding once our launcher handled it. Raw key injection with `sendevent` is blocked by the phone, so only the physical key
   tests the whole path; the VOICE_ASSIST step was tested by starting that intent from adb. Writing that setting needs the standard
   "Modify system settings" app-op, which cannot be self-granted: another adb setup grant
   (`appops set <pkg> WRITE_SETTINGS allow`).

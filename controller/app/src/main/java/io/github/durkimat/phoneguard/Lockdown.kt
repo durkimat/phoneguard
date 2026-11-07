@@ -90,14 +90,17 @@ object HardKeys {
 
 /** Makes our launcher the one and only handler of VOICE_ASSIST, so the left key never shows a chooser. */
 const val VOICE_ASSIST = "android.intent.action.VOICE_ASSIST"
+const val WEB_SEARCH = "android.speech.action.WEB_SEARCH" // what DumberOS starts for the "voice search" key action
 
 object AssistPin {
     fun apply(c: Context, on: Boolean) {
         val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
         try {
             if (!on) return // the pin is cleared with the Home pin when the Home app changes back
-            val f = IntentFilter(VOICE_ASSIST).apply { addCategory(Intent.CATEGORY_DEFAULT) }
-            dpm.addPersistentPreferredActivity(admin, f, ComponentName(c, LauncherActivity::class.java))
+            for (a in listOf(VOICE_ASSIST, WEB_SEARCH)) {
+                val f = IntentFilter(a).apply { addCategory(Intent.CATEGORY_DEFAULT) }
+                dpm.addPersistentPreferredActivity(admin, f, ComponentName(c, LauncherActivity::class.java))
+            }
         } catch (e: Exception) { Log.log(c, "assist pin failed: ${e.javaClass.simpleName}") }
     }
 }
