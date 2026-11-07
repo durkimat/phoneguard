@@ -57,6 +57,12 @@ class DebugReceiver : BroadcastReceiver() {
             r
         }
         "sync" -> Link.sync(c, "debug")
+        "lt_start" -> LabLockdown.lockStart(c, a.toIntOrNull() ?: 0)
+        "lt_stop" -> LabLockdown.lockStop(c)
+        "lt_state" -> LabLockdown.lockState(c)
+        "overlay_grant" -> LabLockdown.tryGrantOverlay(c)
+        "overlay_on" -> LabLockdown.overlayOn(c, a.toIntOrNull() ?: 60)
+        "overlay_off" -> LabLockdown.overlayOff(c)
         "statusbar" -> { // a = on|off: disable the pull-down shade and the status bar
             val ok = Dpm.dpm(c).setStatusBarDisabled(Dpm.admin(c), a == "on"); "setStatusBarDisabled($a) ok=$ok"
         }

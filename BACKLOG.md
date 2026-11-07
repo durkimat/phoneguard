@@ -49,7 +49,13 @@ touch off and only the D-pad and keypad, and decide what is usable. A later opti
 while a named app (WhatsApp) is in front. Also test: incoming calls under lock-task mode (no SIM
 here), alarm clock over lock task, power menu, launcher crash fallback.
 
-Order: (1) lock-task and touch-overlay experiments with the current launcher; (2) minimal Nokia
+Design requirement: several launcher skins (a later, not text-only Nokia style, and others) must be
+addable without touching the engine: skin = how it is drawn; engine = behaviour. Skin is a per-mode setting.
+
+Open from the experiments: the alarm clock rings under lock-task with nothing on screen to dismiss it
+(see SPEC section 11).
+
+Order: (1) lock-task and touch-overlay experiments with the current launcher (done, results in SPEC); (2) minimal Nokia
 launcher in the same app; (3) notification counts and the status line.
 
 ## To verify or finish
