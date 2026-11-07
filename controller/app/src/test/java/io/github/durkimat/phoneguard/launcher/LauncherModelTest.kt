@@ -10,15 +10,24 @@ class LauncherModelTest {
 
     @Test fun startsOnHome() { assertEquals(Screen.HOME, model().screen) }
 
-    @Test fun okOpensMenuAtTheTop() {
-        val m = model()
-        assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.MENU, m.screen); assertEquals(0, m.selected)
+    @Test fun okAndDpadLeftOpenTheMenuAtTheTop() {
+        for (k in listOf(Key.OK, Key.LEFT)) {
+            val m = model()
+            assertEquals(Action.Redraw, m.onKey(k))
+            assertEquals(Screen.MENU, m.screen); assertEquals(0, m.selected)
+        }
     }
 
-    @Test fun rightSoftKeyOnHomeOpensContacts() {
-        assertEquals(Action.Launch("p.contacts"), model().onKey(Key.SOFT_RIGHT))
-        assertEquals(Action.None, LauncherModel(items, null).onKey(Key.SOFT_RIGHT))
+    @Test fun dpadRightOnHomeOpensContacts() {
+        assertEquals(Action.Launch("p.contacts"), model().onKey(Key.RIGHT))
+        assertEquals(Action.None, LauncherModel(items, null).onKey(Key.RIGHT))
+    }
+
+    @Test fun thePhysicalSoftKeysDoNothingOnHome() {
+        val m = model()
+        assertEquals(Action.None, m.onKey(Key.SOFT_LEFT)) // the left key belongs to Android, we ignore it
+        assertEquals(Action.None, m.onKey(Key.SOFT_RIGHT)) // Back does not open anything on the home screen
+        assertEquals(Screen.HOME, m.screen)
     }
 
     @Test fun digitsOnHomeStartDialling() {
@@ -39,7 +48,8 @@ class LauncherModelTest {
     @Test fun menuLaunchesTheSelectedEntry() {
         val m = model(); m.onKey(Key.OK); m.onKey(Key.DOWN)
         assertEquals(Action.Launch("p.msg"), m.onKey(Key.OK))
-        assertEquals(Action.Launch("p.msg"), m.onKey(Key.SOFT_LEFT))
+        assertEquals(Action.Launch("p.msg"), m.onKey(Key.LEFT)) // the "Select" label is D-pad Left
+        assertEquals(Action.None, m.onKey(Key.SOFT_LEFT)) // the physical left key stays disabled
     }
 
     @Test fun numberKeysJumpToEntries() {
@@ -49,10 +59,12 @@ class LauncherModelTest {
         assertEquals(Action.None, m.onKey(Key.DIGIT, 0))
     }
 
-    @Test fun backReturnsHome() {
-        val m = model(); m.onKey(Key.OK); m.onKey(Key.DOWN)
-        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT))
-        assertEquals(Screen.HOME, m.screen); assertEquals(0, m.selected)
+    @Test fun backAndDpadRightReturnHome() {
+        for (k in listOf(Key.SOFT_RIGHT, Key.RIGHT)) {
+            val m = model(); m.onKey(Key.OK); m.onKey(Key.DOWN)
+            assertEquals(Action.Redraw, m.onKey(k))
+            assertEquals(Screen.HOME, m.screen); assertEquals(0, m.selected)
+        }
     }
 
     @Test fun emptyMenuDoesNotCrash() {

@@ -68,20 +68,33 @@ class NokiaSkin : LauncherSkin {
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
         }
 
+        // The two labels are the D-pad's Left and Right: a small arrow shows which way to press.
         private fun softKeys(c: Canvas, left: String, right: String, u: Float) {
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, (640 - 64) * u, width.toFloat(), (640 - 64) * u, stroke)
-            text(c, left, 18f, 614f, 30f, u, bold = true)
-            text(c, right, 462f, 614f, 30f, u, bold = true, align = Paint.Align.RIGHT)
+            val cy = 606f
+            if (left.isNotEmpty()) {
+                arrow(c, 22f, cy, -1, u)
+                text(c, left, 46f, 614f, 30f, u, bold = true)
+            }
+            if (right.isNotEmpty()) {
+                arrow(c, 458f, cy, 1, u)
+                text(c, right, 434f, 614f, 30f, u, bold = true, align = Paint.Align.RIGHT)
+            }
+        }
+
+        private fun arrow(c: Canvas, x: Float, y: Float, dir: Int, u: Float) {
+            val path = android.graphics.Path().apply {
+                moveTo((x + 10 * dir) * u, y * u); lineTo((x - 10 * dir) * u, (y - 12) * u); lineTo((x - 10 * dir) * u, (y + 12) * u); close()
+            }
+            c.drawPath(path, fill)
         }
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
-            text(c, i.time, 240f, 210f, 112f, u, bold = true, align = Paint.Align.CENTER)
-            text(c, i.date, 240f, 268f, 34f, u, align = Paint.Align.CENTER)
-            stroke.strokeWidth = 3 * u
-            c.drawRect(50 * u, 316 * u, 430 * u, 376 * u, stroke)
-            text(c, i.modeLine, 240f, 356f, 28f, u, align = Paint.Align.CENTER)
-            var y = 440f
+            // deliberately no mode name or banner: in School this must look like any plain phone
+            text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER)
+            text(c, i.date, 240f, 332f, 36f, u, align = Paint.Align.CENTER)
+            var y = 450f
             if (i.missedCalls > 0) { text(c, plural(i.missedCalls, "missed call"), 64f, y, 28f, u); y += 40f }
             if (i.newMessages > 0) text(c, plural(i.newMessages, "new message"), 64f, y, 28f, u)
             softKeys(c, i.softLeft, i.softRight, u)
