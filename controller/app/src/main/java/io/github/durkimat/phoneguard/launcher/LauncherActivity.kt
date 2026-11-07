@@ -21,6 +21,8 @@ import io.github.durkimat.phoneguard.WEB_SEARCH
  * does and a [LauncherSkin] draws the result. Touch is ignored.
  */
 class LauncherActivity : Activity() {
+    companion object { @Volatile private var words: WordList? = null }
+
     private val skin: LauncherSkin = NokiaSkin()
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
@@ -35,6 +37,8 @@ class LauncherActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
+        model.predictiveOn = prefs().getBoolean("predictive", true)
+        loadWords()
         setContentView(skin.create(this))
         refresh()
         if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
@@ -69,6 +73,18 @@ class LauncherActivity : Activity() {
         ui.removeCallbacks(tick)
         try { unregisterReceiver(changes) } catch (_: Exception) { }
         super.onPause()
+    }
+
+    /** The word list is read off the main thread, so the launcher opens at once and gains predictive text a moment later. */
+    private fun loadWords() {
+        if (words != null) { model.predictor = words; return }
+        Thread {
+            try {
+                val list = WordList.parse(assets.open("words/words-en-gb.txt").bufferedReader().use { it.readText() })
+                words = list
+                ui.post { model.predictor = list; refresh() }
+            } catch (e: Exception) { Log.log(this, "launcher: word list failed: ${e.javaClass.simpleName}") }
+        }.start()
     }
 
     private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -107,6 +123,7 @@ class LauncherActivity : Activity() {
         when (a) {
             Action.None -> {}
             Action.Redraw -> refresh()
+            is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
             is Action.Launch -> launch(a.pkg)

@@ -85,7 +85,7 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK)
         m.onKey(Key.UP) // wraps to the last entry, Settings
         assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font"), m.rows)
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Predictive text"), m.rows)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
         assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
     }
@@ -110,7 +110,7 @@ class LauncherModelTest {
 
     @Test fun fontIsChosenFromSettingsLikeTheTheme() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Predictive text"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *", "Sans-serif", "Pixel VT323", "Pixelify"), m.rows)
         m.onKey(Key.DOWN)
@@ -236,5 +236,71 @@ class LauncherModelTest {
         m.onKey(Key.DIGIT, 0); m.onKey(Key.DIGIT, 7); assertEquals("07", m.writeTo)
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); assertEquals("", m.writeTo)
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MESSAGES, m.screen) // Clear on empty goes back
+    }
+
+    // ---- Predictive text
+    private fun t9(): LauncherModel {
+        val m = msgs()
+        m.predictor = WordList(listOf("the", "good", "home", "gone", "hood", "hello", "I", "don't", "London", "goodbye", "is", "at"))
+        m.predictiveOn = true
+        open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT) // reply to Mum: write screen
+        return m
+    }
+    private fun press(m: LauncherModel, vararg d: Int) { d.forEach { m.onKey(Key.DIGIT, it, 0) } }
+
+    @Test fun t9ModesAreOfferedOnlyWithADictionary() {
+        val m = t9(); assertEquals("T9 Abc", m.modeName)
+        m.onKey(Key.POUND); assertEquals("T9 abc", m.modeName)
+        m.onKey(Key.POUND); m.onKey(Key.POUND); assertEquals("Abc", m.modeName)
+        val plain = msgs(); open(plain); plain.onKey(Key.OK); plain.onKey(Key.OK); plain.onKey(Key.OK); plain.onKey(Key.SOFT_LEFT)
+        assertEquals("Abc", plain.modeName)
+    }
+
+    @Test fun oneKeyPerLetterShowsTheLikeliestWordAndStarStepsThroughTheRest() {
+        val m = t9(); press(m, 4, 6, 6, 3)
+        assertEquals("Good", m.writeText); assertEquals(0..3, m.composingRange) // capital at the start of a message
+        m.onKey(Key.STAR); assertEquals("Home", m.writeText)
+        m.onKey(Key.STAR); assertEquals("Gone", m.writeText)
+        m.onKey(Key.STAR); m.onKey(Key.STAR); assertEquals("Good", m.writeText) // wraps round
+    }
+
+    @Test fun zeroAcceptsTheWordAndAddsASpaceThenTheNextWordIsLowerCase() {
+        val m = t9(); press(m, 4, 6, 6, 3, 0)
+        assertEquals("Good ", m.writeText); assertEquals(null, m.composingRange)
+        press(m, 4, 3, 5, 5, 6)
+        assertEquals("Good hello", m.writeText)
+    }
+
+    @Test fun clearRemovesOneKeyAtATimeThenTheWord() {
+        val m = t9(); press(m, 4, 6, 6, 3)
+        m.onKey(Key.SOFT_RIGHT); assertEquals("Goo", m.writeText) // the 466 matches, shown as the start of a longer word
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); assertEquals("I", m.writeText) // one key left: the one-letter word
+        m.onKey(Key.SOFT_RIGHT); assertEquals("", m.writeText)
+        assertEquals(null, m.composingRange)
+    }
+
+    @Test fun anUnknownSequenceStillShowsLettersSoTheUserIsNeverStuck() {
+        val m = t9(); press(m, 2, 2, 2, 2); assertEquals("Aaaa", m.writeText)
+    }
+
+    @Test fun contractionsAndNamesKeepTheirShape() {
+        val m = t9(); press(m, 3, 6, 6, 8); assertEquals("Don't", m.writeText)
+        m.onKey(Key.POUND); m.onKey(Key.POUND); m.onKey(Key.POUND) // multi-tap Abc: leave T9
+        m.onKey(Key.POUND); assertEquals("abc", m.modeName)
+    }
+
+    @Test fun cursorKeysAndSendAcceptTheWordFirst() {
+        val m = t9(); press(m, 4, 6, 6, 3)
+        assertEquals(Action.Send("0222", "Good"), m.onKey(Key.OK)) // sending takes the word as shown
+    }
+
+    @Test fun oneKeyAfterAWordStartsMultiTapPunctuation() {
+        val m = t9(); press(m, 4, 6, 6, 3); m.onKey(Key.DIGIT, 1, 5000)
+        assertEquals("Good.", m.writeText); assertEquals(null, m.composingRange)
+    }
+
+    @Test fun predictiveCanBeSwitchedOffInSettings() {
+        val m = t9(); m.onKey(Key.SOFT_RIGHT) // leave write
+        assertEquals(Screen.THREAD, m.screen)
     }
 }

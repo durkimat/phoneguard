@@ -152,31 +152,40 @@ class NokiaSkin : LauncherSkin {
 
         private val BODY = 28f
 
-        /** Splits text into lines that fit the screen width in the current font. Called by the model. */
-        fun wrap(text: String): List<String> {
-            val mp = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val mp = Paint(Paint.ANTI_ALIAS_FLAG)
+        private fun bodyPaint(): Paint {
             val f = Fonts.byId(model?.font).id
             mp.typeface = typefaces.getOrPut(f) { load(f) }
             mp.textSize = BODY * (if (f == "vt323") 1.3f else 1f)
+            return mp
+        }
+
+        /** Where each screen line starts and ends in [text] (end is exclusive; wrapped-over spaces are left out). */
+        fun spans(text: String): List<IntRange> {
+            val paint = bodyPaint()
             val max = 440f
-            val out = ArrayList<String>()
-            for (para in text.split('\n')) {
-                var line = ""
-                for (word in para.split(' ')) {
-                    var w = word
-                    val trial = if (line.isEmpty()) w else "$line $w"
-                    if (mp.measureText(trial) <= max) { line = trial; continue }
-                    if (line.isNotEmpty()) { out.add(line); line = "" }
-                    while (mp.measureText(w) > max) { // a word longer than the screen
-                        val n = mp.breakText(w, true, max, null).coerceAtLeast(1)
-                        out.add(w.substring(0, n)); w = w.substring(n)
+            val out = ArrayList<IntRange>()
+            var i = 0
+            while (true) {
+                var j = i; var lastSpace = -1; var done = false
+                while (j < text.length) {
+                    val ch = text[j]
+                    if (ch == '\n') { out.add(i until j); i = j + 1; done = true; break }
+                    if (ch == ' ') lastSpace = j
+                    if (paint.measureText(text, i, j + 1) > max) {
+                        if (lastSpace > i) { out.add(i until lastSpace); i = lastSpace + 1 }
+                        else { val end = if (j > i) j else j + 1; out.add(i until end); i = end }
+                        done = true; break
                     }
-                    line = w
+                    j++
                 }
-                out.add(line)
+                if (!done) { out.add(i until text.length); break }
             }
             return out
         }
+
+        /** Splits text into lines that fit the screen width in the current font. Called by the model. */
+        fun wrap(text: String): List<String> = spans(text).map { text.substring(it.first, it.last + 1) }
 
         private fun thread(c: Canvas, m: LauncherModel, u: Float) {
             val convo = m.openConvo ?: return
@@ -215,10 +224,30 @@ class NokiaSkin : LauncherSkin {
                 text(c, "To: " + m.writeTo, 16f, 85f, 30f, u, bold = true)
                 stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
             }
-            val shown = if (m.writeField == 1) m.writeText.substring(0, m.cursor) + "_" + m.writeText.substring(m.cursor) else m.writeText
-            val lines = wrap(shown)
-            val first = (lines.size - 11).coerceAtLeast(0) // keep the end, where the cursor usually is
-            lines.drop(first).take(11).forEachIndexed { n, s -> text(c, s, 16f, 140f + n * 36f, BODY, u) }
+            val body = m.writeText
+            val lines = spans(body)
+            val comp = m.composingRange
+            val paint = bodyPaint()
+            val cursorLine = if (comp != null || m.writeField == 0) -1 else lines.indexOfFirst { it.first <= m.cursor && m.cursor <= it.last + 1 }.let { if (it < 0) lines.size - 1 else it }
+            var first = (lines.size - 11).coerceAtLeast(0) // keep the end, where the cursor usually is
+            if (cursorLine in 0 until first) first = cursorLine
+            for (n in 0 until 11) {
+                val idx = first + n
+                val span = lines.getOrNull(idx) ?: break
+                val y = 140f + n * 36f
+                val line = body.substring(span.first, span.last + 1)
+                text(c, line, 16f, y, BODY, u)
+                if (comp != null && comp.first <= span.last + 1 && comp.last + 1 >= span.first) {
+                    val from = maxOf(comp.first, span.first); val to = minOf(comp.last + 1, span.last + 1)
+                    val x1 = paint.measureText(body, span.first, from); val x2 = paint.measureText(body, span.first, to)
+                    c.drawRect((16 + x1) * u, (y + 6) * u, (16 + x2) * u, (y + 9) * u, fill)
+                }
+                if (idx == cursorLine) {
+                    val x = 16 + paint.measureText(body, span.first, m.cursor.coerceIn(span.first, span.last + 1))
+                    c.drawRect(x * u, (y - 24) * u, (x + 3) * u, (y + 7) * u, fill)
+                }
+            }
+            if (lines.isEmpty() && m.writeField == 1) c.drawRect(16 * u, 116 * u, 19 * u, 147 * u, fill)
             text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
             text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
