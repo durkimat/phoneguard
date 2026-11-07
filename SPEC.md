@@ -435,10 +435,12 @@ cannot be restored.
 ## 5. Open questions
 
 1. Transport details and authentication (section 4).
-2. Hide vs suspend per app. Hidden apps vanish and post no notifications; suspended apps stay
-   visible, greyed. Which apps get which treatment in each mode?
-3. Notifications from hidden/suspended apps in restricted mode: acceptable to queue silently?
-4. Whether the DumberOS launcher handles hidden apps and keypad navigation. Needs a test on the phone.
+2. DECIDED 2026-11-07: hide, not suspend. Hidden apps vanish and post no notifications; suspended
+   apps stay visible, greyed, and say "blocked by work policy" (J36 lab test).
+3. DECIDED 2026-11-07: notifications from hidden apps are silently lost in restricted mode.
+   That is wanted, not a problem.
+4. Hidden apps vanish from Trebuchet (tested). D-pad navigation works "ok-ish" (owner, 2026-11-07):
+   Trebuchet is not designed for it. A custom launcher (phase 2) could improve this.
 5. PARKED. Could HA manage DumberOS launcher settings? Source check (2026-11-06, branch
    lineage-21.0 of DumberOS/android_packages_apps_Trebuchet): the launcher is a privileged
    system_ext app (com.android.launcher3, a Lineage Trebuchet). Settings sit in private
@@ -448,13 +450,20 @@ cannot be restored.
    PackageManager hide/suspend. Revisit only if we build our own launcher (phase 2) or the
    DumberOS developer adds managed restrictions.
 6. Provisioning order: device-owner setup fails if accounts exist. Define the sequence for a
-   microG build.
+   microG build. DEFERRED: write a detailed install order and method once the controller works.
+   The owner expects it to need developer access and adb, and wants it kept as simple as possible.
 7. Parent release: the app needs a PIN-protected "release this phone" action, and a documented
-   last-resort wipe if the PIN is lost.
-8. Usage/screen-time reporting to HA: wanted? Needs usage-stats access, and a conversation
-   with the child about privacy.
-9. Calls/contacts limits during restricted mode: optional, hard.
-10. Licence and whether to publish.
+   last-resort wipe if the recovery key is lost. DECIDED 2026-11-07: a last-resort wipe must exist.
+   The owner expects a recovery-mode wipe (volume keys on boot) is already possible and cannot be
+   blocked, which matches threat R1 (detect, don't prevent). To verify and document, not build.
+8. Usage/screen-time reporting to HA: WANTED (owner, 2026-11-07; it exists in Family Link and is
+   useful). Needs usage-stats access, and a conversation with the child about privacy. Design in a
+   later pass: per-app foreground time per day, posted to HA, no content.
+9. Calls/contacts limits: NOT WANTED (owner, 2026-11-07). Not in scope.
+10. Licence: Apache-2.0, already public. Nothing more to publish unless the licence requires it.
+    Our code uses no GPL code (the Droid-ify fork and the DumberOS launcher are only observed,
+    not reused), and ZXing is Apache-2.0, so no obligation arises. Recheck if we ever copy code
+    from a GPL project.
 
 ## 6. Threat model (DRAFT)
 
@@ -602,6 +611,7 @@ The lab app (`prototype/`) was device owner on the J36 running DumberOS.
 | Home pin (rig) | With Trebuchet pinned via `addPersistentPreferredActivity` and a second launcher installed, the Home button still opens Trebuchet even after `set-home-activity` and the Settings screen show the other launcher as selected. | Pin holds, but the Settings radio is misleading: the child may think she changed it. Acceptable; note it in the HA UI help. |
 | Battery exemption | Already exempt (`exempt=true`, standby bucket 5 = exempted, exact alarms allowed). | Good for the heartbeat. Whether the DO can self-grant is still unknown (it was exempted by hand earlier). |
 | Forced Doze (rig, 2026-11-07) | Phone unplugged (simulated), screen off, `dumpsys deviceidle force-idle`: six 1-minute exact alarms all fired on the minute (`late=0s`, `deviceIdle=true`). The app was battery-exempt with exact alarms allowed. | Exact alarms survive forced deep Doze when exempt. Caveats: forced idle is not a real night, and the exemption may be hiding the usual limit on `setExactAndAllowWhileIdle` (about one per 9 minutes when not exempt). Still worth one real overnight run before relying on it. |
+| Companion minimal: location (checked on the phone, 2026-11-07) | The app holds location permission (always), is running and reads location, and the phone has a good microG fix (about 8 m). But HA only receives battery sensors: `device_tracker` stays `unknown`. The app's Sensors list for the minimal flavour has a "Geolocation sensors" section with only "Geocoded location"; the Background location, Single accurate location and Zone sensors do not exist in this build. | Lack of feature, not configuration: the docs were right. Options: test the full flavour on microG, or have our controller report location itself over the signed channel. See the conversation notes. |
 
 Overall: the core control (hide, protect, restrict, force-stop protection) works on this device. Items marked "test later" are not blockers for starting the real controller, but the overnight alarm test and the debugging-restriction recovery should be done before relying on them.
 
