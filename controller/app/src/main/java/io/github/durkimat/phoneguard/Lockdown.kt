@@ -30,7 +30,8 @@ object LockdownEnforcer {
         HomeApp.apply(c, ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
-        HardKeys.menuKeyOverlay(c, allowed = ld.shade && !ld.kiosk)
+        // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
+        HardKeys.menuKeyOverlay(c, allowed = ld.shade && !ld.kiosk && io.github.durkimat.phoneguard.incall.CallState.info == null)
         // the kiosk allows what the launcher menu shows, nothing else (Settings is visible but must stay out of reach)
         Kiosk.apply(c, ld.kiosk, LauncherData.items(c).map { it.pkg }.toSet())
     }
@@ -68,7 +69,9 @@ object HardKeys {
     private val defaults = mapOf("key_menu_action" to "1", "key_menu_long_press_action" to "0")
 
     private fun write(c: Context, name: String, value: String?) {
-        c.contentResolver.insert(uri, android.content.ContentValues().apply { put("name", name); put("value", value ?: defaults[name] ?: "0") })
+        // a left key that does nothing is never what anyone wants back: treat "nothing" as the default
+        val v = if (name == "key_menu_action" && value == "0") null else value
+        c.contentResolver.insert(uri, android.content.ContentValues().apply { put("name", name); put("value", v ?: defaults[name] ?: "0") })
     }
 
     fun menuKeyOverlay(c: Context, allowed: Boolean) {
