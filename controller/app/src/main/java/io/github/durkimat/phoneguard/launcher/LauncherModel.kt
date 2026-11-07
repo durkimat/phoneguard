@@ -45,12 +45,11 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
         Screen.MENU -> menu(key, digit)
     }
 
-    // The two labels at the bottom of the screen belong to D-pad Left and Right. The keys under the
-    // screen do other things on this phone (the left one opens Android's own menus, the right one is
-    // Back), so the physical left key is ignored and Back does nothing on the home screen.
+    // The two labels at the bottom of the screen belong to the two keys under the screen (left key =
+    // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
     private fun home(key: Key, digit: Int): Action = when (key) {
-        Key.OK, Key.LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT -> contactsPkg?.let { Action.Launch(it) } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> contactsPkg?.let { Action.Launch(it) } ?: Action.None
         Key.CALL -> Action.CallKey
         Key.DIGIT -> if (digit in 0..9) Action.Dial(digit.toString()) else Action.None
         Key.STAR -> Action.Dial("*")
@@ -61,7 +60,7 @@ class LauncherModel(items: List<MenuItem> = emptyList(), var contactsPkg: String
     private fun menu(key: Key, digit: Int): Action = when (key) {
         Key.UP -> if (items.isEmpty()) Action.None else { selected = (selected - 1 + items.size) % items.size; Action.Redraw }
         Key.DOWN -> if (items.isEmpty()) Action.None else { selected = (selected + 1) % items.size; Action.Redraw }
-        Key.OK, Key.LEFT -> items.getOrNull(selected)?.let { Action.Launch(it.pkg) } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> items.getOrNull(selected)?.let { Action.Launch(it.pkg) } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT, Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         // 1 to 9 jump straight to that entry, like a Nokia menu

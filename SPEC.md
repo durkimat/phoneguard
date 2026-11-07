@@ -780,3 +780,19 @@ Gotchas found:
   about ten seconds and Auto restored it.
 - Setup needs these adb grants once: device owner, `WRITE_SECURE_SETTINGS` (grayscale),
   `GET_USAGE_STATS` (usage), `SYSTEM_ALERT_WINDOW` (touch blocking).
+
+### The keys under the screen (found 2026-11-07, owner testing School mode)
+- The J36's two keys under the screen are `KEY_MENU` (left) and `KEY_BACK` (right) on the keypad device.
+  On DumberOS the left one opens a system window called `DumbDroidQuickSettingsOverlay` (notifications
+  and quick settings), from `PhoneWindowManager`, whatever the status bar or lock-task say. It is a
+  standard LineageOS button setting (`key_menu_action`, default Menu, 0 means Nothing).
+- Fix: while the shade is meant to be off, the controller sets `key_menu_action` and
+  `key_menu_long_press_action` to Nothing, remembering the originals, and restores them afterwards.
+  The key then reaches our launcher as a normal Menu key. Writing that setting needs the standard
+  "Modify system settings" app-op, which cannot be self-granted: another adb setup grant
+  (`appops set <pkg> WRITE_SETTINGS allow`).
+- Launcher mapping, like a classic Nokia: left key = left label (Menu, then Select); right key =
+  right label (Contacts on the home screen, then Back in the menu and elsewhere). D-pad Left and Right
+  do the same. OK opens the menu or selects. The home screen shows no mode name.
+- Setup grants now: device owner, `WRITE_SECURE_SETTINGS`, `GET_USAGE_STATS`, `SYSTEM_ALERT_WINDOW`,
+  `WRITE_SETTINGS`.

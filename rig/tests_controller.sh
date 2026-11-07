@@ -192,7 +192,7 @@ c_release() {
 c_lockdown() {
   section "Controller: the School lockdown, applied by the controller (locks touch, shade and apps for about a minute, then restores)"
   top() { adb shell dumpsys window | grep -E 'mCurrentFocus' | head -1 | sed 's/.*{[^ ]* [^ ]* //; s/}//' | tr -d '\r'; }
-  adb shell appops set $CPKG SYSTEM_ALERT_WINDOW allow
+  adb shell appops set $CPKG SYSTEM_ALERT_WINDOW allow; adb shell appops set $CPKG WRITE_SETTINGS allow
   push_config 7 lockdown >/dev/null; wake; home
   set_time 2026-11-09 10:00; sleep 4
   expect "evaluation reports the School lockdown" "$(last_eval)" "lock=nokia/touchOff/shadeOff/kioskOn"
@@ -200,6 +200,9 @@ c_lockdown() {
   expect "our launcher is the pinned Home app" "$r" "pinnedNokia=true"
   expect "touch is blocked" "$r" "touchBlocked=true"
   expect "kiosk is on" "$r" "locked=true"
+  expect "the DumberOS menu-key overlay is switched off" "$r" "menuKeyOff=true"
+  adb shell input keyevent KEYCODE_MENU; sleep 1; shot lockdown_menukey >/dev/null
+  adb shell input keyevent KEYCODE_BACK; sleep 1; expect "the left key reached our launcher, not Android's overlay" "$(top)" "LauncherActivity"
   expect "focus is on our launcher" "$(top)" "LauncherActivity"
   adb shell input swipe 240 2 240 500 300; sleep 1; expect "shade does not open" "$(top)" "LauncherActivity"
   adb shell am start -n com.android.settings/.Settings 2>&1 | grep -q "error code 101" && pass "Settings is refused" || fail "Settings was not refused"
@@ -213,7 +216,7 @@ c_lockdown() {
   echo "--- back to Day"
   set_time 2026-11-09 16:00; sleep 4
   expect "evaluation reports the open Day" "$(last_eval)" "lock=default/touchOn/shadeOn/kioskOff"
-  r=$(dbg lockdown); expect "normal Home app is back" "$r" "pinnedNokia=false"; expect "touch is back" "$r" "touchBlocked=false"; expect "kiosk is off" "$r" "locked=false"
+  r=$(dbg lockdown); expect "the menu-key setting is put back" "$r" "menuKeyOff=false"; expect "normal Home app is back" "$r" "pinnedNokia=false"; expect "touch is back" "$r" "touchBlocked=false"; expect "kiosk is off" "$r" "locked=false"
   adb shell input swipe 240 2 240 500 300; sleep 1; screen_text | grep -q "Internet" && pass "shade opens again" || fail "shade still blocked"
   home; launcher_has com.android.deskclock && pass "Clock is back" || fail "Clock is still hidden"
   expect "Home key reaches the normal launcher" "$(top)" "launcher3"

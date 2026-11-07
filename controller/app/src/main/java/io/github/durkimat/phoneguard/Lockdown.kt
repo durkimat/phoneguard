@@ -29,6 +29,7 @@ object LockdownEnforcer {
         HomeApp.apply(c, ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
+        HardKeys.menuKeyOverlay(c, allowed = ld.shade && !ld.kiosk)
         // the kiosk allows what the launcher menu shows, nothing else (Settings is visible but must stay out of reach)
         Kiosk.apply(c, ld.kiosk, LauncherData.items(c).map { it.pkg }.toSet())
     }
@@ -38,8 +39,49 @@ object LockdownEnforcer {
         TouchBlocker.set(c, false)
         Kiosk.apply(c, false, emptySet())
         Enforcer.setStatusBar(c, disabled = false)
+        HardKeys.menuKeyOverlay(c, allowed = true)
         HomeApp.apply(c, false)
     }
+}
+
+/**
+ * DumberOS opens its own "notifications and quick settings" window from the Menu key (the left key
+ * under the screen), whatever the status bar says. That key's action is a standard LineageOS button
+ * setting, so while the shade is meant to be off we set it to "Nothing" and put the original back
+ * afterwards. The write permission is a normal one, granted at install.
+ */
+object HardKeys {
+    private val uri = android.net.Uri.parse("content://lineagesettings/system")
+    private val keys = listOf("key_menu_action", "key_menu_long_press_action")
+
+    private fun read(c: Context, name: String): String? = try {
+        c.contentResolver.query(uri, arrayOf("value"), "name=?", arrayOf(name), null)?.use { if (it.moveToFirst()) it.getString(0) else null }
+    } catch (_: Exception) { null }
+
+    private fun write(c: Context, name: String, value: String?) {
+        if (value == null) c.contentResolver.delete(uri, "name=?", arrayOf(name))
+        else c.contentResolver.insert(uri, android.content.ContentValues().apply { put("name", name); put("value", value) })
+    }
+
+    fun menuKeyOverlay(c: Context, allowed: Boolean) {
+        try {
+            val saved = Store.menuKeySaved(c)
+            if (!allowed) {
+                if (saved == null) {
+                    val snap = org.json.JSONObject()
+                    keys.forEach { snap.put(it, read(c, it) ?: org.json.JSONObject.NULL) }
+                    Store.setMenuKeySaved(c, snap.toString())
+                }
+                keys.forEach { if (read(c, it) != "0") write(c, it, "0") }
+            } else if (saved != null) {
+                val snap = org.json.JSONObject(saved)
+                keys.forEach { write(c, it, if (snap.isNull(it)) null else snap.getString(it)) }
+                Store.setMenuKeySaved(c, null)
+            }
+        } catch (e: Exception) { Log.log(c, "menu key setting unavailable: ${e.javaClass.simpleName}") }
+    }
+
+    fun isDisabled(c: Context) = read(c, "key_menu_action") == "0"
 }
 
 /** Which Home app is the default. Set explicitly, because a second Home app makes Android ask every time. */
