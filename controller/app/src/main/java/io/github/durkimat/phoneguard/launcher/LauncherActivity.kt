@@ -76,6 +76,8 @@ class LauncherActivity : Activity() {
     private fun refresh() {
         model.setItems(LauncherData.items(this))
         if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
+        // not while reading or writing, so a message arriving cannot shift what is on the screen
+        if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
         skin.render(model, LauncherData.info(this))
     }
 
@@ -110,7 +112,7 @@ class LauncherActivity : Activity() {
             is Action.Launch -> launch(a.pkg)
             is Action.Dial -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.digits))))
             is Action.Call -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.number))))
-            is Action.Message -> start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(a.number))))
+            is Action.Send -> { model.notify(LauncherData.sendSms(this, a.to, a.body)); refresh() }
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
         }
     }

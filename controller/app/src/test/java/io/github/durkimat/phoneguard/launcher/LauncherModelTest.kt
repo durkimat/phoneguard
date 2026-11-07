@@ -132,7 +132,9 @@ class LauncherModelTest {
         val m = withContacts(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Action.Call("0222"), m.onKey(Key.OK))
         m.onKey(Key.DOWN); assertEquals(Action.Call("0333"), m.onKey(Key.SOFT_LEFT))
-        m.onKey(Key.DOWN); assertEquals(Action.Message("0222"), m.onKey(Key.LEFT))
+        m.onKey(Key.DOWN); assertEquals(Action.Redraw, m.onKey(Key.LEFT)) // Message opens the write screen with the number filled in
+        assertEquals(Screen.WRITE, m.screen); assertEquals("0222", m.writeTo); assertEquals(1, m.writeField)
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.CONTACT, m.screen) // Clear on an empty message goes back
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.CONTACTS, m.screen); assertEquals(1, m.selected)
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
     }
@@ -146,5 +148,93 @@ class LauncherModelTest {
     @Test fun greenKeyCallsTheSelectedNumber() {
         val m = withContacts(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.OK)
         assertEquals(Action.Call("0111"), m.onKey(Key.CALL))
+    }
+
+    // ---- Messages
+    private fun msgs(): LauncherModel {
+        val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages")), "com.android.contacts", "com.android.messaging")
+        m.contacts = listOf(Contact("Dad", listOf("0111")), Contact("Mum", listOf("0222")))
+        m.convos = listOf(
+            Convo("0222", "Mum", listOf(Msg("Dinner at 6?", 1000, false), Msg("ok", 2000, true), Msg("Can you get milk on the way home please", 3000, false)), 1),
+            Convo("0111", "Dad", listOf(Msg("Hi", 500, false)), 0),
+        )
+        m.wrapper = { it.chunked(12) }
+        m.pageLines = 2
+        return m
+    }
+    private fun open(m: LauncherModel) { m.onKey(Key.OK); m.onKey(Key.OK) } // menu, then the Messages entry
+
+    @Test fun messagesEntryOpensOurOwnMessagesScreen() {
+        val m = msgs(); open(m)
+        assertEquals(Screen.MESSAGES, m.screen); assertEquals(listOf("Inbox", "Write message"), m.rows)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
+    }
+
+    @Test fun inboxMarksUnreadAndOpensTheNewestMessage() {
+        val m = msgs(); open(m); m.onKey(Key.OK)
+        assertEquals(Screen.INBOX, m.screen); assertEquals(listOf("* Mum", "Dad"), m.rows)
+        m.onKey(Key.OK)
+        assertEquals(Screen.THREAD, m.screen); assertEquals("Mum", m.title); assertEquals(2, m.selected)
+    }
+
+    @Test fun conversationScrollsLongMessagesThenMovesToTheNextMessage() {
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK) // newest: 40 chars = 4 lines of 12, 2 per page
+        assertEquals(0, m.scroll)
+        m.onKey(Key.DOWN); assertEquals(2, m.scroll)
+        assertEquals(Action.None, m.onKey(Key.DOWN)) // last message, last page
+        m.onKey(Key.UP); assertEquals(0, m.scroll)
+        m.onKey(Key.UP); assertEquals(1, m.selected); assertEquals(0, m.scroll) // previous message
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.INBOX, m.screen)
+    }
+
+    @Test fun replyOpensWriteWithTheNumberAndGreenKeyCalls() {
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK)
+        assertEquals(Action.Call("0222"), m.onKey(Key.CALL))
+        m.onKey(Key.SOFT_LEFT)
+        assertEquals(Screen.WRITE, m.screen); assertEquals("0222", m.writeTo); assertEquals(1, m.writeField)
+        assertEquals("Send" to "Clear", m.softKeys)
+    }
+
+    @Test fun multiTapCyclesLettersAndCapitalisesTheStart() {
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
+        m.onKey(Key.DIGIT, 4, 0); m.onKey(Key.DIGIT, 4, 300); m.onKey(Key.DIGIT, 4, 600) // g h i -> "I"
+        assertEquals("I", m.writeText)
+        m.onKey(Key.DIGIT, 4, 2000); assertEquals("Ig", m.writeText) // a pause starts a new letter, now lower case
+    }
+
+    @Test fun typingFlowSendsAndCursorEditingWorks() {
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
+        m.onKey(Key.DIGIT, 4, 0); m.onKey(Key.DIGIT, 4, 100) // "H"
+        m.onKey(Key.DIGIT, 4, 2000); m.onKey(Key.DIGIT, 4, 2100); m.onKey(Key.DIGIT, 4, 2200) // "i"
+        assertEquals("Hi", m.writeText)
+        m.onKey(Key.LEFT); m.onKey(Key.DIGIT, 0, 5000) // a space before the "i"
+        assertEquals("H i", m.writeText)
+        m.onKey(Key.SOFT_RIGHT); assertEquals("Hi", m.writeText) // Clear deletes before the cursor
+        assertEquals(Action.Send("0222", "Hi"), m.onKey(Key.OK))
+        assertEquals(Screen.MESSAGES, m.screen); assertEquals("Message sent", m.notice)
+        m.onKey(Key.DOWN); assertEquals(null, m.notice)
+    }
+
+    @Test fun poundCyclesModesAndNumbersTypeDigits() {
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
+        assertEquals("Abc", m.modeName); m.onKey(Key.POUND); assertEquals("abc", m.modeName)
+        m.onKey(Key.DIGIT, 2, 0); assertEquals("a", m.writeText)
+        m.onKey(Key.POUND); m.onKey(Key.POUND); assertEquals("123", m.modeName)
+        m.onKey(Key.DIGIT, 7, 100); assertEquals("a7", m.writeText)
+    }
+
+    @Test fun newMessagePicksARecipientFromContacts() {
+        val m = msgs(); open(m); m.onKey(Key.DOWN); m.onKey(Key.OK)
+        assertEquals(Screen.WRITE, m.screen); assertEquals(0, m.writeField); assertEquals("Contacts" to "Clear", m.softKeys)
+        m.onKey(Key.OK); assertEquals(Screen.CONTACTS, m.screen)
+        m.onKey(Key.DOWN); m.onKey(Key.OK)
+        assertEquals(Screen.WRITE, m.screen); assertEquals("0222", m.writeTo); assertEquals(1, m.writeField)
+    }
+
+    @Test fun recipientCanBeTypedAsDigitsAndClearedBackOut() {
+        val m = msgs(); open(m); m.onKey(Key.DOWN); m.onKey(Key.OK)
+        m.onKey(Key.DIGIT, 0); m.onKey(Key.DIGIT, 7); assertEquals("07", m.writeTo)
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); assertEquals("", m.writeTo)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MESSAGES, m.screen) // Clear on empty goes back
     }
 }

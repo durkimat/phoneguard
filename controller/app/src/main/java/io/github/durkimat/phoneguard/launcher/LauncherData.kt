@@ -37,7 +37,7 @@ object LauncherData {
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName
-        return pkgs.map { MenuItem(it, try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
+        return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
             MenuItem(SETTINGS_PKG, "Settings")
     }
@@ -105,4 +105,77 @@ object LauncherData {
         val tm = c.getSystemService(TelephonyManager::class.java)
         if (tm.simState != TelephonyManager.SIM_STATE_READY) -1 else (tm.signalStrength?.level ?: 0)
     } catch (_: Exception) { -1 }
+
+    // ---- Messages
+
+    /** Matches numbers written differently (+44 7700... and 07700...) by their last nine digits. */
+    private fun key(address: String): String {
+        val digits = address.filter { it.isDigit() }
+        return if (digits.length >= 7 && address.any { it.isDigit() } && address.count { it.isLetter() } == 0) digits.takeLast(9) else address.lowercase()
+    }
+
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
+
+    /** Texts we sent ourselves. We are not the default messaging app, so Android does not store them for us. */
+    private fun localSent(c: Context): List<Triple<String, String, Long>> = try {
+        val arr = org.json.JSONArray(prefs(c).getString("sent", "[]"))
+        (0 until arr.length()).map { val o = arr.getJSONObject(it); Triple(o.getString("a"), o.getString("b"), o.getLong("d")) }
+    } catch (_: Exception) { emptyList() }
+
+    private fun rememberSent(c: Context, to: String, body: String, at: Long) {
+        val list = (localSent(c) + Triple(to, body, at)).takeLast(200)
+        val arr = org.json.JSONArray()
+        list.forEach { arr.put(org.json.JSONObject().put("a", it.first).put("b", it.second).put("d", it.third)) }
+        prefs(c).edit().putString("sent", arr.toString()).apply()
+    }
+
+    /** All conversations, newest first. Reads the phone's texts plus the ones we sent. */
+    fun convos(c: Context, contacts: List<Contact>): List<Convo> {
+        class Raw(val address: String, val msg: Msg, val unread: Boolean)
+        val raws = ArrayList<Raw>()
+        try {
+            c.contentResolver.query(
+                Telephony.Sms.CONTENT_URI, arrayOf("address", "body", "date", "type", "read"), null, null, "date DESC LIMIT 400",
+            )?.use { cur ->
+                while (cur.moveToNext()) {
+                    val addr = cur.getString(0) ?: continue
+                    val type = cur.getInt(3)
+                    raws.add(Raw(addr, Msg(cur.getString(1).orEmpty(), cur.getLong(2), type != 1), type == 1 && cur.getInt(4) == 0))
+                }
+            }
+        } catch (_: Exception) { }
+        // test only: a debuggable build can read made-up messages (the SMS store is write-protected without a SIM and default-app role)
+        if (c.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) try {
+            val arr = org.json.JSONArray(prefs(c).getString("fake", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                raws.add(Raw(o.getString("a"), Msg(o.getString("b"), o.getLong("d"), o.optBoolean("m")), o.optBoolean("u")))
+            }
+        } catch (_: Exception) { }
+        val have = raws.filter { it.msg.mine }
+        for ((to, body, at) in localSent(c)) {
+            if (have.none { key(it.address) == key(to) && it.msg.body == body && Math.abs(it.msg.date - at) < 120_000 }) raws.add(Raw(to, Msg(body, at, true), false))
+        }
+        val names = HashMap<String, String>()
+        for (ct in contacts) for (n in ct.numbers) names.putIfAbsent(key(n), ct.name)
+        return raws.groupBy { key(it.address) }.map { (k, list) ->
+            val sorted = list.sortedBy { it.msg.date }
+            Convo(sorted.last().address, names[k] ?: sorted.last().address, sorted.map { it.msg }, list.count { it.unread })
+        }.sortedByDescending { it.msgs.last().date }
+    }
+
+    /** Sends a text. Returns what to tell the user. Nothing is recorded when it could not be sent. */
+    fun sendSms(c: Context, to: String, body: String): String {
+        return try {
+            val tm = c.getSystemService(TelephonyManager::class.java)
+            if (tm.simState != TelephonyManager.SIM_STATE_READY) return "No SIM: not sent"
+            val sms = c.getSystemService(android.telephony.SmsManager::class.java)
+            sms.sendMultipartTextMessage(to, null, sms.divideMessage(body), null, null)
+            rememberSent(c, to, body, Clock.now())
+            "Message sent"
+        } catch (e: Exception) {
+            io.github.durkimat.phoneguard.Log.log(c, "sms: send failed ${e.javaClass.simpleName}")
+            "Not sent"
+        }
+    }
 }
