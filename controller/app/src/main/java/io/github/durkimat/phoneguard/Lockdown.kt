@@ -3,6 +3,7 @@ package io.github.durkimat.phoneguard
 import android.app.ActivityManager
 import android.app.ActivityOptions
 import android.content.ComponentName
+import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -199,7 +200,9 @@ object Kiosk {
                 return
             }
             dpm.setLockTaskPackages(admin, (visible + infrastructure + c.packageName).toTypedArray())
-            dpm.setLockTaskFeatures(admin, 0)
+            // Everything off except the keyguard: lock-task otherwise switches the PIN screen off, so a
+            // child could lock the phone and wake it without ever needing the PIN.
+            dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD)
             if (!locked(c)) {
                 val i = Intent(c, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 c.startActivity(i, ActivityOptions.makeBasic().apply { setLockTaskEnabled(true) }.toBundle())
