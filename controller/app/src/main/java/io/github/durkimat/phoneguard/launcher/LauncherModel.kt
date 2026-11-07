@@ -5,9 +5,15 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE }
 
 data class Contact(val name: String, val numbers: List<String>)
+
+/** One text message. [mine] is true for messages this phone sent. */
+data class Msg(val body: String, val date: Long, val mine: Boolean)
+
+/** A conversation with one number, oldest message first. */
+data class Convo(val address: String, val name: String, val msgs: List<Msg>, val unread: Int)
 
 /** A colour scheme: LCD background and ink. Plain ints so the model stays free of Android classes. */
 data class Theme(val id: String, val name: String, val lcd: Int, val ink: Int)
@@ -55,11 +61,15 @@ sealed class Action {
     data class SaveFont(val id: String) : Action()
     /** Start a call to this number. */
     data class Call(val number: String) : Action()
-    /** Open a new text message to this number. */
-    data class Message(val number: String) : Action()
+    /** Send this text message. */
+    data class Send(val to: String, val body: String) : Action()
 }
 
-class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String? = "com.android.contacts") {
+class LauncherModel(
+    items: List<MenuItem> = emptyList(),
+    val contactsApp: String? = "com.android.contacts",
+    val messagesApp: String? = "com.android.messaging",
+) {
     var screen = Screen.HOME
         private set
     var items: List<MenuItem> = items
@@ -84,6 +94,42 @@ class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String
 
     private val settingsRows = listOf("Theme", "Font")
 
+    // ---- Messages state
+    /** Conversations, newest first. The activity fills this in. */
+    var convos: List<Convo> = emptyList()
+    /** Splits text into the lines that fit the screen. The skin sets this, because only it knows the font. */
+    var wrapper: (String) -> List<String> = { listOf(it) }
+    var pageLines = 11
+    var scroll = 0
+        private set
+    private var convo: Convo? = null
+    /** The conversation being read, its message on show and how many it has: for the skin to draw. */
+    val openConvo: Convo? get() = convo
+    val shownMsg: Msg? get() = convo?.msgs?.getOrNull(selected)
+    private val messagesRows = listOf("Inbox", "Write message")
+
+    var writeTo = ""
+        private set
+    var writeText = ""
+        private set
+    var cursor = 0
+        private set
+    /** 0 is the To field, 1 the message. */
+    var writeField = 1
+        private set
+    private var writeMode = 0
+    private var writeBack = Screen.MESSAGES
+    private var picking = false
+    private var lastDigit = -1
+    private var lastAt = 0L
+    private var tapIdx = 0
+    val modeName: String get() = listOf("Abc", "abc", "ABC", "123")[writeMode]
+
+    /** A short message shown over the screen until the next key ("Message sent"). */
+    var notice: String? = null
+        private set
+    fun notify(text: String) { notice = text }
+
     fun goHome() { screen = Screen.HOME; selected = 0 }
 
     val title: String get() = when (screen) {
@@ -92,7 +138,20 @@ class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String
         Screen.FONT -> "Font"
         Screen.CONTACTS -> "Contacts"
         Screen.CONTACT -> contact?.name ?: "Contact"
+        Screen.MESSAGES -> "Messages"
+        Screen.INBOX -> "Inbox"
+        Screen.THREAD -> convo?.name ?: "Messages"
+        Screen.WRITE -> "Write message"
         else -> "Menu"
+    }
+
+    /** The two labels under the screen, which the two keys beneath it and D-pad Left/Right carry out. */
+    val softKeys: Pair<String, String> get() = when (screen) {
+        Screen.HOME -> "Menu" to "Contacts"
+        Screen.INBOX -> "Open" to "Back"
+        Screen.THREAD -> "Reply" to "Back"
+        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
+        else -> "Select" to "Back"
     }
 
     /** The lines of whichever list is showing. */
@@ -103,11 +162,18 @@ class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
-        Screen.HOME -> emptyList()
+        Screen.MESSAGES -> messagesRows
+        Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
+        Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
 
     /** `digit` is only used with [Key.DIGIT]. */
-    fun onKey(key: Key, digit: Int = -1): Action = when (screen) {
+    fun onKey(key: Key, digit: Int = -1, nowMs: Long = System.currentTimeMillis()): Action {
+        notice = null
+        return dispatch(key, digit, nowMs)
+    }
+
+    private fun dispatch(key: Key, digit: Int, nowMs: Long): Action = when (screen) {
         Screen.HOME -> home(key, digit)
         Screen.MENU -> menu(key, digit)
         Screen.SETTINGS -> settings(key, digit)
@@ -115,13 +181,145 @@ class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String
         Screen.FONT -> fonts(key, digit)
         Screen.CONTACTS -> contactList(key, digit)
         Screen.CONTACT -> contactDetail(key, digit)
+        Screen.MESSAGES -> messagesMenu(key, digit)
+        Screen.INBOX -> inbox(key, digit)
+        Screen.THREAD -> thread(key, digit)
+        Screen.WRITE -> write(key, digit, nowMs)
     }
+
+    // ---- Messages
+
+    private fun openMessages(): Action { screen = Screen.MESSAGES; selected = 0; return Action.Redraw }
+
+    private fun messagesMenu(key: Key, digit: Int): Action = move(key, messagesRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) { screen = Screen.INBOX; selected = 0; Action.Redraw } else startWrite("", Screen.MESSAGES)
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == messagesApp }.coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        Key.DIGIT -> when (digit) { 1 -> { screen = Screen.INBOX; selected = 0; Action.Redraw }; 2 -> startWrite("", Screen.MESSAGES); else -> Action.None }
+        else -> Action.None
+    }
+
+    private fun inbox(key: Key, digit: Int): Action = move(key, convos.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; screen = Screen.THREAD; selected = (it.msgs.size - 1).coerceAtLeast(0); scroll = 0; Action.Redraw } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MESSAGES; selected = 0; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> convos.getOrNull(selected)?.let { Action.Call(it.address) } ?: Action.CallKey
+        else -> Action.None
+    }
+
+    private fun thread(key: Key, digit: Int): Action {
+        val c = convo ?: run { goHome(); return Action.Redraw }
+        val msg = c.msgs.getOrNull(selected)
+        val lines = msg?.let { wrapper(it.body).size } ?: 0
+        return when (key) {
+            Key.DOWN -> when {
+                scroll + pageLines < lines -> { scroll += pageLines; Action.Redraw }
+                selected < c.msgs.size - 1 -> { selected++; scroll = 0; Action.Redraw }
+                else -> Action.None
+            }
+            Key.UP -> when {
+                scroll > 0 -> { scroll = (scroll - pageLines).coerceAtLeast(0); Action.Redraw }
+                selected > 0 -> { selected--; scroll = 0; Action.Redraw }
+                else -> Action.None
+            }
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> startWrite(c.address, Screen.THREAD)
+            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.INBOX; selected = convos.indexOfFirst { it.address == c.address }.coerceAtLeast(0); Action.Redraw }
+            Key.CALL -> Action.Call(c.address)
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun startWrite(to: String, back: Screen): Action {
+        writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1
+        writeField = if (to.isEmpty()) 0 else 1
+        screen = Screen.WRITE
+        return Action.Redraw
+    }
+
+    private fun leaveWrite(): Action { screen = writeBack; if (writeBack == Screen.MESSAGES) selected = 1; return Action.Redraw }
+
+    private fun write(key: Key, digit: Int, now: Long): Action =
+        if (writeField == 0) writeToField(key, digit) else writeBody(key, digit, now)
+
+    private fun writeToField(key: Key, digit: Int): Action = when (key) {
+        Key.DIGIT -> if (writeTo.length < 20 && digit in 0..9) { writeTo += digit; Action.Redraw } else Action.None
+        Key.STAR -> if (writeTo.isEmpty()) { writeTo = "+"; Action.Redraw } else Action.None
+        Key.SOFT_RIGHT -> if (writeTo.isNotEmpty()) { writeTo = writeTo.dropLast(1); Action.Redraw } else leaveWrite()
+        Key.DOWN -> { writeField = 1; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (writeTo.isEmpty()) { picking = true; openContacts(Screen.WRITE) } else { writeField = 1; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun writeBody(key: Key, digit: Int, now: Long): Action = when (key) {
+        Key.DIGIT -> { typeKey(digit, now); Action.Redraw }
+        Key.STAR -> { typeKey(10, now); Action.Redraw }
+        Key.POUND -> { writeMode = (writeMode + 1) % 4; lastDigit = -1; Action.Redraw }
+        Key.UP -> { writeField = 0; Action.Redraw }
+        Key.LEFT -> { cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
+        Key.RIGHT -> { cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
+        Key.OK, Key.SOFT_LEFT -> if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
+            val a = Action.Send(writeTo, writeText.trim())
+            screen = Screen.MESSAGES; selected = 0; notice = "Message sent"
+            a
+        }
+        Key.SOFT_RIGHT -> when {
+            cursor > 0 -> { writeText = writeText.removeRange(cursor - 1, cursor); cursor--; lastDigit = -1; Action.Redraw }
+            writeText.isEmpty() -> leaveWrite()
+            else -> Action.None
+        }
+        Key.CALL -> if (writeTo.isNotBlank()) Action.Call(writeTo) else Action.None
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private val tapChars = mapOf(
+        0 to " 0", 1 to ".,?!'-@1", 2 to "abc2", 3 to "def3", 4 to "ghi4", 5 to "jkl5", 6 to "mno6", 7 to "pqrs7", 8 to "tuv8", 9 to "wxyz9",
+        10 to ".,?!'-@:/()&",
+    )
+
+    /** Multi-tap typing: press a key again within a second to cycle its letters, like a Nokia without T9. */
+    private fun typeKey(d: Int, now: Long) {
+        if (writeText.length >= 480) return
+        if (writeMode == 3 && d <= 9) { insert(d.toString()); lastDigit = -1; return }
+        val set = tapChars[d] ?: return
+        if (d == lastDigit && now - lastAt <= 1000 && cursor > 0) {
+            tapIdx = (tapIdx + 1) % set.length
+            val ch = style(set[tapIdx], writeText.substring(0, cursor - 1))
+            writeText = writeText.substring(0, cursor - 1) + ch + writeText.substring(cursor)
+        } else {
+            tapIdx = 0
+            insert(style(set[0], writeText.substring(0, cursor)))
+        }
+        lastDigit = d; lastAt = now
+    }
+
+    private fun style(c: Char, before: String): String = when {
+        !c.isLetter() -> c.toString()
+        writeMode == 2 -> c.uppercase()
+        writeMode == 0 && (before.isEmpty() || before.endsWith(". ") || before.endsWith("! ") || before.endsWith("? ")) -> c.uppercase()
+        else -> c.toString()
+    }
+
+    private fun insert(t: String) { writeText = writeText.substring(0, cursor) + t + writeText.substring(cursor); cursor += t.length }
 
     private fun openContacts(from: Screen): Action { contactsFrom = from; screen = Screen.CONTACTS; selected = 0; return Action.Redraw }
 
     private fun contactList(key: Key, digit: Int): Action = move(key, contacts.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> contacts.getOrNull(selected)?.let { contact = it; screen = Screen.CONTACT; selected = 0; Action.Redraw } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (contactsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> contacts.getOrNull(selected)?.let {
+            if (picking) { picking = false; writeTo = it.numbers.firstOrNull().orEmpty(); screen = Screen.WRITE; writeField = 1; Action.Redraw }
+            else { contact = it; screen = Screen.CONTACT; selected = 0; Action.Redraw }
+        } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> {
+            when {
+                picking -> { picking = false; screen = Screen.WRITE }
+                contactsFrom == Screen.MENU -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) }
+                else -> goHome()
+            }
+            Action.Redraw
+        }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
@@ -134,7 +332,7 @@ class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String
             Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL ->
                 if (key == Key.CALL && c.numbers.isNotEmpty()) Action.Call(c.numbers[selected.coerceAtMost(c.numbers.size - 1)])
                 else if (selected < c.numbers.size) Action.Call(c.numbers[selected])
-                else Action.Message(c.numbers.firstOrNull() ?: "")
+                else startWrite(c.numbers.firstOrNull() ?: "", Screen.CONTACT)
             Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONTACTS; selected = contacts.indexOf(c).coerceAtLeast(0); Action.Redraw }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
@@ -151,6 +349,7 @@ class LauncherModel(items: List<MenuItem> = emptyList(), val contactsApp: String
         item == null -> Action.None
         item.pkg == SETTINGS_PKG -> { screen = Screen.SETTINGS; selected = 0; Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
+        item.pkg == messagesApp -> openMessages()
         else -> Action.Launch(item.pkg)
     }
 

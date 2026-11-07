@@ -6,6 +6,9 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.View
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * The first skin: a monochrome list-style Nokia. It only draws. Everything is laid out on a 480 by 640
@@ -21,7 +24,10 @@ class NokiaSkin : LauncherSkin {
     override fun create(context: Context): View = Canvas2(context).also { view = it }
 
     override fun render(model: LauncherModel, info: HomeInfo) {
-        this.model = model; this.info = info; view?.invalidate()
+        this.model = model; this.info = info
+        model.wrapper = { view?.wrap(it) ?: listOf(it) }
+        model.pageLines = 11
+        view?.invalidate()
     }
 
     private inner class Canvas2(context: Context) : View(context) {
@@ -59,7 +65,13 @@ class NokiaSkin : LauncherSkin {
             sizeScale = if (f == "vt323") 1.3f else 1f
             c.drawColor(lcd)
             statusLine(c, i, u)
-            if (m.screen == Screen.HOME) home(c, i, u) else menu(c, m, u)
+            when (m.screen) {
+                Screen.HOME -> home(c, i, u)
+                Screen.THREAD -> thread(c, m, u)
+                Screen.WRITE -> write(c, m, u)
+                else -> menu(c, m, u)
+            }
+            m.notice?.let { notice(c, it, u) }
         }
 
         private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
@@ -135,7 +147,86 @@ class NokiaSkin : LauncherSkin {
                 } else text(c, label, 20f, top + 42f, 32f, u)
             }
             if (m.rows.isEmpty()) text(c, "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
-            softKeys(c, "Select", "Back", u)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private val BODY = 28f
+
+        /** Splits text into lines that fit the screen width in the current font. Called by the model. */
+        fun wrap(text: String): List<String> {
+            val mp = Paint(Paint.ANTI_ALIAS_FLAG)
+            val f = Fonts.byId(model?.font).id
+            mp.typeface = typefaces.getOrPut(f) { load(f) }
+            mp.textSize = BODY * (if (f == "vt323") 1.3f else 1f)
+            val max = 440f
+            val out = ArrayList<String>()
+            for (para in text.split('\n')) {
+                var line = ""
+                for (word in para.split(' ')) {
+                    var w = word
+                    val trial = if (line.isEmpty()) w else "$line $w"
+                    if (mp.measureText(trial) <= max) { line = trial; continue }
+                    if (line.isNotEmpty()) { out.add(line); line = "" }
+                    while (mp.measureText(w) > max) { // a word longer than the screen
+                        val n = mp.breakText(w, true, max, null).coerceAtLeast(1)
+                        out.add(w.substring(0, n)); w = w.substring(n)
+                    }
+                    line = w
+                }
+                out.add(line)
+            }
+            return out
+        }
+
+        private fun thread(c: Canvas, m: LauncherModel, u: Float) {
+            val convo = m.openConvo ?: return
+            val msg = m.shownMsg ?: return
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            val lines = wrap(msg.body)
+            val whenText = SimpleDateFormat(if (sameDay(msg.date)) "HH:mm" else "d MMM HH:mm", Locale.UK).format(Date(msg.date))
+            text(c, (if (msg.mine) "Me" else convo.name.take(12)) + "  " + whenText, 16f, 134f, 24f, u, bold = true)
+            text(c, "${m.selected + 1}/${convo.msgs.size}", 464f, 134f, 24f, u, align = Paint.Align.RIGHT)
+            val page = lines.drop(m.scroll).take(m.pageLines)
+            page.forEachIndexed { n, s -> text(c, s, 16f, 176f + n * 36f, BODY, u) }
+            if (m.scroll > 0) arrowV(c, 456f, 150f, -1, u)
+            if (m.scroll + m.pageLines < lines.size) arrowV(c, 456f, 548f, 1, u)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun sameDay(t: Long): Boolean {
+            val f = SimpleDateFormat("yyyyMMdd", Locale.UK)
+            return f.format(Date(t)) == f.format(Date(io.github.durkimat.phoneguard.Clock.now()))
+        }
+
+        private fun arrowV(c: Canvas, x: Float, y: Float, dir: Int, u: Float) {
+            val path = android.graphics.Path().apply {
+                moveTo(x * u, (y + 9 * dir) * u); lineTo((x - 10) * u, (y - 9 * dir) * u); lineTo((x + 10) * u, (y - 9 * dir) * u); close()
+            }
+            c.drawPath(path, fill)
+        }
+
+        private fun write(c: Canvas, m: LauncherModel, u: Float) {
+            // the To field takes the title bar's place, inverted while it has focus
+            if (m.writeField == 0) {
+                c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+                text(c, "To: " + m.writeTo + "_", 16f, 85f, 30f, u, bold = true, color = lcd)
+            } else {
+                text(c, "To: " + m.writeTo, 16f, 85f, 30f, u, bold = true)
+                stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
+            }
+            val shown = if (m.writeField == 1) m.writeText.substring(0, m.cursor) + "_" + m.writeText.substring(m.cursor) else m.writeText
+            val lines = wrap(shown)
+            val first = (lines.size - 11).coerceAtLeast(0) // keep the end, where the cursor usually is
+            lines.drop(first).take(11).forEachIndexed { n, s -> text(c, s, 16f, 140f + n * 36f, BODY, u) }
+            text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
+            text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun notice(c: Canvas, s: String, u: Float) {
+            c.drawRect(30 * u, 250 * u, 450 * u, 350 * u, fill)
+            text(c, s, 240f, 312f, 32f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }
 
         private fun plural(n: Int, what: String) = "$n $what" + if (n == 1) "" else "s"
