@@ -30,7 +30,10 @@ cd ~/HA/phoneguard/controller
 adb install -t -r app/build/outputs/apk/debug/app-debug.apk
 adb shell dpm set-device-owner io.github.durkimat.phoneguard/.AdminReceiver   # needs no accounts
 adb shell pm grant io.github.durkimat.phoneguard android.permission.WRITE_SECURE_SETTINGS  # grayscale
+adb shell cmd notification allow_dnd io.github.durkimat.phoneguard   # silent sound profile (Do Not Disturb)
 ```
+Other one-time grants used by the launcher: `appops set <pkg> SYSTEM_ALERT_WINDOW allow` (touch off) and
+`appops set <pkg> WRITE_SETTINGS allow` (left-key behaviour). Usage access is self-granted.
 Then run the rig: `cd ../rig && ./run_controller.sh` (see `rig/`). Get out with the rig's
 `dbg release` or `adb shell dpm remove-active-admin io.github.durkimat.phoneguard/.AdminReceiver`.
 

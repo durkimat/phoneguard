@@ -256,3 +256,19 @@ def test_lockdown_defaults_override_and_copy(hub):
     hub.data["children"]["her"]["modes"]["day"].update({"touch": False, "launcher": "nokia"})
     hub.copy_settings("her", "tab", ["mode_options"])
     assert hub.data["children"]["tab"]["modes"]["day"]["touch"] is False and hub.data["children"]["tab"]["modes"]["day"]["launcher"] == "nokia"
+
+
+def test_sound_defaults_validation_and_copy(hub):
+    ch = hub.data["children"]["her"]
+    cfg = S.build_config(ch, hub.now())
+    assert cfg["modes"]["school"]["sound"] == "silent" and cfg["modes"]["day"]["sound"] == "normal"
+    modes = json.loads(json.dumps(ch["modes"])); modes["night"]["sound"] = "vibrate"
+    hub.update_child("her", {"modes": modes})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["modes"]["night"]["sound"] == "vibrate"
+    bad = json.loads(json.dumps(modes)); bad["night"]["sound"] = "loud"
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"modes": bad})
+    assert hub.data["children"]["her"]["modes"]["night"]["sound"] == "vibrate"  # the refused change was not kept
+    hub.ensure_child("sib", "Sib")
+    hub.copy_settings("her", "sib", ["mode_options"])
+    assert hub.data["children"]["sib"]["modes"]["night"]["sound"] == "vibrate"

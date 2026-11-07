@@ -164,4 +164,23 @@ class EngineTest {
         assertEquals(setOf("no_factory_reset"), c.restrictions)
         assertEquals("school", c.pattern!!.days[1]!![0].mode)
     }
+
+    @Test fun soundFollowsTheModeAndABoostNeverMakesItQuieter() {
+        val quiet = modes + mapOf(
+            "school" to ModeDef("school", "School", false, setOf("a.calc"), false, sound = "silent"),
+            "night" to ModeDef("night", "Night", false, setOf("a.music"), false, sound = "vibrate"),
+        )
+        val c = cfg().copy(modes = quiet)
+        assertEquals("silent", Engine.effective(c, null, at(2026, 11, 3, 10)).sound)
+        assertEquals("vibrate", Engine.effective(c, null, at(2026, 11, 3, 22)).sound)
+        assertEquals("normal", Engine.effective(c, null, at(2026, 11, 3, 18)).sound) // Day has no sound setting
+        val boost = Boost("day", at(2026, 11, 3, 11))
+        assertEquals("normal", Engine.effective(c, boost, at(2026, 11, 3, 10)).sound) // the louder of the two wins
+        assertEquals("vibrate", Engine.louder("silent", "vibrate")); assertEquals("silent", Engine.louder("silent", "silent"))
+    }
+
+    @Test fun soundIsReadFromTheConfig() {
+        val c = Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"},"school":{"name":"School","sound":"silent"}},"segments":[]}""")
+        assertEquals("silent", c.modes["school"]!!.sound); assertEquals("normal", c.modes["day"]!!.sound)
+    }
 }

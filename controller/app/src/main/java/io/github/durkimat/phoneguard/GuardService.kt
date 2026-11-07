@@ -36,6 +36,10 @@ class GuardService : Service() {
         }
     }
 
+    private val sound = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { SoundEnforcer.reassert(this@GuardService) }
+    }
+
     override fun onCreate() {
         super.onCreate()
         startForeground(
@@ -51,6 +55,10 @@ class GuardService : Service() {
             Context.RECEIVER_EXPORTED,
         )
         contentResolver.registerContentObserver(Settings.Secure.getUriFor(Enforcer.grayKey()), false, gray)
+        registerReceiver(sound, IntentFilter().apply {
+            addAction(android.media.AudioManager.RINGER_MODE_CHANGED_ACTION)
+            addAction(android.app.NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
+        }, Context.RECEIVER_EXPORTED)
         Log.log(this, "service started")
     }
 
@@ -61,6 +69,7 @@ class GuardService : Service() {
 
     override fun onDestroy() {
         unregisterReceiver(packages)
+        unregisterReceiver(sound)
         contentResolver.unregisterContentObserver(gray)
         super.onDestroy()
     }
