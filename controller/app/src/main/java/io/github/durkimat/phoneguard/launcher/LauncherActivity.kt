@@ -13,6 +13,7 @@ import android.provider.CallLog
 import android.view.KeyEvent
 import android.view.WindowManager
 import io.github.durkimat.phoneguard.Log
+import io.github.durkimat.phoneguard.VOICE_ASSIST
 
 /**
  * A keypad-driven Home screen. It owns no behaviour of its own: [LauncherModel] decides what a key
@@ -33,12 +34,27 @@ class LauncherActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         setContentView(skin.create(this))
         refresh()
+        if (intent?.action == VOICE_ASSIST) leftKeyPending = true
     }
+
+    /** The left key under the screen arrives as a voice-assist request (see HardKeys). */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // onResume follows and resets to the home screen, so remember the key and apply it after that
+        if (intent.action == VOICE_ASSIST) leftKeyPending = true
+    }
+
+    private var leftKeyPending = false
+    private var cameBack = true
+
+    override fun onStop() { cameBack = true; super.onStop() }
 
     override fun onResume() {
         super.onResume()
-        model.goHome() // coming back to the launcher always shows the home screen
+        // coming back from another app shows the home screen; a key press while we are in front must not reset it
+        if (cameBack) { model.goHome(); cameBack = false }
         refresh()
+        if (leftKeyPending) { leftKeyPending = false; perform(model.onKey(Key.SOFT_LEFT, -1)) }
         registerReceiver(changes, IntentFilter().apply {
             addAction(Intent.ACTION_BATTERY_CHANGED); addAction(Intent.ACTION_TIME_TICK); addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")
