@@ -52,14 +52,38 @@ Original-Nokia features to consider (to be confirmed against a reference model's
 - Predictive text: T9 is already the keyboard (`io.github.sspanak.tt9`); keep it.
 
 Open questions:
-- **Which Nokia is the reference?** A monochrome Series 30 (3310 or 3410 style), a 6310, or another.
+- **Which Nokia is the reference?** Owner (2026-11-07): not fixed. It can borrow from any of the monochrome
+  Nokias; goal is consistency with no fall-back to native Android apps. Owner wants to choose from
+  mock-ups before any build.
+  (Original question:) A monochrome Series 30 (3310 or 3410 style), a 6310, or another.
   This decides the look, the menu numbering, and what exists.
-- **WhatsApp inside the Nokia messages screen: how?** WhatsApp has no public API and no official
-  non-touch client (searched 2026-11-07). The realistic route is a notification listener (needs the
-  notification-access adb grant): show incoming WhatsApp messages as threads in our inbox, and reply
-  through the notification's own reply action. Limits to expect: no history before a message arrived,
-  no voice notes, photos or calls, and it only works while WhatsApp runs and keeps its notifications.
-  Alternative: open the real WhatsApp app from the menu and live with its D-pad limits. Needs a spike.
+- **WhatsApp inside the Nokia messages screen: how?** (researched 2026-11-07, third-party sources)
+  - Official route: **companion mode**. WhatsApp lets a second Android phone be linked to an existing
+    account (Linked devices, scan a QR code), up to four linked devices including web and desktop. Her
+    smartphone stays primary and keeps her number; the J36 runs the official app as a linked phone,
+    needs no SIM for WhatsApp, and keeps end-to-end encryption. The primary phone must come online at
+    least every 14 days or the link lapses.
+  - Beeper is a Matrix service that bridges WhatsApp with the open-source `mautrix-whatsapp` bridge,
+    which behaves like a linked device (it uses the `whatsmeow` library). It is unofficial, and the
+    bridge decrypts and re-encrypts messages, so it is not end to end.
+  - Unofficial clients (whatsmeow, and Baileys, which is what the "WhatsApp Gateway" app already on
+    the owner's HA is built on) are reported to break WhatsApp's terms and to risk account bans. The
+    risk level is anecdotal but consistent. Not recommended on her real number.
+  - The only official API is the WhatsApp Business Platform: businesses only, not personal accounts.
+  - **Recommended spike: official companion mode plus notifications.** Install the real WhatsApp on the
+    J36 as a companion to her account. WhatsApp stays allowed (not hidden, or it cannot post anything)
+    but is left out of the menu. A notification listener in the launcher reads the sender and text from
+    each WhatsApp notification into our Messages screen, and replies through the notification's own
+    reply action. The listener can be enabled by the controller (it holds WRITE_SECURE_SETTINGS).
+    Limits to expect: only messages received while the listener runs (no old history), text only (no
+    voice notes, photos or calls), replies only to a conversation with a live notification (starting a
+    brand-new chat is not possible this way), and it depends on WhatsApp keeping its notifications on.
+  - To run the spike: link the J36 to a test WhatsApp account by scanning a QR from a phone (a user
+    action, with the user's own account), grant notification access, and try read and reply.
+- **Outside School** everything reverts: the launcher setting is per mode, so Day and Night use the normal
+  launcher and the stock Messaging, Contacts and Phone apps. Messages and contacts live in the shared
+  system databases, so both interfaces show the same data. The default SMS and dialler roles would be
+  switched per mode by the controller.
 - **Our own SMS app or the stock one?** A built-in screen needs to be the default SMS app; a device
   owner can set the default SMS application. The stock app would then be hidden in School.
 - **Our own call screens?** Replacing the incoming-call and in-call screens means becoming the default
