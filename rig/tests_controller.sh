@@ -218,7 +218,8 @@ c_lockdown() {
   expect "evaluation reports the open Day" "$(last_eval)" "lock=default/touchOn/shadeOn/kioskOff"
   r=$(dbg lockdown); expect "the menu-key setting is put back" "$r" "menuKeyOff=false"; expect "normal Home app is back" "$r" "pinnedNokia=false"; expect "touch is back" "$r" "touchBlocked=false"; expect "kiosk is off" "$r" "locked=false"
   adb shell input swipe 240 2 240 500 300; sleep 1; screen_text | grep -q "Internet" && pass "shade opens again" || fail "shade still blocked"
-  home; launcher_has com.android.deskclock && pass "Clock is back" || fail "Clock is still hidden"
+  adb shell input keyevent KEYCODE_BACK; sleep 1.5; adb shell input keyevent KEYCODE_BACK; sleep 1; home; sleep 1
+  launcher_has com.android.deskclock && pass "Clock is back" || fail "Clock is still hidden"
   expect "Home key reaches the normal launcher" "$(top)" "launcher3"
   dbg clock real >/dev/null; dbg forgetcfg >/dev/null; dbg sync >/dev/null
 }

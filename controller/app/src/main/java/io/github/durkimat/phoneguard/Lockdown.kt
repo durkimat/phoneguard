@@ -59,9 +59,15 @@ object HardKeys {
         c.contentResolver.query(uri, arrayOf("value"), "name=?", arrayOf(name), null)?.use { if (it.moveToFirst()) it.getString(0) else null }
     } catch (_: Exception) { null }
 
+    /**
+     * Only ever insert. Deleting (or updating by selection) makes the provider notify the whole table, and
+     * DumberOS's InputSettingsObserver then throws a NullPointerException that takes down system_server.
+     * An absent setting is restored by writing the platform default instead.
+     */
+    private val defaults = mapOf("key_menu_action" to "1", "key_menu_long_press_action" to "0")
+
     private fun write(c: Context, name: String, value: String?) {
-        if (value == null) c.contentResolver.delete(uri, "name=?", arrayOf(name))
-        else c.contentResolver.insert(uri, android.content.ContentValues().apply { put("name", name); put("value", value) })
+        c.contentResolver.insert(uri, android.content.ContentValues().apply { put("name", name); put("value", value ?: defaults[name] ?: "0") })
     }
 
     fun menuKeyOverlay(c: Context, allowed: Boolean) {

@@ -804,3 +804,17 @@ Gotchas found:
   do the same. OK opens the menu or selects. The home screen shows no mode name.
 - Setup grants now: device owner, `WRITE_SECURE_SETTINGS`, `GET_USAGE_STATS`, `SYSTEM_ALERT_WINDOW`,
   `WRITE_SETTINGS`.
+
+### Crash found by the full rig run (2026-11-07): never delete a LineageOS setting
+Restoring the menu-key setting by deleting its row crashed Android's `system_server` (a soft reboot)
+at every School to Day change. Cause: DumberOS's `InputSettingsObserver` registers for specific
+`content://lineagesettings/system/<name>` URIs and, in `onChange`, looks the changed URI up in a map
+with no null check. A delete (or an update by selection) makes the provider notify the whole table
+URI, which is not in the map, so it throws and the system process dies. Inserting a value notifies only
+that item and is safe. The controller now only inserts, and restores an absent setting by writing the
+platform default (`key_menu_action` 1, `key_menu_long_press_action` 0). Rule for any future code that
+touches LineageOS settings: insert only, and check `adb logcat -b crash` after a test run.
+
+The crash also gave an unplanned reboot-path check: after the system process restarted, the
+controller re-evaluated at `LOCKED_BOOT_COMPLETED` (before unlock) and again at `BOOT_COMPLETED`, and
+came back in the right state.
