@@ -47,6 +47,9 @@ object WhatsApp {
         }
     }
 
+    /** Closes the bridge so the next use reopens it from the files (used after the session files are replaced). */
+    @Synchronized fun close() { bridge?.close(); bridge = null; status = "off" }
+
     fun isPaired(c: Context): Boolean = open(c)?.isPaired ?: false
 
     fun setAllowed(c: Context, numbers: String) {
