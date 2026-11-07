@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -59,6 +59,7 @@ sealed class Action {
     /** The user chose a theme: the activity saves it and redraws. */
     data class SaveTheme(val id: String) : Action()
     data class SaveFont(val id: String) : Action()
+    data class SavePredictive(val on: Boolean) : Action()
     /** Start a call to this number. */
     data class Call(val number: String) : Action()
     /** Send this text message. */
@@ -92,7 +93,7 @@ class LauncherModel(
     private var contact: Contact? = null
     private var contactsFrom = Screen.HOME
 
-    private val settingsRows = listOf("Theme", "Font")
+    private val settingsRows = listOf("Theme", "Font", "Predictive text")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -118,12 +119,28 @@ class LauncherModel(
     var writeField = 1
         private set
     private var writeMode = 0
+
+    // ---- Predictive text (T9)
+    /** The dictionary; null until it has loaded, and then the T9 modes are not offered. */
+    var predictor: Predictor? = null
+    /** The user's choice in Settings. */
+    var predictiveOn = true
+    private var seq = ""
+    private var cands: List<String> = emptyList()
+    private var candIdx = 0
+    private var compStart = 0
+    private var compLen = 0
+    private val modes: List<String> get() =
+        if (predictor != null && predictiveOn) listOf("T9 Abc", "T9 abc", "T9 ABC", "Abc", "abc", "ABC", "123") else listOf("Abc", "abc", "ABC", "123")
+    /** The characters being typed as a word, which the skin underlines until the word is accepted. */
+    val composingRange: IntRange? get() = if (seq.isEmpty()) null else compStart until (compStart + compLen)
+    private val t9: Boolean get() = modeName.startsWith("T9")
     private var writeBack = Screen.MESSAGES
     private var picking = false
     private var lastDigit = -1
     private var lastAt = 0L
     private var tapIdx = 0
-    val modeName: String get() = listOf("Abc", "abc", "ABC", "123")[writeMode]
+    val modeName: String get() = modes[writeMode.coerceIn(0, modes.size - 1)]
 
     /** A short message shown over the screen until the next key ("Message sent"). */
     var notice: String? = null
@@ -142,6 +159,7 @@ class LauncherModel(
         Screen.INBOX -> "Inbox"
         Screen.THREAD -> convo?.name ?: "Messages"
         Screen.WRITE -> "Write message"
+        Screen.TYPING -> "Predictive text"
         else -> "Menu"
     }
 
@@ -162,6 +180,7 @@ class LauncherModel(
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
+        Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
@@ -185,6 +204,15 @@ class LauncherModel(
         Screen.INBOX -> inbox(key, digit)
         Screen.THREAD -> thread(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
+        Screen.TYPING -> typing(key, digit)
+    }
+
+    private fun typing(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { predictiveOn = selected == 0; writeMode = 0; screen = Screen.SETTINGS; selected = 2; Action.SavePredictive(predictiveOn) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 2; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
     }
 
     // ---- Messages
@@ -232,7 +260,7 @@ class LauncherModel(
     }
 
     private fun startWrite(to: String, back: Screen): Action {
-        writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1
+        writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1; commit()
         writeField = if (to.isEmpty()) 0 else 1
         screen = Screen.WRITE
         return Action.Redraw
@@ -254,18 +282,24 @@ class LauncherModel(
     }
 
     private fun writeBody(key: Key, digit: Int, now: Long): Action = when (key) {
-        Key.DIGIT -> { typeKey(digit, now); Action.Redraw }
-        Key.STAR -> { typeKey(10, now); Action.Redraw }
-        Key.POUND -> { writeMode = (writeMode + 1) % 4; lastDigit = -1; Action.Redraw }
-        Key.UP -> { writeField = 0; Action.Redraw }
-        Key.LEFT -> { cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
-        Key.RIGHT -> { cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
-        Key.OK, Key.SOFT_LEFT -> if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
+        Key.DIGIT -> {
+            if (t9 && digit in 2..9) predictDigit(digit)
+            else { commit(); typeKey(digit, now) }
+            Action.Redraw
+        }
+        // * steps through the other words for the keys just pressed, like a Nokia; otherwise it types punctuation
+        Key.STAR -> { if (t9 && seq.isNotEmpty()) nextWord() else { commit(); typeKey(10, now) }; Action.Redraw }
+        Key.POUND -> { commit(); writeMode = (writeMode + 1) % modes.size; lastDigit = -1; Action.Redraw }
+        Key.UP -> { commit(); writeField = 0; Action.Redraw }
+        Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
+        Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
+        Key.OK, Key.SOFT_LEFT -> { commit(); if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = Action.Send(writeTo, writeText.trim())
             screen = Screen.MESSAGES; selected = 0; notice = "Message sent"
             a
-        }
+        } }
         Key.SOFT_RIGHT -> when {
+            seq.isNotEmpty() -> { unpress(); Action.Redraw }
             cursor > 0 -> { writeText = writeText.removeRange(cursor - 1, cursor); cursor--; lastDigit = -1; Action.Redraw }
             writeText.isEmpty() -> leaveWrite()
             else -> Action.None
@@ -275,6 +309,58 @@ class LauncherModel(
         else -> Action.None
     }
 
+    // ---- predictive text
+
+    private fun predictDigit(d: Int) {
+        if (writeText.length >= 480) return
+        if (seq.isEmpty()) { compStart = cursor; compLen = 0 }
+        seq += d
+        lookUp()
+    }
+
+    private fun lookUp() {
+        val p = predictor
+        var found = p?.exact(seq).orEmpty()
+        if (found.isEmpty() && p != null) found = p.longer(seq, 5).map { takeLetters(it, seq.length) }.distinct()
+        if (found.isEmpty()) found = listOf(seq.map { tapChars[it - '0']!![0] }.joinToString(""))
+        cands = found; candIdx = 0
+        place()
+    }
+
+    private fun takeLetters(w: String, n: Int): String {
+        var count = 0; val sb = StringBuilder()
+        for (ch in w) { if (ch != '\'') { if (count == n) break; count++ }; sb.append(ch) }
+        return sb.toString()
+    }
+
+    private fun nextWord() { candIdx = (candIdx + 1) % cands.size; place() }
+
+    private fun unpress() {
+        seq = seq.dropLast(1)
+        if (seq.isEmpty()) {
+            writeText = writeText.removeRange(compStart, compStart + compLen); cursor = compStart; compLen = 0; cands = emptyList()
+        } else lookUp()
+    }
+
+    private fun place() {
+        val word = caseWord(cands[candIdx], writeText.substring(0, compStart))
+        writeText = writeText.substring(0, compStart) + word + writeText.substring(compStart + compLen)
+        compLen = word.length
+        cursor = compStart + compLen
+    }
+
+    /** Accepts the word on show and starts a new one. */
+    private fun commit() { seq = ""; cands = emptyList(); compLen = 0; candIdx = 0 }
+
+    private fun caseWord(w: String, before: String): String = when {
+        modeName.endsWith("ABC") -> w.uppercase()
+        w.any { it.isUpperCase() } -> w // names and "I" keep their capitals
+        modeName.endsWith("Abc") && startsSentence(before) -> w.replaceFirstChar { it.uppercase() }
+        else -> w
+    }
+
+    private fun startsSentence(before: String) = before.isEmpty() || before.endsWith(". ") || before.endsWith("! ") || before.endsWith("? ") || before.endsWith("\n")
+
     private val tapChars = mapOf(
         0 to " 0", 1 to ".,?!'-@1", 2 to "abc2", 3 to "def3", 4 to "ghi4", 5 to "jkl5", 6 to "mno6", 7 to "pqrs7", 8 to "tuv8", 9 to "wxyz9",
         10 to ".,?!'-@:/()&",
@@ -283,7 +369,7 @@ class LauncherModel(
     /** Multi-tap typing: press a key again within a second to cycle its letters, like a Nokia without T9. */
     private fun typeKey(d: Int, now: Long) {
         if (writeText.length >= 480) return
-        if (writeMode == 3 && d <= 9) { insert(d.toString()); lastDigit = -1; return }
+        if (modeName == "123" && d <= 9) { insert(d.toString()); lastDigit = -1; return }
         val set = tapChars[d] ?: return
         if (d == lastDigit && now - lastAt <= 1000 && cursor > 0) {
             tapIdx = (tapIdx + 1) % set.length
@@ -298,8 +384,8 @@ class LauncherModel(
 
     private fun style(c: Char, before: String): String = when {
         !c.isLetter() -> c.toString()
-        writeMode == 2 -> c.uppercase()
-        writeMode == 0 && (before.isEmpty() || before.endsWith(". ") || before.endsWith("! ") || before.endsWith("? ")) -> c.uppercase()
+        modeName.endsWith("ABC") -> c.uppercase()
+        modeName.endsWith("Abc") && startsSentence(before) -> c.uppercase()
         else -> c.toString()
     }
 
@@ -355,8 +441,11 @@ class LauncherModel(
 
     private fun settings(key: Key, digit: Int): Action = move(key, settingsRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
-            if (selected == 0) { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
-            else { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
+            when (selected) {
+                0 -> { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
+                1 -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
+                else -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
+            }
             Action.Redraw
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0); Action.Redraw }
