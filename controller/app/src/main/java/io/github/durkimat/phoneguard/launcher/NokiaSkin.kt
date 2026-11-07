@@ -70,6 +70,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
+                Screen.DIAL -> dial(c, m, u)
                 else -> menu(c, m, u)
             }
             m.notice?.let { notice(c, it, u) }
@@ -268,6 +269,16 @@ class NokiaSkin : LauncherSkin {
             text(c, "*   + - x /", 16f, 360f, 26f, u)
             text(c, "#   decimal point", 16f, 400f, 26f, u)
             text(c, "Up/Down   + and -", 16f, 440f, 26f, u)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun dial(c: Canvas, m: LauncherModel, u: Float) {
+            val n = m.dialNumber
+            var size = 84f
+            val paint = bodyPaint(); paint.textSize = size
+            while (paint.measureText(n) > 440f && size > 30f) { size -= 4f; paint.textSize = size }
+            text(c, n, 464f, 300f, size / (if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f), u, bold = true, align = Paint.Align.RIGHT)
+            m.dialName?.let { text(c, it, 464f, 350f, 30f, u, align = Paint.Align.RIGHT) }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 

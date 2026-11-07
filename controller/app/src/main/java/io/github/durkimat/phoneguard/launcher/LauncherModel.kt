@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -57,8 +57,6 @@ sealed class Action {
     /** The screen changed: redraw. */
     object Redraw : Action()
     data class Launch(val pkg: String) : Action()
-    /** Open the dialler with these digits already typed. */
-    data class Dial(val digits: String) : Action()
     /** Open the call log or dialler (the green key). */
     object CallKey : Action()
     /** The user chose a theme: the activity saves it and redraws. */
@@ -67,6 +65,8 @@ sealed class Action {
     data class SavePredictive(val on: Boolean) : Action()
     /** Start a call to this number. */
     data class Call(val number: String) : Action()
+    /** Place a call to the number just dialled. */
+    data class PlaceCall(val number: String) : Action()
     /** Send this text message. */
     data class Send(val to: String, val body: String) : Action()
 }
@@ -106,6 +106,14 @@ class LauncherModel(
     /** Recent calls, newest first. The activity fills this in. */
     var calls: List<CallEntry> = emptyList()
     val calc = Calculator()
+    var dialNumber = ""
+        private set
+    /** The contact whose number matches what has been dialled, shown under it like a Nokia. */
+    val dialName: String? get() {
+        if (dialNumber.length < 5) return null
+        val d = dialNumber.filter { it.isDigit() }.takeLast(9)
+        return contacts.firstOrNull { c -> c.numbers.any { n -> n.filter { it.isDigit() }.takeLast(9) == d } }?.name
+    }
     private var callsFrom = Screen.HOME
     /** Splits text into the lines that fit the screen. The skin sets this, because only it knows the font. */
     var wrapper: (String) -> List<String> = { listOf(it) }
@@ -171,6 +179,7 @@ class LauncherModel(
         Screen.TYPING -> "Predictive text"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
+        Screen.DIAL -> "Call"
         else -> "Menu"
     }
 
@@ -179,6 +188,7 @@ class LauncherModel(
         Screen.HOME -> "Menu" to "Contacts"
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> "Call" to "Back"
+        Screen.DIAL -> "Call" to "Clear"
         Screen.INBOX -> "Open" to "Back"
         Screen.THREAD -> "Reply" to "Back"
         Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
@@ -194,7 +204,7 @@ class LauncherModel(
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
-        Screen.CALC -> emptyList()
+        Screen.CALC, Screen.DIAL -> emptyList()
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
@@ -222,6 +232,20 @@ class LauncherModel(
         Screen.TYPING -> typing(key, digit)
         Screen.CALC -> calculator(key, digit)
         Screen.CALLLOG -> callLog(key, digit)
+        Screen.DIAL -> dial(key, digit)
+    }
+
+    private fun dial(key: Key, digit: Int): Action {
+        when (key) {
+            Key.DIGIT -> if (digit in 0..9 && dialNumber.length < 24) dialNumber += digit
+            Key.STAR -> when { dialNumber.endsWith("*") -> dialNumber = dialNumber.dropLast(1) + "+"; dialNumber.endsWith("+") -> dialNumber = dialNumber.dropLast(1) + "*"; dialNumber.length < 24 -> dialNumber += "*" }
+            Key.POUND -> if (dialNumber.length < 24) dialNumber += "#"
+            Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.HOME) else Action.PlaceCall(dialNumber)
+            Key.RIGHT, Key.SOFT_RIGHT -> { dialNumber = dialNumber.dropLast(1); if (dialNumber.isEmpty()) goHome() }
+            Key.END -> { dialNumber = ""; goHome() }
+            else -> return Action.None
+        }
+        return Action.Redraw
     }
 
     private fun openCallLog(from: Screen): Action { callsFrom = from; screen = Screen.CALLLOG; selected = 0; return Action.Redraw }
@@ -519,9 +543,9 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME)
         Key.CALL -> openCallLog(Screen.HOME)
-        Key.DIGIT -> if (digit in 0..9) Action.Dial(digit.toString()) else Action.None
-        Key.STAR -> Action.Dial("*")
-        Key.POUND -> Action.Dial("#")
+        Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); screen = Screen.DIAL; Action.Redraw } else Action.None
+        Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
+        Key.POUND -> { dialNumber = "#"; screen = Screen.DIAL; Action.Redraw }
         else -> Action.None
     }
 

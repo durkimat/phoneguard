@@ -293,3 +293,8 @@ launcher in the same app; (3) notification counts and the status line.
 - A boost takes the louder of the two modes. Rig test `sound` (10 checks) passes on the J36; engine and HA tests added.
 - Deployed to the live HA? NO, pending the owner's OK for a HA restart (the integration is Python and needs one); the card is v0.7.0 with a Sound row per mode.
 - To do: star the parents as contacts on the phone and test a real incoming call under silent (needs a SIM); decide whether Night should default to vibrate; messages/WhatsApp alert sounds in School (silent covers them).
+
+## Dial screen and release build (2026-11-07)
+- Own dial screen: digits on Home open it (number shown big, contact name underneath when the digits match one, * twice gives +). Call/green key places the call through Telecom (CALL_PHONE, self-granted); Clear deletes a digit and leaves when empty; the green key on an empty number opens the call log. Placing a real call is NOT tested (no SIM).
+- The in-call and incoming-call screens are still the stock Android ones. Replacing them needs our app to hold the Dialer role with an InCallService (answer, reject, end, mute, speaker, audio routing). Needs a SIM to build and test properly: ask the owner for one. Mock the screens first.
+- Release build: controller/release.sh (signed with a private key in ~/.phoneguard-release, back it up). Checked: not testOnly, no debug receiver. A release build cannot be removed with dpm remove-active-admin, so test the HA Release on a spare phone before installing it on any phone that matters.
