@@ -57,7 +57,7 @@ class DebugReceiver : BroadcastReceiver() {
             r
         }
         "sync" -> Link.sync(c, "debug")
-        "lockdown" -> "home=${HomeApp.target(c, false)?.packageName} pinnedNokia=${c.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.name?.endsWith("LauncherActivity")} touchBlocked=${TouchBlocker.isOn()} canDraw=${TouchBlocker.canDraw(c)} locked=${Kiosk.locked(c)}"
+        "lockdown" -> "home=${HomeApp.target(c, false)?.packageName} pinnedNokia=${c.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.name?.endsWith("LauncherActivity")} touchBlocked=${TouchBlocker.isOn()} menuKeyOff=${HardKeys.isDisabled(c)} canDraw=${TouchBlocker.canDraw(c)} locked=${Kiosk.locked(c)}"
         "lt_start" -> LabLockdown.lockStart(c, a.toIntOrNull() ?: 0)
         "lt_stop" -> LabLockdown.lockStop(c)
         "lt_state" -> LabLockdown.lockState(c)

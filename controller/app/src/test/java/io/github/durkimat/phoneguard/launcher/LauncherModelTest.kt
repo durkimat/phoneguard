@@ -10,23 +10,25 @@ class LauncherModelTest {
 
     @Test fun startsOnHome() { assertEquals(Screen.HOME, model().screen) }
 
-    @Test fun okAndDpadLeftOpenTheMenuAtTheTop() {
-        for (k in listOf(Key.OK, Key.LEFT)) {
+    @Test fun okLeftKeyAndDpadLeftOpenTheMenuAtTheTop() {
+        for (k in listOf(Key.OK, Key.LEFT, Key.SOFT_LEFT)) {
             val m = model()
             assertEquals(Action.Redraw, m.onKey(k))
             assertEquals(Screen.MENU, m.screen); assertEquals(0, m.selected)
         }
     }
 
-    @Test fun dpadRightOnHomeOpensContacts() {
-        assertEquals(Action.Launch("p.contacts"), model().onKey(Key.RIGHT))
-        assertEquals(Action.None, LauncherModel(items, null).onKey(Key.RIGHT))
+    @Test fun rightKeyAndDpadRightOnHomeOpenContacts() {
+        for (k in listOf(Key.RIGHT, Key.SOFT_RIGHT)) assertEquals(Action.Launch("p.contacts"), model().onKey(k))
+        assertEquals(Action.None, LauncherModel(items, null).onKey(Key.SOFT_RIGHT))
     }
 
-    @Test fun thePhysicalSoftKeysDoNothingOnHome() {
+    @Test fun theTwoKeysUnderTheScreenWorkLikeANokia() {
         val m = model()
-        assertEquals(Action.None, m.onKey(Key.SOFT_LEFT)) // the left key belongs to Android, we ignore it
-        assertEquals(Action.None, m.onKey(Key.SOFT_RIGHT)) // Back does not open anything on the home screen
+        assertEquals(Action.Launch("p.contacts"), m.onKey(Key.SOFT_RIGHT)) // first press on Home: Contacts
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_LEFT)) // left key: the menu
+        assertEquals(Screen.MENU, m.screen)
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // right key in the menu: Back
         assertEquals(Screen.HOME, m.screen)
     }
 
@@ -49,7 +51,7 @@ class LauncherModelTest {
         val m = model(); m.onKey(Key.OK); m.onKey(Key.DOWN)
         assertEquals(Action.Launch("p.msg"), m.onKey(Key.OK))
         assertEquals(Action.Launch("p.msg"), m.onKey(Key.LEFT)) // the "Select" label is D-pad Left
-        assertEquals(Action.None, m.onKey(Key.SOFT_LEFT)) // the physical left key stays disabled
+        assertEquals(Action.Launch("p.msg"), m.onKey(Key.SOFT_LEFT)) // and the left key under the screen
     }
 
     @Test fun numberKeysJumpToEntries() {
