@@ -149,7 +149,8 @@ class NokiaSkin : LauncherSkin {
                     text(c, label, 20f, top + 42f, 32f, u, bold = true, color = lcd)
                 } else text(c, label, 20f, top + 42f, 32f, u)
             }
-            if (m.rows.isEmpty()) text(c, "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
+            if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
+            if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
@@ -240,9 +241,9 @@ class NokiaSkin : LauncherSkin {
             // the To field takes the title bar's place, inverted while it has focus
             if (m.writeField == 0) {
                 c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-                text(c, "To: " + m.writeTo + "_", 16f, 85f, 30f, u, bold = true, color = lcd)
+                text(c, "To: " + m.writeLabel.ifBlank { m.writeTo } + "_", 16f, 85f, 30f, u, bold = true, color = lcd)
             } else {
-                text(c, "To: " + m.writeTo, 16f, 85f, 30f, u, bold = true)
+                text(c, "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
                 stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
             }
             val body = m.writeText
@@ -270,6 +271,7 @@ class NokiaSkin : LauncherSkin {
             }
             if (lines.isEmpty() && m.writeField == 1) c.drawRect(16 * u, 116 * u, 19 * u, 147 * u, fill)
             text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
+            if (m.writeWa) text(c, "WhatsApp", 240f, 560f, 24f, u, align = Paint.Align.CENTER)
             text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
