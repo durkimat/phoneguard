@@ -12,7 +12,7 @@ data class Theme(val id: String, val name: String, val lcd: Int, val ink: Int)
 
 object Themes {
     val all = listOf(
-        Theme("green", "Green", 0xFFA9B98D.toInt(), 0xFF1B2616.toInt()),
+        Theme("green", "Green", 0xFF9DC25A.toInt(), 0xFF1A2A08.toInt()),
         Theme("grey", "Grey", 0xFFCFD3CC.toInt(), 0xFF1A1A1A.toInt()),
         Theme("amber", "Amber", 0xFF1A1200.toInt(), 0xFFFFB52E.toInt()),
     )
