@@ -37,7 +37,7 @@ class LauncherModelTest {
         assertEquals(Action.Dial("7"), m.onKey(Key.DIGIT, 7))
         assertEquals(Action.Dial("*"), m.onKey(Key.STAR))
         assertEquals(Action.Dial("#"), m.onKey(Key.POUND))
-        assertEquals(Action.CallKey, m.onKey(Key.CALL))
+        m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 
     @Test fun menuMovesAndWraps() {
@@ -302,5 +302,37 @@ class LauncherModelTest {
     @Test fun predictiveCanBeSwitchedOffInSettings() {
         val m = t9(); m.onKey(Key.SOFT_RIGHT) // leave write
         assertEquals(Screen.THREAD, m.screen)
+    }
+
+    // ---- Calculator and call log
+    private fun withTools(): LauncherModel {
+        val m = LauncherModel(listOf(MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator")))
+        m.calls = listOf(CallEntry("0222", "Mum", 1, 3000), CallEntry("0111", "Dad", 2, 2000), CallEntry("0999", "0999", 3, 1000))
+        return m
+    }
+
+    @Test fun greenKeyOpensTheCallLogAndMarksDirection() {
+        val m = withTools(); m.onKey(Key.CALL)
+        assertEquals(Screen.CALLLOG, m.screen); assertEquals(listOf("< Mum", "> Dad", "! 0999"), m.rows)
+        assertEquals(Action.Call("0222"), m.onKey(Key.CALL)) // green key again rings the highlighted one
+        m.onKey(Key.DOWN); assertEquals(Action.Call("0111"), m.onKey(Key.SOFT_LEFT))
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+    }
+
+    @Test fun callLogFromTheMenuReturnsToTheMenu() {
+        val m = withTools(); m.onKey(Key.OK); m.onKey(Key.OK)
+        assertEquals(Screen.CALLLOG, m.screen); m.onKey(Key.RIGHT); assertEquals(Screen.MENU, m.screen)
+    }
+
+    @Test fun calculatorKeysDoTheSumAndClearLeavesWhenEmpty() {
+        val m = withTools(); m.onKey(Key.OK); m.onKey(Key.DOWN); m.onKey(Key.OK)
+        assertEquals(Screen.CALC, m.screen)
+        m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 2); m.onKey(Key.POUND); m.onKey(Key.DIGIT, 5)
+        m.onKey(Key.STAR); assertEquals("12.5 +", m.calc.pending)
+        m.onKey(Key.STAR); m.onKey(Key.STAR); m.onKey(Key.STAR); assertEquals("12.5 /", m.calc.pending)
+        m.onKey(Key.DIGIT, 5); m.onKey(Key.SOFT_LEFT); assertEquals("2.5", m.calc.display)
+        m.onKey(Key.UP); m.onKey(Key.DIGIT, 1); m.onKey(Key.LEFT); assertEquals("3.5", m.calc.display)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CALC, m.screen) // clears the answer
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
     }
 }

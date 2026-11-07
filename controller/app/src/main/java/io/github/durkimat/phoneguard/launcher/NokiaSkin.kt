@@ -69,6 +69,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.HOME -> home(c, i, u)
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
+                Screen.CALC -> calc(c, m, u)
                 else -> menu(c, m, u)
             }
             m.notice?.let { notice(c, it, u) }
@@ -250,6 +251,23 @@ class NokiaSkin : LauncherSkin {
             if (lines.isEmpty() && m.writeField == 1) c.drawRect(16 * u, 116 * u, 19 * u, 147 * u, fill)
             text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
             text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun calc(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            text(c, m.calc.pending, 464f, 160f, 30f, u, align = Paint.Align.RIGHT)
+            val big = m.calc.display
+            var size = 84f
+            val paint = bodyPaint()
+            paint.textSize = size
+            while (paint.measureText(big) > 440f && size > 30f) { size -= 4f; paint.textSize = size }
+            text(c, big, 464f, 270f, size / (if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f), u, bold = true, align = Paint.Align.RIGHT)
+            stroke.strokeWidth = 2 * u; c.drawLine(16 * u, 296 * u, 464 * u, 296 * u, stroke)
+            text(c, "*   + - x /", 16f, 360f, 26f, u)
+            text(c, "#   decimal point", 16f, 400f, 26f, u)
+            text(c, "Up/Down   + and -", 16f, 440f, 26f, u)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 

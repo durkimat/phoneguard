@@ -39,7 +39,7 @@ object LauncherData {
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            MenuItem(SETTINGS_PKG, "Settings")
+            listOf(MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
     /** All contacts with a phone number, sorted by name. Empty if the permission is missing. */
@@ -105,6 +105,38 @@ object LauncherData {
         val tm = c.getSystemService(TelephonyManager::class.java)
         if (tm.simState != TelephonyManager.SIM_STATE_READY) -1 else (tm.signalStrength?.level ?: 0)
     } catch (_: Exception) { -1 }
+
+    /** The most recent calls, newest first, named from contacts where we can. */
+    fun calls(c: Context, contacts: List<Contact>): List<CallEntry> {
+        val names = HashMap<String, String>()
+        for (ct in contacts) for (n in ct.numbers) names.putIfAbsent(key(n), ct.name)
+        val out = ArrayList<CallEntry>()
+        try {
+            c.contentResolver.query(
+                CallLog.Calls.CONTENT_URI, arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.CACHED_NAME, CallLog.Calls.TYPE, CallLog.Calls.DATE),
+                null, null, CallLog.Calls.DATE + " DESC LIMIT 50",
+            )?.use { cur ->
+                while (cur.moveToNext()) {
+                    val number = cur.getString(0).orEmpty()
+                    val type = when (cur.getInt(2)) { CallLog.Calls.OUTGOING_TYPE -> 2; CallLog.Calls.MISSED_TYPE, CallLog.Calls.REJECTED_TYPE -> 3; else -> 1 }
+                    val name = names[key(number)] ?: cur.getString(1)?.takeIf { it.isNotBlank() } ?: number.ifBlank { "Unknown" }
+                    out.add(CallEntry(number, name, type, cur.getLong(3)))
+                }
+            }
+        } catch (_: Exception) { }
+        // test only, as with messages: a debuggable build can read made-up calls
+        if (c.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) try {
+            val arr = org.json.JSONArray(prefs(c).getString("fakecalls", "[]"))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val num = o.getString("n")
+                out.add(CallEntry(num, names[key(num)] ?: num, o.getInt("t"), o.getLong("d")))
+            }
+            out.sortByDescending { it.date }
+        } catch (e: Exception) { io.github.durkimat.phoneguard.Log.log(c, "calls: fake read failed ${e.javaClass.simpleName} ${e.message}") }
+        io.github.durkimat.phoneguard.Log.log(c, "calls: ${out.size} entries")
+        return out
+    }
 
     // ---- Messages
 
