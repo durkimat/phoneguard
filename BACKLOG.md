@@ -311,3 +311,11 @@ launcher in the same app; (3) notification counts and the status line.
   - Then build the in-call and incoming-call screens (needs the Dialer role + InCallService). Mock them up first for approval.
 - WhatsApp calls through the dumb interface: whatsmeow cannot carry call audio (it only sees call events). Plan: a "WhatsApp call" entry on the Contacts detail screen that hands over to the real WhatsApp app (via the contact's WhatsApp call data row), offered only in modes that allow calls, never in School. Unknown: whether WhatsApp's linked-device mode on a second Android phone supports calls; test before promising.
 - "Dumb" mode for use outside School: a preset mode with the Nokia launcher but more freedom (touch on, calls and sound on, wider app list, optional shade). Modes already carry all of this (launcher, touch, shade, kiosk, sound, inbound, apps), so it is mostly a named preset in HA plus a few features to gate per mode (audio/media, incoming calls). Ties in with the standalone idea (adults using the interface without HA control).
+
+## Startup "bootloader unlocked" warning (owner, 2026-11-07)
+- The J36 shows an unlocked-bootloader warning at startup that waits about 5 seconds. Owner finds it very irritating and wants it gone.
+- It comes from the bootloader (the phone's firmware, before Android starts), not from anything we install, so the controller app cannot remove it. Research needed, nothing to promise yet:
+  - Relocking the bootloader removes the warning but is risky on a custom ROM (DumberOS is LineageOS-based): a locked bootloader will refuse an image it does not trust and can leave the phone unbootable. Do not try on the only phone.
+  - Some MediaTek phones keep the warning picture in a logo partition, but the delay and the message are in the bootloader itself.
+  - Ask the DumberOS maker (Dumbermini) whether a signed build or a patched bootloader exists for the J36.
+- Not a blocker. Revisit with a spare phone.
