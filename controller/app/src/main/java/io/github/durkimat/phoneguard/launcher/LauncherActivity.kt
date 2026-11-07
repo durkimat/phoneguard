@@ -75,7 +75,7 @@ class LauncherActivity : Activity() {
 
     private fun refresh() {
         model.setItems(LauncherData.items(this))
-        model.contactsPkg = LauncherData.contactsPackage(this)
+        if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
         skin.render(model, LauncherData.info(this))
     }
 
@@ -109,6 +109,8 @@ class LauncherActivity : Activity() {
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
             is Action.Launch -> launch(a.pkg)
             is Action.Dial -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.digits))))
+            is Action.Call -> start(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(a.number))))
+            is Action.Message -> start(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(a.number))))
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
         }
     }

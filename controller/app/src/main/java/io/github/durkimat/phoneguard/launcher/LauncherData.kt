@@ -42,8 +42,21 @@ object LauncherData {
             MenuItem(SETTINGS_PKG, "Settings")
     }
 
-    fun contactsPackage(c: Context): String? =
-        if (Enforcer.launcherPackages(c).contains(CONTACTS)) CONTACTS else null
+    /** All contacts with a phone number, sorted by name. Empty if the permission is missing. */
+    fun contacts(c: Context): List<Contact> = try {
+        val byName = LinkedHashMap<String, MutableList<String>>()
+        c.contentResolver.query(
+            android.provider.ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            arrayOf(android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, android.provider.ContactsContract.CommonDataKinds.Phone.NUMBER),
+            null, null, android.provider.ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " COLLATE NOCASE ASC",
+        )?.use { cur ->
+            while (cur.moveToNext()) {
+                val name = cur.getString(0)?.trim().orEmpty(); val num = cur.getString(1)?.trim().orEmpty()
+                if (name.isNotEmpty() && num.isNotEmpty()) { val l = byName.getOrPut(name) { mutableListOf() }; if (num !in l) l.add(num) }
+            }
+        }
+        byName.map { Contact(it.key, it.value) }
+    } catch (_: Exception) { emptyList() }
 
     fun info(c: Context): HomeInfo {
         val now = Clock.now()
@@ -73,7 +86,7 @@ object LauncherData {
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
             signalBars = signal(c),
             softLeft = "Menu",
-            softRight = if (contactsPackage(c) != null) "Contacts" else "",
+            softRight = "Contacts",
         )
     }
 
