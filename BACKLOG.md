@@ -52,8 +52,10 @@ here), alarm clock over lock task, power menu, launcher crash fallback.
 Design requirement: several launcher skins (a later, not text-only Nokia style, and others) must be
 addable without touching the engine: skin = how it is drawn; engine = behaviour. Skin is a per-mode setting.
 
-Open from the experiments: the alarm clock rings under lock-task with nothing on screen to dismiss it
-(see SPEC section 11).
+Alarms: decided 2026-11-07, School excludes the Clock (hidden, so nothing rings) and is silent; no alarm
+screen needed. To do in HA: put `com.android.deskclock` in `unprotect` and list it in the Modes and apps
+table so a mode can hide it; default School leaves it unticked; say on the card that alarms set for
+School hours are skipped. Calls under lock-task are still untested (no SIM here).
 
 Order: (1) lock-task and touch-overlay experiments with the current launcher (done, results in SPEC); (2) minimal Nokia
 launcher in the same app; (3) notification counts and the status line.
