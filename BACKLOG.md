@@ -351,3 +351,13 @@ launcher in the same app; (3) notification counts and the status line.
 - Left key stopped working during a call after a periodic re-check (the controller put the left-key setting back to the mode's value). Fixed: while the call screen is up the remap is kept; and the controller never restores the left key to "do nothing" (value 0 was found stored from earlier experiments; reset to the default 1).
 - Number keys now choose the numbered entry in every list (call options 1 speaker / 2 mute, settings, theme, font, inbox, contacts, call log).
 - Lesson: never edit the lineagesettings key by hand; it bypasses the saved snapshot so the app's restore does nothing.
+
+## Real-call test results with the SIM (2026-11-07 evening): all passed
+- Incoming, Day: our Incoming screen; answer with the left key (after the KeyRouter fix) and the D-pad; timer; Options (speaker, mute) by key or by number; key tones; volume keys; End on the right key; call log entries correct.
+- Incoming, Reject (right key): logged as rejected, never answered.
+- Incoming, School: rejected inside CallService with no sound or screen ("incall: incoming call rejected by the mode"); call log shows it as rejected.
+- Outgoing from our dial screen: from a tel: link in Day, and by typing on the Nokia home screen in School; the call screen shows over the School lock (touch still blocked, kiosk on); End works; the launcher returns.
+- Left key kept through a periodic re-check during a call; the setting returns to the mode's value when the call screen closes (Day = 1, School = 4).
+- Not working because of this phone, not our code: speaker (no audible difference in our screen or the stock one).
+- Not tested: call waiting (a second call is rejected as busy), emergency calls (deliberately not), an outgoing call to a number that does not answer ("Calling..." phase never seen: the test line answers at once), VoIP/WhatsApp calls, Bluetooth, headset.
+- State left on the phone: our app holds the Dialer role (stock dialler kept installed; README has the way back), School forced, SIM in.
