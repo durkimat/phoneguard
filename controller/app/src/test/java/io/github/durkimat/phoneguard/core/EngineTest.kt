@@ -114,6 +114,28 @@ class EngineTest {
         assertEquals(monday, generateSequence(at(2026, 10, 24, 12)) { Engine.nextBoundary(c, null, it) }.first { it >= monday })
     }
 
+    @Test fun lockdownDefaultsToOpenAndBoostTakesTheLessRestrictive() {
+        val lockedSchool = ModeDef("school", "School", false, setOf("a.calc"), true, launcher = "nokia", touch = false, shade = false, kiosk = true)
+        val m = modes + ("school" to lockedSchool)
+        val c = Config(1, m, "day", listOf(Segment(0, 10_000_000_000_000, "school")), 10_000_000_000_000, null, emptySet(), emptySet(), null)
+        assertEquals(Lockdown("nokia", false, false, true), Engine.effective(c, null, 1000).lockdown)
+        assertEquals(Lockdown.OPEN, Engine.effective(null, null, 1000).lockdown) // Emergency never locks the phone
+        val boosted = Engine.effective(c, Boost("day", 5000), 1000).lockdown // Day boost opens everything
+        assertEquals(Lockdown("default", true, true, false), boosted)
+        // a boost to another locked mode keeps the lock
+        val night = lockedSchool.copy(id = "n2", launcher = "nokia", kiosk = true)
+        val c2 = c.copy(modes = m + ("n2" to night))
+        assertEquals(Lockdown("nokia", false, false, true), Engine.effective(c2, Boost("n2", 5000), 1000).lockdown)
+    }
+
+    @Test fun lockdownChangeCountsAsAChange() {
+        val locked = ModeDef("school", "School", false, setOf("a.calc"), false, kiosk = true)
+        val open = ModeDef("day", "Day", false, setOf("a.calc"), false)
+        val c = Config(1, mapOf("school" to locked, "day" to open), "day", listOf(Segment(0, 5000, "school")), 5000, null, emptySet(), emptySet(), null)
+        // same apps, same grey: only the lock differs, and that must still be a change
+        assertEquals("day", Engine.nextChange(c, null, 1000)!!.second.modeId)
+    }
+
     @Test fun parsesJson() {
         val j = """{"version":3,"base":"day","windowEnd":10,
           "modes":{"day":{"name":"Day","allowAll":true},"school":{"allow":["x"],"gray":true}},
@@ -122,6 +144,9 @@ class EngineTest {
           "restrictions":["no_factory_reset"]}"""
         val c = Config.parse(j)
         assertEquals(3L, c.version)
+        assertEquals(true, c.modes["school"]!!.touch); assertEquals("default", c.modes["school"]!!.launcher)
+        val k = Config.parse("""{"modes":{"s":{"launcher":"nokia","touch":false,"shade":false,"kiosk":true}}}""")
+        assertEquals(ModeDef("s", "s", false, emptySet(), false, "nokia", false, false, true), k.modes["s"])
         assertTrue(c.modes["school"]!!.gray)
         assertEquals(setOf("no_factory_reset"), c.restrictions)
         assertEquals("school", c.pattern!!.days[1]!![0].mode)

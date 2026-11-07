@@ -28,6 +28,7 @@ for dow in range(1, 8):
     s.append([1260, 1440, "night"])
     days[str(dow)] = s
 
+lockdown = len(sys.argv) > 2 and sys.argv[2] == "lockdown"
 cfg = {
     "version": int(sys.argv[1]) if len(sys.argv) > 1 else 1,
     "base": "day",
@@ -40,4 +41,8 @@ cfg = {
     "segments": segs,
     "pattern": {"tz": "Europe/London", "days": days},
 }
+if lockdown:
+    cfg["modes"]["school"].update({"launcher": "nokia", "touch": False, "shade": False, "kiosk": True})
+    cfg["unprotect"] = ["com.android.deskclock"]
+    cfg["modes"]["night"]["allow"].append("com.android.deskclock")
 print(json.dumps(cfg))

@@ -7,8 +7,13 @@ import java.time.ZoneId
 /** Which apps are visible. `all` means every manageable app. */
 data class Allowed(val all: Boolean, val pkgs: Set<String>)
 
+/** How locked down the phone is. The least restrictive of the mode and any boost wins for each setting. */
+data class Lockdown(val launcher: String, val touch: Boolean, val shade: Boolean, val kiosk: Boolean) {
+    companion object { val OPEN = Lockdown("default", true, true, false) }
+}
+
 /** Everything the enforcer needs for one moment. Equal values mean no visible change. */
-data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean)
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN)
 
 object Engine {
     const val EMERGENCY = "emergency"
@@ -40,13 +45,18 @@ object Engine {
         var all = s.allowAll
         val pkgs = s.allow.toMutableSet()
         var gray = s.gray
+        var ld = Lockdown(s.launcher, s.touch, s.shade, s.kiosk)
         if (boost != null && now < boost.until) {
             val b = modeDef(cfg, boost.mode)
             all = all || b.allowAll
             pkgs += b.allow
             gray = gray && b.gray
+            ld = Lockdown(
+                launcher = if (ld.launcher == "default" || b.launcher == "default") "default" else ld.launcher,
+                touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
+            )
         }
-        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray)
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld)
     }
 
     /** Next instant at which the inputs to `effective` can change (some may not change it). */

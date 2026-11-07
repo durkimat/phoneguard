@@ -49,7 +49,7 @@ class DebugReceiver : BroadcastReceiver() {
             Store.hidden(c).forEach { try { dpm.setApplicationHidden(admin, it, false) } catch (_: Exception) { } }
             Store.setHidden(c, emptySet())
             Store.restrictions(c).forEach { try { dpm.clearUserRestriction(admin, it) } catch (_: Exception) { } }
-            Store.setRestrictions(c, emptySet()); Enforcer.setGray(c, false); Link.clear(c); "reset"
+            Store.setRestrictions(c, emptySet()); Enforcer.setGray(c, false); Link.clear(c); LockdownEnforcer.releaseAll(c); "reset"
         }
         "pair" -> { // a = file in the app's files dir holding the pairing QR text
             val r = Link.pair(c, File(c.getExternalFilesDir(null), a).readText().trim())
@@ -57,6 +57,7 @@ class DebugReceiver : BroadcastReceiver() {
             r
         }
         "sync" -> Link.sync(c, "debug")
+        "lockdown" -> "home=${HomeApp.target(c, false)?.packageName} pinnedNokia=${c.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.name?.endsWith("LauncherActivity")} touchBlocked=${TouchBlocker.isOn()} canDraw=${TouchBlocker.canDraw(c)} locked=${Kiosk.locked(c)}"
         "lt_start" -> LabLockdown.lockStart(c, a.toIntOrNull() ?: 0)
         "lt_stop" -> LabLockdown.lockStop(c)
         "lt_state" -> LabLockdown.lockState(c)

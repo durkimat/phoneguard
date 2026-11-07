@@ -31,7 +31,7 @@ print(int(datetime.strptime('$1 $2','%Y-%m-%d %H:%M').replace(tzinfo=ZoneInfo('E
 set_time() { dbg clock "$(ldn "$1" "$2")" >/dev/null; sleep 1; }
 
 push_config() {
-  python3 "$HERE/fixtures/gen_config.py" "${1:-1}" > "$OUT/cfg.json"
+  python3 "$HERE/fixtures/gen_config.py" "${1:-1}" ${2:-} > "$OUT/cfg.json"
   adb push "$OUT/cfg.json" /sdcard/Android/data/$CPKG/files/cfg.json >/dev/null
   dbg config cfg.json
 }

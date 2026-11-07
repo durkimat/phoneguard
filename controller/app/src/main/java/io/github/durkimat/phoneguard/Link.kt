@@ -134,6 +134,7 @@ object Link {
     /** The parent released this phone: put everything back and give up device owner. */
     private fun release(c: Context) {
         Log.log(c, "release requested by Home Assistant")
+        LockdownEnforcer.releaseAll(c)
         Enforcer.restoreEverything(c)
         clear(c)
         Store.clearConfig(c); Store.setBoost(c, null)
@@ -157,7 +158,9 @@ object Link {
             .put("hidden", Store.hidden(c).size).put("gray", Enforcer.isGray(c)).put("canGray", Enforcer.canWriteSecure(c))
             .put("owner", Dpm.isOwner(c)).put("battery", bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
             .put("version", BuildConfig.VERSION_NAME).put("tz", TimeZone.getDefault().id).put("clock", now)
-        state.put("usageAllowed", Usage.allowed(c))
+        state.put("usageAllowed", Usage.allowed(c)).put("canOverlay", TouchBlocker.canDraw(c))
+            .put("lockdown", JSONObject().put("launcher", eff.lockdown.launcher).put("touch", eff.lockdown.touch)
+                .put("shade", eff.lockdown.shade).put("kiosk", eff.lockdown.kiosk).put("touchBlocked", TouchBlocker.isOn()).put("locked", Kiosk.locked(c)))
         val out = JSONObject().put("kind", "sync").put("cfgh", cfgh).put("state", state).put("apps", apps)
         try {
             Usage.recent(c)?.let { usage ->

@@ -10,6 +10,14 @@ data class ModeDef(
     val allowAll: Boolean,
     val allow: Set<String>,
     val gray: Boolean,
+    /** "default" (the normal launcher) or "nokia" (our keypad launcher). */
+    val launcher: String = "default",
+    /** Whether the touchscreen works. Off swallows every touch. */
+    val touch: Boolean = true,
+    /** Whether the pull-down shade works. */
+    val shade: Boolean = true,
+    /** Lock the phone to the allowed apps: no recents, no power menu, no leaving the task. */
+    val kiosk: Boolean = false,
 )
 
 /** An absolute span of time with one mode. HA resolves holidays and timezones into these. */
@@ -53,6 +61,10 @@ data class Config(
                     allowAll = m.optBoolean("allowAll", false),
                     allow = strings(m.optJSONArray("allow")),
                     gray = m.optBoolean("gray", false),
+                    launcher = m.optString("launcher", "default"),
+                    touch = m.optBoolean("touch", true),
+                    shade = m.optBoolean("shade", true),
+                    kiosk = m.optBoolean("kiosk", false),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
