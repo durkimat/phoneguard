@@ -90,6 +90,7 @@ class NokiaSkin : LauncherSkin {
             when (m.screen) {
                 Screen.HOME -> { home(c, i, u); m.weather?.let { w -> weatherStrip(c, w, u) } }
                 Screen.WEATHER -> weatherScreen(c, m, u)
+                Screen.BATTERY -> batteryScreen(c, m, u)
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
@@ -241,6 +242,28 @@ class NokiaSkin : LauncherSkin {
             weatherIcon(c, w.icon, left + 31f, 392f, 62f, u)
             text(c, temp, left + 76f, 410f, 46f, u, bold = true)
             w.hint()?.let { text(c, it, 240f, 440f, 24f, u, align = Paint.Align.CENTER) }
+        }
+
+        private fun batteryScreen(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            val b = m.battery
+            if (b == null) text(c, "Reading...", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
+            else {
+                // a wide battery with a nub, filled to the level
+                stroke.strokeWidth = 4 * u
+                c.drawRect(60 * u, 130 * u, 400 * u, 210 * u, stroke); c.drawRect(400 * u, 155 * u, 416 * u, 185 * u, fill)
+                c.drawRect(68 * u, 138 * u, (68 + 324f * b.level / 100f) * u, 202 * u, fill)
+                text(c, "${b.level}%" + if (b.charging) " charging" else "", 240f, 262f, 40f, u, bold = true, align = Paint.Align.CENTER)
+                b.hoursLeft?.let { h -> text(c, "About " + (if (h >= 48) "${(h / 24).toInt()} days" else "${h.toInt()} h ${((h - h.toInt()) * 60).toInt()} min") + " left", 240f, 306f, 28f, u, align = Paint.Align.CENTER) }
+                stroke.strokeWidth = 2 * u; c.drawLine(16 * u, 330 * u, 464 * u, 330 * u, stroke)
+                text(c, "Screen today  " + (if (b.screenMinutes >= 60) "${b.screenMinutes / 60} h " else "") + "${b.screenMinutes % 60} min", 20f, 372f, 26f, u, bold = true)
+                b.top.forEachIndexed { n, (name, min) ->
+                    text(c, ellipsize(name, 300f, 26f), 20f, 416f + n * 40f, 26f, u)
+                    text(c, "$min min", 464f, 416f + n * 40f, 26f, u, align = Paint.Align.RIGHT)
+                }
+            }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
         private fun weatherScreen(c: Canvas, m: LauncherModel, u: Float) {

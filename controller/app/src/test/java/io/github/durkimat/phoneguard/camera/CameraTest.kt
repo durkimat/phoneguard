@@ -65,4 +65,15 @@ class CameraTest {
         m.onKey(Key.OK, -1); assertTrue(m.colour); m.onKey(Key.RIGHT, -1); assertFalse(m.colour)
         m.onKey(Key.SOFT_RIGHT, -1); assertFalse(m.inGallery)
     }
+
+    @Test fun drainRateIgnoresChargingAndGaps() {
+        val h = 3600_000L
+        val pts = listOf(
+            io.github.durkimat.phoneguard.PowerLog.Point(0, 2_900_000, false), io.github.durkimat.phoneguard.PowerLog.Point(h, 2_870_000, false),
+            io.github.durkimat.phoneguard.PowerLog.Point(2 * h, 2_900_000, true), io.github.durkimat.phoneguard.PowerLog.Point(10 * h, 2_000_000, false),
+            io.github.durkimat.phoneguard.PowerLog.Point(11 * h, 1_960_000, false),
+        )
+        assertEquals(35.0, io.github.durkimat.phoneguard.PowerLog.rate(pts)!!, 0.01) // 30 mAh then 40 mAh, over two hours
+        assertEquals(null, io.github.durkimat.phoneguard.PowerLog.rate(pts.take(1)))
+    }
 }

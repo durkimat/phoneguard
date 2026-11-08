@@ -86,7 +86,7 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK)
         m.onKey(Key.UP) // wraps to the last entry, Settings
         assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone"), m.rows)
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Battery"), m.rows)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
         assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
     }
@@ -111,7 +111,7 @@ class LauncherModelTest {
 
     @Test fun fontIsChosenFromSettingsLikeTheTheme() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Battery"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *", "Sans-serif", "Pixel VT323", "Pixelify"), m.rows)
         m.onKey(Key.DOWN)
@@ -531,7 +531,7 @@ class LauncherModelTest {
         val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
         m.waEnabled = true; m.waLinked = true
         m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "WhatsApp"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "WhatsApp", "Battery"), m.rows)
         m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
         assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
         assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.SETTINGS, m.screen)

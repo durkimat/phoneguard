@@ -155,6 +155,7 @@ class LauncherActivity : Activity() {
         scheduleGame()
         if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
         model.weather = WeatherStore.current(this)
+        if (model.screen == Screen.BATTERY) model.battery = LauncherData.batteryInfo(this)
         WeatherStore.refreshIfDue(this) { runOnUiThread { refresh() } }
         val all = LauncherData.items(this)
         val pinned = Store.config(this)?.pinned ?: emptyList()
