@@ -174,7 +174,9 @@ class LauncherActivity : Activity() {
             model.waUnread = WhatsApp.store(this).unreadTotal()
             if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.waConvos = WhatsApp.convos(this, model.contacts)
         }
-        skin.render(model, LauncherData.info(this))
+        val info = LauncherData.info(this)
+        model.badges = info.badges
+        skin.render(model, info)
     }
 
     private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)

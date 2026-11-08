@@ -82,6 +82,9 @@ object LauncherData {
         byName.map { Contact(it.key, it.value) }
     } catch (_: Exception) { emptyList() }
 
+    /** For tests on a real phone: shows these symbols instead of the real counts (set by the debug build only). */
+    @Volatile var debugBadges: List<Badge>? = null
+
     fun info(c: Context): HomeInfo {
         val now = Clock.now()
         val cfg = Store.config(c)
@@ -104,8 +107,11 @@ object LauncherData {
             time = SimpleDateFormat("HH:mm", Locale.UK).format(date),
             date = SimpleDateFormat("EEE d MMM", Locale.UK).format(date),
             modeLine = if (cfg?.override != null && cfg.modes.containsKey(cfg.override)) name else if (until != null) "$name until $until" else name,
-            missedCalls = missedCalls(c),
-            newMessages = newMessages(c) + (if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
+            badges = listOf(
+                Badge(BadgeKind.SMS, newMessages(c)),
+                Badge(BadgeKind.WHATSAPP, if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
+                Badge(BadgeKind.MISSED, missedCalls(c)),
+            ).filter { it.count > 0 }.let { debugBadges ?: it },
             batteryPct = if (level >= 0) level * 100 / scale else 0,
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
             signalBars = signal(c),

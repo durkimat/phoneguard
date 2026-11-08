@@ -560,3 +560,7 @@ Questions to put to them together:
 - Touch where a mode allows it: a tap chooses a row in any list, the two labels at the bottom act as the soft keys (left Select/Menu, right Back/Contacts), and a tap on the home weather opens the forecast. Forecast screen seen at last: looks right. Apps launched from the lists (Other apps) work with touch in Day.
 - Weather location set from HA's home zone (51.7638, -0.3233, rounded) through the service.
 - Mistake in testing: a tap on a menu row opened the real WhatsApp (it is allowed in Day and set to Auto); nothing was registered. To think about: tapping a game's screen does nothing yet except the soft keys; maybe touch controls for Pairs (tap a card) and Seeds (tap a pit).
+
+## Home-screen symbols (owner, 2026-11-08)
+- Replaced the "N new messages" / "N missed calls" text with small outline symbols and counts, centred in a row under the weather: envelope (new texts), speech bubble (new messages in our local WhatsApp, only when our screens are in use) and handset (missed calls). Where touch is allowed a tap opens the SMS inbox (at the first unread chat), the WhatsApp chat list or the call log; Back returns to the home screen. Tested on the J36 with fake counts (debug command `badges`).
+- Ideas: a keypad shortcut to the first symbol (Up on the home screen?), blink on a new arrival, symbols for a low battery or silent mode, check all four themes.

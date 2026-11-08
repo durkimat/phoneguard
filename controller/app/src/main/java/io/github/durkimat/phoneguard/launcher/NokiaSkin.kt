@@ -132,6 +132,45 @@ class NokiaSkin : LauncherSkin {
             c.drawPath(path, fill)
         }
 
+        /** New texts, new WhatsApp messages and missed calls as small outline symbols with a count, centred in a row. */
+        private fun badges(c: Canvas, i: HomeInfo, u: Float) {
+            val m = model ?: return
+            i.badges.forEachIndexed { n, b ->
+                val cx = m.badgeX(n, i.badges.size)
+                val label = if (b.count > 99) "99+" else b.count.toString()
+                p.textSize = 36f * sizeScale * u; p.isFakeBoldText = true
+                val tw = p.measureText(label) / u
+                val left = cx - (44f + 10f + tw) / 2
+                badgeIcon(c, b.kind, left + 22f, 512f, u)
+                text(c, label, left + 54f, 526f, 36f, u, bold = true)
+            }
+        }
+
+        private fun badgeIcon(c: Canvas, kind: BadgeKind, cx: Float, cy: Float, u: Float) {
+            stroke.strokeWidth = 3 * u
+            when (kind) {
+                BadgeKind.SMS -> { // an envelope
+                    val r = RectF((cx - 20) * u, (cy - 14) * u, (cx + 20) * u, (cy + 14) * u)
+                    c.drawRect(r, stroke)
+                    c.drawLine((cx - 20) * u, (cy - 14) * u, cx * u, cy * u, stroke); c.drawLine((cx + 20) * u, (cy - 14) * u, cx * u, cy * u, stroke)
+                }
+                BadgeKind.WHATSAPP -> { // a speech bubble with a tail and two lines of text
+                    val r = RectF((cx - 20) * u, (cy - 16) * u, (cx + 20) * u, (cy + 10) * u)
+                    c.drawRoundRect(r, 8 * u, 8 * u, stroke)
+                    val tail = android.graphics.Path().apply { moveTo((cx - 10) * u, (cy + 10) * u); lineTo((cx - 14) * u, (cy + 20) * u); lineTo((cx - 2) * u, (cy + 10) * u) }
+                    c.drawPath(tail, stroke)
+                    c.drawLine((cx - 11) * u, (cy - 6) * u, (cx + 11) * u, (cy - 6) * u, stroke); c.drawLine((cx - 11) * u, (cy + 1) * u, (cx + 4) * u, (cy + 1) * u, stroke)
+                }
+                BadgeKind.MISSED -> { // a handset, drawn as an arc with a blob at each end
+                    stroke.strokeWidth = 7 * u
+                    c.drawArc(RectF((cx - 22) * u, (cy - 6) * u, (cx + 22) * u, (cy + 38) * u), 200f, 140f, false, stroke)
+                    fill.color = ink
+                    c.drawRect((cx - 24) * u, (cy + 2) * u, (cx - 12) * u, (cy + 12) * u, fill); c.drawRect((cx + 12) * u, (cy + 2) * u, (cx + 24) * u, (cy + 12) * u, fill)
+                    stroke.strokeWidth = 3 * u
+                }
+            }
+        }
+
         /** One weather symbol as an outline: a filled shape in the ink colour with the same shape inset in the screen colour. */
         private fun cloud(c: Canvas, cx: Float, cy: Float, s: Float, u: Float, color: Int, grow: Float) {
             fill.color = color
@@ -213,9 +252,7 @@ class NokiaSkin : LauncherSkin {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER)
             text(c, i.date, 240f, 332f, 36f, u, align = Paint.Align.CENTER)
-            var y = 486f
-            if (i.missedCalls > 0) { text(c, plural(i.missedCalls, "missed call"), 64f, y, 28f, u); y += 40f }
-            if (i.newMessages > 0) text(c, plural(i.newMessages, "new message"), 64f, y, 28f, u)
+            badges(c, i, u)
             softKeys(c, i.softLeft, i.softRight, u)
         }
 

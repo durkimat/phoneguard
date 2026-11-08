@@ -185,6 +185,10 @@ class LauncherModel(
     val snake = Snake()
     /** The latest weather, or null when none is set up or it is out of date. */
     var weather: WeatherData? = null
+    /** The symbols shown on the home screen, left to right; the skin draws them and a tap on one opens what it stands for. */
+    var badges: List<Badge> = emptyList()
+    /** True when a list was opened by tapping a symbol on the home screen, so Back goes home. */
+    private var homeEntry = false
     private var weatherFrom = Screen.MENU
     val pairs = Pairs()
     val shooter = Shooter()
@@ -268,7 +272,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0 }
+    fun goHome() { screen = Screen.HOME; selected = 0; homeEntry = false }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -554,7 +558,7 @@ class LauncherModel(
 
     private fun whatsapp(key: Key, digit: Int): Action = move(key, if (waLinked) waConvos.size else 1) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked) startPair(Screen.WHATSAPP) else waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MESSAGES; selected = 1; threadWa = false; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { threadWa = false; if (homeEntry) goHome() else { screen = Screen.MESSAGES; selected = 1 }; Action.Redraw }
         Key.END -> { threadWa = false; goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
@@ -562,7 +566,7 @@ class LauncherModel(
 
     private fun inbox(key: Key, digit: Int): Action = move(key, convos.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.Redraw } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MESSAGES; selected = 0; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (homeEntry) goHome() else { screen = Screen.MESSAGES; selected = 0 }; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> convos.getOrNull(selected)?.let { Action.Call(it.address) } ?: Action.CallKey
         else -> Action.None
@@ -865,7 +869,11 @@ class LauncherModel(
      */
     fun tap(x: Float, y: Float): Action {
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
-        if (screen == Screen.HOME) return if (y in 345f..440f) openWeather() else Action.None
+        if (screen == Screen.HOME) {
+            if (y in 345f..440f) return openWeather()
+            if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
+            return Action.None
+        }
         if (screen in rowScreens && y >= 104f) {
             val visible = 7
             val first = (selected - visible + 1).coerceAtLeast(0).coerceAtMost((rows.size - visible).coerceAtLeast(0))
@@ -873,6 +881,17 @@ class LauncherModel(
             if (idx in rows.indices) { selected = idx; return onKey(Key.OK) }
         }
         return Action.None
+    }
+
+    /** The centre of badge [i] of [n] on the home screen's 480 wide grid. */
+    fun badgeX(i: Int, n: Int): Float = 240f + (i - (n - 1) / 2f) * 130f
+    private fun badgeAt(x: Float): Int = badges.indices.minByOrNull { Math.abs(badgeX(it, badges.size) - x) } ?: 0
+
+    /** Jump straight to what a home-screen symbol stands for: the text inbox, the WhatsApp chats or the call log. */
+    private fun openBadge(b: Badge): Action = when (b.kind) {
+        BadgeKind.SMS -> { homeEntry = true; threadWa = false; screen = Screen.INBOX; selected = convos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); Action.Redraw }
+        BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
+        BadgeKind.MISSED -> openCallLog(Screen.HOME)
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
@@ -1031,13 +1050,16 @@ class LauncherModel(
     }
 }
 
+enum class BadgeKind { SMS, WHATSAPP, MISSED }
+data class Badge(val kind: BadgeKind, val count: Int)
+
 /** What the home screen shows besides the menu. Plain data so a skin can draw it any way it likes. */
 data class HomeInfo(
     val time: String,
     val date: String,
     val modeLine: String,
-    val missedCalls: Int,
-    val newMessages: Int,
+    /** What wants attention, drawn as small symbols with a count: new texts, new WhatsApp messages, missed calls. */
+    val badges: List<Badge>,
     val batteryPct: Int,
     val charging: Boolean,
     /** -1 means no SIM, otherwise 0 to 4 bars. */
