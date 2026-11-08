@@ -569,3 +569,9 @@ Questions to put to them together:
 - Android's colours (Settings, pull-down, PIN pad) are already tinted green: they come from the system palette, which follows the lock-screen wallpaper (`color_source: lock_wallpaper`). Settings headings and switches show pale green on a dark grey-green background.
 - Tried writing `theme_customization_overlay_packages` over adb to preset colours (green, then a diagnostic red/VIBRANT): the system rewrote it back to the lock-wallpaper value at once and nothing changed. Then repainted the lock wallpaper in each of the four themes: the palette did NOT follow (all four looked the same green), so the palette seems to be computed only at certain moments (wallpaper picked in Styles, boot) and our wallpaper changes do not trigger it.
 - Ideas to try next: set the wallpaper with `WallpaperManager.setBitmap(..., allowBackup)` for FLAG_SYSTEM too (home wallpaper) in case the colours come from there; reboot to see whether the palette is recomputed from the current wallpaper (will need the PIN); check Settings > Wallpaper & style on DumberOS for a colour picker; ask the maker. Fonts need a privileged overlay (the ROM ships Rubik, Lato and Noto Serif only).
+
+## Email (owner, 2026-11-08): future feature
+- The envelope symbol is kept for email, which is a later feature (themed inbox, symbol and count on the home screen like the others, a tap opens the email inbox). Needs design: which account and protocol, how the phone gets mail safely (no passwords typed on the phone: set up from HA), what it may show in School.
+
+## Home symbols revised (2026-11-08)
+- Text messages: a square speech bubble with two lines. WhatsApp: a round bubble with a tail and a small handset inside. Missed calls: the handset. Symbols only show when the count is above zero, so with nothing new the row is empty by design (the test fake counts were switched off, which is why they went).
