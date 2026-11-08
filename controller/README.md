@@ -31,6 +31,7 @@ adb install -t -r app/build/outputs/apk/debug/app-debug.apk
 adb shell dpm set-device-owner io.github.durkimat.phoneguard/.AdminReceiver   # needs no accounts
 adb shell pm grant io.github.durkimat.phoneguard android.permission.WRITE_SECURE_SETTINGS  # grayscale
 adb shell cmd notification allow_dnd io.github.durkimat.phoneguard   # silent sound profile (Do Not Disturb)
+adb shell cmd notification allow_listener io.github.durkimat.phoneguard/io.github.durkimat.phoneguard.notes.NoteService   # notifications list and the music remote
 ```
 To use our own call screens, make the app the phone's Dialer (one grant, replaces the stock one):
 `adb shell cmd role add-role-holder --user 0 android.app.role.DIALER io.github.durkimat.phoneguard`.
@@ -54,7 +55,7 @@ release flow on a spare phone first.
 Order for a new phone (no accounts on it, or device owner is refused):
 1. `adb install phoneguard-release.apk`
 2. `adb shell dpm set-device-owner io.github.durkimat.phoneguard/.AdminReceiver`
-3. The one-time grants above (`WRITE_SECURE_SETTINGS`, `SYSTEM_ALERT_WINDOW` and `WRITE_SETTINGS` app-ops, `allow_dnd`).
+3. The one-time grants above (`WRITE_SECURE_SETTINGS`, `SYSTEM_ALERT_WINDOW` and `WRITE_SETTINGS` app-ops, `allow_dnd`, `allow_listener`).
 4. Open the app and pair it with the Phone Guard card in HA (scan the QR code, check the matching words on both).
 5. Set up WhatsApp and any other app that needs a tap in Day mode, before School's touch lock. In School the
    phone is totally silent and blocks incoming calls (parents ring the school office).
