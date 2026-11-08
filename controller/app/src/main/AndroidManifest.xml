@@ -164,6 +164,15 @@
         <receiver android:name=".AlarmReceiver" android:directBootAware="true" android:exported="false" />
 
         <service
+            android:name=".keys.F2Service"
+            android:exported="true"
+            android:label="@string/f2_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/f2_service" />
+        </service>
+
+        <service
             android:name=".GuardService"
             android:directBootAware="true"
             android:exported="false"

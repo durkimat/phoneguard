@@ -30,6 +30,7 @@ object Controller {
             return
         }
         Enforcer.grantOwnPermissions(app)
+        Enforcer.ensureSideButton(app)
         PowerLog.sample(app, "eval")
         val now = Clock.now()
         val cfg = Store.config(app)

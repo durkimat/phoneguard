@@ -126,6 +126,13 @@ class NokiaSkin : LauncherSkin {
             c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
             c.drawRect((bx + 5) * u, 15 * u, (bx + 5 + 42f * i.batteryPct / 100f) * u, 31 * u, fill)
             text(c, (if (i.charging) "+" else "") + i.batteryPct + "%", bx - 8, 33f, 24f, u, align = Paint.Align.RIGHT)
+            // a small torch while the LED is on (drawn only because the screen is on and showing our screens)
+            if (io.github.durkimat.phoneguard.keys.Torch.on) {
+                stroke.strokeWidth = 2.5f * u
+                c.drawRect(228 * u, 20 * u, 252 * u, 28 * u, stroke)                        // the head
+                c.drawRect(231 * u, 28 * u, 249 * u, 42 * u, stroke)                         // the body
+                c.drawLine(225 * u, 14 * u, 220 * u, 9 * u, stroke); c.drawLine(240 * u, 12 * u, 240 * u, 5 * u, stroke); c.drawLine(255 * u, 14 * u, 260 * u, 9 * u, stroke) // the light
+            }
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
         }

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="f2_service_label">Phone Guard side button</string>
+    <string name="f2_service_description">Lets the side button of this phone open the camera (two quick presses) and switch the torch (hold). It reads no screen content.</string>
+</resources>

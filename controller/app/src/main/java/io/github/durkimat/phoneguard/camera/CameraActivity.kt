@@ -51,6 +51,10 @@ class CameraActivity : AppCompatActivity() {
         /** For tests on a real phone: pretend the phone is held this way (a Surface.ROTATION_ value), or null. */
         @Volatile var debugHeld: Int? = null
         @Volatile var refresh: (() -> Unit)? = null
+        /** Set while the camera screen has the focus: the side-button service hands it the shutter press. */
+        @Volatile private var shutterHook: (() -> Unit)? = null
+        fun isFront() = shutterHook != null
+        fun shutter() { shutterHook?.invoke() }
     }
 
     private val model = CameraModel()
@@ -347,10 +351,12 @@ class CameraActivity : AppCompatActivity() {
     /** The left key under the screen reaches us through the key router (see HardKeys); it is the Shoot key. */
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        shutterHook = if (hasFocus) ({ ui.post { perform(model.onKey(Key.OK, -1)) }; Unit }) else null
         io.github.durkimat.phoneguard.incall.LeftKey.camera = if (hasFocus) ({ ui.post { perform(model.onKey(Key.SOFT_LEFT, -1)) }; Unit }) else null
     }
 
     override fun onDestroy() {
+        shutterHook = null
         io.github.durkimat.phoneguard.incall.LeftKey.camera = null
         orient?.disable(); refresh = null
         recording?.stop(); exec.shutdown(); super.onDestroy()
