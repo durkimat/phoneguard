@@ -79,6 +79,8 @@ sealed class Action {
     object UnlinkWa : Action()
     /** Refresh WhatsApp names and ask for older messages, without unlinking. */
     object ResyncWa : Action()
+    /** Forget the words learned from what the owner typed. */
+    object ForgetWords : Action()
     /** The owner chose how senders' names are shortened in chat previews. */
     data class SaveNameStyle(val id: String) : Action()
     /** The WhatsApp list was opened: the activity connects the bridge on demand. */
@@ -310,7 +312,7 @@ class LauncherModel(
         Screen.WASET -> if (waLinked) listOf("Re-sync names and messages", "Names in lists", "Unlink account") else listOf("Link account")
         Screen.WANAMES -> NameStyle.all.map { it.second + if (it.first == waNameStyle) " *" else "" }
         Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
-        Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
+        Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "", "Forget learned words")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
         Screen.WHATSAPP -> if (!waLinked) listOf("Link account") else waConvos.map { (if (it.unread > 0) "* " else "") + it.name }
@@ -441,8 +443,8 @@ class LauncherModel(
         else -> Action.None
     }
 
-    private fun typing(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { predictiveOn = selected == 0; writeMode = 0; screen = Screen.SETTINGS; selected = 2; Action.SavePredictive(predictiveOn) }
+    private fun typing(key: Key, digit: Int): Action = move(key, 3) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 2) { screen = Screen.SETTINGS; selected = 2; Action.ForgetWords } else { predictiveOn = selected == 0; writeMode = 0; screen = Screen.SETTINGS; selected = 2; Action.SavePredictive(predictiveOn) }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 2; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey

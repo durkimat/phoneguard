@@ -86,6 +86,9 @@ class LauncherActivity : Activity() {
         super.onPause()
     }
 
+    /** Whether the word list knows a word (so a capital on an unknown word at the start of a message is read as a name). */
+    private fun knownWord(w: String): Boolean = words?.exact(WordList.keyOf(w))?.any { it.equals(w, true) } ?: true
+
     /** The word list is read off the main thread, so the launcher opens at once and gains predictive text a moment later. */
     private fun loadWords() {
         if (words != null) { model.predictor = words; return }
@@ -93,7 +96,11 @@ class LauncherActivity : Activity() {
             try {
                 val list = WordList.parse(assets.open("words/words-en-gb.txt").bufferedReader().use { it.readText() })
                 words = list
-                ui.post { model.predictor = list; refresh() }
+                val learned = io.github.durkimat.phoneguard.whatsapp.LearnedStore.get(this)
+                // the names of the people in the phone's Contacts are suggested from the start
+                for (ct in LauncherData.contacts(this)) for (part in ct.name.split(' ', '-')) learned.seed(part)
+                val predictor = LearningPredictor(list, learned)
+                ui.post { model.predictor = predictor; refresh() }
             } catch (e: Exception) { Log.log(this, "launcher: word list failed: ${e.javaClass.simpleName}") }
         }.start()
     }
@@ -157,6 +164,7 @@ class LauncherActivity : Activity() {
             is Action.WaRead -> { WhatsApp.store(this).markRead(a.chat); refresh() }
             is Action.SendWa -> Thread {
                 val r = WhatsApp.sendNow(this, a.chat, a.body)
+                if (r == "sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
                 ui.post { if (r != "sent") model.notify("Not sent: $r"); refresh() }
             }.start()
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
@@ -167,7 +175,12 @@ class LauncherActivity : Activity() {
             is Action.PlaceCall -> placeCall(a.number)
             // "Call" on a contact or in the call log opens our own dial screen with the number typed; one more press rings
             is Action.Call -> { model.startDial(a.number); refresh() }
-            is Action.Send -> { model.notify(LauncherData.sendSms(this, a.to, a.body)); refresh() }
+            is Action.Send -> {
+                val r = LauncherData.sendSms(this, a.to, a.body)
+                if (r == "Message sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
+                model.notify(r); refresh()
+            }
+            Action.ForgetWords -> { io.github.durkimat.phoneguard.whatsapp.LearnedStore.forget(this); model.notify("Forgotten"); refresh() }
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
             else -> {} // the call actions belong to the call screen
         }
