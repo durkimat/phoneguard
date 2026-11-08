@@ -145,7 +145,7 @@ class LauncherActivity : Activity() {
             }.start()
             Action.UnlinkWa -> Thread {
                 val r = WhatsApp.logout(this)
-                ui.post { model.notify(if (r.startsWith("error")) "Could not unlink" else "Unlinked"); refresh() }
+                ui.post { model.notify(if (r.startsWith("error")) "Could not unlink: " + r.removePrefix("error: ").take(30) else "Unlinked"); refresh() }
             }.start()
             Action.WaOpen -> { WhatsApp.touch(this); refresh() }
             is Action.WaRead -> { WhatsApp.store(this).markRead(a.chat); refresh() }
