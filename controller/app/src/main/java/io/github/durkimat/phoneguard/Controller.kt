@@ -39,7 +39,7 @@ object Controller {
         if (boost != null && now >= boost.until) { Store.setBoost(app, null); boost = null }
 
         val eff = Engine.effective(cfg, boost, now)
-        val res = Enforcer.applyApps(app, cfg, eff.allowed, hideStockHome = eff.lockdown.launcher == "nokia" && Enforcer.weAreHome(app))
+        val res = Enforcer.applyApps(app, cfg, eff.allowed, hideStockHome = false) // not hidden: Android binds its recents and gesture service inside the stock launcher at every start, and hiding it made that crash at boot
         Enforcer.applyRestrictions(app, cfg)
         Enforcer.protectProcesses(app)
         Enforcer.setGray(app, eff.gray)

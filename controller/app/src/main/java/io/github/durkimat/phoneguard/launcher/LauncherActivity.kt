@@ -201,6 +201,7 @@ class LauncherActivity : Activity() {
         val all = LauncherData.items(this)
         val pinned = Store.config(this)?.pinned ?: emptyList()
         model.apps = LauncherData.otherApps(all, pinned)
+        model.logItems = LauncherData.logsAndSettings(all)
         model.setItems(LauncherData.menu(all, pinned, androidApps = LauncherData.touchAllowed(this)))
         if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
         if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)

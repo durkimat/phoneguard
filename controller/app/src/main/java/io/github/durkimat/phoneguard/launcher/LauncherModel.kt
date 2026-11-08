@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -53,6 +53,7 @@ object Fonts {
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
 const val CAMERA_PKG = "pg:camera"
+const val LOGSET_PKG = "pg:logset"
 const val MUSIC_PKG = "pg:music"
 const val NOTES_PKG = "pg:notes"
 const val WEATHER_PKG = "pg:weather"
@@ -325,6 +326,7 @@ class LauncherModel(
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
         Screen.MUSIC -> "Now playing"
+        Screen.LOGSET -> "Logs & Settings"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> "Playlists"
         Screen.DEVICES -> "Play on"
@@ -351,7 +353,7 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> "Select" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
@@ -379,6 +381,7 @@ class LauncherModel(
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.MUSICMENU -> musicMenuRows
+        Screen.LOGSET -> logItems.map { it.label }
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
@@ -413,7 +416,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -430,6 +433,7 @@ class LauncherModel(
         Screen.BATTERY -> batteryKey(key)
         Screen.MUSIC -> musicKey(key, digit)
         Screen.MUSICMENU -> musicMenuKey(key)
+        Screen.LOGSET -> logSetKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
@@ -511,7 +515,7 @@ class LauncherModel(
 
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -838,15 +842,16 @@ class LauncherModel(
 
     private fun open(item: MenuItem?): Action = when {
         item == null -> Action.None
-        item.pkg == SETTINGS_PKG -> { screen = Screen.SETTINGS; selected = 0; Action.Redraw }
+        item.pkg == LOGSET_PKG -> { screen = Screen.LOGSET; selected = 0; Action.Redraw }
+        item.pkg == SETTINGS_PKG -> { settingsFrom = screen; screen = Screen.SETTINGS; selected = 0; Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
         item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
-        item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
+        item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == MUSIC_PKG -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
-        item.pkg == NOTES_PKG -> { notesFrom = Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
+        item.pkg == NOTES_PKG -> { notesFrom = if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
         item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }
@@ -867,7 +872,7 @@ class LauncherModel(
             }
             out
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (settingsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0) } else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0) }; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
@@ -916,7 +921,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -980,6 +985,9 @@ class LauncherModel(
     var battery: BatteryInfo? = null
 
     /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
+    /** What "Logs & Settings" lists (Call log, Notifications, Settings); the activity fills it in. */
+    var logItems: List<MenuItem> = emptyList()
+    private var settingsFrom = Screen.MENU
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
@@ -1003,7 +1011,7 @@ class LauncherModel(
 
     private fun notesKey(key: Key): Action = move(key, notes.size + (if (notes.isEmpty()) 0 else 1)) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (notes.isEmpty()) Action.None else if (selected >= notes.size) Action.ClearNotes else { noteKeyShown = notes[selected].key; screen = Screen.NOTE; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (notesFrom == Screen.HOME) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == NOTES_PKG }.coerceAtLeast(0) }; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (notesFrom == Screen.HOME) goHome() else if (notesFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == NOTES_PKG }.coerceAtLeast(0) } else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == NOTES_PKG }.coerceAtLeast(0) }; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1040,6 +1048,13 @@ class LauncherModel(
     }
 
     private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
+
+    private fun logSetKey(key: Key): Action = move(key, logItems.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(logItems.getOrNull(selected))
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == LOGSET_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
 
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (musicMenuRows.getOrNull(selected)) {
@@ -1230,7 +1245,7 @@ class LauncherModel(
         Key.RIGHT, Key.SOFT_RIGHT, Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> openCallLog(Screen.MENU)
         // 1 to 9 jump straight to that entry, like a Nokia menu
-        Key.DIGIT -> if (digit in 1..9) items.getOrNull(digit - 1)?.let { selected = digit - 1; open(it) } ?: Action.None else Action.None
+        Key.DIGIT -> { val i = if (digit == 0) 9 else digit - 1; items.getOrNull(i)?.let { selected = i; open(it) } ?: Action.None }
         else -> Action.None
     }
 }
