@@ -32,7 +32,11 @@ object WhatsApp {
     fun onChange(l: () -> Unit) { changed.add(l) }
     fun offChange(l: () -> Unit) { changed.remove(l) }
     private val main = Handler(Looper.getMainLooper())
-    private val idleOff = Runnable { bridge?.disconnect(); android.util.Log.i("PhoneGuard", "whatsapp: idle, disconnected") }
+    // never drop the connection while an account is being linked: it is the one waiting for the code to be typed in
+    private val idleOff = Runnable {
+        if (bridge?.isPaired == false) return@Runnable
+        bridge?.disconnect(); android.util.Log.i("PhoneGuard", "whatsapp: idle, disconnected")
+    }
 
     private fun prefs(c: Context) = c.applicationContext.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
@@ -53,7 +57,7 @@ object WhatsApp {
             val b = Wabridge.open(dir.absolutePath, object : Listener {
                 override fun onStatus(state: String) {
                     status = state; Log.log(app, "whatsapp: $state")
-                    if (state == "paired") setLinked(app, true)
+                    if (state == "paired") { setLinked(app, true); pairCode = null }
                     if (state == "logged_out") { setLinked(app, false); st.wipe() }
                     fire()
                 }
@@ -117,6 +121,7 @@ object WhatsApp {
      * by WhatsApp and delivered at once on reconnect (the spike caught up two hours of messages instantly).
      */
     fun touch(c: Context) {
+        if (!linked(c)) return // nothing to connect to until an account is linked
         if (policy(c) == "off") { status = "off"; fire(); return } // the mode says no WhatsApp at all
         main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
         if (isConnected()) return
@@ -194,7 +199,12 @@ object WhatsApp {
         return r
     }
 
-    fun pair(c: Context, number: String): String = try { open(c)?.pairWithPhone(number); "pairing started" } catch (e: Throwable) { "error: ${e.message}" }
+    fun pair(c: Context, number: String): String = try {
+        pairCode = null // never show the code from an earlier attempt
+        main.removeCallbacks(idleOff)
+        fire()
+        open(c)?.pairWithPhone(number); "pairing started"
+    } catch (e: Throwable) { "error: ${e.message}" }
     fun connect(c: Context): String = try { open(c)?.connect(); "ok" } catch (e: Throwable) { "error: ${e.message}" }
     fun disconnect() { bridge?.disconnect() }
     fun isConnected(): Boolean = bridge?.isConnected ?: false
@@ -204,6 +214,7 @@ object WhatsApp {
         open(c)?.logout()
         store(c).wipe()
         setLinked(c, false)
+        pairCode = null
         close() // the old client is finished; the next open() starts a fresh, unlinked one
         status = "not linked"; fire()
         "logged out"

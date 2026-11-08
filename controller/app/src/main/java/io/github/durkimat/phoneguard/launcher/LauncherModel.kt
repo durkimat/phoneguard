@@ -275,7 +275,7 @@ class LauncherModel(
         }
         Screen.INBOX -> "Open" to "Back"
         Screen.WHATSAPP -> (if (waLinked) "Open" else "Link") to "Back"
-        Screen.WAPAIR -> (if (waCode != null || waLinked) "" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
+        Screen.WAPAIR -> (if (waLinked) "" else if (waCode != null) "New code" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
         Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
         else -> "Select" to "Back"
@@ -460,7 +460,8 @@ class LauncherModel(
         val done = waCode != null || waLinked
         return when (key) {
             Key.DIGIT -> if (!done && waPairNumber.length < 15 && digit in 0..9) { waPairNumber += digit; Action.Redraw } else Action.None
-            Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!done && waPairNumber.length >= 9) Action.PairWa(waPairNumber) else Action.None
+            // with a code showing, the left key asks for a fresh one (the old one may have run out)
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked && waPairNumber.length >= 9) Action.PairWa(waPairNumber) else Action.None
             Key.SOFT_RIGHT, Key.RIGHT -> when {
                 done -> { screen = waPairBack; selected = 0; Action.Redraw }
                 waPairNumber.isNotEmpty() -> { waPairNumber = waPairNumber.dropLast(1); Action.Redraw }
