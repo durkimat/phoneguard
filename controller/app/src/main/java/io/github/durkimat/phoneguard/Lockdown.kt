@@ -28,6 +28,7 @@ object LockdownEnforcer {
     fun apply(c: Context, ld: Lockdown, visible: Set<String>) {
         Pregrant.run(c, visible)
         HomeApp.apply(c, ld.launcher == "nokia")
+        RotationLock.set(c, locked = ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
@@ -44,6 +45,7 @@ object LockdownEnforcer {
         HardKeys.menuKeyOverlay(c, allowed = true)
         try { Dpm.dpm(c).clearPackagePersistentPreferredActivities(Dpm.admin(c), c.packageName) } catch (_: Exception) { }
         HomeApp.apply(c, false)
+        RotationLock.set(c, false)
     }
 }
 
@@ -116,6 +118,26 @@ object AssistPin {
 }
 
 /** Which Home app is the default. Set explicitly, because a second Home app makes Android ask every time. */
+/** A keypad phone has no sideways mode: keep the screen upright while the Nokia screens are in use, and put the setting back after. */
+object RotationLock {
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("rotation", Context.MODE_PRIVATE)
+
+    fun set(c: Context, locked: Boolean) {
+        try {
+            val r = c.contentResolver
+            val p = prefs(c)
+            if (locked) {
+                if (!p.contains("auto")) p.edit().putInt("auto", Settings.System.getInt(r, Settings.System.ACCELEROMETER_ROTATION, 1)).apply()
+                Settings.System.putInt(r, Settings.System.ACCELEROMETER_ROTATION, 0)
+                Settings.System.putInt(r, Settings.System.USER_ROTATION, 0)
+            } else if (p.contains("auto")) {
+                Settings.System.putInt(r, Settings.System.ACCELEROMETER_ROTATION, p.getInt("auto", 1))
+                p.edit().remove("auto").apply()
+            }
+        } catch (e: Exception) { Log.log(c, "rotation lock: ${e.javaClass.simpleName} ${e.message}") }
+    }
+}
+
 object HomeApp {
     private fun homeIntent() = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
 

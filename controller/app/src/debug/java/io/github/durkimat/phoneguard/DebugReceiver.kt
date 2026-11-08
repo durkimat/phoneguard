@@ -27,6 +27,9 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "ping" -> "pong"
+        "keyguard" -> try { // can a device owner switch the keyguard off while a PIN is set? (a=on|off)
+            val ok = Dpm.dpm(c).setKeyguardDisabled(Dpm.admin(c), a == "on"); "setKeyguardDisabled($a) -> $ok"
+        } catch (e: Exception) { "keyguard failed: ${e.javaClass.simpleName} ${e.message}" }
         "status" -> "owner=${Dpm.isOwner(c)} summary=${Store.summary(c)} hidden=${Store.hidden(c).size} cfg=${Store.config(c)?.version}"
         "config" -> {
             val f = File(c.getExternalFilesDir(null), a)

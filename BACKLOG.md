@@ -516,3 +516,9 @@ launcher in the same app; (3) notification counts and the status line.
 
 - Weather decision (owner, 2026-11-08): Open-Meteo it is. Before building, read its docs for the attribution wording and the weather_code list.
 - Lock screen PIN entry goes white (owner, 2026-11-08): the PIN pad is Android's own and cannot be screenshotted (secure window). Trying the system dark theme (`cmd uimode night yes`, stored as secure ui_night_mode=2) so the PIN screen is dark instead of white. If it works, the app should set it itself (needs a check that writing ui_night_mode with WRITE_SECURE_SETTINGS applies without adb) and the choice becomes a setting.
+
+## Lock screen option 2 tried (2026-11-08): blocked on this phone
+- Rotation is now locked upright whenever the Nokia screens are in use (RotationLock, set and restored by Lockdown); installed, verified accelerometer_rotation goes to 0.
+- `setKeyguardDisabled(true)` as device owner returns false while a PIN is set, so the system lock screen cannot be hidden under our control.
+- A trust agent (which would let us declare the phone "unlocked" by day and keep the PIN for boot) needs `android.permission.PROVIDE_TRUST_AGENT`, which is signature|privileged on this ROM, so an ordinary app cannot provide one. Only possible if the DumberOS maker installs Phone Guard as a privileged system app: ask them (same conversation as the bootloader warning).
+- Still possible: (a) keep the PIN, dark system theme so the PIN pad is dark (owner: better, not ideal); (b) lengthen the time before the phone re-locks after the screen goes off so the PIN pad shows less (Settings.Secure lock_screen_lock_after_timeout, untested); (c) drop the system PIN and use only our own themed lock (a real security downgrade: not recommended).
