@@ -34,6 +34,11 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    // the themed camera (Apache-2.0): still and video capture plus live frames, no ready-made camera screen
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-video:1.3.4")
     // the WhatsApp bridge (Go, built by ../../wabridge/build.sh)
     implementation(files("../../wabridge/out/wabridge.aar"))
     testImplementation("junit:junit:4.13.2")
