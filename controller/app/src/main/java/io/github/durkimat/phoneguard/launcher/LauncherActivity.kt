@@ -29,7 +29,7 @@ class LauncherActivity : Activity() {
         const val EXTRA_DIAL = "dial"
     }
 
-    private val skin = NokiaSkin().also { s -> s.onTap = { y -> if (y in 345f..440f) perform(model.openWeather()) } }
+    private val skin = NokiaSkin().also { s -> s.onTap = { x, y -> perform(model.tap(x, y)) } }
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
     private val tick = object : Runnable { override fun run() { refresh(); ui.postDelayed(this, 20_000) } }

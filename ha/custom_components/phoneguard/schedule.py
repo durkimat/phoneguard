@@ -23,7 +23,8 @@ CLOCK = "com.android.deskclock"
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
         return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple"}
-    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto"}
+    # the Nokia screens are the home screen in every mode; only School also turns touch off and locks the phone to its apps
+    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto"}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:

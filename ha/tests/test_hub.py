@@ -232,7 +232,7 @@ def test_lockdown_defaults_override_and_copy(hub):
     sc = cfg["modes"]["school"]
     assert (sc["launcher"], sc["touch"], sc["shade"], sc["kiosk"]) == ("nokia", False, False, True)
     d = cfg["modes"]["day"]
-    assert (d["launcher"], d["touch"], d["shade"], d["kiosk"]) == ("default", True, True, False)
+    assert (d["launcher"], d["touch"], d["shade"], d["kiosk"]) == ("nokia", True, True, False)
     assert "com.android.deskclock" in cfg["modes"]["night"]["allow"] and "com.android.deskclock" not in sc["allow"]
     assert cfg["unprotect"] == ["com.android.deskclock"]
     # older data without the settings still gets the defaults
@@ -253,9 +253,9 @@ def test_lockdown_defaults_override_and_copy(hub):
     assert "override" not in S.build_config(hub.data["children"]["her"], T0)
     # copy keeps each device's own app lists but takes the lockdown options
     hub.ensure_child("tab", "Tab", "Her")
-    hub.data["children"]["her"]["modes"]["day"].update({"touch": False, "launcher": "nokia"})
+    hub.data["children"]["her"]["modes"]["day"].update({"touch": False, "launcher": "default"})
     hub.copy_settings("her", "tab", ["mode_options"])
-    assert hub.data["children"]["tab"]["modes"]["day"]["touch"] is False and hub.data["children"]["tab"]["modes"]["day"]["launcher"] == "nokia"
+    assert hub.data["children"]["tab"]["modes"]["day"]["touch"] is False and hub.data["children"]["tab"]["modes"]["day"]["launcher"] == "default"
 
 
 def test_sound_defaults_validation_and_copy(hub):
