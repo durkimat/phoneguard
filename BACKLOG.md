@@ -474,3 +474,7 @@ launcher in the same app; (3) notification counts and the status line.
 ## Games (owner idea, 2026-11-08): Snake first, then more
 - Own-built, drawn in the current theme. Candidates from the 3310 era: Snake II, Space Impact, Pairs II, Bantumi (mancala), Bounce. Classic order of effort: Snake (easy), Pairs (easy), Space Impact (medium), Bantumi (medium, needs a simple computer opponent), Bounce (harder).
 - Third-party clones found are mostly Flutter/touch based (MIT or GPL); keypad input and our theme make a rewrite simpler. Avoid Nokia names and artwork: use generic names (Snake, Pairs, Shooter, Seeds).
+
+## Camera without touch (owner, 2026-11-08): after the games
+- Does the stock Camera app work with the keypad alone (shutter on a key, switching camera, viewing photos)? Check it. If it does not, or looks out of place, build a themed camera screen in our launcher (preview, shutter on OK, gallery list). Decide after testing; touch-only Camera should stay out of School.
+- HA deployed 2026-11-08 (pinned apps, card v0.10.0); backup at /root/phoneguard-bak-20261108c on HA.
