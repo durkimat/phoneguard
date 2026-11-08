@@ -74,7 +74,7 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean, history: Boolean) { st.add(chat, chatName, sender, text, ts, fromMe, history = history); fire(slow = history) }
+                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean, history: Boolean) { st.add(chat, chatName, nameFor(app, sender), text, ts, fromMe, history = history); fire(slow = history) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
                     st.add(chat, chatName, chatName, if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
@@ -97,6 +97,21 @@ object WhatsApp {
 
     /** Closes the bridge so the next use reopens it from the files (used after the session files are replaced). */
     @Synchronized fun close() { bridge?.close(); bridge = null; status = "off" }
+
+    private var nameCache: Map<String, String> = emptyMap()
+    private var nameCacheAt = 0L
+
+    /** A sender shown as a bare number becomes the contact's name from the phone's Contacts when there is one. */
+    private fun nameFor(c: Context, sender: String): String {
+        if (sender.length < 7 || !sender.all { it.isDigit() }) return sender
+        val now = System.currentTimeMillis()
+        if (now - nameCacheAt > 5 * 60_000L) {
+            val m = HashMap<String, String>()
+            for (ct in io.github.durkimat.phoneguard.launcher.LauncherData.contacts(c)) for (n in ct.numbers) m.putIfAbsent(n.filter { it.isDigit() }.takeLast(9), ct.name)
+            nameCache = m; nameCacheAt = now
+        }
+        return nameCache[sender.takeLast(9)] ?: sender
+    }
 
     fun isPaired(c: Context): Boolean = open(c)?.isPaired ?: false
 
