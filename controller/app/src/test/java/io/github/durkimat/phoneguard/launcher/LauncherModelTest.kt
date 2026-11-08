@@ -598,7 +598,7 @@ class LauncherModelTest {
 
     @Test fun pinnedAppsJoinTheMainMenuAndTheRestGoUnderOtherApps() {
         val menu = LauncherData.menu(all, listOf("a.music"))
-        assertEquals(listOf("Phone", "Messages", "Contacts", "Music", "Android Apps", "Call log", "Calculator", "Settings"), menu.map { it.label })
+        assertEquals(listOf("Phone", "Messages", "Contacts", "Music", "Android Apps", "Calculator", "Logs & Settings"), menu.map { it.label })
         assertEquals(listOf("Maps", "Reader"), LauncherData.otherApps(all, listOf("a.music")).map { it.label })
     }
 

@@ -377,7 +377,7 @@ class NokiaSkin : LauncherSkin {
                 val idx = first + n
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
-                val label = ellipsize((if (idx < 9) "${idx + 1}  " else "   ") + row, 440f, 32f)
+                val label = ellipsize((if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   ") + row, 440f, 32f)
                 if (idx == m.selected) {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
                     text(c, label, 20f, top + 42f, 32f, u, bold = true, color = lcd)

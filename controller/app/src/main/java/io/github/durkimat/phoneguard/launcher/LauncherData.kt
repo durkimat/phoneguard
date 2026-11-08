@@ -33,7 +33,7 @@ object LauncherData {
     )
 
     /** Menu order: calls and messages first, the way a classic phone puts them. */
-    private val preferred = listOf(DIALER, MESSAGES, WHATSAPP, CONTACTS)
+    private val preferred = listOf(DIALER, MESSAGES, CONTACTS)
 
     /** True when the real WhatsApp app is what the menus use in the mode in force (see [Engine.useRealWhatsApp]). */
     fun useRealWhatsApp(c: Context): Boolean {
@@ -64,18 +64,30 @@ object LauncherData {
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
+    private val builtIn = setOf(MUSIC_PKG, NOTES_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+
+    /**
+     * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts, the apps a parent pinned,
+     * Music, Camera, Android Apps (every other app, the real WhatsApp included, only where the mode allows touch), Weather, Classic
+     * Games, Calculator, and Logs & Settings last (Call log, Notifications, Settings).
+     */
     fun menu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
-        val builtIn = setOf(MUSIC_PKG, NOTES_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         val apps = all.filter { it.pkg !in builtIn }
-        val core = apps.filter { it.pkg in preferred }
+        val core = preferred.mapNotNull { p -> apps.firstOrNull { it.pkg == p } }
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
         val others = apps - core.toSet() - pins.toSet()
-        return core + pins + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) + all.filter { it.pkg in builtIn }
+        fun one(pkg: String) = all.filter { it.pkg == pkg }
+        val hasLogs = all.any { it.pkg in setOf(CALLLOG_PKG, NOTES_PKG, SETTINGS_PKG) }
+        return core + pins + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
+            one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + (if (hasLogs) listOf(MenuItem(LOGSET_PKG, "Logs & Settings")) else emptyList())
     }
+
+    /** What "Logs & Settings" lists. */
+    fun logsAndSettings(all: List<MenuItem>): List<MenuItem> =
+        listOf(CALLLOG_PKG, NOTES_PKG, SETTINGS_PKG).mapNotNull { p -> all.firstOrNull { it.pkg == p } }
 
     /** The allowed apps that are not in the main menu, for the "Android Apps" list. */
     fun otherApps(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
-        val builtIn = setOf(CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         return all.filter { it.pkg !in builtIn && it.pkg !in preferred && it.pkg !in pinned }
     }
 
