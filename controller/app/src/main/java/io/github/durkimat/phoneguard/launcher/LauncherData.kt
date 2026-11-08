@@ -41,6 +41,9 @@ object LauncherData {
     }
 
     /** Every app the menu can start, in menu order. The kiosk lock allows exactly these. */
+    /** True when the mode in force lets the touchscreen work: Android apps are made for touch, so they are only offered then. */
+    fun touchAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.touch
+
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
         // our own WhatsApp screens are in Messages: the real app is only offered in the menu when it is the one in use
@@ -50,17 +53,17 @@ object LauncherData {
             (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
-    /** What the main menu lists: the phone basics, the apps a parent pinned, "Other apps" if any are left, then the built-ins. */
-    fun menu(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
+    /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
+    fun menu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
         val builtIn = setOf(WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         val apps = all.filter { it.pkg !in builtIn }
         val core = apps.filter { it.pkg in preferred }
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
         val others = apps - core.toSet() - pins.toSet()
-        return core + pins + (if (others.isEmpty()) emptyList() else listOf(MenuItem(APPS_PKG, "Other apps"))) + all.filter { it.pkg in builtIn }
+        return core + pins + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) + all.filter { it.pkg in builtIn }
     }
 
-    /** The allowed apps that are not in the main menu, for the "Other apps" list. */
+    /** The allowed apps that are not in the main menu, for the "Android Apps" list. */
     fun otherApps(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
         val builtIn = setOf(WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         return all.filter { it.pkg !in builtIn && it.pkg !in preferred && it.pkg !in pinned }
