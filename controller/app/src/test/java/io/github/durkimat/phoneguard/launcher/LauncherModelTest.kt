@@ -38,7 +38,7 @@ class LauncherModelTest {
         m.onKey(Key.END); assertEquals(Screen.HOME, m.screen)
         m.onKey(Key.STAR); assertEquals("*", m.dialNumber); m.onKey(Key.END)
         m.onKey(Key.POUND); assertEquals("#", m.dialNumber); m.onKey(Key.END)
-        m.onKey(Key.CALL); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber); assertEquals("Contacts" to "Recent", m.softKeys)
+        m.onKey(Key.CALL); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber); assertEquals("Calls" to "Back", m.softKeys)
         m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 
@@ -339,16 +339,22 @@ class LauncherModelTest {
         val m = withTools(); m.onKey(Key.CALL); m.onKey(Key.CALL)
         assertEquals(Screen.CALLLOG, m.screen); assertEquals(listOf("< Mum", "> Dad", "! 0999"), m.rows)
         assertEquals(Action.Call("0222"), m.onKey(Key.CALL)) // green key again rings the highlighted one
-        m.onKey(Key.DOWN); assertEquals(Action.Call("0111"), m.onKey(Key.SOFT_LEFT))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen); m.onKey(Key.END); assertEquals(Screen.HOME, m.screen)
+        m.onKey(Key.DOWN); assertEquals(Action.Call("0111"), m.onKey(Key.OK))
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // Back leaves the dialler
     }
 
-    @Test fun theGreenKeyOpensTheDialPadWithContactsLeftAndRecentRight() {
+    @Test fun theDiallerCyclesWithLeftAndBackAlwaysLeaves() {
         val m = withTools(); m.onKey(Key.CALL)
-        assertEquals(Screen.DIAL, m.screen); assertEquals("Contacts" to "Recent", m.softKeys)
-        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CONTACTS, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CALLLOG, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen)
-        m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber); assertEquals("Call" to "Clear", m.softKeys)
+        assertEquals(Screen.DIAL, m.screen); assertEquals("Calls" to "Back", m.softKeys)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CALLLOG, m.screen); assertEquals("Contacts" to "Back", m.softKeys)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CONTACTS, m.screen); assertEquals("Dial" to "Back", m.softKeys)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.DIAL, m.screen)
+        m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber); assertEquals("Calls" to "Clear", m.softKeys)
+        m.onKey(Key.SOFT_RIGHT); assertEquals("", m.dialNumber); assertEquals(Screen.DIAL, m.screen)
+        for (tab in 0..2) { // Back leaves from the pad, the calls and the contacts alike
+            m.goHome(); m.onKey(Key.CALL); repeat(tab) { m.onKey(Key.SOFT_LEFT) }
+            m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        }
     }
     @Test fun callLogFromTheMenuReturnsToTheMenu() {
         val m = withTools(); m.onKey(Key.OK); m.onKey(Key.OK)
@@ -374,7 +380,7 @@ class LauncherModelTest {
         "900222".forEach { m.onKey(Key.DIGIT, it - '0') }
         assertEquals("Mum", m.dialName) // the 07... form matches the +44 form
         assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.CALL))
-        assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.SOFT_LEFT))
+        assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.OK))
         m.onKey(Key.SOFT_RIGHT); assertEquals("0770090022", m.dialNumber)
         repeat(10) { m.onKey(Key.SOFT_RIGHT) }; assertEquals("", m.dialNumber); assertEquals(Screen.DIAL, m.screen) // clearing the last digit stays on the pad
     }

@@ -349,7 +349,8 @@ class LauncherModel(
     val softKeys: Pair<String, String> get() = when (screen) {
         Screen.HOME -> "Menu" to "Contacts"
         Screen.CALC -> "Equals" to "Clear"
-        Screen.CALLLOG -> "Call" to "Back"
+        Screen.CALLLOG -> (if (callsFrom == Screen.DIAL) "Contacts" else "Call") to "Back"
+        Screen.CONTACTS -> (if (contactsFrom == Screen.DIAL && !picking) "Dial" else "Select") to "Back"
         Screen.SNAKE -> (when (snake.state) { Snake.State.READY -> "Start"; Snake.State.RUNNING -> "Pause"; Snake.State.PAUSED -> "Resume"; Snake.State.OVER -> "Again" }) to "Back"
         Screen.SHOOTER -> (when (shooter.state) { Shooter.State.READY -> "Start"; Shooter.State.RUNNING -> "Pause"; Shooter.State.PAUSED -> "Resume"; Shooter.State.OVER -> "Again" }) to "Back"
         Screen.PAIRS -> (if (pairs.won) "Again" else "Turn") to "Back"
@@ -362,7 +363,7 @@ class LauncherModel(
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
-        Screen.DIAL -> if (dialNumber.isEmpty()) "Contacts" to "Recent" else "Call" to "Clear"
+        Screen.DIAL -> "Calls" to (if (dialNumber.isEmpty()) "Back" else "Clear")
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
             CallPhase.RINGING -> "Answer" to "Reject"
@@ -512,22 +513,29 @@ class LauncherModel(
             Key.DIGIT -> if (digit in 0..9 && dialNumber.length < 24) dialNumber += digit
             Key.STAR -> when { dialNumber.endsWith("*") -> dialNumber = dialNumber.dropLast(1) + "+"; dialNumber.endsWith("+") -> dialNumber = dialNumber.dropLast(1) + "*"; dialNumber.length < 24 -> dialNumber += "*" }
             Key.POUND -> if (dialNumber.length < 24) dialNumber += "#"
-            Key.OK, Key.LEFT, Key.SOFT_LEFT -> return if (dialNumber.isEmpty()) openContacts(Screen.DIAL) else Action.PlaceCall(dialNumber)
-            Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else Action.PlaceCall(dialNumber) // the green key twice: straight to the recent calls
-            Key.RIGHT, Key.SOFT_RIGHT -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else { dialNumber = dialNumber.dropLast(1); Action.Redraw }
+            Key.OK -> return if (dialNumber.isEmpty()) Action.None else Action.PlaceCall(dialNumber)
+            Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else Action.PlaceCall(dialNumber) // the dial key twice: straight to the calls
+            Key.LEFT, Key.SOFT_LEFT -> return openCallLog(Screen.DIAL) // left cycles: dial pad, calls, contacts, dial pad
+            Key.RIGHT, Key.SOFT_RIGHT -> return if (dialNumber.isEmpty()) exitDialler() else { dialNumber = dialNumber.dropLast(1); Action.Redraw }
             Key.END -> { dialNumber = ""; goHome() }
-            // a way out that cannot be missed: with nothing typed, up or down leaves the pad
-            Key.UP, Key.DOWN -> if (dialNumber.isEmpty()) goHome() else return Action.None
             else -> return Action.None
         }
+        return Action.Redraw
+    }
+
+    /** Back out of the dialler (pad, calls or contacts) to where it was opened from. */
+    private fun exitDialler(): Action {
+        if (dialFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == dialerApp }.coerceAtLeast(0) } else goHome()
+        dialNumber = ""
         return Action.Redraw
     }
 
     private fun openCallLog(from: Screen): Action { callsFrom = from; screen = Screen.CALLLOG; selected = 0; return Action.Redraw }
 
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.DIAL) screen = Screen.DIAL else if (callsFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 0 } else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.LEFT, Key.SOFT_LEFT -> if (callsFrom == Screen.DIAL) openContacts(Screen.DIAL) else calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
+        Key.OK, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.DIAL) exitDialler() else if (callsFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 0 } else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -814,15 +822,18 @@ class LauncherModel(
 
     private fun openContacts(from: Screen): Action { contactsFrom = from; screen = Screen.CONTACTS; selected = 0; return Action.Redraw }
 
+    private fun contactOpen(): Action = contacts.getOrNull(selected)?.let {
+        if (picking) { picking = false; writeTo = it.numbers.firstOrNull().orEmpty(); screen = Screen.WRITE; writeField = 1; Action.Redraw }
+        else { contact = it; screen = Screen.CONTACT; selected = 0; Action.Redraw }
+    } ?: Action.None
+
     private fun contactList(key: Key, digit: Int): Action = move(key, contacts.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> contacts.getOrNull(selected)?.let {
-            if (picking) { picking = false; writeTo = it.numbers.firstOrNull().orEmpty(); screen = Screen.WRITE; writeField = 1; Action.Redraw }
-            else { contact = it; screen = Screen.CONTACT; selected = 0; Action.Redraw }
-        } ?: Action.None
+        Key.LEFT, Key.SOFT_LEFT -> if (contactsFrom == Screen.DIAL && !picking) { screen = Screen.DIAL; Action.Redraw } else contactOpen()
+        Key.OK -> contactOpen()
         Key.RIGHT, Key.SOFT_RIGHT -> {
             when {
                 picking -> { picking = false; screen = Screen.WRITE }
-                contactsFrom == Screen.DIAL -> screen = Screen.DIAL
+                contactsFrom == Screen.DIAL -> exitDialler()
                 contactsFrom == Screen.PHONEMENU -> { screen = Screen.PHONEMENU; selected = 1 }
                 contactsFrom == Screen.MENU -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) }
                 else -> goHome()
