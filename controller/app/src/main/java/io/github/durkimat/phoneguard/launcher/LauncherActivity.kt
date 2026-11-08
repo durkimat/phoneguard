@@ -70,6 +70,7 @@ class LauncherActivity : Activity() {
     }
 
     private var pendingDial: String? = null
+    private var lastF2 = 0L
     private var leftKeyPending = false
     private var cameBack = true
 
@@ -183,9 +184,13 @@ class LauncherActivity : Activity() {
     private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)
 
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
-        // the side button of the J36 sends F2 (from the pmic key input, next to power): it opens the camera, unless a call is on or the mode has no camera
+        // the side button of the J36 sends F2 (from the pmic key input, next to power): two quick presses open the camera, unless a call is on or the mode has no camera
         if (ev.keyCode == KeyEvent.KEYCODE_F2) {
-            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0 && model.screen != Screen.CALL && LauncherData.cameraAllowed(this)) perform(Action.OpenCamera)
+            // a double press opens the camera: one press alone is ignored, so a knock on the button does nothing
+            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastF2 in 40..700 && model.screen != Screen.CALL && LauncherData.cameraAllowed(this)) { lastF2 = 0; perform(Action.OpenCamera) } else lastF2 = now
+            }
             return true
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)

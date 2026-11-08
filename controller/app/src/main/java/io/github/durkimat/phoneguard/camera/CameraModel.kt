@@ -7,7 +7,10 @@ data class MediaItem(val uri: String, val video: Boolean, val name: String, val 
 
 enum class CamMode { PHOTO, VIDEO }
 enum class FlashMode { OFF, AUTO, ON }
-enum class Look { DITHER, TONES }
+/** What the viewfinder shows and which extra copy a photo gets next to the colour original. NONE: plain viewfinder, no extra copy. */
+enum class Effect(val label: String, val extra: String) {
+    NONE("Plain", ""), DOTS("Dots", "dots"), TONES("Tones", "tones"), MONO("Mono", "mono"), WARM("Warm", "warm"),
+}
 
 sealed class CamAction {
     object None : CamAction()
@@ -37,7 +40,7 @@ class CameraModel {
         private set
     var timerSeconds = 0
         private set
-    var look = Look.DITHER
+    var effect = Effect.DOTS
         private set
     var inGallery = false
         private set
@@ -64,7 +67,7 @@ class CameraModel {
         append(if (zoom == zoom.toInt().toFloat()) "${zoom.toInt()}x" else "${zoom}x")
         if (mode == CamMode.PHOTO) append("  Flash ").append(flash.name.lowercase()) else append("  Torch ").append(if (flash == FlashMode.ON) "on" else "off")
         if (timerSeconds > 0) append("  Timer ${timerSeconds}s")
-        append(if (look == Look.DITHER) "  Dots" else "  Tones")
+        append("  ").append(effect.label)
     }
 
     fun setGallery(list: List<MediaItem>) { items = list; index = index.coerceIn(0, (list.size - 1).coerceAtLeast(0)); inGallery = true; colour = false }
@@ -82,7 +85,7 @@ class CameraModel {
         key == Key.DIGIT && digit == 1 -> CamAction.OpenGallery
         key == Key.DIGIT && digit == 2 -> { flash = FlashMode.values()[(flash.ordinal + 1) % (if (mode == CamMode.PHOTO) 3 else 3)]; CamAction.Redraw }
         key == Key.DIGIT && digit == 3 -> { timerSeconds = timers[(timers.indexOf(timerSeconds) + 1) % timers.size]; CamAction.Redraw }
-        key == Key.DIGIT && digit == 4 -> { look = if (look == Look.DITHER) Look.TONES else Look.DITHER; CamAction.Redraw }
+        key == Key.DIGIT && digit == 4 -> { effect = Effect.values()[(effect.ordinal + 1) % Effect.values().size]; CamAction.Redraw }
         key == Key.POUND -> if (recording) CamAction.None else { front = !front; zoomIndex = 0; CamAction.Rebind }
         key == Key.SOFT_LEFT -> shutter()
         key == Key.SOFT_RIGHT -> if (recording) CamAction.None else CamAction.Exit
