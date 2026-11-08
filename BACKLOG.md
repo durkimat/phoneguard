@@ -513,3 +513,6 @@ launcher in the same app; (3) notification counts and the status line.
 
 ## Lock screen (owner, 2026-11-08): option 1 tried
 - Owner chose to keep Android's own PIN unlock (a modern phone user expects typing a PIN) and theme what can be themed. Built `LockWallpaper`: paints the lock-screen wallpaper in the current theme (LCD colour, faint pixel lines, ink frame) at start and whenever the theme changes. Android adds its own dimming and white clock, so the green looks darker than the home screen. If it is not close enough: brighten the colours to counter the dimming, or look at a trust-agent/own-lock route (option 2) later. The PIN pad itself stays Android's.
+
+- Weather decision (owner, 2026-11-08): Open-Meteo it is. Before building, read its docs for the attribution wording and the weather_code list.
+- Lock screen PIN entry goes white (owner, 2026-11-08): the PIN pad is Android's own and cannot be screenshotted (secure window). Trying the system dark theme (`cmd uimode night yes`, stored as secure ui_night_mode=2) so the PIN screen is dark instead of white. If it works, the app should set it itself (needs a check that writing ui_night_mode with WRITE_SECURE_SETTINGS applies without adb) and the choice becomes a setting.
