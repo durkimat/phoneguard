@@ -42,7 +42,7 @@ object PowerLog {
             val screen = c.getSystemService(PowerManager::class.java).isInteractive
             val mode = try { Engine.effective(Store.config(c), Store.boost(c), Clock.now()).modeId } catch (_: Exception) { "?" }
             val cm = c.getSystemService(ConnectivityManager::class.java)
-            val wifi = cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+            val wifi = try { cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true } catch (_: Exception) { false }
             val loc = try { c.getSystemService(android.location.LocationManager::class.java).isLocationEnabled } catch (_: Exception) { false }
             val uid = Process.myUid()
             val bytes = (TrafficStats.getUidRxBytes(uid).coerceAtLeast(0)) + (TrafficStats.getUidTxBytes(uid).coerceAtLeast(0))
@@ -53,7 +53,7 @@ object PowerLog {
             file(c).appendText(line.toString() + "\n")
             p.edit().putLong("last", now).putInt("n", p.getInt("n", 0) + 1).apply()
             if (p.getInt("n", 0) % 200 == 0) prune(c, now)
-        } catch (e: Exception) { Log.log(c, "power sample failed: ${e.javaClass.simpleName}") }
+        } catch (e: Exception) { Log.log(c, "power sample failed: ${e.javaClass.simpleName} ${e.message?.take(80)}") }
     }
 
     private fun prune(c: Context, now: Long) {

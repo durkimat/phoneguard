@@ -146,7 +146,7 @@ class CameraActivity : AppCompatActivity() {
 
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
         val mapped = when (ev.keyCode) {
-            KeyEvent.KEYCODE_CAMERA, KeyEvent.KEYCODE_FOCUS, KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> Key.OK to -1
+            KeyEvent.KEYCODE_CAMERA, KeyEvent.KEYCODE_FOCUS, KeyEvent.KEYCODE_F2, KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN -> Key.OK to -1
             else -> KeyMap.of(ev.keyCode)
         } ?: return super.dispatchKeyEvent(ev)
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(model.onKey(mapped.first, mapped.second))
