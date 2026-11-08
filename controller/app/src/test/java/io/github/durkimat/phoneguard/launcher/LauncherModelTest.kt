@@ -591,4 +591,31 @@ class LauncherModelTest {
         val c = LauncherModel(listOf(MenuItem("p.camera", "Camera")), "com.android.contacts", "com.android.messaging"); c.onKey(Key.OK)
         assertEquals(Action.Launch("p.camera"), c.onKey(Key.OK))
     }
+
+    private val all = listOf(MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
+        MenuItem("a.maps", "Maps"), MenuItem("a.music", "Music"), MenuItem("a.reader", "Reader"),
+        MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+
+    @Test fun pinnedAppsJoinTheMainMenuAndTheRestGoUnderOtherApps() {
+        val menu = LauncherData.menu(all, listOf("a.music"))
+        assertEquals(listOf("Phone", "Messages", "Contacts", "Music", "Other apps", "Call log", "Calculator", "Settings"), menu.map { it.label })
+        assertEquals(listOf("Maps", "Reader"), LauncherData.otherApps(all, listOf("a.music")).map { it.label })
+    }
+
+    @Test fun noOtherAppsMeansNoOtherAppsEntry() {
+        val few = all.filter { it.pkg != "a.maps" && it.pkg != "a.reader" }
+        assertTrue(LauncherData.menu(few, listOf("a.music")).none { it.pkg == APPS_PKG })
+        assertTrue(LauncherData.menu(few.filter { it.pkg != "a.music" }, emptyList()).none { it.pkg == APPS_PKG })
+    }
+
+    @Test fun otherAppsListLaunchesAnAppAndBackReturnsToTheMenu() {
+        val m = LauncherModel(LauncherData.menu(all, emptyList()), contactsApp = "com.android.contacts")
+        m.apps = LauncherData.otherApps(all, emptyList())
+        m.onKey(Key.OK)
+        m.onKey(Key.DIGIT, 4) // Other apps
+        assertEquals(Screen.APPS, m.screen); assertEquals(listOf("Maps", "Music", "Reader"), m.rows)
+        assertEquals(Action.Launch("a.music"), m.onKey(Key.DIGIT, 2))
+        m.onKey(Key.SOFT_RIGHT)
+        assertEquals(Screen.MENU, m.screen); assertEquals("Other apps", m.rows[m.selected])
+    }
 }

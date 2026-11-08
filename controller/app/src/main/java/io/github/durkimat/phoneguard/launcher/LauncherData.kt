@@ -40,6 +40,7 @@ object LauncherData {
         return Engine.useRealWhatsApp(eff.waApp, Enforcer.launcherPackages(c).contains(WHATSAPP))
     }
 
+    /** Every app the menu can start, in menu order. The kiosk lock allows exactly these. */
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
         // our own WhatsApp screens are in Messages: the real app is only offered in the menu when it is the one in use
@@ -47,6 +48,22 @@ object LauncherData {
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
             listOf(MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+    }
+
+    /** What the main menu lists: the phone basics, the apps a parent pinned, "Other apps" if any are left, then the built-ins. */
+    fun menu(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
+        val builtIn = setOf(CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+        val apps = all.filter { it.pkg !in builtIn }
+        val core = apps.filter { it.pkg in preferred }
+        val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
+        val others = apps - core.toSet() - pins.toSet()
+        return core + pins + (if (others.isEmpty()) emptyList() else listOf(MenuItem(APPS_PKG, "Other apps"))) + all.filter { it.pkg in builtIn }
+    }
+
+    /** The allowed apps that are not in the main menu, for the "Other apps" list. */
+    fun otherApps(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
+        val builtIn = setOf(CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+        return all.filter { it.pkg !in builtIn && it.pkg !in preferred && it.pkg !in pinned }
     }
 
     /** All contacts with a phone number, sorted by name. Empty if the permission is missing. */

@@ -1,5 +1,6 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.phoneguard.Store
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -117,7 +118,10 @@ class LauncherActivity : Activity() {
         // a notice ("Message sent") goes by itself after a moment
         ui.removeCallbacks(hideNotice)
         if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
-        model.setItems(LauncherData.items(this))
+        val all = LauncherData.items(this)
+        val pinned = Store.config(this)?.pinned ?: emptyList()
+        model.apps = LauncherData.otherApps(all, pinned)
+        model.setItems(LauncherData.menu(all, pinned))
         if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
         if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)
         // not while reading or writing, so a message arriving cannot shift what is on the screen
