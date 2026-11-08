@@ -46,6 +46,8 @@ class CameraTest {
         assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1))
         m.onKey(Key.UP, -1); assertEquals(1.5f, m.zoom); m.onKey(Key.DOWN, -1); m.onKey(Key.DOWN, -1); assertEquals(1f, m.zoom)
         m.onKey(Key.DIGIT, 2); assertEquals(FlashMode.AUTO, m.flash)
+        assertEquals(Effect.DOTS, m.effect); m.onKey(Key.DIGIT, 4); assertEquals(Effect.TONES, m.effect)
+        repeat(4) { m.onKey(Key.DIGIT, 4) }; assertEquals(Effect.DOTS, m.effect) // five effects, and round again
         m.onKey(Key.DIGIT, 3); assertEquals(3, m.timerSeconds); assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1)); assertEquals(3, m.countdown)
         assertEquals(CamAction.Redraw, m.onKey(Key.DIGIT, 7)); assertEquals(0, m.countdown) // any key cancels the count
         assertEquals(CamAction.Rebind, m.onKey(Key.POUND, -1)); assertTrue(m.front)
@@ -75,5 +77,15 @@ class CameraTest {
         )
         assertEquals(35.0, io.github.durkimat.phoneguard.PowerLog.rate(pts)!!, 0.01) // 30 mAh then 40 mAh, over two hours
         assertEquals(null, io.github.durkimat.phoneguard.PowerLog.rate(pts.take(1)))
+    }
+
+    @Test fun effectPhotosKeepTheShapeAndUseTheRightColours() {
+        val w = 8; val h = 6
+        val px = IntArray(w * h) { if (it % w < 4) 0xFF000000.toInt() else 0xFFFFFFFF.toInt() }
+        // the render needs android.graphics, so the pure part is the palette
+        assertEquals(0xFFFFFFFF.toInt() to 0xFF000000.toInt(), EffectPhoto.palette(Effect.MONO, 1, 2))
+        assertEquals(7 to 9, EffectPhoto.palette(Effect.DOTS, 7, 9)); assertEquals(7 to 9, EffectPhoto.palette(Effect.TONES, 7, 9))
+        assertEquals(48, px.size)
+        assertEquals("dots", Effect.DOTS.extra); assertEquals("", Effect.NONE.extra)
     }
 }

@@ -129,10 +129,10 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun bitmapOf(cells: IntArray): Bitmap {
-        val px = if (model.look == Look.DITHER) {
+        val px = if (model.effect == Effect.DOTS) {
             val ink = Dither.twoTone(cells, CamView.COLS, true)
             IntArray(ink.size) { if (ink[it]) view.ink or (0xFF shl 24) else view.lcd }
-        } else Dither.ramp(cells, view.lcd, view.ink)
+        } else { val (bright, dark) = EffectPhoto.palette(if (model.effect == Effect.NONE) Effect.TONES else model.effect, view.lcd, view.ink); Dither.ramp(cells, bright, dark) }
         return Bitmap.createBitmap(px, CamView.COLS, CamView.ROWS, Bitmap.Config.ARGB_8888)
     }
 
@@ -182,14 +182,26 @@ class CameraActivity : AppCompatActivity() {
 
     private fun takePhoto() {
         val cap = imageCapture ?: return flash("No camera")
+        val base = "PG_" + stamp()
+        val effect = model.effect
         val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "PG_" + stamp())
+            put(MediaStore.MediaColumns.DISPLAY_NAME, base)
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
             put(MediaStore.MediaColumns.RELATIVE_PATH, "DCIM/Camera")
         }
         val opts = ImageCapture.OutputFileOptions.Builder(contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values).build()
         cap.takePicture(opts, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(r: ImageCapture.OutputFileResults) { flash("Saved") }
+            override fun onImageSaved(r: ImageCapture.OutputFileResults) {
+                flash("Saved")
+                val saved = r.savedUri
+                // the effect copy is made from the saved colour photo, a little later, so the next shot is not held up
+                if (effect != Effect.NONE && saved != null) exec.execute {
+                    try {
+                        EffectPhoto.make(contentResolver, saved, base, effect, view.lcd, view.ink)
+                        ui.post { flash("Saved + ${effect.label.lowercase()}") }
+                    } catch (e: Exception) { Log.log(this@CameraActivity, "camera: effect copy failed: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
+                }
+            }
             override fun onError(e: ImageCaptureException) { Log.log(this@CameraActivity, "camera: save failed: ${e.imageCaptureError}"); flash("Not saved") }
         })
     }
@@ -259,9 +271,9 @@ class CameraActivity : AppCompatActivity() {
                 val (cols, rows) = if (bmp.width >= bmp.height) CamView.COLS to (CamView.COLS * bmp.height / bmp.width).coerceAtLeast(1) else (CamView.ROWS * bmp.width / bmp.height).coerceAtLeast(1) to CamView.ROWS
                 val px = IntArray(bmp.width * bmp.height).also { bmp.getPixels(it, 0, bmp.width, 0, 0, bmp.width, bmp.height) }
                 val cells = Dither.sample(bmp.width, bmp.height, 0, false, cols, rows) { x, y -> val c = px[y * bmp.width + x]; (((c shr 16) and 255) * 299 + ((c shr 8) and 255) * 587 + (c and 255) * 114) / 1000 }
-                val dots = if (model.look == Look.DITHER) {
+                val dots = if (model.effect != Effect.TONES && model.effect != Effect.MONO && model.effect != Effect.WARM) {
                     val ink = Dither.twoTone(cells, cols, true); IntArray(ink.size) { if (ink[it]) view.ink or (0xFF shl 24) else view.lcd }
-                } else Dither.ramp(cells, view.lcd, view.ink)
+                } else { val (bright, dark) = EffectPhoto.palette(model.effect, view.lcd, view.ink); Dither.ramp(cells, bright, dark) }
                 view.show(Bitmap.createBitmap(dots, cols, rows, Bitmap.Config.ARGB_8888), bmp)
             } catch (e: Exception) { if (token == loadToken) view.show(null) }
         }.start()

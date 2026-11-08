@@ -29,6 +29,7 @@ object LauncherData {
         "io.homeassistant.companion.android", "io.homeassistant.companion.android.minimal",
         "eu.dumbdroid.deviceowner", "eu.dumbdroid.updater", "eu.dumbdroid.settingspanel", "me.phh.treble.app",
         "org.lineageos.lineageparts", "com.android.permissioncontroller", "com.android.packageinstaller",
+        "org.lineageos.aperture", // the old camera: our own themed camera replaces it (it stays installed for other apps that ask for a camera)
     )
 
     /** Menu order: calls and messages first, the way a classic phone puts them. */
