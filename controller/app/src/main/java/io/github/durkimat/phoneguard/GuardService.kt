@@ -40,6 +40,10 @@ class GuardService : Service() {
         override fun onReceive(c: Context, i: Intent) { SoundEnforcer.reassert(this@GuardService) }
     }
 
+    private val powerEvents = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { PowerLog.sample(c, (i.action ?: "?").substringAfterLast('.').lowercase(), force = true) }
+    }
+
     override fun onCreate() {
         super.onCreate()
         startForeground(
@@ -60,6 +64,11 @@ class GuardService : Service() {
             addAction(android.media.AudioManager.RINGER_MODE_CHANGED_ACTION)
             addAction(android.app.NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
         }, Context.RECEIVER_EXPORTED)
+        registerReceiver(powerEvents, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_POWER_CONNECTED); addAction(Intent.ACTION_POWER_DISCONNECTED)
+        }, Context.RECEIVER_EXPORTED)
+        PowerLog.sample(this, "service", force = true)
         Log.log(this, "service started")
     }
 
@@ -71,6 +80,7 @@ class GuardService : Service() {
     override fun onDestroy() {
         unregisterReceiver(packages)
         unregisterReceiver(sound)
+        unregisterReceiver(powerEvents)
         unregisterReceiver(CallBlocker.receiver)
         contentResolver.unregisterContentObserver(gray)
         super.onDestroy()

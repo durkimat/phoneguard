@@ -30,6 +30,7 @@ object Controller {
             return
         }
         Enforcer.grantOwnPermissions(app)
+        PowerLog.sample(app, "eval")
         val now = Clock.now()
         val cfg = Store.config(app)
         var boost = Store.boost(app)

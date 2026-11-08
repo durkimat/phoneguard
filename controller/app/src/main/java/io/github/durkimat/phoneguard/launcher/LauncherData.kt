@@ -134,7 +134,7 @@ object LauncherData {
         c.contentResolver.query(Telephony.Sms.Inbox.CONTENT_URI, arrayOf("_id"), "read=0", null, null)?.use { it.count } ?: 0
     } catch (_: Exception) { 0 }
 
-    private fun signal(c: Context): Int = try {
+    internal fun signal(c: Context): Int = try {
         val tm = c.getSystemService(TelephonyManager::class.java)
         if (tm.simState != TelephonyManager.SIM_STATE_READY) -1 else (tm.signalStrength?.level ?: 0)
     } catch (_: Exception) { -1 }

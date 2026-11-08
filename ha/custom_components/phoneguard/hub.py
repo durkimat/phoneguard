@@ -8,6 +8,7 @@ import time
 from typing import Any, Callable
 
 from . import protocol as P
+from . import power as PW
 from . import schedule as S
 
 PAIRING_TTL_MS = 10 * 60_000
@@ -259,6 +260,7 @@ class Hub:
         dev["apps"] = payload.get("apps", [])
         dev["cfgh"] = payload.get("cfgh", "")
         self._merge_usage(dev, payload.get("usage"))
+        dev["power"] = PW.merge(dev.get("power", []), payload.get("power"), now)
         if isinstance(payload.get("labels"), dict):
             dev.setdefault("labels", {}).update({k: v for k, v in payload["labels"].items() if isinstance(k, str) and isinstance(v, str)})
         ch = self.data["children"][dev["child"]]
@@ -344,6 +346,7 @@ class Hub:
                 "in_sync": dev["cfgh"] == S.cfg_hash(cfg), "releasing": bool(dev.get("release")),
             }
             out["usage"] = dev.get("usage", {})
+            out["power"] = PW.summarize(dev.get("power", []), now)
             out["labels"] = dev.get("labels", {})
             out["apps"] = sorted(dev["apps"], key=lambda a: a.get("label", a["pkg"]).lower())
             out["pending_apps"] = [a["pkg"] for a in dev["apps"] if a["pkg"] not in known]
