@@ -20,6 +20,9 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import android.view.OrientationEventListener
+import android.widget.FrameLayout
+import androidx.camera.core.Preview
+import androidx.camera.view.PreviewView
 import android.view.Surface
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FallbackStrategy
@@ -55,6 +58,7 @@ class CameraActivity : AppCompatActivity() {
     /** How the phone is held, as the rotation CameraX wants (the screen itself always stays portrait). */
     @Volatile private var held = Surface.ROTATION_0
     private var orient: OrientationEventListener? = null
+    private lateinit var previewView: PreviewView
     private val ui = Handler(Looper.getMainLooper())
     private val exec = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
@@ -72,7 +76,19 @@ class CameraActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", MODE_PRIVATE)
         view = CamView(this, model, prefs.getString("theme", null), prefs.getString("font", null))
-        setContentView(view)
+        // video mode: this camera cannot run our live-picture stream and a video recorder together, so video shows the camera's plain colour picture
+        previewView = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE; scaleType = PreviewView.ScaleType.FILL_CENTER; visibility = android.view.View.GONE }
+        val root = FrameLayout(this)
+        root.addView(view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        root.addView(previewView, FrameLayout.LayoutParams(10, 10))
+        root.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
+            val k = (r - l) / 480f
+            val f = view.frame()
+            val lp = previewView.layoutParams as FrameLayout.LayoutParams
+            val w = (f[2] * k).toInt(); val h = (f[3] * k).toInt(); val left = (f[0] * k).toInt(); val top = (f[1] * k).toInt()
+            if (lp.width != w || lp.height != h || lp.leftMargin != left || lp.topMargin != top) { lp.width = w; lp.height = h; lp.leftMargin = left; lp.topMargin = top; previewView.layoutParams = lp }
+        }
+        setContentView(root)
         if (!allowed(Manifest.permission.CAMERA)) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
             flash("Camera needs permission")
@@ -104,19 +120,20 @@ class CameraActivity : AppCompatActivity() {
         try {
             p.unbindAll()
             val selector = if (model.front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-            // every viewfinder, Normal included, is drawn by us from the camera's frames, so the picture can follow how the phone is held
-            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(Size(480, 640)).build().also { a -> a.setAnalyzer(exec) { img -> frame(img) } }
-            val main: androidx.camera.core.UseCase
             if (model.mode == CamMode.PHOTO) {
+                // photos: our own viewfinder drawn from the camera's frames (every effect, Normal included), so it can follow how the phone is held
+                val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(Size(480, 640)).build().also { a -> a.setAnalyzer(exec) { img -> frame(img) } }
                 val cap = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).setFlashMode(flashMode()).build()
-                imageCapture = cap; videoCapture = null; main = cap
+                imageCapture = cap; videoCapture = null; analysisUse = analysis
+                camera = p.bindToLifecycle(this, selector, analysis, cap)
             } else {
+                val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
                 val rec = Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD))).build()
                 val vc = VideoCapture.withOutput(rec)
-                videoCapture = vc; imageCapture = null; main = vc
+                videoCapture = vc; imageCapture = null; analysisUse = null
+                camera = p.bindToLifecycle(this, selector, preview, vc)
             }
-            camera = p.bindToLifecycle(this, selector, analysis, main)
-            analysisUse = analysis
+            previewView.visibility = if (model.mode == CamMode.VIDEO && !model.inGallery) android.view.View.VISIBLE else android.view.View.GONE
             view.show(null)
             applyRotation()
             applyZoomAndTorch()
@@ -204,7 +221,7 @@ class CameraActivity : AppCompatActivity() {
     private fun perform(a: CamAction) {
         when (a) {
             CamAction.None -> {}
-            CamAction.Redraw -> { applyZoomAndTorch(); view.invalidate() }
+            CamAction.Redraw -> { applyZoomAndTorch(); previewView.visibility = if (model.mode == CamMode.VIDEO && !model.inGallery && !model.help) android.view.View.VISIBLE else android.view.View.GONE; view.invalidate() }
             CamAction.Shoot -> if (model.countdown > 0) countdownThenShoot() else takePhoto()
             CamAction.ToggleRecording -> toggleRecording()
             CamAction.Rebind -> { bind(); view.invalidate() }
@@ -304,7 +321,7 @@ class CameraActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) { Log.log(this, "camera: gallery: ${e.javaClass.simpleName}") }
-            ui.post { model.setGallery(list); showItem() }
+            ui.post { model.setGallery(list); previewView.visibility = android.view.View.GONE; showItem() }
         }.start()
     }
 

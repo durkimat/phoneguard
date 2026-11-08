@@ -88,7 +88,7 @@ class CameraModel {
         append(if (zoom == zoom.toInt().toFloat()) "${zoom.toInt()}x" else "${zoom}x")
         if (mode == CamMode.PHOTO) append("  Flash ").append(flash.name.lowercase()) else append("  Torch ").append(if (flash == FlashMode.ON) "on" else "off")
         if (timerSeconds > 0) append("  Timer ${timerSeconds}s")
-        append("  ").append(effect.label)
+        if (mode == CamMode.PHOTO) append("  ").append(effect.label)
     }
 
     fun setGallery(list: List<MediaItem>) { items = list; index = index.coerceIn(0, (list.size - 1).coerceAtLeast(0)); inGallery = true; colour = false }
