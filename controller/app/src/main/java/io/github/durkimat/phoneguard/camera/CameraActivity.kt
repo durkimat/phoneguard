@@ -19,6 +19,9 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.view.PreviewView
+import android.widget.FrameLayout
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.MediaStoreOutputOptions
@@ -44,6 +47,7 @@ import java.util.concurrent.Executors
 class CameraActivity : AppCompatActivity() {
     private val model = CameraModel()
     private lateinit var view: CamView
+    private lateinit var previewView: PreviewView
     private val ui = Handler(Looper.getMainLooper())
     private val exec = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
@@ -60,7 +64,19 @@ class CameraActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", MODE_PRIVATE)
         view = CamView(this, model, prefs.getString("theme", null), prefs.getString("font", null))
-        setContentView(view)
+        previewView = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE; scaleType = PreviewView.ScaleType.FILL_CENTER; visibility = android.view.View.GONE }
+        val root = FrameLayout(this)
+        root.addView(view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        root.addView(previewView, FrameLayout.LayoutParams(10, 10))
+        // the colour viewfinder sits exactly in the frame the dotted one is drawn in
+        root.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
+            val k = (r - l) / 480f
+            val lp = previewView.layoutParams as FrameLayout.LayoutParams
+            val w = (CamView.COLS * CamView.CELL * k).toInt(); val h = (CamView.ROWS * CamView.CELL * k).toInt()
+            val left = ((480f - CamView.COLS * CamView.CELL) / 2 * k).toInt(); val top = (64f * k).toInt()
+            if (lp.width != w || lp.height != h || lp.leftMargin != left || lp.topMargin != top) { lp.width = w; lp.height = h; lp.leftMargin = left; lp.topMargin = top; previewView.layoutParams = lp }
+        }
+        setContentView(root)
         if (!allowed(Manifest.permission.CAMERA)) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
             flash("Camera needs permission")
@@ -84,25 +100,31 @@ class CameraActivity : AppCompatActivity() {
         try {
             p.unbindAll()
             val selector = if (model.front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setTargetResolution(Size(480, 640)).build()
-            analysis.setAnalyzer(exec) { img -> frame(img) }
-            camera = if (model.mode == CamMode.PHOTO) {
+            // Normal shows the camera's own colour picture; any effect draws the viewfinder from camera frames
+            val colour = model.effect == Effect.NONE
+            val preview = if (colour) Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) } else null
+            val analysis = if (colour) null else ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(Size(480, 640)).build().also { a -> a.setAnalyzer(exec) { img -> frame(img) } }
+            val main: androidx.camera.core.UseCase
+            if (model.mode == CamMode.PHOTO) {
                 val cap = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).setFlashMode(flashMode()).build()
-                imageCapture = cap; videoCapture = null
-                p.bindToLifecycle(this, selector, analysis, cap)
+                imageCapture = cap; videoCapture = null; main = cap
             } else {
                 val rec = Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD))).build()
                 val vc = VideoCapture.withOutput(rec)
-                videoCapture = vc; imageCapture = null
-                p.bindToLifecycle(this, selector, analysis, vc)
+                videoCapture = vc; imageCapture = null; main = vc
             }
+            camera = p.bindToLifecycle(this, selector, *listOfNotNull(preview, analysis, main).toTypedArray())
+            if (!colour) view.show(null)
+            syncPreview()
             applyZoomAndTorch()
         } catch (e: Exception) {
             Log.log(this, "camera: could not start: ${e.javaClass.simpleName} ${e.message}")
             flash("No camera")
         }
     }
+
+    /** The colour viewfinder only shows for Normal, and not over the gallery. */
+    private fun syncPreview() { previewView.visibility = if (model.effect == Effect.NONE && !model.inGallery) android.view.View.VISIBLE else android.view.View.GONE }
 
     private fun flashMode() = when (model.flash) { FlashMode.OFF -> ImageCapture.FLASH_MODE_OFF; FlashMode.AUTO -> ImageCapture.FLASH_MODE_AUTO; FlashMode.ON -> ImageCapture.FLASH_MODE_ON }
 
@@ -129,10 +151,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun bitmapOf(cells: IntArray): Bitmap {
-        val px = if (model.effect == Effect.DOTS) {
-            val ink = Dither.twoTone(cells, CamView.COLS, true)
-            IntArray(ink.size) { if (ink[it]) view.ink or (0xFF shl 24) else view.lcd }
-        } else { val (bright, dark) = EffectPhoto.palette(if (model.effect == Effect.NONE) Effect.TONES else model.effect, view.lcd, view.ink); Dither.ramp(cells, bright, dark) }
+        val px = Effects.render(if (model.effect == Effect.NONE) Effect.TONES else model.effect, cells, CamView.COLS, CamView.ROWS, view.lcd, view.ink, fine = false)
         return Bitmap.createBitmap(px, CamView.COLS, CamView.ROWS, Bitmap.Config.ARGB_8888)
     }
 
@@ -156,7 +175,7 @@ class CameraActivity : AppCompatActivity() {
     private fun perform(a: CamAction) {
         when (a) {
             CamAction.None -> {}
-            CamAction.Redraw -> { applyZoomAndTorch(); view.invalidate() }
+            CamAction.Redraw -> { applyZoomAndTorch(); syncPreview(); view.invalidate() }
             CamAction.Shoot -> if (model.countdown > 0) countdownThenShoot() else takePhoto()
             CamAction.ToggleRecording -> toggleRecording()
             CamAction.Rebind -> { bind(); view.invalidate() }
@@ -256,7 +275,7 @@ class CameraActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) { Log.log(this, "camera: gallery: ${e.javaClass.simpleName}") }
-            ui.post { model.setGallery(list); showItem() }
+            ui.post { model.setGallery(list); syncPreview(); showItem() }
         }.start()
     }
 
@@ -271,9 +290,7 @@ class CameraActivity : AppCompatActivity() {
                 val (cols, rows) = if (bmp.width >= bmp.height) CamView.COLS to (CamView.COLS * bmp.height / bmp.width).coerceAtLeast(1) else (CamView.ROWS * bmp.width / bmp.height).coerceAtLeast(1) to CamView.ROWS
                 val px = IntArray(bmp.width * bmp.height).also { bmp.getPixels(it, 0, bmp.width, 0, 0, bmp.width, bmp.height) }
                 val cells = Dither.sample(bmp.width, bmp.height, 0, false, cols, rows) { x, y -> val c = px[y * bmp.width + x]; (((c shr 16) and 255) * 299 + ((c shr 8) and 255) * 587 + (c and 255) * 114) / 1000 }
-                val dots = if (model.effect != Effect.TONES && model.effect != Effect.MONO && model.effect != Effect.WARM) {
-                    val ink = Dither.twoTone(cells, cols, true); IntArray(ink.size) { if (ink[it]) view.ink or (0xFF shl 24) else view.lcd }
-                } else { val (bright, dark) = EffectPhoto.palette(model.effect, view.lcd, view.ink); Dither.ramp(cells, bright, dark) }
+                val dots = Effects.render(if (model.effect == Effect.NONE) Effect.TONES else model.effect, cells, cols, rows, view.lcd, view.ink, fine = false)
                 view.show(Bitmap.createBitmap(dots, cols, rows, Bitmap.Config.ARGB_8888), bmp)
             } catch (e: Exception) { if (token == loadToken) view.show(null) }
         }.start()

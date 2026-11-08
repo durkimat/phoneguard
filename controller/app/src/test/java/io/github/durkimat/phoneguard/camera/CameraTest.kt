@@ -47,7 +47,8 @@ class CameraTest {
         m.onKey(Key.UP, -1); assertEquals(1.5f, m.zoom); m.onKey(Key.DOWN, -1); m.onKey(Key.DOWN, -1); assertEquals(1f, m.zoom)
         m.onKey(Key.DIGIT, 2); assertEquals(FlashMode.AUTO, m.flash)
         assertEquals(Effect.DOTS, m.effect); m.onKey(Key.DIGIT, 4); assertEquals(Effect.TONES, m.effect)
-        repeat(4) { m.onKey(Key.DIGIT, 4) }; assertEquals(Effect.DOTS, m.effect) // five effects, and round again
+        repeat(Effect.values().size - 1) { m.onKey(Key.DIGIT, 4) }; assertEquals(Effect.DOTS, m.effect) // every effect once, and round again
+        m.onKey(Key.DIGIT, 6); assertEquals(Effect.NONE, m.effect) // 6 goes back
         m.onKey(Key.DIGIT, 3); assertEquals(3, m.timerSeconds); assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1)); assertEquals(3, m.countdown)
         assertEquals(CamAction.Redraw, m.onKey(Key.DIGIT, 7)); assertEquals(0, m.countdown) // any key cancels the count
         assertEquals(CamAction.Rebind, m.onKey(Key.POUND, -1)); assertTrue(m.front)
@@ -83,9 +84,36 @@ class CameraTest {
         val w = 8; val h = 6
         val px = IntArray(w * h) { if (it % w < 4) 0xFF000000.toInt() else 0xFFFFFFFF.toInt() }
         // the render needs android.graphics, so the pure part is the palette
-        assertEquals(0xFFFFFFFF.toInt() to 0xFF000000.toInt(), EffectPhoto.palette(Effect.MONO, 1, 2))
-        assertEquals(7 to 9, EffectPhoto.palette(Effect.DOTS, 7, 9)); assertEquals(7 to 9, EffectPhoto.palette(Effect.TONES, 7, 9))
+        assertEquals(0xFFFFFFFF.toInt() to 0xFF000000.toInt(), Effects.palette(Effect.MONO, 1, 2))
+        assertEquals(7 to 9, Effects.palette(Effect.DOTS, 7, 9)); assertEquals(7 to 9, Effects.palette(Effect.TONES, 7, 9))
         assertEquals(48, px.size)
         assertEquals("dots", Effect.DOTS.extra); assertEquals("", Effect.NONE.extra)
+    }
+
+    private val white = 0xFFFFFFFF.toInt(); private val black = 0xFF000000.toInt()
+
+    @Test fun halftoneDotsGrowWithDarkness() {
+        // a left half that is dark and a right half that is light: the dark side has far more ink
+        val cols = 40; val rows = 20
+        val cells = IntArray(cols * rows) { if (it % cols < 20) 20 else 235 }
+        val out = Effects.render(Effect.HALFTONE, cells, cols, rows, white, black, fine = false)
+        val darkInk = (0 until rows).sumOf { y -> (0 until 20).count { x -> out[y * cols + x] == black } }
+        val lightInk = (0 until rows).sumOf { y -> (20 until cols).count { x -> out[y * cols + x] == black } }
+        assertTrue(darkInk > lightInk * 3)
+    }
+
+    @Test fun posterHasFourShadesAndOutlineFindsTheEdge() {
+        val ramp = IntArray(64) { it * 4 }
+        assertEquals(4, Effects.render(Effect.POSTER, ramp, 64, 1, white, black, false).toSet().size)
+        val cols = 16; val rows = 8
+        val step = IntArray(cols * rows) { if (it % cols < 8) 0 else 255 }
+        val edges = Effects.render(Effect.OUTLINE, step, cols, rows, white, black, false)
+        assertEquals(black, edges[3 * cols + 7]); assertEquals(white, edges[3 * cols + 2]); assertEquals(white, edges[3 * cols + 13])
+    }
+
+    @Test fun scanLinesDarkenEveryOtherRow() {
+        val cells = IntArray(8 * 4) { 200 }
+        val out = Effects.render(Effect.SCAN, cells, 8, 4, white, black, false)
+        assertTrue((out[0] and 255) > (out[8 * 1] and 255)) // row 0 is normal, row 1 is darkened
     }
 }
