@@ -27,6 +27,10 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "ping" -> "pong"
+        "lockwp" -> { // paint the lock wallpaper for a theme id and forget the cache so it really repaints
+            c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE).edit().remove("lock_wp").apply()
+            io.github.durkimat.phoneguard.launcher.LockWallpaper.apply(c, a); "lockwp $a"
+        }
         "badges" -> { // a=sms b=whatsapp (and missed calls = a+b) as fake counts; "off" clears
             io.github.durkimat.phoneguard.launcher.LauncherData.debugBadges = if (a == "off") null else listOf(
                 io.github.durkimat.phoneguard.launcher.Badge(io.github.durkimat.phoneguard.launcher.BadgeKind.SMS, a.toInt()),
