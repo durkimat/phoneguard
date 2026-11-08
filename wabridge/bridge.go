@@ -443,8 +443,12 @@ func digits(s string) string {
 	return sb.String()
 }
 
-// maxHistoryPerChat is how many of each chat's most recent history messages are passed on (the app keeps 20).
-const maxHistoryPerChat = 40
+// maxHistoryPerChat is how many of each chat's most recent history messages are passed on (the app keeps 20), and
+// maxHistoryChats how many chats are looked at: with "allow everyone" the bundle can hold hundreds of chats.
+const (
+	maxHistoryPerChat = 20
+	maxHistoryChats   = 60
+)
 
 // onHistory passes on the recent messages WhatsApp sends when a device is linked, for allowed chats only, newest few
 // per chat. Everything else in the bundle is dropped without being looked at further.
@@ -452,11 +456,18 @@ func (b *Bridge) onHistory(v *events.HistorySync) {
 	if v == nil || v.Data == nil || b.cli == nil {
 		return
 	}
-	for _, conv := range v.Data.GetConversations() {
+	convs := append([]*waHistorySync.Conversation(nil), v.Data.GetConversations()...)
+	sort.SliceStable(convs, func(i, j int) bool { return convs[i].GetConversationTimestamp() > convs[j].GetConversationTimestamp() })
+	looked := 0
+	for _, conv := range convs {
+		if looked >= maxHistoryChats {
+			break
+		}
 		jid, err := types.ParseJID(conv.GetID())
 		if err != nil || jid.Server == types.BroadcastServer || jid.Server == types.NewsletterServer {
 			continue
 		}
+		looked++
 		if !b.historyChatAllowed(jid, conv.GetPnJID()) {
 			continue
 		}

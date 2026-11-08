@@ -134,7 +134,6 @@ object LauncherData {
             }
             out.sortByDescending { it.date }
         } catch (e: Exception) { io.github.durkimat.phoneguard.Log.log(c, "calls: fake read failed ${e.javaClass.simpleName} ${e.message}") }
-        io.github.durkimat.phoneguard.Log.log(c, "calls: ${out.size} entries")
         return out
     }
 

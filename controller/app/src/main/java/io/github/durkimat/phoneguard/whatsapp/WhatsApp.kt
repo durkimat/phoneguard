@@ -43,7 +43,10 @@ object WhatsApp {
     /** True once an account has been linked in this app (cheap: nothing is opened). */
     fun linked(c: Context): Boolean = prefs(c).getBoolean("wa_linked", false)
     private fun setLinked(c: Context, v: Boolean) { prefs(c).edit().putBoolean("wa_linked", v).apply() }
-    private fun fire() { changed.forEach { it() } }
+    // WhatsApp events can come in hundreds (the history sent when linking): merge them so the screen redraws at most
+    // a few times a second instead of once per message
+    private val fireNow = Runnable { changed.forEach { it() } }
+    private fun fire() { main.removeCallbacks(fireNow); main.postDelayed(fireNow, 300) }
 
     @Synchronized fun store(c: Context): WaStore = store ?: WaStore(c.applicationContext).also { store = it }
 
@@ -145,6 +148,7 @@ object WhatsApp {
             open(c)?.setLimits(w.perMinute.toLong(), w.perDay.toLong())
         }
         rejectCalls(c, !eff.inbound)
+        Thread { try { store(c).pruneChats() } catch (_: Exception) { } }.start()
         when (eff.wa) {
             "off" -> { cancelAlarm(c); main.removeCallbacks(idleOff); bridge?.disconnect() }
             "30" -> schedule(c, 30)

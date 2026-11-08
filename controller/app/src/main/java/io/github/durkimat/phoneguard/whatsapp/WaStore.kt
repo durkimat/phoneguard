@@ -74,7 +74,16 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 1) {
         }
     }
 
+    /** With "allow everyone" the phone could end up holding every chat: keep only the [max] most recently active. */
+    @Synchronized fun pruneChats(max: Int = MAX_CHATS) {
+        val db = writableDatabase
+        val n = db.rawQuery("SELECT COUNT(DISTINCT chat) FROM msg", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+        if (n <= max) return
+        db.execSQL("DELETE FROM msg WHERE chat NOT IN (SELECT chat FROM msg GROUP BY chat ORDER BY MAX(ts) DESC LIMIT ?)", arrayOf(max))
+        db.execSQL("DELETE FROM chat WHERE number NOT IN (SELECT DISTINCT chat FROM msg)")
+    }
+
     @Synchronized fun wipe() { writableDatabase.execSQL("DELETE FROM msg"); writableDatabase.execSQL("DELETE FROM chat") }
 
-    companion object { const val KEEP = 20 }
+    companion object { const val KEEP = 20; const val MAX_CHATS = 60 }
 }
