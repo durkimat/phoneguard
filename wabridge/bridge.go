@@ -397,6 +397,9 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 			return
 		}
 		who := v.Info.PushName
+		if who == "" { // history often has no display name: fall back to the number, which the app can match to a contact
+			who = b.phoneOf(v.Info.Sender, types.JID{}, v.Info.SenderAlt, false)
+		}
 		if v.Info.IsFromMe {
 			who = "Me"
 		}

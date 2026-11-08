@@ -219,3 +219,31 @@ func TestHistoryIsPassedOnForAllowedChatsOnlyAndMarkedAsHistory(t *testing.T) {
 		t.Fatalf("got %v", r.msgs)
 	}
 }
+
+func TestGroupMessageWithoutADisplayNameFallsBackToTheSendersNumber(t *testing.T) {
+	var gotSender string
+	l := &senderRec{out: &gotSender}
+	b := &Bridge{l: l, allowed: map[string]bool{}, groups: map[string]bool{"family": true}, gnames: map[string]string{"12036311": "Family"}}
+	m := dm("447700900999", "hi all")
+	m.Info.Chat = types.NewJID("12036311", types.GroupServer)
+	m.Info.IsGroup = true
+	m.Info.Sender = types.NewJID("447700900999", types.DefaultUserServer)
+	b.onMessage(m)
+	if gotSender != "447700900999" {
+		t.Fatalf("sender was %q", gotSender)
+	}
+	m.Info.PushName = "Mum"
+	b.onMessage(m)
+	if gotSender != "Mum" {
+		t.Fatalf("a display name should win, got %q", gotSender)
+	}
+}
+
+type senderRec struct{ out *string }
+
+func (s *senderRec) OnStatus(string)                                       {}
+func (s *senderRec) OnPairCode(string)                                     {}
+func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
+func (s *senderRec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe, history bool) {
+	*s.out = sender
+}
