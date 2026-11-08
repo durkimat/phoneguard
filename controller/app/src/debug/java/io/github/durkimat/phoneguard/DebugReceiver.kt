@@ -27,6 +27,12 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "ping" -> "pong"
+        "badges" -> { // a=sms b=whatsapp (and missed calls = a+b) as fake counts; "off" clears
+            io.github.durkimat.phoneguard.launcher.LauncherData.debugBadges = if (a == "off") null else listOf(
+                io.github.durkimat.phoneguard.launcher.Badge(io.github.durkimat.phoneguard.launcher.BadgeKind.SMS, a.toInt()),
+                io.github.durkimat.phoneguard.launcher.Badge(io.github.durkimat.phoneguard.launcher.BadgeKind.WHATSAPP, b.toInt()),
+                io.github.durkimat.phoneguard.launcher.Badge(io.github.durkimat.phoneguard.launcher.BadgeKind.MISSED, 1)); "badges $a $b"
+        }
         "statusbar" -> try { val ok = Dpm.dpm(c).setStatusBarDisabled(Dpm.admin(c), a == "on"); "setStatusBarDisabled($a) -> $ok" } catch (e: Exception) { "statusbar failed: ${e.javaClass.simpleName} ${e.message}" }
         "location" -> { // patch the stored config with a weather location: a=lat b=lon
             val o = org.json.JSONObject(Store.configText(c) ?: "{}"); o.put("location", org.json.JSONObject().put("lat", a.toDouble()).put("lon", b.toDouble()))

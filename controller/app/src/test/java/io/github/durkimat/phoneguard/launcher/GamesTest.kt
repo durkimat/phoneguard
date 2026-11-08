@@ -134,3 +134,15 @@ class GamesTest {
         assertEquals(Action.None, m.tap(100f, 80f))
     }
 }
+
+class HomeBadgeTest {
+    @Test fun tappingASymbolOnTheHomeScreenOpensItsInboxAndBackGoesHome() {
+        val m = LauncherModel(listOf(MenuItem("p.phone", "Phone")))
+        m.badges = listOf(Badge(BadgeKind.SMS, 2), Badge(BadgeKind.MISSED, 1))
+        m.tap(m.badgeX(0, 2), 510f); assertEquals(Screen.INBOX, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        m.tap(m.badgeX(1, 2), 510f); assertEquals(Screen.CALLLOG, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        m.badges = emptyList(); assertEquals(Action.None, m.tap(240f, 510f))
+    }
+}
