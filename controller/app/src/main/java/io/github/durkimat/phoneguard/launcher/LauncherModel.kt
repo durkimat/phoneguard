@@ -52,6 +52,7 @@ object Fonts {
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+const val CAMERA_PKG = "pg:camera"
 const val WEATHER_PKG = "pg:weather"
 /** Rows that fit between the title bar and the soft keys. */
 const val LIST_VISIBLE = 7
@@ -107,6 +108,8 @@ sealed class Action {
     data class CallVolume(val delta: Int) : Action()
     /** The call screen is finished with. */
     object CloseCall : Action()
+    /** Open the themed camera. */
+    object OpenCamera : Action()
     /** Place a call to the number just dialled. */
     data class PlaceCall(val number: String) : Action()
     /** Send this text message. */
@@ -797,6 +800,7 @@ class LauncherModel(
         item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
+        item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
         item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }

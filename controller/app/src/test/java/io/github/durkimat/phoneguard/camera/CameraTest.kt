@@ -1,0 +1,68 @@
+package io.github.durkimat.phoneguard.camera
+
+import io.github.durkimat.phoneguard.launcher.Key
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class CameraTest {
+    @Test fun darkSceneIsInkAndBrightSceneIsNot() {
+        val dark = Dither.twoTone(Dither.sample(8, 8, 0, false, 8, 8) { _, _ -> 0 }, 8, true)
+        assertTrue(dark.all { it })
+        val bright = Dither.twoTone(Dither.sample(8, 8, 0, false, 8, 8) { _, _ -> 250 }, 8, true)
+        assertTrue(bright.none { it })
+    }
+
+    @Test fun aGradientDithersToAMixAndPlainThresholdsSplitInTheMiddle() {
+        val cells = IntArray(16 * 16) { (it % 16) * 16 }
+        val d = Dither.twoTone(cells, 16, true)
+        assertTrue(d.count { it } in 40..216)
+        val p = Dither.twoTone(cells, 16, false)
+        assertTrue(p.take(16).first()); assertFalse(p.take(16).last())
+    }
+
+    @Test fun rotationAndMirrorPickTheRightCorner() {
+        // a 4 by 2 source with one bright pixel at the top-left (0, 0)
+        val luma = { x: Int, y: Int -> if (x == 0 && y == 0) 255 else 0 }
+        val up = Dither.sample(4, 2, 0, false, 4, 2, luma)
+        assertEquals(255, up[0]); assertEquals(0, up[3])
+        val mirrored = Dither.sample(4, 2, 0, true, 4, 2, luma)
+        assertEquals(255, mirrored[3])
+        // turned 90 degrees clockwise the top-left of the source lands at the top-right of a 2 by 4 picture
+        val turned = Dither.sample(4, 2, 90, false, 2, 4, luma)
+        assertEquals(255, turned[1])
+        val upsideDown = Dither.sample(4, 2, 180, false, 4, 2, luma)
+        assertEquals(255, upsideDown[7])
+    }
+
+    @Test fun rampRunsFromInkToScreenColour() {
+        val r = Dither.ramp(intArrayOf(0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255), 0xFFFFFFFF.toInt(), 0xFF000000.toInt())
+        assertEquals(0xFF000000.toInt(), r[0]); assertEquals(0xFFFFFFFF.toInt(), r[1])
+    }
+
+    @Test fun keysDriveTheViewfinder() {
+        val m = CameraModel()
+        assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1))
+        m.onKey(Key.UP, -1); assertEquals(1.5f, m.zoom); m.onKey(Key.DOWN, -1); m.onKey(Key.DOWN, -1); assertEquals(1f, m.zoom)
+        m.onKey(Key.DIGIT, 2); assertEquals(FlashMode.AUTO, m.flash)
+        m.onKey(Key.DIGIT, 3); assertEquals(3, m.timerSeconds); assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1)); assertEquals(3, m.countdown)
+        assertEquals(CamAction.Redraw, m.onKey(Key.DIGIT, 7)); assertEquals(0, m.countdown) // any key cancels the count
+        assertEquals(CamAction.Rebind, m.onKey(Key.POUND, -1)); assertTrue(m.front)
+        assertEquals(CamAction.Rebind, m.onKey(Key.RIGHT, -1)); assertEquals(CamMode.VIDEO, m.mode)
+        assertEquals(CamAction.ToggleRecording, m.onKey(Key.OK, -1))
+        m.recording = true
+        assertEquals(CamAction.None, m.onKey(Key.SOFT_RIGHT, -1)); assertEquals(CamAction.None, m.onKey(Key.RIGHT, -1))
+        m.recording = false; assertEquals(CamAction.Exit, m.onKey(Key.SOFT_RIGHT, -1))
+    }
+
+    @Test fun galleryWalksThePhotosAndColourIsAKeyAway() {
+        val m = CameraModel()
+        m.setGallery(listOf(MediaItem("a", false, "a", 1), MediaItem("b", false, "b", 2), MediaItem("c", true, "c", 3)))
+        assertEquals("a", m.current?.uri)
+        m.onKey(Key.RIGHT, -1); m.onKey(Key.RIGHT, -1); assertEquals("c", m.current?.uri)
+        m.onKey(Key.RIGHT, -1); assertEquals("a", m.current?.uri) // wraps
+        m.onKey(Key.OK, -1); assertTrue(m.colour); m.onKey(Key.RIGHT, -1); assertFalse(m.colour)
+        m.onKey(Key.SOFT_RIGHT, -1); assertFalse(m.inGallery)
+    }
+}

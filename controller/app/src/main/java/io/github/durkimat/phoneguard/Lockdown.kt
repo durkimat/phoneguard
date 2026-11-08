@@ -288,6 +288,10 @@ object Pregrant {
             }
             Store.addPregranted(c, key)
         }
+        // our own camera needs the camera and microphone without a prompt (the keypad cannot answer one)
+        for (perm in listOf("android.permission.CAMERA", "android.permission.RECORD_AUDIO", "android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO")) {
+            try { dpm.setPermissionGrantState(admin, c.packageName, perm, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
+        }
         if (done > 0) Log.log(c, "pre-granted $done permissions")
     }
 }
