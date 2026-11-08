@@ -46,6 +46,9 @@ class CameraModel {
     var inGallery = false
         private set
     var recording = false
+    /** The help page (what every key does) is showing; any key closes it. */
+    var help = false
+        private set
     /** Seconds left of a self-timer count, or 0. */
     var countdown = 0
     var recordingSeconds = 0
@@ -63,6 +66,23 @@ class CameraModel {
     val zoom: Float get() = zooms[zoomIndex]
     val current: MediaItem? get() = items.getOrNull(index)
 
+    /** What every key does, one line each: shown by the Help key. */
+    val helpLines: List<String> = listOf(
+        "OK or side button: take photo,",
+        "   or start / stop a video",
+        "Up, Down: zoom in and out",
+        "Left, Right: photo or video",
+        "1  Gallery          2  Flash",
+        "3  Self-timer       #  Front/back",
+        "4  Next effect      6  Last effect",
+        "Effects: Normal, Dots, Tones, Mono,",
+        "Warm, Newsprint, Poster, Outline,",
+        "Scan lines, Dated frame. All but",
+        "Normal save a second picture too.",
+        "Gallery: Left, Right: other photo,",
+        "OK: colour or dots.  Back: leave.",
+    )
+
     /** The line of settings under the viewfinder. */
     val infoLine: String get() = buildString {
         append(if (zoom == zoom.toInt().toFloat()) "${zoom.toInt()}x" else "${zoom}x")
@@ -74,6 +94,7 @@ class CameraModel {
     fun setGallery(list: List<MediaItem>) { items = list; index = index.coerceIn(0, (list.size - 1).coerceAtLeast(0)); inGallery = true; colour = false }
 
     fun onKey(key: Key, digit: Int): CamAction {
+        if (help) { help = false; return if (key == Key.END) CamAction.Home else CamAction.Redraw } // any key closes the help
         if (countdown > 0) { countdown = 0; notice = "Cancelled"; return CamAction.Redraw } // any key stops a self-timer
         return if (inGallery) gallery(key, digit) else finder(key, digit)
     }
@@ -94,7 +115,8 @@ class CameraModel {
             if (before == Effect.NONE || effect == Effect.NONE) CamAction.Rebind else CamAction.Redraw
         }
         key == Key.POUND -> if (recording) CamAction.None else { front = !front; zoomIndex = 0; CamAction.Rebind }
-        key == Key.SOFT_LEFT -> shutter()
+        // the left key under the screen is Help (OK, the side button and the volume keys take the picture); while recording it stops
+        key == Key.SOFT_LEFT -> if (recording) CamAction.ToggleRecording else { help = true; CamAction.Redraw }
         key == Key.SOFT_RIGHT -> if (recording) CamAction.None else CamAction.Exit
         key == Key.END -> CamAction.Home
         else -> CamAction.None

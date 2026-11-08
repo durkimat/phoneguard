@@ -44,6 +44,9 @@ class CameraTest {
     @Test fun keysDriveTheViewfinder() {
         val m = CameraModel()
         assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1))
+        assertEquals(CamAction.Redraw, m.onKey(Key.SOFT_LEFT, -1)); assertTrue(m.help) // the left key is Help, not Shoot
+        assertEquals(CamAction.Redraw, m.onKey(Key.OK, -1)); assertFalse(m.help) // any key closes it, and does nothing else
+        assertEquals(CamAction.Shoot, m.onKey(Key.OK, -1))
         m.onKey(Key.UP, -1); assertEquals(1.5f, m.zoom); m.onKey(Key.DOWN, -1); m.onKey(Key.DOWN, -1); assertEquals(1f, m.zoom)
         m.onKey(Key.DIGIT, 2); assertEquals(FlashMode.AUTO, m.flash)
         assertEquals(Effect.DOTS, m.effect); m.onKey(Key.DIGIT, 4); assertEquals(Effect.TONES, m.effect)

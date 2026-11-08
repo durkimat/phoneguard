@@ -71,16 +71,18 @@ class CamView(context: Context, private val model: CameraModel, themeId: String?
             model.recording -> "REC %02d:%02d".format(model.recordingSeconds / 60, model.recordingSeconds % 60)
             model.mode == CamMode.VIDEO -> "Video"
             else -> "Photo"
-        }
+        }.let { if (model.help) "Camera help" else it }
         text(c, title, 240f, 36f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         if (model.recording && blink) { fill.color = lcd; c.drawCircle(40 * u, 26 * u, 9 * u, fill); fill.color = ink }
         // the picture, centred in its frame
         val f = frame(); val left = f[0]; val top = f[1]; val w = f[2]; val h = f[3]
         stroke.strokeWidth = 2 * u
-        c.drawRect((left - 3) * u, (top - 3) * u, (left + w + 3) * u, (top + h + 3) * u, stroke)
+        if (!model.help) c.drawRect((left - 3) * u, (top - 3) * u, (left + w + 3) * u, (top + h + 3) * u, stroke)
         val colour = colourPic
         val b = pic
-        if (model.inGallery && model.colour && colour != null) {
+        if (model.help) {
+            model.helpLines.forEachIndexed { n, line -> text(c, line, 24f, 100f + n * 33f, 22f, u) }
+        } else if (model.inGallery && model.colour && colour != null) {
             val s = minOf(w / colour.width, h / colour.height)
             val dw = colour.width * s; val dh = colour.height * s
             c.drawBitmap(colour, null, RectF((left + (w - dw) / 2) * u, (top + (h - dh) / 2) * u, (left + (w + dw) / 2) * u, (top + (h + dh) / 2) * u), smooth)
@@ -105,13 +107,13 @@ class CamView(context: Context, private val model: CameraModel, themeId: String?
             c.drawRect(60 * u, 250 * u, 420 * u, 310 * u, fill)
             text(c, it, 240f, 292f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }
-        if (model.inGallery) model.current?.let { text(c, (if (it.video) "Video  " else "") + it.name, 240f, 560f, 22f, u, align = Paint.Align.CENTER) }
+        if (model.help) {} else if (model.inGallery) model.current?.let { text(c, (if (it.video) "Video  " else "") + it.name, 240f, 560f, 22f, u, align = Paint.Align.CENTER) }
         else text(c, model.infoLine, 240f, 560f, 22f, u, align = Paint.Align.CENTER)
         // soft keys
         c.drawLine(0f, 576 * u, width.toFloat(), 576 * u, stroke)
-        val left1 = if (model.inGallery) (if (model.colour) "Dots" else "Colour") else if (model.mode == CamMode.VIDEO) (if (model.recording) "Stop" else "Record") else "Shoot"
+        val left1 = if (model.inGallery) (if (model.colour) "Dots" else "Colour") else if (model.help) "" else if (model.recording) "Stop" else "Help"
         val right1 = "Back"
-        arrow(c, 22f, 606f, -1, u); text(c, left1, 46f, 614f, 30f, u, bold = true)
+        if (left1.isNotEmpty()) { arrow(c, 22f, 606f, -1, u); text(c, left1, 46f, 614f, 30f, u, bold = true) }
         arrow(c, 458f, 606f, 1, u); text(c, right1, 434f, 614f, 30f, u, bold = true, align = Paint.Align.RIGHT)
     }
 
