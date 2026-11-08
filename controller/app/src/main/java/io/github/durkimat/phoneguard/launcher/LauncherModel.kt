@@ -516,6 +516,8 @@ class LauncherModel(
             Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else Action.PlaceCall(dialNumber) // the green key twice: straight to the recent calls
             Key.RIGHT, Key.SOFT_RIGHT -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else { dialNumber = dialNumber.dropLast(1); Action.Redraw }
             Key.END -> { dialNumber = ""; goHome() }
+            // a way out that cannot be missed: with nothing typed, up or down leaves the pad
+            Key.UP, Key.DOWN -> if (dialNumber.isEmpty()) goHome() else return Action.None
             else -> return Action.None
         }
         return Action.Redraw

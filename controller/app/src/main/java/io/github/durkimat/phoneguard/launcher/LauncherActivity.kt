@@ -67,6 +67,8 @@ class LauncherActivity : Activity() {
     /** The left key under the screen arrives as a voice-assist request (see HardKeys). */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // the hang-up key (and Home) arrive as a home request: from any screen of ours that means the idle screen
+        if (intent.hasCategory(Intent.CATEGORY_HOME) && !intent.hasExtra(EXTRA_DIAL) && intent.action == Intent.ACTION_MAIN) { model.goHome(); refresh() }
         if (intent.hasExtra(EXTRA_DIAL)) pendingDial = intent.getStringExtra(EXTRA_DIAL)
         // onResume follows and resets to the home screen, so remember the key and apply it after that
         if (intent.action == VOICE_ASSIST || intent.action == WEB_SEARCH) leftKeyPending = true
