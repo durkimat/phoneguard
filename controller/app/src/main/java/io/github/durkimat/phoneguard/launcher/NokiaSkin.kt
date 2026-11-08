@@ -70,6 +70,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
+                Screen.GAMEHELP -> gameHelp(c, m, u)
                 Screen.SNAKE -> snake(c, m, u)
                 Screen.PAIRS -> pairs(c, m, u)
                 Screen.SHOOTER -> shooter(c, m, u)
@@ -326,6 +327,13 @@ class NokiaSkin : LauncherSkin {
             }
             text(c, "Score ${g.score}", 16f, 556f, 26f, u, bold = true)
             text(c, "Best ${m.snakeBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun gameHelp(c: Canvas, m: LauncherModel, u: Float) {
+            gameTitle(c, m, u)
+            text(c, "How to play", 240f, 134f, 26f, u, bold = true, align = Paint.Align.CENTER)
+            m.helpLines.forEachIndexed { n, line -> text(c, line, 20f, 176f + n * 34f, 25f, u) }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
