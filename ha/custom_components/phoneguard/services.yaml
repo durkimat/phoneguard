@@ -55,6 +55,11 @@ set_child:
   fields:
     child: {required: true, selector: {text: {}}}
     config: {required: true, selector: {object: {}}}
+set_options:
+  name: Set options for all phones
+  description: Settings shared by every phone, such as the Spotify Client ID.
+  fields:
+    spotify_client_id: {required: false, selector: {text: {}}}
 nudge:
   name: Nudge phone
   description: Ask the phone to sync now.

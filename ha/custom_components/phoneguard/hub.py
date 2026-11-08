@@ -36,6 +36,23 @@ class Hub:
             self.data["children"][cid] = ch
         return ch
 
+    OPTION_KEYS = ("spotify_client_id",)
+
+    def set_options(self, patch: dict) -> None:
+        """Settings shared by every phone (today: the Spotify app's Client ID, which is public, never a secret)."""
+        opts = self.data.setdefault("options", {})
+        for k, v in patch.items():
+            if k not in self.OPTION_KEYS:
+                raise ValueError(f"unknown option {k!r}")
+            if k == "spotify_client_id":
+                v = (v or "").strip().lower()
+                if v and not (len(v) == 32 and all(ch in "0123456789abcdef" for ch in v)):
+                    raise ValueError("a Spotify Client ID is 32 letters and digits (0 to 9 and a to f)")
+            if v:
+                opts[k] = v
+            else:
+                opts.pop(k, None)
+
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
         allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide"}
@@ -277,7 +294,7 @@ class Hub:
             ch["known"] = sorted(a["pkg"] for a in dev["apps"])  # the apps already on the phone are not "new"
         if dev["pending"]:
             return P.make_reply(self.priv, did, n, {"kind": "sync", "pending": True, "sas": dev["sas"]}, now)
-        cfg = S.build_config(ch, now)
+        cfg = S.build_config(ch, now, self.data.get("options"))
         pushed = dev["cfgh"] != S.cfg_hash(cfg)
         if pushed:
             dev["cfgh"] = S.cfg_hash(cfg)  # assume it lands; the phone's next report corrects this
@@ -340,7 +357,7 @@ class Hub:
         now = self.now()
         ch = self.data["children"][cid]
         found = self.device_of(cid)
-        cfg = S.build_config(ch, now)
+        cfg = S.build_config(ch, now, self.data.get("options"))
         boost = self.active_boost(cid)
         out: dict = {
             "child": cid, "name": ch["name"], "person": ch.get("person") or ch["name"], "tz": ch["tz"], "base": ch["base"], "notify": ch["notify"],
@@ -350,6 +367,7 @@ class Hub:
             "device": None, "apps": [], "pending_apps": [], "usage": {}, "labels": {},
             "restrictions": ch.get("restrictions"),
             "whatsapp": S.whatsapp_with_defaults(ch),
+            "options": dict(self.data.get("options") or {}),
             "pinned": list(ch.get("pinned") or []),
             "notes_hide": list(ch.get("notes_hide") or []),
             "location": ch.get("location"),

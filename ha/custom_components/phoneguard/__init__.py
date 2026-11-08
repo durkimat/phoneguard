@@ -209,6 +209,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise HomeAssistantError(f"Rejected: {err}") from err
         mgr.changed(cid)
 
+    async def set_options(call: ServiceCall) -> None:
+        await admin(call)
+        try:
+            mgr.hub.set_options({k: v for k, v in call.data.items()})
+        except Exception as err:
+            raise HomeAssistantError(f"Rejected: {err}") from err
+        for cid in list(mgr.hub.data["children"]):
+            mgr.changed(cid)
+
     async def nudge(call: ServiceCall) -> None:
         await admin(call); await mgr.nudge(child_of(call))
 
@@ -271,6 +280,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "approve_app", approve_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Required("modes"): [cv.string]}))
     reg(DOMAIN, "dismiss_app", dismiss_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string}))
     reg(DOMAIN, "set_child", set_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("config"): dict}))
+    reg(DOMAIN, "set_options", set_options, vol.Schema({vol.Optional("spotify_client_id"): vol.Any(None, cv.string)}))
     reg(DOMAIN, "nudge", nudge, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "release", release, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "set_override", set_override, vol.Schema({vol.Required("child"): cv.slug, vol.Required("mode"): cv.string}))
@@ -293,7 +303,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override"):
+                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True
