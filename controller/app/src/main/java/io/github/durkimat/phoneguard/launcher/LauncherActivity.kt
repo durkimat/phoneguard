@@ -49,6 +49,7 @@ class LauncherActivity : Activity() {
         model.snakeBest = prefs().getInt("snake_best", 0)
         model.shooterBest = prefs().getInt("shooter_best", 0)
         model.pairsBest = prefs().getInt("pairs_best", 0)
+        Thread { LockWallpaper.apply(this, model.theme) }.start()
         loadWords()
         setContentView(skin.create(this))
         refresh()
@@ -200,7 +201,7 @@ class LauncherActivity : Activity() {
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
-            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); refresh() }
+            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); Thread { LockWallpaper.apply(this, a.id) }.start(); refresh() }
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)
             // "Call" on a contact or in the call log opens our own dial screen with the number typed; one more press rings
