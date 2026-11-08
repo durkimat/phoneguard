@@ -362,7 +362,7 @@ class LauncherModel(
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
-        Screen.DIAL -> "Call" to "Clear"
+        Screen.DIAL -> if (dialNumber.isEmpty()) "Contacts" to "Recent" else "Call" to "Clear"
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
             CallPhase.RINGING -> "Answer" to "Reject"
@@ -512,8 +512,9 @@ class LauncherModel(
             Key.DIGIT -> if (digit in 0..9 && dialNumber.length < 24) dialNumber += digit
             Key.STAR -> when { dialNumber.endsWith("*") -> dialNumber = dialNumber.dropLast(1) + "+"; dialNumber.endsWith("+") -> dialNumber = dialNumber.dropLast(1) + "*"; dialNumber.length < 24 -> dialNumber += "*" }
             Key.POUND -> if (dialNumber.length < 24) dialNumber += "#"
-            Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.HOME) else Action.PlaceCall(dialNumber)
-            Key.RIGHT, Key.SOFT_RIGHT -> { dialNumber = dialNumber.dropLast(1); if (dialNumber.isEmpty()) { if (dialFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 2 } else goHome() } }
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> return if (dialNumber.isEmpty()) openContacts(Screen.DIAL) else Action.PlaceCall(dialNumber)
+            Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else Action.PlaceCall(dialNumber) // the green key twice: straight to the recent calls
+            Key.RIGHT, Key.SOFT_RIGHT -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else { dialNumber = dialNumber.dropLast(1); Action.Redraw }
             Key.END -> { dialNumber = ""; goHome() }
             else -> return Action.None
         }
@@ -524,7 +525,7 @@ class LauncherModel(
 
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 0 } else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.DIAL) screen = Screen.DIAL else if (callsFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 0 } else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -819,6 +820,7 @@ class LauncherModel(
         Key.RIGHT, Key.SOFT_RIGHT -> {
             when {
                 picking -> { picking = false; screen = Screen.WRITE }
+                contactsFrom == Screen.DIAL -> screen = Screen.DIAL
                 contactsFrom == Screen.PHONEMENU -> { screen = Screen.PHONEMENU; selected = 1 }
                 contactsFrom == Screen.MENU -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) }
                 else -> goHome()
@@ -1064,7 +1066,8 @@ class LauncherModel(
     private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
 
     /** The calling menu: the green key at the home screen and the Phone entry in the menu both open it. */
-    private fun openPhoneMenu(from: Screen): Action { phoneFrom = from; screen = Screen.PHONEMENU; selected = 0; return Action.Redraw }
+    // the Phone entry and the green key open the dial pad: type a number, left key = contacts, right key = recent calls
+    private fun openPhoneMenu(from: Screen): Action { phoneFrom = from; dialNumber = ""; dialFrom = from; screen = Screen.DIAL; return Action.Redraw }
 
     private fun phoneMenuKey(key: Key, digit: Int): Action = move(key, 3) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {

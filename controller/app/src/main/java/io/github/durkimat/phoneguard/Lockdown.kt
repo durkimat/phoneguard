@@ -152,21 +152,24 @@ object LocationLock {
  * (the device-admin keyguard switch was refused for this admin), is put back afterwards, and is set again at every evaluation.
  */
 object LockScreenNotes {
-    private const val KEY = "lock_screen_show_notifications"
+    /** Notifications, and the media card (Spotify) that Android 14 shows on the lock screen; the phone's own Music screen replaces both. */
+    private val KEYS = mapOf("lock_screen_show_notifications" to "was", "media_controls_lock_screen" to "was_media")
     private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("lockscreen", Context.MODE_PRIVATE)
 
     fun set(c: Context, hidden: Boolean) {
-        try {
-            val r = c.contentResolver
-            val p = prefs(c)
-            if (hidden) {
-                if (!p.contains("was")) p.edit().putInt("was", Settings.Secure.getInt(r, KEY, 1)).apply()
-                if (Settings.Secure.getInt(r, KEY, 1) != 0) Settings.Secure.putInt(r, KEY, 0)
-            } else if (p.contains("was")) {
-                Settings.Secure.putInt(r, KEY, p.getInt("was", 1))
-                p.edit().remove("was").apply()
-            }
-        } catch (e: Exception) { Log.log(c, "lock screen notes: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
+        val r = c.contentResolver
+        val p = prefs(c)
+        for ((key, saved) in KEYS) {
+            try {
+                if (hidden) {
+                    if (!p.contains(saved)) p.edit().putInt(saved, Settings.Secure.getInt(r, key, 1)).apply()
+                    if (Settings.Secure.getInt(r, key, 1) != 0) Settings.Secure.putInt(r, key, 0)
+                } else if (p.contains(saved)) {
+                    Settings.Secure.putInt(r, key, p.getInt(saved, 1))
+                    p.edit().remove(saved).apply()
+                }
+            } catch (e: Exception) { Log.log(c, "lock screen $key: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
+        }
     }
 }
 
