@@ -172,9 +172,14 @@ class NokiaSkin : LauncherSkin {
 
         /** The weather row on the home screen: symbol, temperature and a note when rain is on its way. */
         private fun weatherStrip(c: Canvas, w: WeatherData, u: Float) {
-            weatherIcon(c, w.icon, 64f, 392f, 62f, u)
-            text(c, "${w.temp}°", 112f, 410f, 46f, u, bold = true)
-            w.hint()?.let { text(c, it, 464f, 404f, 24f, u, align = Paint.Align.RIGHT) }
+            // centred: symbol and temperature as one group, the rain note under it
+            val temp = "${w.temp}°"
+            p.textSize = 46f * sizeScale * u; p.isFakeBoldText = true
+            val tw = p.measureText(temp) / u
+            val left = 240f - (62f + 14f + tw) / 2
+            weatherIcon(c, w.icon, left + 31f, 392f, 62f, u)
+            text(c, temp, left + 76f, 410f, 46f, u, bold = true)
+            w.hint()?.let { text(c, it, 240f, 440f, 24f, u, align = Paint.Align.CENTER) }
         }
 
         private fun weatherScreen(c: Canvas, m: LauncherModel, u: Float) {
@@ -208,7 +213,7 @@ class NokiaSkin : LauncherSkin {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER)
             text(c, i.date, 240f, 332f, 36f, u, align = Paint.Align.CENTER)
-            var y = 450f
+            var y = 486f
             if (i.missedCalls > 0) { text(c, plural(i.missedCalls, "missed call"), 64f, y, 28f, u); y += 40f }
             if (i.newMessages > 0) text(c, plural(i.newMessages, "new message"), 64f, y, 28f, u)
             softKeys(c, i.softLeft, i.softRight, u)

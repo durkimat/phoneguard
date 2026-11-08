@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.CallLog
 import android.view.KeyEvent
+import android.view.View
 import android.view.WindowManager
 import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.VOICE_ASSIST
@@ -40,6 +41,9 @@ class LauncherActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        // if a swipe from the top does reveal the system bar, let it wear the theme's colours instead of a dark strip
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        applyBarColour()
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         WhatsApp.onChange(waChanged)
@@ -108,6 +112,12 @@ class LauncherActivity : Activity() {
                 ui.post { model.predictor = predictor; refresh() }
             } catch (e: Exception) { Log.log(this, "launcher: word list failed: ${e.javaClass.simpleName}") }
         }.start()
+    }
+
+    private fun applyBarColour() {
+        val t = Themes.byId(prefs().getString("theme", Themes.DEFAULT))
+        window.statusBarColor = t.lcd; window.navigationBarColor = t.lcd
+        window.decorView.systemUiVisibility = if (android.graphics.Color.luminance(t.lcd) > 0.5f) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0
     }
 
     private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -203,7 +213,7 @@ class LauncherActivity : Activity() {
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
-            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); Thread { LockWallpaper.apply(this, a.id) }.start(); refresh() }
+            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyBarColour(); Thread { LockWallpaper.apply(this, a.id) }.start(); refresh() }
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)
             // "Call" on a contact or in the call log opens our own dial screen with the number typed; one more press rings
