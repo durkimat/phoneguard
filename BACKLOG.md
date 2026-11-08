@@ -497,3 +497,16 @@ launcher in the same app; (3) notification counts and the status line.
 ## Blaster v2: more of the original (2026-11-08)
 - Added: pod launch/recall with # (flies ahead, fires on its own, comes home), weapon crates (S spread, B bouncing shots, + speed up to 2, P pod; weapon resets to the basic gun when hit), stages of 8 waves ending in a boss with aimed fire and a health bar, stage banner, harder each stage. HUD shows stage, weapon, pod state.
 - Not yet: terrain (floor and ceiling), bits/satellites, missiles, multiple boss types, the upward-scrolling variant, high-score per stage. Needs hands-on tuning of speed, difficulty and key feel.
+
+## Weather on the home screen (owner, 2026-11-08) - research done, not built
+- Wanted: a small outline icon in the theme plus current temperature on the home screen, with a hint when rain is coming (next few hours). Where touch is on, tapping it opens a themed forecast; without touch the forecast is an entry in the menu / Other apps list. Owner likes AccuWeather's four-hour rain forecast but wants everything in our theme, so the data comes from an API and we draw it ourselves.
+- Data sources checked (2026-11-08):
+  - Open-Meteo: free for non-commercial use, no key, under 10,000 calls a day, CC BY 4.0 attribution; has 15-minute precipitation for Europe (good for "rain in the next hours") plus hourly and daily forecasts and a weather code for the icon. Best fit. Still to check on its docs page: the exact attribution wording and the `weather_code` list.
+  - Met Office DataHub: UK, free plan about 360 calls a day, hourly data for 2 days, one location a call; needs an account and key. Good quality for the UK but no minute-level rain on the free plan.
+  - AccuWeather API: MinuteCast (two hours, minute by minute) is billed separately and not in every region; the free plan is small or being withdrawn (conflicting reports, a Home Assistant thread says free Core Weather access is being discontinued). Not a good base.
+  - MET Norway locationforecast: free, global, needs a proper User-Agent; its nowcast does not cover the UK.
+- Plan: fetch from Open-Meteo on a timer (every 30 to 60 minutes, only when the screen has been used, school-friendly), with the location set from HA (a latitude and longitude per child, default home) so the phone never needs location permission. Cache the last answer and show nothing when it is stale. Icons are simple outlines (sun, cloud, rain, snow, storm, mist, night) drawn in code in the theme colours. "Rain in 2h" style hint only when the next 4 hours have more than a little rain. Forecast screen: now, next 12 hours, the next days.
+- Open point: the phone needs internet (the WhatsApp bridge already does); a weather call is small and should respect School silence (no sound, no notification).
+
+## New-message icon on the home screen (owner, 2026-11-08)
+- The home screen shows "N new messages" and "N missed calls" as text lines today. Add a small outline envelope (and a phone-handset outline for missed calls) in the theme beside or in the status bar so a new message is visible at a glance, including WhatsApp when our screens are in use. Ideas: the envelope blinks gently or shows the count; the status bar icon stays when the home text is hidden; check it in all four themes and both fonts.
