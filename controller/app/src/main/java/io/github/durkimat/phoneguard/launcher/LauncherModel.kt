@@ -889,6 +889,7 @@ class LauncherModel(
         if (d >= 0) { shooter.hold(d, true); return Action.Redraw }
         when {
             key == Key.OK || (key == Key.DIGIT && digit == 5) -> shooter.fireDown()
+            key == Key.POUND -> shooter.podToggle()
             key == Key.SOFT_LEFT -> shooter.toggle()
             key == Key.SOFT_RIGHT -> { shooter.reset(); screen = Screen.GAMES; selected = 2 }
             key == Key.END -> { shooter.reset(); goHome() }

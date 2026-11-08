@@ -369,9 +369,14 @@ class NokiaSkin : LauncherSkin {
             fun r(x: Int, y: Int, w: Int, h: Int) = RectF((left + x * cell) * u, (top + y * cell) * u, (left + (x + w) * cell) * u, (top + (y + h) * cell) * u)
             fun clip(x: Int, w: Int) = x >= 0 && x + w <= g.cols
             for (s in g.stars) c.drawRect(r(s[0], s[1], 1, 1).also { it.right = it.left + 2 * u; it.bottom = it.top + 2 * u }, fill)
-            for (cr in g.crates) if (clip(cr[0], 3)) { c.drawRect(r(cr[0], cr[1], 3, 3), stroke); text(c, "P", left + (cr[0] + 1.5f) * cell, top + (cr[1] + 2.6f) * cell, 20f, u, bold = true, align = Paint.Align.CENTER) }
+            for (cr in g.crates) if (clip(cr[0], 3)) { c.drawRect(r(cr[0], cr[1], 3, 3), stroke); text(c, "PSB+"[cr[2]].toString(), left + (cr[0] + 1.5f) * cell, top + (cr[1] + 2.6f) * cell, 20f, u, bold = true, align = Paint.Align.CENTER) }
             for (e in g.enemies) if (clip(e.x, e.w)) {
-                if (e.tank) { c.drawRect(r(e.x, e.y, e.w, e.h), fill); c.drawRect(r(e.x + 2, e.y + 2, e.w - 4, e.h - 4), stroke.also { it.color = lcd }); stroke.color = ink }
+                if (e.kind == 2) {
+                    c.drawRect(r(e.x, e.y, e.w, e.h), fill); c.drawRect(r(e.x + 2, e.y + 3, e.w - 4, e.h - 6), stroke.also { it.color = lcd }); stroke.color = ink
+                    c.drawRect(r(e.x + 4, e.y + e.h / 2 - 1, 4, 2), stroke.also { it.color = lcd }); stroke.color = ink
+                    c.drawRect(r(e.x, e.y - 2, (e.w * e.hp / (28 + 12 * g.stage).coerceAtLeast(1)).coerceIn(0, e.w), 1), fill)
+                }
+                else if (e.tank) { c.drawRect(r(e.x, e.y, e.w, e.h), fill); c.drawRect(r(e.x + 2, e.y + 2, e.w - 4, e.h - 4), stroke.also { it.color = lcd }); stroke.color = ink }
                 else { c.drawRect(r(e.x, e.y, e.w, e.h), stroke); c.drawRect(r(e.x + 1, e.y + 1, 2, 1), fill) }
             }
             for (s in g.shots) if (clip(s[0], 2)) c.drawRect(r(s[0], s[1], 2, 1), fill)
@@ -382,7 +387,7 @@ class NokiaSkin : LauncherSkin {
                 val frac = (g.charge.toFloat() / g.chargeNeeded).coerceAtMost(1f)
                 c.drawRect(r(g.shipX, (g.shipY + g.shipH + 1).coerceAtMost(g.rows - 1), (g.shipW * frac).toInt().coerceAtLeast(1), 1), fill)
             }
-            if (g.hasPod) c.drawRect(r(g.shipX + g.shipW, g.shipY, 3, g.shipH), fill)
+            if (g.hasPod && clip(g.podX, g.podW)) { c.drawRect(r(g.podX, g.podY, g.podW, g.shipH), fill); c.drawRect(r(g.podX + 1, g.podY + 1, 1, g.shipH - 2), stroke.also { it.color = lcd }); stroke.color = ink }
             if (g.invulnerable % 2 == 0) {
                 val rr = r(g.shipX, g.shipY, g.shipW, g.shipH)
                 val path = android.graphics.Path().apply { moveTo(rr.left, rr.top); lineTo(rr.right, (rr.top + rr.bottom) / 2); lineTo(rr.left, rr.bottom); lineTo(rr.left + 2 * cell, (rr.top + rr.bottom) / 2); close() }
@@ -390,7 +395,9 @@ class NokiaSkin : LauncherSkin {
             }
             val msg = when (g.state) { Shooter.State.READY -> "Press OK"; Shooter.State.PAUSED -> "Paused"; Shooter.State.OVER -> "Game over"; else -> null }
             if (msg != null) banner(c, msg, u, 230f)
-            if (g.state == Shooter.State.READY) text(c, "Hold OK to charge a beam", 240f, 340f, 22f, u, align = Paint.Align.CENTER)
+            if (g.banner > 0) banner(c, "Stage ${g.stage}", u, 230f)
+            if (g.state == Shooter.State.READY) { text(c, "Hold OK: beam   #: pod out/in", 240f, 340f, 22f, u, align = Paint.Align.CENTER) }
+            text(c, "Stage ${g.stage}  ${g.weapon.label}  Pod ${when (g.podMode) { Shooter.PodMode.OFF -> "-"; Shooter.PodMode.ATTACHED -> "on"; else -> "out" }}", 16f, 530f, 22f, u)
             text(c, "Score ${g.score}  Lives ${g.lives}", 16f, 556f, 26f, u, bold = true)
             text(c, "Best ${m.shooterBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)

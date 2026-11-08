@@ -493,3 +493,7 @@ launcher in the same app; (3) notification counts and the status line.
 ## Blaster, an R-Type-style shooter (owner request, 2026-11-08)
 - Replaced the simple Shooter with "Blaster": sideways scrolling in a 44x40 cell field with a star background; the ship moves four ways while keys are held (key-up now reaches the launcher); a tap fires; holding OK/5 charges (gauge under the ship) and releasing lets a piercing beam go; weaving drones in lines, straight-flying tanks that shoot back; crates "P" bring a pod that sits at the ship's front, blocks shots, smashes drones and doubles the shots; 3 lives; best score saved. Installed, not yet played (the phone was locked after its restart).
 - Ideas: a boss at the end of a stage, pod launch and detach, more weapons, upward-scrolling variant, stages with names, sound off (School is silent).
+
+## Blaster v2: more of the original (2026-11-08)
+- Added: pod launch/recall with # (flies ahead, fires on its own, comes home), weapon crates (S spread, B bouncing shots, + speed up to 2, P pod; weapon resets to the basic gun when hit), stages of 8 waves ending in a boss with aimed fire and a health bar, stage banner, harder each stage. HUD shows stage, weapon, pod state.
+- Not yet: terrain (floor and ceiling), bits/satellites, missiles, multiple boss types, the upward-scrolling variant, high-score per stage. Needs hands-on tuning of speed, difficulty and key feel.
