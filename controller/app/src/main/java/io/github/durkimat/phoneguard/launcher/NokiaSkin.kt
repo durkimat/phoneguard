@@ -149,17 +149,20 @@ class NokiaSkin : LauncherSkin {
         private fun badgeIcon(c: Canvas, kind: BadgeKind, cx: Float, cy: Float, u: Float) {
             stroke.strokeWidth = 3 * u
             when (kind) {
-                BadgeKind.SMS -> { // an envelope
-                    val r = RectF((cx - 20) * u, (cy - 14) * u, (cx + 20) * u, (cy + 14) * u)
-                    c.drawRect(r, stroke)
-                    c.drawLine((cx - 20) * u, (cy - 14) * u, cx * u, cy * u, stroke); c.drawLine((cx + 20) * u, (cy - 14) * u, cx * u, cy * u, stroke)
-                }
-                BadgeKind.WHATSAPP -> { // a speech bubble with a tail and two lines of text
+                BadgeKind.SMS -> { // a square speech bubble with two lines of text: a text message
                     val r = RectF((cx - 20) * u, (cy - 16) * u, (cx + 20) * u, (cy + 10) * u)
-                    c.drawRoundRect(r, 8 * u, 8 * u, stroke)
+                    c.drawRoundRect(r, 3 * u, 3 * u, stroke)
                     val tail = android.graphics.Path().apply { moveTo((cx - 10) * u, (cy + 10) * u); lineTo((cx - 14) * u, (cy + 20) * u); lineTo((cx - 2) * u, (cy + 10) * u) }
                     c.drawPath(tail, stroke)
                     c.drawLine((cx - 11) * u, (cy - 6) * u, (cx + 11) * u, (cy - 6) * u, stroke); c.drawLine((cx - 11) * u, (cy + 1) * u, (cx + 4) * u, (cy + 1) * u, stroke)
+                }
+                BadgeKind.WHATSAPP -> { // a round bubble with a tail and a small handset inside: a WhatsApp message
+                    c.drawCircle(cx * u, (cy - 2) * u, 18 * u, stroke)
+                    val tail = android.graphics.Path().apply { moveTo((cx - 16) * u, (cy + 10) * u); lineTo((cx - 21) * u, (cy + 21) * u); lineTo((cx - 6) * u, (cy + 15) * u) }
+                    c.drawPath(tail, stroke)
+                    stroke.strokeWidth = 4 * u
+                    c.drawArc(RectF((cx - 9) * u, (cy - 9) * u, (cx + 9) * u, (cy + 9) * u), 200f, 140f, false, stroke)
+                    stroke.strokeWidth = 3 * u
                 }
                 BadgeKind.MISSED -> { // a handset, drawn as an arc with a blob at each end
                     stroke.strokeWidth = 7 * u
