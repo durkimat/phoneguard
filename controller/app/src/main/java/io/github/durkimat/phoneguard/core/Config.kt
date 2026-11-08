@@ -26,6 +26,8 @@ data class ModeDef(
     val wa: String = "open",
     /** Which WhatsApp the menus use: "auto" (the real app when it is installed and allowed), "simple" (our screens) or "full" (the real app). */
     val waApp: String = "auto",
+    /** Whether our themed camera is offered in the menu in this mode. */
+    val camera: Boolean = true,
 )
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
@@ -94,6 +96,7 @@ data class Config(
                     inbound = m.optBoolean("inbound", true),
                     wa = m.optString("wa", "open"),
                     waApp = m.optString("waApp", "auto"),
+                    camera = m.optBoolean("camera", true),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->

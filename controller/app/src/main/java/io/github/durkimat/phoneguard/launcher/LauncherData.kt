@@ -44,13 +44,16 @@ object LauncherData {
     /** True when the mode in force lets the touchscreen work: Android apps are made for touch, so they are only offered then. */
     fun touchAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.touch
 
+    /** True when the mode in force offers the themed camera. */
+    fun cameraAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).camera
+
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
         // our own WhatsApp screens are in Messages: the real app is only offered in the menu when it is the one in use
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            listOf(MenuItem(CAMERA_PKG, "Camera")) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+            (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
