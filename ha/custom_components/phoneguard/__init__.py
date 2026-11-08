@@ -9,7 +9,9 @@ from datetime import timedelta
 import voluptuous as vol
 from aiohttp import web
 
-from homeassistant.components import webhook
+from homeassistant.components import webhook, websocket_api
+from homeassistant.components.http import HomeAssistantView
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -18,6 +20,7 @@ from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN, NUDGE_ACTION, NUDGE_PACKAGE, STORAGE_KEY, STORAGE_VERSION
+from . import spotify as SP
 from .hub import Hub
 
 _LOGGER = logging.getLogger(__name__)
@@ -32,6 +35,7 @@ class Manager:
         self.webhook_id = data.setdefault("webhook_id", webhook.async_generate_id())
         self.qr: dict[str, dict] = {}  # transient: the pairing QR shown on the card
         self._last_nudge: dict[str, float] = {}
+        self.sp_pending = SP.Pending()  # Spotify sign-ins in progress
 
     # ---- persistence and published state ----------------------------------------------------
 
@@ -119,6 +123,80 @@ class Manager:
             _LOGGER.debug("Rejected request: %s", reply["error"])
         self.changed()
         return web.json_response(reply)
+
+
+_DONE_PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phone Guard</title><body style="font-family:system-ui,sans-serif;max-width:30em;margin:3em auto;padding:0 1em">
+<h2>{title}</h2><p>{text}</p>"""
+
+
+class SpotifyCallback(HomeAssistantView):
+    """Spotify sends the browser back here with a code. No login is needed (the browser may be any browser), so the
+    one-time `state` made when Sign in was pressed is what proves it is ours."""
+
+    url = SP.CALLBACK_PATH
+    name = "api:phoneguard:spotify_callback"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        mgr: Manager | None = request.app["hass"].data.get(DOMAIN)
+
+        def page(title: str, text: str, status: int = 200) -> web.Response:
+            return web.Response(text=_DONE_PAGE.format(title=title, text=text), content_type="text/html", status=status)
+
+        if mgr is None:
+            return page("Phone Guard is not running", "Try again in a minute.", 503)
+        q = request.query
+        p = mgr.sp_pending.take(q.get("state", ""))
+        if p is None:
+            return page("This sign-in link has expired", "Press Sign in again on the Phone Guard card.", 400)
+        if "error" in q or "code" not in q:
+            return page("Spotify was not signed in", f"Spotify said: {q.get('error', 'no code')}. You can close this and try again.", 400)
+        session = async_get_clientsession(mgr.hass)
+        try:
+            async with session.post(SP.TOKEN_URL, data=SP.token_form(p, q["code"])) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status != 200 or not body.get("refresh_token"):
+                    _LOGGER.warning("Spotify sign-in refused: %s", body.get("error_description") or body.get("error"))
+                    return page("Spotify refused the sign-in", str(body.get("error_description") or body.get("error") or resp.status), 400)
+            name = ""
+            try:  # only to show whose account it is
+                async with session.get("https://api.spotify.com/v1/me", headers={"Authorization": "Bearer " + body["access_token"]}) as me:
+                    if me.status == 200:
+                        name = (await me.json(content_type=None)).get("display_name") or ""
+            except Exception:  # not needed
+                pass
+        except Exception as err:
+            _LOGGER.warning("Spotify sign-in failed: %s", type(err).__name__)
+            return page("Could not reach Spotify", "Try again in a minute.", 502)
+        if p["child"] not in mgr.hub.data["children"]:
+            return page("That phone no longer exists", "Nothing was saved.", 400)
+        mgr.hub.set_spotify(p["child"], body["refresh_token"], name)
+        mgr.changed(p["child"])
+        who = f" as {name}" if name else ""
+        return page("Signed in to Spotify", f"The phone will pick this up the next time it checks in (a minute or two){who}. You can close this page.")
+
+
+@websocket_api.websocket_command({vol.Required("type"): "phoneguard/spotify_start", vol.Required("child"): cv.slug, vol.Required("origin"): cv.string})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_spotify_start(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """The card asks where to send the browser to sign in. The reply is the Spotify address and the return address to register."""
+    mgr: Manager = hass.data[DOMAIN]
+    if msg["child"] not in mgr.hub.data["children"]:
+        connection.send_error(msg["id"], "not_found", "Unknown device")
+        return
+    client_id = (mgr.hub.data.get("options") or {}).get("spotify_client_id", "")
+    if not client_id:
+        connection.send_error(msg["id"], "no_client_id", "Enter the Spotify Client ID first")
+        return
+    try:
+        url = mgr.sp_pending.start(msg["child"], client_id, msg["origin"])
+        redirect = SP.redirect_uri(msg["origin"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "bad_origin", str(err))
+        return
+    connection.send_result(msg["id"], {"url": url, "redirect": redirect})
 
 
 CHILD = vol.Schema({vol.Required("child"): cv.string}, extra=vol.ALLOW_EXTRA)
@@ -270,7 +348,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.states.async_remove(f"sensor.phoneguard_{cid}")
         mgr.changed()
 
+    async def spotify_signout(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call); mgr.hub.set_spotify(cid, None); mgr.changed(cid)
+
+    hass.http.register_view(SpotifyCallback())
+    websocket_api.async_register_command(hass, ws_spotify_start)
     reg = hass.services.async_register
+    reg(DOMAIN, "spotify_signout", spotify_signout, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "create_pairing", create_pairing, vol.Schema({vol.Required("child"): cv.slug, vol.Optional("name"): cv.string, vol.Optional("person"): cv.string}), supports_response=SupportsResponse.OPTIONAL)
     reg(DOMAIN, "confirm_pairing", confirm_pairing, vol.Schema({vol.Required("child"): cv.slug, vol.Required("sas"): cv.string}))
     reg(DOMAIN, "boost", boost, vol.Schema({vol.Required("child"): cv.slug, vol.Optional("mode", default="day"): cv.string, vol.Optional("minutes", default=15): vol.All(int, vol.Range(min=1, max=180)), vol.Optional("extend", default=True): cv.boolean}))
@@ -303,7 +388,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override"):
+                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True

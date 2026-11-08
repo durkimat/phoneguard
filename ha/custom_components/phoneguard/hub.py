@@ -53,6 +53,16 @@ class Hub:
             else:
                 opts.pop(k, None)
 
+    def set_spotify(self, cid: str, refresh: str | None, name: str = "") -> None:
+        """Keep (or clear) the Spotify refresh token for one phone. Never part of what the card can edit or copy."""
+        ch = self.data["children"][cid]
+        if refresh:
+            ch["spotify_refresh"] = refresh
+            ch["spotify_name"] = name
+        else:
+            ch.pop("spotify_refresh", None)
+            ch.pop("spotify_name", None)
+
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
         allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide"}
@@ -371,6 +381,7 @@ class Hub:
             "pinned": list(ch.get("pinned") or []),
             "notes_hide": list(ch.get("notes_hide") or []),
             "location": ch.get("location"),
+            "spotify": {"signed_in": bool(ch.get("spotify_refresh")), "name": ch.get("spotify_name", "")},
         }
         pairing = next(((d, p) for d, p in self.data["pairing"].items() if p["child"] == cid), None)
         if pairing and pairing[1]["expires"] > now:

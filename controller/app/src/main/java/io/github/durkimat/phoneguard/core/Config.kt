@@ -79,6 +79,8 @@ data class Config(
     val notesHide: Set<String> = emptySet(),
     /** The Spotify developer app's Client ID (public, no secret), set once in HA; empty means Spotify is not set up. */
     val spotifyClientId: String = "",
+    /** The Spotify refresh token HA holds for this phone after a sign-in done in HA; empty when signed out there. */
+    val spotifyRefresh: String = "",
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -145,6 +147,7 @@ data class Config(
                 lon = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lon"),
                 notesHide = strings(o.optJSONArray("notesHide")),
                 spotifyClientId = o.optString("spotifyClientId", ""),
+                spotifyRefresh = o.optString("spotifyRefresh", ""),
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

@@ -1,8 +1,8 @@
-/* Phone Guard card v0.15.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.16.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.14.0";
+const PG_VERSION = "0.16.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -414,12 +414,22 @@ class PhoneGuardCard extends HTMLElement {
       <div class="sub">Shows a small weather symbol, the temperature and any rain coming in the next few hours on the home screen, and a Weather entry in the menu. Data by Open-Meteo.com. The place is rounded to about 100 metres.</div>`;
   }
 
-  // the Spotify developer app's Client ID: public by design, entered once for every phone (never the client secret)
+  // Spotify: the developer app's Client ID (public by design, entered once for every phone, never the client secret) and
+  // this phone's sign-in, done here in the browser so nothing is typed on the keypad phone
   _spotifyHtml(d) {
     const id = (d.options || {}).spotify_client_id || "";
-    return `<h3>Spotify</h3><div class="row"><input data-sp-id type="text" size="36" maxlength="32" placeholder="Client ID (32 letters and digits)" value="${this._esc(id)}">
+    const sp = d.spotify || {}, ui = this._ui, link = ui.spLink && ui.spLink.child === d.child ? ui.spLink : null;
+    let h = `<h3>Spotify</h3><div class="row"><input data-sp-id type="text" size="36" maxlength="32" placeholder="Client ID (32 letters and digits)" value="${this._esc(id)}">
       <button data-act="sp_save">Save</button>${id ? `<button data-act="sp_clear">Remove</button>` : ""}</div>
-      <div class="sub">${id ? "The phone shows Music, sign in with the Spotify account." : "Register an app at developer.spotify.com/dashboard (steps in docs/spotify-setup.md) and paste its Client ID here. Never paste the Client secret."}</div>`;
+      <div class="sub">${id ? "" : "Register an app at developer.spotify.com/dashboard (steps in docs/spotify-setup.md) and paste its Client ID here. Never paste the Client secret."}</div>`;
+    if (!id) return h;
+    h += `<div class="row" style="margin-top:8px"><span>${sp.signed_in ? `Signed in${sp.name ? " as " + this._esc(sp.name) : ""}` : "Not signed in"}</span>
+      <button data-act="sp_signin">${sp.signed_in ? "Sign in again" : "Sign in with Spotify"}</button>${sp.signed_in ? `<button data-act="sp_signout">Sign out</button>` : ""}</div>`;
+    if (link && link.error) h += `<div class="sub" style="color:var(--error-color,#c00)">${this._esc(link.error)}</div>`;
+    else if (link) h += `<div class="sub"><a href="${this._esc(link.url)}" target="_blank" rel="noopener">Continue to Spotify</a> (opens in a new tab; sign in with the account the phone should use).
+      The first time, add this address under Redirect URIs in the Spotify app's settings: <code>${this._esc(link.redirect)}</code></div>`;
+    else h += `<div class="sub">The phone picks up the sign-in by itself a minute or two afterwards. Needs the https address of Home Assistant.</div>`;
+    return h;
   }
 
   _copyHtml(d) {
@@ -738,6 +748,13 @@ class PhoneGuardCard extends HTMLElement {
       const v = a === "sp_clear" ? "" : (this.shadowRoot.querySelector("[data-sp-id]") || {}).value || "";
       return this._hass.callService("phoneguard", "set_options", { spotify_client_id: v.trim() });
     }
+    if (a === "sp_signin") {
+      ui.spLink = null;
+      return this._hass.connection.sendMessagePromise({ type: "phoneguard/spotify_start", child: d.child, origin: window.location.origin })
+        .then((r) => { ui.spLink = { child: d.child, url: r.url, redirect: r.redirect }; this._render(); })
+        .catch((err) => { ui.spLink = { child: d.child, error: (err && err.message) || String(err) }; this._render(); });
+    }
+    if (a === "sp_signout") { ui.spLink = null; return this._svc("spotify_signout", {}); }
     if (a === "wx_home") { const h = this._hass.config; return this._svc("set_child", { config: { location: { lat: h.latitude, lon: h.longitude } } }); }
     if (a === "wx_off") return this._svc("set_child", { config: { location: null } });
     if (a === "select_person") {
