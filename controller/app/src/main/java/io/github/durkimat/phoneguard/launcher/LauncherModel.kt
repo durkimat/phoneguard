@@ -53,6 +53,8 @@ object Fonts {
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
 const val WEATHER_PKG = "pg:weather"
+/** Rows that fit between the title bar and the soft keys. */
+const val LIST_VISIBLE = 7
 const val GAMES_PKG = "pg:games"
 const val APPS_PKG = "pg:apps"
 const val CALC_PKG = "pg:calculator"
@@ -291,7 +293,7 @@ class LauncherModel(
         Screen.WASET -> "WhatsApp"
         Screen.WANAMES -> "Names in lists"
         Screen.APPS -> "Other apps"
-        Screen.GAMES -> "Games"
+        Screen.GAMES -> "Classic Games"
         Screen.SNAKE -> "Snake"
         Screen.PAIRS -> "Pairs"
         Screen.SHOOTER -> "Blaster"
@@ -863,11 +865,36 @@ class LauncherModel(
     private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
         Screen.APPS, Screen.GAMES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
+    private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
+
+    private var listTop = 0
+    private var listScreen: Screen? = null
+
+    /** The first row on screen in a list [visible] rows tall: it moves only as far as needed to keep the chosen row in view, or when swiped. */
+    fun listFirst(visible: Int): Int {
+        if (screen != listScreen) { listScreen = screen; listTop = 0 }
+        if (selected < listTop) listTop = selected else if (selected > listTop + visible - 1) listTop = selected - visible + 1
+        listTop = listTop.coerceIn(0, (rows.size - visible).coerceAtLeast(0))
+        return listTop
+    }
+
+    /** A swipe moved the list by this many rows (positive shows later rows). True if anything moved. */
+    fun scrollBy(deltaRows: Int): Boolean {
+        if (screen !in rowScreens || screen in noTouch) return false
+        listFirst(LIST_VISIBLE)
+        val n = (listTop + deltaRows).coerceIn(0, (rows.size - LIST_VISIBLE).coerceAtLeast(0))
+        if (n == listTop) return false
+        listTop = n
+        selected = selected.coerceIn(listTop, (listTop + LIST_VISIBLE - 1).coerceAtMost((rows.size - 1).coerceAtLeast(0)))
+        return true
+    }
+
     /**
      * A touch, in the 480 by 640 design grid. Only reaches us where a mode allows touch (School blocks it). The two soft-key labels
      * at the bottom work as keys, a row in a list is chosen, and the weather on the home screen opens the forecast.
      */
     fun tap(x: Float, y: Float): Action {
+        if (screen in noTouch) return Action.None // the games stay keypad classics
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
         if (screen == Screen.HOME) {
             if (y in 345f..440f) return openWeather()
@@ -875,9 +902,7 @@ class LauncherModel(
             return Action.None
         }
         if (screen in rowScreens && y >= 104f) {
-            val visible = 7
-            val first = (selected - visible + 1).coerceAtLeast(0).coerceAtMost((rows.size - visible).coerceAtLeast(0))
-            val idx = first + ((y - 104f) / 62f).toInt()
+            val idx = listFirst(LIST_VISIBLE) + ((y - 104f) / 62f).toInt()
             if (idx in rows.indices) { selected = idx; return onKey(Key.OK) }
         }
         return Action.None
