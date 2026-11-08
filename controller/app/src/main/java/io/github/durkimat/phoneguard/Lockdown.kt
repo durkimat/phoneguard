@@ -29,7 +29,6 @@ object LockdownEnforcer {
         Pregrant.run(c, visible)
         HomeApp.apply(c, ld.launcher == "nokia")
         RotationLock.set(c, locked = ld.launcher == "nokia")
-        LocationLock.set(c, off = ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)

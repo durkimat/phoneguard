@@ -1,8 +1,8 @@
-/* Phone Guard card v0.12.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.13.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.12.0";
+const PG_VERSION = "0.13.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -389,6 +389,8 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>WhatsApp app</td>${ids.map((m) => `<td><select data-mode-opt="wa_app" data-mode="${m}">${[["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa_app || "auto") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Incoming calls allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="inbound" data-mode="${m}" ${d.modes[m].inbound !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Camera offered</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="camera" data-mode="${m}" ${d.modes[m].camera !== false ? "checked" : ""}></td>`).join("")}</tr>
+      <tr class="opt"><td>Location</td>${ids.map((m) => `<td><select data-mode-opt="location" data-mode="${m}">${[["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].location || "off") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
+      <tr class="opt"><td>Location every</td>${ids.map((m) => `<td><select data-mode-opt="loc_every" data-mode="${m}" ${(d.modes[m].location || "off") === "off" ? "disabled" : ""}>${[[0, "Live"], [1, "1 min"], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].loc_every ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
       h += `<tr><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
@@ -691,6 +693,8 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "sound") modes[mode].sound = i.value;
     if (opt === "wa") modes[mode].wa = i.value;
     if (opt === "wa_app") modes[mode].wa_app = i.value;
+    if (opt === "location") modes[mode].location = i.value;
+    if (opt === "loc_every") modes[mode].loc_every = parseInt(i.value, 10);
     if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound" || opt === "camera") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
       modes[mode].allowAll = i.checked;

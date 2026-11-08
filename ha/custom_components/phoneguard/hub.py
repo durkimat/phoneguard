@@ -78,6 +78,10 @@ class Hub:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp check setting {m['wa']!r}")
             if m.get("wa_app", "auto") not in S.WA_APPS:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp app setting {m['wa_app']!r}")
+            if m.get("location", "off") not in S.LOC_MODES:
+                raise ValueError(f"mode {mid!r} has an unknown location setting {m['location']!r}")
+            if not isinstance(m.get("loc_every", 30), int) or isinstance(m.get("loc_every", 30), bool) or not 0 <= m.get("loc_every", 30) <= 1440:
+                raise ValueError(f"mode {mid!r} needs location minutes between 0 (live) and 1440")
             if m.get("sound", "normal") not in S.SOUNDS:
                 raise ValueError(f"mode {mid!r} has an unknown sound setting {m['sound']!r}")
         w = S.whatsapp_with_defaults(ch)
