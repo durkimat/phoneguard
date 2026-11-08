@@ -31,6 +31,7 @@ object Controller {
         }
         Enforcer.grantOwnPermissions(app)
         Enforcer.ensureSideButton(app)
+        Enforcer.ensureNoteListener(app)
         PowerLog.sample(app, "eval")
         val now = Clock.now()
         val cfg = Store.config(app)
@@ -45,6 +46,12 @@ object Controller {
         LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app))
         LocationLock.set(app, off = eff.location == "off")
         LocationReporter.apply(app, eff.location, eff.locEvery)
+        // notifications: on or off for this mode, and the apps HA hides; run the current ones through the rules again when that changed
+        val hide = cfg?.notesHide ?: emptySet()
+        if (io.github.durkimat.phoneguard.notes.Notes.enabled != (eff.notes == "show") || io.github.durkimat.phoneguard.notes.Notes.extraHidden != hide) {
+            io.github.durkimat.phoneguard.notes.Notes.enabled = eff.notes == "show"; io.github.durkimat.phoneguard.notes.Notes.extraHidden = hide
+            io.github.durkimat.phoneguard.notes.NoteService.instance?.reapply()
+        }
         val soundNote = SoundEnforcer.apply(app, eff.sound)
         try { io.github.durkimat.phoneguard.whatsapp.WhatsApp.apply(app, cfg, eff) } catch (e: Throwable) { Log.log(app, "whatsapp apply failed: ${e.javaClass.simpleName}") }
 

@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -53,6 +53,7 @@ object Fonts {
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
 const val CAMERA_PKG = "pg:camera"
+const val NOTES_PKG = "pg:notes"
 const val WEATHER_PKG = "pg:weather"
 /** Rows that fit between the title bar and the soft keys. */
 const val LIST_VISIBLE = 7
@@ -110,6 +111,10 @@ sealed class Action {
     object CloseCall : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
+    /** Open the app a notification came from, and clear it. */
+    data class OpenNote(val key: String) : Action()
+    data class ClearNote(val key: String) : Action()
+    object ClearNotes : Action()
     /** Place a call to the number just dialled. */
     data class PlaceCall(val number: String) : Action()
     /** Send this text message. */
@@ -306,6 +311,8 @@ class LauncherModel(
         Screen.GAMEHELP -> gameNames[helpGame]
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
+        Screen.NOTES -> "Notifications"
+        Screen.NOTE -> "Notification"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -326,6 +333,8 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
+        Screen.NOTES -> "Open" to "Back"
+        Screen.NOTE -> "Open" to "Back"
         Screen.DIAL -> "Call" to "Clear"
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
@@ -348,7 +357,8 @@ class LauncherModel(
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
-        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY -> emptyList()
+        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE -> emptyList()
+        Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
@@ -394,6 +404,8 @@ class LauncherModel(
         Screen.GAMEHELP -> gameHelp(key, digit)
         Screen.WEATHER -> weatherKey(key)
         Screen.BATTERY -> batteryKey(key)
+        Screen.NOTES -> notesKey(key)
+        Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
         Screen.PAIRS -> pairsKey(key, digit)
         Screen.SHOOTER -> shooterKey(key, digit)
@@ -806,6 +818,7 @@ class LauncherModel(
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
+        item.pkg == NOTES_PKG -> { notesFrom = Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
         item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }
@@ -875,7 +888,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -929,6 +942,7 @@ class LauncherModel(
         BadgeKind.SMS -> { homeEntry = true; threadWa = false; screen = Screen.INBOX; selected = convos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); Action.Redraw }
         BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
+        BadgeKind.NOTES -> { notesFrom = Screen.HOME; screen = Screen.NOTES; selected = 0; Action.Redraw }
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
@@ -936,6 +950,29 @@ class LauncherModel(
 
     /** The numbers on the battery page; the activity fills them in while the page is open. */
     var battery: BatteryInfo? = null
+
+    /** The notifications, newest first (the activity fills this in). */
+    var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
+    private var noteKeyShown: String? = null
+    private var notesFrom = Screen.MENU
+
+    private fun notesKey(key: Key): Action = move(key, notes.size + (if (notes.isEmpty()) 0 else 1)) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (notes.isEmpty()) Action.None else if (selected >= notes.size) Action.ClearNotes else { noteKeyShown = notes[selected].key; screen = Screen.NOTE; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (notesFrom == Screen.HOME) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == NOTES_PKG }.coerceAtLeast(0) }; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    /** The note being read: OK opens its app (and clears it), 0 clears it, Back returns to the list. */
+    val currentNote: io.github.durkimat.phoneguard.notes.NoteItem? get() = notes.firstOrNull { it.key == noteKeyShown }
+
+    private fun noteDetailKey(key: Key, digit: Int): Action = when {
+        key == Key.OK || key == Key.LEFT || key == Key.SOFT_LEFT -> currentNote?.let { Action.OpenNote(it.key) } ?: Action.None
+        key == Key.DIGIT && digit == 0 -> currentNote?.let { screen = Screen.NOTES; selected = 0; Action.ClearNote(it.key) } ?: Action.None
+        key == Key.RIGHT || key == Key.SOFT_RIGHT -> { screen = Screen.NOTES; Action.Redraw }
+        key == Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
 
     private fun batteryKey(key: Key): Action {
         when (key) {
@@ -1099,7 +1136,7 @@ class LauncherModel(
     }
 }
 
-enum class BadgeKind { SMS, WHATSAPP, MISSED }
+enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES }
 data class Badge(val kind: BadgeKind, val count: Int)
 
 /** The battery page: level, charging, a rough time left, today's screen time and the apps that used it most. */
