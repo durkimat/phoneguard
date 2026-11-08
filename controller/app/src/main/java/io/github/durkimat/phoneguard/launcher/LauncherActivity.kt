@@ -183,6 +183,11 @@ class LauncherActivity : Activity() {
     private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)
 
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
+        // the side button of the J36 sends F2 (from the pmic key input, next to power): it opens the camera, unless a call is on or the mode has no camera
+        if (ev.keyCode == KeyEvent.KEYCODE_F2) {
+            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0 && model.screen != Screen.CALL && LauncherData.cameraAllowed(this)) perform(Action.OpenCamera)
+            return true
+        }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(model.onKey(k.first, k.second))
         else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
