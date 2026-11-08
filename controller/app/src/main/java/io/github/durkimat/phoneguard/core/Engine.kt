@@ -13,7 +13,7 @@ data class Lockdown(val launcher: String, val touch: Boolean, val shade: Boolean
 }
 
 /** Everything the enforcer needs for one moment. Equal values mean no visible change. */
-data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open")
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open", val waApp: String = "auto")
 
 object Engine {
     const val EMERGENCY = "emergency"
@@ -50,6 +50,7 @@ object Engine {
         var sound = s.sound
         var inbound = s.inbound
         var wa = s.wa
+        var waApp = s.waApp
         if (boost != null && now < boost.until) {
             val b = modeDef(cfg, boost.mode)
             all = all || b.allowAll
@@ -58,13 +59,26 @@ object Engine {
             sound = louder(sound, b.sound)
             inbound = inbound || b.inbound
             wa = moreOften(wa, b.wa)
+            waApp = moreFull(waApp, b.waApp)
             ld = Lockdown(
                 launcher = if (ld.launcher == "default" || b.launcher == "default") "default" else ld.launcher,
                 touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
             )
         }
-        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa)
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa, waApp)
     }
+
+    /** The more open of two "WhatsApp app" settings (a boost never takes the real app away). */
+    fun moreFull(a: String, b: String): String {
+        val order = listOf("simple", "auto", "full")
+        return if (order.indexOf(a) >= order.indexOf(b)) a else b
+    }
+
+    /**
+     * Whether the real WhatsApp app is used instead of our simple screens: when the mode says "full" or "auto" and the real
+     * app is installed and visible in this mode. If it is not there, our screens are used whatever was asked.
+     */
+    fun useRealWhatsApp(waApp: String, realAvailable: Boolean): Boolean = realAvailable && waApp != "simple"
 
     /** The more frequent of two WhatsApp check settings (a boost never makes it check less). */
     fun moreOften(a: String, b: String): String {

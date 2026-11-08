@@ -1,8 +1,8 @@
-/* Phone Guard card v0.8.2. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.9.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.8.2";
+const PG_VERSION = "0.9.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -385,6 +385,7 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>Pull-down shade works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="shade" data-mode="${m}" ${d.modes[m].shade !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Sound</td>${ids.map((m) => `<td><select data-mode-opt="sound" data-mode="${m}">${[["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].sound || "normal") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>WhatsApp checks</td>${ids.map((m) => `<td><select data-mode-opt="wa" data-mode="${m}">${[["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa || "open") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
+      <tr class="opt"><td>WhatsApp app</td>${ids.map((m) => `<td><select data-mode-opt="wa_app" data-mode="${m}">${[["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa_app || "auto") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Incoming calls allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="inbound" data-mode="${m}" ${d.modes[m].inbound !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
@@ -394,7 +395,7 @@ class PhoneGuardCard extends HTMLElement {
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
         }).join("") + `</tr>`;
     }
-    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp checks: Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
+    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
       <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
   }
 
@@ -634,6 +635,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "launcher") modes[mode].launcher = i.value;
     if (opt === "sound") modes[mode].sound = i.value;
     if (opt === "wa") modes[mode].wa = i.value;
+    if (opt === "wa_app") modes[mode].wa_app = i.value;
     if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
       modes[mode].allowAll = i.checked;

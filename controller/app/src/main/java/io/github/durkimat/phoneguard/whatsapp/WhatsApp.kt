@@ -177,7 +177,7 @@ object WhatsApp {
      * by WhatsApp and delivered at once on reconnect (the spike caught up two hours of messages instantly).
      */
     fun touch(c: Context) {
-        if (!linked(c)) return // nothing to connect to until an account is linked
+        if (!linked(c) || io.github.durkimat.phoneguard.launcher.LauncherData.useRealWhatsApp(c)) return // nothing to connect to until an account is linked
         if (policy(c) == "off") { status = "off"; fire(); return } // the mode says no WhatsApp at all
         main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
         if (isConnected()) return
@@ -196,6 +196,10 @@ object WhatsApp {
      */
     fun apply(c: Context, cfg: Config?, eff: Effective) {
         if (!linked(c)) { cancelAlarm(c); return }
+        // the real WhatsApp is in use: only one client should be on the phone, so ours stands down completely
+        if (Engine.useRealWhatsApp(eff.waApp, io.github.durkimat.phoneguard.Enforcer.launcherPackages(c).contains(io.github.durkimat.phoneguard.launcher.LauncherData.WHATSAPP))) {
+            cancelAlarm(c); main.removeCallbacks(idleOff); bridge?.disconnect(); return
+        }
         cfg?.whatsapp?.let { w ->
             setAllowed(c, w.allowed.joinToString("\n"), w.all)
             open(c)?.setLimits(w.perMinute.toLong(), w.perDay.toLong())
@@ -226,7 +230,7 @@ object WhatsApp {
     fun poll(c: Context) {
         val app = c.applicationContext
         val p = policy(app)
-        if (!linked(app) || (p != "30" && p != "60")) return
+        if (!linked(app) || (p != "30" && p != "60") || io.github.durkimat.phoneguard.launcher.LauncherData.useRealWhatsApp(app)) return
         if (!polling.compareAndSet(false, true)) return
         try {
             val wasOn = isConnected()

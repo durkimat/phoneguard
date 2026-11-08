@@ -11,17 +11,19 @@ WINDOW_DAYS = 14
 
 
 # What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
-LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa")
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app")
 SOUNDS = ("normal", "vibrate", "silent")
 # how WhatsApp may check for messages in a mode: never, only when opened, or briefly every 30 or 60 minutes
 WA_CHECKS = ("off", "open", "30", "60")
+# which WhatsApp the phone's menus use: the real app when it is installed and allowed (auto), our simple screens, or the real app
+WA_APPS = ("auto", "simple", "full")
 CLOCK = "com.android.deskclock"
 
 
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
-        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open"}
-    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30"}
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple"}
+    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto"}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:
@@ -109,7 +111,8 @@ def build_config(child: dict, now_ms: int) -> dict:
                       "launcher": "nokia" if m["launcher"] == "nokia" else "default",
                       "touch": bool(m["touch"]), "shade": bool(m["shade"]), "kiosk": bool(m["kiosk"]),
                       "sound": m["sound"] if m["sound"] in SOUNDS else "normal", "inbound": bool(m["inbound"]),
-                      "wa": m["wa"] if m["wa"] in WA_CHECKS else "open"}
+                      "wa": m["wa"] if m["wa"] in WA_CHECKS else "open",
+                      "waApp": m["wa_app"] if m["wa_app"] in WA_APPS else "auto"}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,

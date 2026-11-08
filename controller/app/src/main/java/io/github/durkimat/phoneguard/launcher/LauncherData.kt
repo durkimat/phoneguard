@@ -34,9 +34,16 @@ object LauncherData {
     /** Menu order: calls and messages first, the way a classic phone puts them. */
     private val preferred = listOf(DIALER, MESSAGES, WHATSAPP, CONTACTS)
 
+    /** True when the real WhatsApp app is what the menus use in the mode in force (see [Engine.useRealWhatsApp]). */
+    fun useRealWhatsApp(c: Context): Boolean {
+        val eff = Engine.effective(Store.config(c), Store.boost(c), Clock.now())
+        return Engine.useRealWhatsApp(eff.waApp, Enforcer.launcherPackages(c).contains(WHATSAPP))
+    }
+
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
-        val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName
+        // our own WhatsApp screens are in Messages: the real app is only offered in the menu when it is the one in use
+        val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
             listOf(MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
@@ -81,7 +88,7 @@ object LauncherData {
             date = SimpleDateFormat("EEE d MMM", Locale.UK).format(date),
             modeLine = if (cfg?.override != null && cfg.modes.containsKey(cfg.override)) name else if (until != null) "$name until $until" else name,
             missedCalls = missedCalls(c),
-            newMessages = newMessages(c) + (if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
+            newMessages = newMessages(c) + (if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
             batteryPct = if (level >= 0) level * 100 / scale else 0,
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
             signalBars = signal(c),
