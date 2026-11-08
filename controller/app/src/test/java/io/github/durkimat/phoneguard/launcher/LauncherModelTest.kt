@@ -532,9 +532,9 @@ class LauncherModelTest {
         m.waEnabled = true; m.waLinked = true
         m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
         assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "WhatsApp"), m.rows)
-        m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Unlink account"), m.rows)
+        m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
         assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
-        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.SETTINGS, m.screen)
+        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.SETTINGS, m.screen)
     }
 
     @Test fun whatsAppSwitchedOffByTheModeIsNotOfferedAtAll() {
@@ -555,5 +555,40 @@ class LauncherModelTest {
         assertEquals(17, m.selected); assertEquals("message 18", m.convoText())
         m.onKey(Key.SOFT_RIGHT); for (i in 1..9) m.onKey(Key.DOWN) // back on row 3, then nine down: row 12 of 21
         m.setItems(menu); assertEquals(12, m.selected)
+    }
+
+    @Test fun chatPreviewsShortenSendersAndTheStyleIsChosenInSettings() {
+        val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
+        m.waEnabled = true; m.waLinked = true
+        m.waConvos = listOf(Convo("g1", "Family", listOf(Msg("see you at six", 1000, false, "Karen Durkin"), Msg("ok", 2000, true), Msg("who is up", 3000, false, "John Paul Smith")), 0))
+        // the default is first and last initials
+        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK) // menu, Messages, WhatsApp, the Family chat
+        assertEquals(Screen.CHAT, m.screen)
+        assertEquals(listOf("Reply", "< JS: who is up", "> ok", "< KD: see you at six"), m.rows)
+        // choose another style: Settings > WhatsApp > Names in lists
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT) // back to the menu
+        m.onKey(Key.UP); m.onKey(Key.OK) // Settings
+        m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen)
+        m.onKey(Key.DIGIT, 2); assertEquals(Screen.WANAMES, m.screen)
+        assertEquals(listOf("First+last initials *", "All initials", "First name, 5 letters", "Full name"), m.rows)
+        assertEquals(Action.SaveNameStyle("first5"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WASET, m.screen)
+        m.waConvos.first().let { /* the chat is already open in the model: rows follow the style at once */ }
+        assertEquals("first5", m.waNameStyle)
+    }
+
+    @Test fun readingAMessageStillShowsTheFullNameAndOnlyTheText() {
+        val m = wa(); m.waConvos = listOf(Convo("g1", "Family", listOf(Msg("see you at six", 1000, false, "Karen Durkin")), 0))
+        open(m); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK); m.onKey(Key.DIGIT, 2) // the first message
+        assertEquals(Screen.THREAD, m.screen); assertEquals("see you at six", m.convoText()); assertEquals("Karen Durkin", m.shownMsg?.sender)
+    }
+
+    @Test fun thePhoneEntryOpensOurDialScreenNotTheStockDialler() {
+        val m = LauncherModel(listOf(MenuItem("com.android.dialer", "Phone"), MenuItem("p.camera", "Camera")), "com.android.contacts", "com.android.messaging")
+        m.onKey(Key.OK)
+        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber)
+        m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber)
+        // the camera still launches normally
+        val c = LauncherModel(listOf(MenuItem("p.camera", "Camera")), "com.android.contacts", "com.android.messaging"); c.onKey(Key.OK)
+        assertEquals(Action.Launch("p.camera"), c.onKey(Key.OK))
     }
 }

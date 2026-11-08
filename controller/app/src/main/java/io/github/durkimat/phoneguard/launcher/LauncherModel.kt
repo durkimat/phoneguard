@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -21,7 +21,8 @@ data class CallInfo(
 data class CallEntry(val number: String, val name: String, val type: Int, val date: Long)
 
 /** One text message. [mine] is true for messages this phone sent. */
-data class Msg(val body: String, val date: Long, val mine: Boolean)
+/** [sender] is who wrote it in a group (empty otherwise); the text does not repeat it. */
+data class Msg(val body: String, val date: Long, val mine: Boolean, val sender: String = "")
 
 /** A conversation with one number, oldest message first. */
 data class Convo(val address: String, val name: String, val msgs: List<Msg>, val unread: Int)
@@ -78,6 +79,8 @@ sealed class Action {
     object UnlinkWa : Action()
     /** Refresh WhatsApp names and ask for older messages, without unlinking. */
     object ResyncWa : Action()
+    /** The owner chose how senders' names are shortened in chat previews. */
+    data class SaveNameStyle(val id: String) : Action()
     /** The WhatsApp list was opened: the activity connects the bridge on demand. */
     object WaOpen : Action()
     /** A WhatsApp chat was opened: mark it read. */
@@ -107,6 +110,8 @@ class LauncherModel(
     items: List<MenuItem> = emptyList(),
     val contactsApp: String? = "com.android.contacts",
     val messagesApp: String? = "com.android.messaging",
+    /** The stock Phone app: with our app as the phone's dialler it cannot work, so its menu entry opens our dial screen. */
+    val dialerApp: String? = "com.android.dialer",
 ) {
     var screen = Screen.HOME
         private set
@@ -141,6 +146,8 @@ class LauncherModel(
     var waEnabled = false
     /** Whether an account is linked. Not linked: the WhatsApp entry offers to link one. */
     var waLinked = false
+    /** How a sender's name is shortened in the one-line chat previews (see [NameStyle]). */
+    var waNameStyle: String = NameStyle.DEFAULT
     /** The pairing code to type into WhatsApp on the owner's other phone, once the bridge has one. */
     var waCode: String? = null
     var waPairNumber = ""
@@ -258,6 +265,7 @@ class LauncherModel(
         Screen.SPEAKER -> "Speakerphone"
         Screen.WAPAIR -> "Link WhatsApp"
         Screen.WASET -> "WhatsApp"
+        Screen.WANAMES -> "Names in lists"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -299,14 +307,18 @@ class LauncherModel(
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
         Screen.CALC, Screen.DIAL, Screen.CALL, Screen.WAPAIR -> emptyList()
         Screen.CALLMENU -> (if (speakerShown) listOf(if (call?.speaker == true) "Speaker off" else "Speaker on") else emptyList()) + (if (call?.muted == true) "Unmute" else "Mute")
-        Screen.WASET -> if (waLinked) listOf("Re-sync names and messages", "Unlink account") else listOf("Link account")
+        Screen.WASET -> if (waLinked) listOf("Re-sync names and messages", "Names in lists", "Unlink account") else listOf("Link account")
+        Screen.WANAMES -> NameStyle.all.map { it.second + if (it.first == waNameStyle) " *" else "" }
         Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
         Screen.WHATSAPP -> if (!waLinked) listOf("Link account") else waConvos.map { (if (it.unread > 0) "* " else "") + it.name }
         // the messages of the open chat, newest first, behind a "Reply" entry; each is a one-line preview
-        Screen.CHAT -> listOf("Reply") + (convo?.msgs ?: emptyList()).asReversed().map { (if (it.mine) "> " else "< ") + it.body.lineSequence().firstOrNull().orEmpty() }
+        Screen.CHAT -> listOf("Reply") + (convo?.msgs ?: emptyList()).asReversed().map {
+            val who = if (!it.mine && it.sender.isNotBlank()) NameStyle.short(it.sender, waNameStyle) + ": " else ""
+            (if (it.mine) "> " else "< ") + who + it.body.lineSequence().firstOrNull().orEmpty()
+        }
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
 
@@ -317,7 +329,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -336,6 +348,7 @@ class LauncherModel(
         Screen.INBOX -> inbox(key, digit)
         Screen.WHATSAPP -> whatsapp(key, digit)
         Screen.WAPAIR -> waPair(key, digit)
+        Screen.WANAMES -> waNames(key, digit)
         Screen.WASET -> waSettings(key, digit)
         Screen.THREAD -> thread(key, digit)
         Screen.CHAT -> chat(key, digit)
@@ -459,10 +472,18 @@ class LauncherModel(
     private fun startPair(back: Screen): Action { waPairNumber = ""; waCode = null; waPairBack = back; screen = Screen.WAPAIR; return Action.Redraw }
     private var waPairBack = Screen.WHATSAPP
 
-    private fun waSettings(key: Key, digit: Int): Action = move(key, if (waLinked) 2 else 1) ?: when (key) {
+    private fun waNames(key: Key, digit: Int): Action = move(key, NameStyle.all.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { waNameStyle = NameStyle.all[selected].first; screen = Screen.WASET; selected = 1; Action.SaveNameStyle(waNameStyle) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WASET; selected = 1; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun waSettings(key: Key, digit: Int): Action = move(key, if (waLinked) 3 else 1) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
             !waLinked -> startPair(Screen.WASET)
             selected == 0 -> { notice = "Re-syncing..."; Action.ResyncWa }
+            selected == 1 -> { screen = Screen.WANAMES; selected = NameStyle.all.indexOfFirst { it.first == waNameStyle }.coerceAtLeast(0); Action.Redraw }
             else -> { screen = Screen.SETTINGS; selected = 4; Action.UnlinkWa }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 4; Action.Redraw }
@@ -722,6 +743,7 @@ class LauncherModel(
         item.pkg == SETTINGS_PKG -> { screen = Screen.SETTINGS; selected = 0; Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
+        item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         else -> Action.Launch(item.pkg)

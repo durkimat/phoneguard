@@ -200,7 +200,7 @@ class NokiaSkin : LauncherSkin {
             val lines = wrap(msg.body)
             val whenText = SimpleDateFormat(if (sameDay(msg.date)) "HH:mm" else "d MMM HH:mm", Locale.UK).format(Date(msg.date))
             val pos = "${m.selected + 1}/${convo.msgs.size}"
-            val who = if (msg.mine) "Me" else convo.name
+            val who = if (msg.mine) "Me" else msg.sender.ifBlank { convo.name }
             val room = 448f - measureBold(pos, 24f) - measureBold("  $whenText", 24f)
             text(c, fit(who, room, 24f) + "  " + whenText, 16f, 134f, 24f, u, bold = true)
             text(c, pos, 464f, 134f, 24f, u, align = Paint.Align.RIGHT)
@@ -307,6 +307,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun dial(c: Canvas, m: LauncherModel, u: Float) {
             val n = m.dialNumber
+            if (n.isEmpty()) text(c, "Enter a number", 240f, 300f, 34f, u, align = Paint.Align.CENTER)
             var size = 84f
             val paint = bodyPaint(); paint.textSize = size
             while (paint.measureText(n) > 440f && size > 30f) { size -= 4f; paint.textSize = size }
