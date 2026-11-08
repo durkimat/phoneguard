@@ -26,6 +26,7 @@ class BootReceiver : BroadcastReceiver() {
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         if (i.getStringExtra("kind") == "sync") Link.runAsync(c, "poll", goAsync())
+        else if (i.getStringExtra("kind") == "loc") LocationReporter.onAlarm(c, goAsync())
         else Controller.evaluate(c, "alarm")
     }
 }

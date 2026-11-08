@@ -346,3 +346,11 @@ def test_location_per_mode_defaults_validation_and_config(hub):
         with pytest.raises(ValueError):
             hub.update_child("her", {"modes": worse})
     assert hub.data["children"]["her"]["modes"]["day"]["location"] == "gps"
+
+
+def test_phone_positions_are_validated_and_the_newest_kept(hub):
+    dev = {}
+    hub._merge_fix(dev, [[1000, 51.76, -0.32, 12.0, "gps", "day"], [900, 1, 1, 1, "gps"], [2000, 999, 0, 5, "gps"], "junk", [3000, 51.7, -0.3, -4, "gps"]])
+    assert dev["fix"][0] == 1000  # the older, out-of-range and negative-accuracy ones are refused
+    hub._merge_fix(dev, [[5000, 51.77, -0.33, 8.0, "network", "school"]])
+    assert dev["fix"][:3] == [5000, 51.77, -0.33]
