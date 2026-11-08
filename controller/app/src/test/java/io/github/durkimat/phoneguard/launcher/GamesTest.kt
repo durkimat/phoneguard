@@ -25,15 +25,43 @@ class GamesTest {
         assertTrue(g.won); assertEquals(8, g.moves)
     }
 
-    @Test fun shotKillsAnEnemyInItsRowAndEnemiesCostALife() {
-        val g = Shooter(rnd = Random(1)); g.fire(); g.fire()
-        g.enemies.add(g.shipX + 5 to g.shipY)
-        repeat(4) { g.tick() }
-        assertEquals(1, g.score); assertTrue(g.enemies.none { it.second == g.shipY && it.first <= g.shipX + 5 })
-        g.enemies.add(g.shipX to g.shipY); g.tick()
+    private fun blaster(): Shooter { val g = Shooter(rnd = Random(1)); g.fireDown(); g.fireUp(); return g }
+
+    @Test fun aShotKillsAnEnemyInItsLane() {
+        val g = blaster(); g.fireDown(); g.fireUp()
+        g.addEnemy(Shooter.Enemy(g.shipX + 14, g.shipY - 1, 7, 6, 1, true, 0)) // a tank flies straight; drones weave
+        repeat(6) { g.tick() }
+        assertEquals(50, g.score)
+    }
+
+    @Test fun aChargedBeamKillsEverythingInTheLane() {
+        val g = blaster(); g.fireDown()
+        repeat(g.chargeNeeded + 1) { g.tick() }
+        g.fireUp(); assertTrue(g.beam > 0)
+        g.addEnemy(Shooter.Enemy(g.shipX + 12, g.shipY, 4, 3, 1, false, g.shipY)); g.addEnemy(Shooter.Enemy(g.shipX + 24, g.shipY, 7, 6, 3, true, 0))
+        g.tick()
+        assertTrue(g.enemies.isEmpty()); assertEquals(60, g.score)
+    }
+
+    @Test fun heldKeysMoveTheShipUntilReleased() {
+        val g = blaster(); val y = g.shipY
+        g.hold(0, true); repeat(3) { g.tick() }; assertEquals(y - 3, g.shipY)
+        g.hold(0, false); repeat(3) { g.tick() }; assertEquals(y - 3, g.shipY)
+    }
+
+    @Test fun anEnemyCostsALifeThenTheShipBlinks() {
+        val g = blaster()
+        g.addEnemy(Shooter.Enemy(g.shipX, g.shipY, 4, 3, 1, false, g.shipY)); g.tick()
         assertEquals(2, g.lives)
-        g.enemies.add(g.shipX to g.shipY); g.tick()
-        assertEquals(2, g.lives) // blinking: cannot be hit again straight away
+        g.addEnemy(Shooter.Enemy(g.shipX, g.shipY, 4, 3, 1, false, g.shipY)); g.tick()
+        assertEquals(2, g.lives)
+    }
+
+    @Test fun aCratePutsAPodOnTheShipWhichSmashesDrones() {
+        val g = blaster(); g.giveCrate(g.shipX + 1, g.shipY); g.tick()
+        assertTrue(g.hasPod)
+        g.addEnemy(Shooter.Enemy(g.shipX + g.shipW, g.shipY, 4, 3, 1, false, g.shipY)); g.tick()
+        assertEquals(10, g.score); assertEquals(3, g.lives)
     }
 
     @Test fun seedsFirstMoveFromThirdPitGivesAnotherGo() {

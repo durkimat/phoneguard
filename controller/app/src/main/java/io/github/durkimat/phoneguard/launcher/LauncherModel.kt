@@ -286,7 +286,7 @@ class LauncherModel(
         Screen.GAMES -> "Games"
         Screen.SNAKE -> "Snake"
         Screen.PAIRS -> "Pairs"
-        Screen.SHOOTER -> "Shooter"
+        Screen.SHOOTER -> "Blaster"
         Screen.SEEDS -> "Seeds"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
@@ -326,7 +326,7 @@ class LauncherModel(
     val rows: List<String> get() = when (screen) {
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
-        Screen.GAMES -> listOf("Snake", "Pairs", "Shooter", "Seeds")
+        Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS -> emptyList()
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
@@ -877,20 +877,34 @@ class LauncherModel(
 
     private fun pairsPick() { pairs.pick(); if (pairs.won && (pairsBest == 0 || pairs.moves < pairsBest)) pairsBest = pairs.moves }
 
+    /** Direction held by a key in the blaster, or -1. */
+    private fun shotDir(key: Key, digit: Int): Int = when (key) {
+        Key.UP -> 0; Key.RIGHT -> 1; Key.DOWN -> 2; Key.LEFT -> 3
+        Key.DIGIT -> when (digit) { 2 -> 0; 6 -> 1; 8 -> 2; 4 -> 3; else -> -1 }
+        else -> -1
+    }
+
     private fun shooterKey(key: Key, digit: Int): Action {
-        when (key) {
-            Key.UP -> shooter.move(-1); Key.DOWN -> shooter.move(1)
-            Key.DIGIT -> when (digit) { 2 -> shooter.move(-1); 8 -> shooter.move(1); 5 -> shooterFire() }
-            Key.OK -> shooterFire()
-            Key.LEFT, Key.SOFT_LEFT -> shooter.toggle()
-            Key.SOFT_RIGHT -> { shooter.reset(); screen = Screen.GAMES; selected = 2 }
-            Key.END -> { shooter.reset(); goHome() }
+        val d = shotDir(key, digit)
+        if (d >= 0) { shooter.hold(d, true); return Action.Redraw }
+        when {
+            key == Key.OK || (key == Key.DIGIT && digit == 5) -> shooter.fireDown()
+            key == Key.SOFT_LEFT -> shooter.toggle()
+            key == Key.SOFT_RIGHT -> { shooter.reset(); screen = Screen.GAMES; selected = 2 }
+            key == Key.END -> { shooter.reset(); goHome() }
             else -> return Action.None
         }
         return Action.Redraw
     }
 
-    private fun shooterFire() { if (shooter.state == Shooter.State.OVER || shooter.state == Shooter.State.PAUSED) shooter.toggle() else shooter.fire() }
+    /** A key came up: the blaster stops moving that way, or lets a charged beam go. */
+    fun onRelease(key: Key, digit: Int): Action {
+        if (screen != Screen.SHOOTER) return Action.None
+        val d = shotDir(key, digit)
+        if (d >= 0) { shooter.hold(d, false); return Action.None }
+        if (key == Key.OK || (key == Key.DIGIT && digit == 5)) shooter.fireUp()
+        return Action.None
+    }
 
     private fun seedsKey(key: Key, digit: Int): Action {
         when (key) {

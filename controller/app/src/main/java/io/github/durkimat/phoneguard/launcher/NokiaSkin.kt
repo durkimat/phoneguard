@@ -363,25 +363,36 @@ class NokiaSkin : LauncherSkin {
         private fun shooter(c: Canvas, m: LauncherModel, u: Float) {
             val g = m.shooter
             gameTitle(c, m, u)
-            val cell = 20f; val left = (480f - g.cols * cell) / 2; val top = 110f
+            val cell = 10f; val left = (480f - g.cols * cell) / 2; val top = 108f
             stroke.strokeWidth = 2 * u
             c.drawRect((left - 3) * u, (top - 3) * u, (left + g.cols * cell + 3) * u, (top + g.rows * cell + 3) * u, stroke)
-            fun cellRect(x: Int, y: Int, pad: Float) = RectF((left + x * cell + pad) * u, (top + y * cell + pad) * u, (left + x * cell + cell - pad) * u, (top + y * cell + cell - pad) * u)
-            // the ship is a wedge pointing right; it blinks while it cannot be hit
+            fun r(x: Int, y: Int, w: Int, h: Int) = RectF((left + x * cell) * u, (top + y * cell) * u, (left + (x + w) * cell) * u, (top + (y + h) * cell) * u)
+            fun clip(x: Int, w: Int) = x >= 0 && x + w <= g.cols
+            for (s in g.stars) c.drawRect(r(s[0], s[1], 1, 1).also { it.right = it.left + 2 * u; it.bottom = it.top + 2 * u }, fill)
+            for (cr in g.crates) if (clip(cr[0], 3)) { c.drawRect(r(cr[0], cr[1], 3, 3), stroke); text(c, "P", left + (cr[0] + 1.5f) * cell, top + (cr[1] + 2.6f) * cell, 20f, u, bold = true, align = Paint.Align.CENTER) }
+            for (e in g.enemies) if (clip(e.x, e.w)) {
+                if (e.tank) { c.drawRect(r(e.x, e.y, e.w, e.h), fill); c.drawRect(r(e.x + 2, e.y + 2, e.w - 4, e.h - 4), stroke.also { it.color = lcd }); stroke.color = ink }
+                else { c.drawRect(r(e.x, e.y, e.w, e.h), stroke); c.drawRect(r(e.x + 1, e.y + 1, 2, 1), fill) }
+            }
+            for (s in g.shots) if (clip(s[0], 2)) c.drawRect(r(s[0], s[1], 2, 1), fill)
+            for (s in g.enemyShots) if (clip(s[0], 2)) c.drawRect(r(s[0], s[1], 2, 1), stroke)
+            // the beam, and the charge gauge as a small bar under the ship
+            if (g.beam > 0) c.drawRect(r(g.shipX + g.shipW, g.shipY + 1, g.cols - g.shipX - g.shipW, 2), fill)
+            if (g.charge > 3) {
+                val frac = (g.charge.toFloat() / g.chargeNeeded).coerceAtMost(1f)
+                c.drawRect(r(g.shipX, (g.shipY + g.shipH + 1).coerceAtMost(g.rows - 1), (g.shipW * frac).toInt().coerceAtLeast(1), 1), fill)
+            }
+            if (g.hasPod) c.drawRect(r(g.shipX + g.shipW, g.shipY, 3, g.shipH), fill)
             if (g.invulnerable % 2 == 0) {
-                val path = android.graphics.Path().apply {
-                    val r = cellRect(g.shipX, g.shipY, 1f)
-                    moveTo(r.left, r.top); lineTo(r.right, (r.top + r.bottom) / 2); lineTo(r.left, r.bottom); close()
-                }
+                val rr = r(g.shipX, g.shipY, g.shipW, g.shipH)
+                val path = android.graphics.Path().apply { moveTo(rr.left, rr.top); lineTo(rr.right, (rr.top + rr.bottom) / 2); lineTo(rr.left, rr.bottom); lineTo(rr.left + 2 * cell, (rr.top + rr.bottom) / 2); close() }
                 c.drawPath(path, fill)
             }
-            for ((x, y) in g.bullets) c.drawRect(cellRect(x, y, 7f), fill)
-            for ((x, y) in g.enemies) c.drawRect(cellRect(x, y, 2f), stroke)
             val msg = when (g.state) { Shooter.State.READY -> "Press OK"; Shooter.State.PAUSED -> "Paused"; Shooter.State.OVER -> "Game over"; else -> null }
-            if (msg != null) banner(c, msg, u, 190f)
-            text(c, "Score ${g.score}   Lives ${g.lives}", 16f, 556f, 26f, u, bold = true)
+            if (msg != null) banner(c, msg, u, 230f)
+            if (g.state == Shooter.State.READY) text(c, "Hold OK to charge a beam", 240f, 340f, 22f, u, align = Paint.Align.CENTER)
+            text(c, "Score ${g.score}  Lives ${g.lives}", 16f, 556f, 26f, u, bold = true)
             text(c, "Best ${m.shooterBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
-            text(c, "Up/Down move   OK fire", 240f, 520f, 22f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
