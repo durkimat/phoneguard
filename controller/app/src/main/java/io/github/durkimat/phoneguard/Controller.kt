@@ -43,6 +43,7 @@ object Controller {
         Enforcer.setGray(app, eff.gray)
         LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app))
         LocationLock.set(app, off = eff.location == "off")
+        LocationReporter.apply(app, eff.location, eff.locEvery)
         val soundNote = SoundEnforcer.apply(app, eff.sound)
         try { io.github.durkimat.phoneguard.whatsapp.WhatsApp.apply(app, cfg, eff) } catch (e: Throwable) { Log.log(app, "whatsapp apply failed: ${e.javaClass.simpleName}") }
 

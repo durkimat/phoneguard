@@ -265,6 +265,7 @@ class Hub:
         dev["cfgh"] = payload.get("cfgh", "")
         self._merge_usage(dev, payload.get("usage"))
         dev["power"] = PW.merge(dev.get("power", []), payload.get("power"), now)
+        self._merge_fix(dev, payload.get("loc"))
         if isinstance(payload.get("labels"), dict):
             dev.setdefault("labels", {}).update({k: v for k, v in payload["labels"].items() if isinstance(k, str) and isinstance(v, str)})
         ch = self.data["children"][dev["child"]]
@@ -286,6 +287,16 @@ class Hub:
             "boost": self.active_boost(dev["child"]), "cmds": cmds,
         }
         return P.make_reply(self.priv, did, n, reply, now)
+
+    def _merge_fix(self, dev: dict, fixes: Any) -> None:
+        """Keep the newest position the phone sent: [time ms, latitude, longitude, accuracy m, provider, mode]."""
+        if not isinstance(fixes, list):
+            return
+        for f in fixes:
+            if (isinstance(f, list) and len(f) >= 5 and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in f[:4])
+                    and -90 <= f[1] <= 90 and -180 <= f[2] <= 180 and f[3] >= 0):
+                if f[0] > (dev.get("fix") or [0])[0]:
+                    dev["fix"] = f[:6]
 
     def _merge_usage(self, dev: dict, usage: Any) -> None:
         """Seconds in the foreground per app per day. The phone sends today and yesterday every sync."""
@@ -351,6 +362,7 @@ class Hub:
             }
             out["usage"] = dev.get("usage", {})
             out["power"] = PW.summarize(dev.get("power", []), now)
+            out["fix"] = dev.get("fix")
             out["labels"] = dev.get("labels", {})
             out["apps"] = sorted(dev["apps"], key=lambda a: a.get("label", a["pkg"]).lower())
             out["pending_apps"] = [a["pkg"] for a in dev["apps"] if a["pkg"] not in known]

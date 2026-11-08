@@ -51,6 +51,16 @@ class Manager:
                  # nested attributes lose false/0/null, so the card reads one JSON string
                  "data": json.dumps(view)},
             )
+            fix = view.get("fix")
+            if fix:  # the phone's own position reports become a tracker the person can use
+                from homeassistant.components.zone import async_active_zone
+                zone = async_active_zone(self.hass, fix[1], fix[2], fix[3])
+                state = ("home" if zone.entity_id == "zone.home" else zone.name) if zone else "not_home"
+                self.hass.states.async_set(
+                    f"device_tracker.phoneguard_{cid}", state,
+                    {"friendly_name": f"{view['name']} (Phone Guard)", "source_type": "gps", "latitude": fix[1], "longitude": fix[2],
+                     "gps_accuracy": fix[3], "provider": fix[4], "reported": fix[0]},
+                )
 
     def changed(self, nudge_child: str | None = None) -> None:
         self.save()
