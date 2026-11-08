@@ -128,6 +128,7 @@ class LauncherActivity : Activity() {
     private val waChanged: () -> Unit = { runOnUiThread { refresh() } }
 
     private val torchChanged: () -> Unit = { refresh() }
+    private val musicTick = Runnable { if (model.screen == Screen.MUSIC) refresh() }
     private val notesChanged: () -> Unit = { runOnUiThread { refresh() } }
 
     override fun onDestroy() { WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
@@ -163,6 +164,11 @@ class LauncherActivity : Activity() {
         model.weather = WeatherStore.current(this)
         model.androidSettings = LauncherData.touchAllowed(this)
         model.notes = io.github.durkimat.phoneguard.notes.Notes.all()
+        if (model.screen == Screen.MUSIC) {
+            model.music = io.github.durkimat.phoneguard.music.MusicController.info(this)
+            model.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)
+            ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000)
+        }
         if (model.screen == Screen.BATTERY) model.battery = LauncherData.batteryInfo(this)
         WeatherStore.refreshIfDue(this) { runOnUiThread { refresh() } }
         val all = LauncherData.items(this)
@@ -242,6 +248,11 @@ class LauncherActivity : Activity() {
             }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
+            Action.MusicPlayPause -> { io.github.durkimat.phoneguard.music.MusicController.playPause(this); ui.postDelayed({ refresh() }, 300) }
+            Action.MusicNext -> { io.github.durkimat.phoneguard.music.MusicController.next(this); ui.postDelayed({ refresh() }, 500) }
+            Action.MusicPrevious -> { io.github.durkimat.phoneguard.music.MusicController.previous(this); ui.postDelayed({ refresh() }, 500) }
+            is Action.MusicVolume -> { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); refresh() }
+            Action.MusicOpenApp -> launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)

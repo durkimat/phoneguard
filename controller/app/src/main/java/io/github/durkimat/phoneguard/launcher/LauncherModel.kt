@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -53,6 +53,7 @@ object Fonts {
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
 const val CAMERA_PKG = "pg:camera"
+const val MUSIC_PKG = "pg:music"
 const val NOTES_PKG = "pg:notes"
 const val WEATHER_PKG = "pg:weather"
 /** Rows that fit between the title bar and the soft keys. */
@@ -111,6 +112,11 @@ sealed class Action {
     object CloseCall : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
+    object MusicPlayPause : Action()
+    object MusicNext : Action()
+    object MusicPrevious : Action()
+    data class MusicVolume(val up: Boolean) : Action()
+    object MusicOpenApp : Action()
     /** Open the app a notification came from, and clear it. */
     data class OpenNote(val key: String) : Action()
     data class ClearNote(val key: String) : Action()
@@ -311,6 +317,7 @@ class LauncherModel(
         Screen.GAMEHELP -> gameNames[helpGame]
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
+        Screen.MUSIC -> "Music"
         Screen.NOTES -> "Notifications"
         Screen.NOTE -> "Notification"
         Screen.CALC -> "Calculator"
@@ -333,6 +340,7 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
+        Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
         Screen.DIAL -> "Call" to "Clear"
@@ -357,7 +365,7 @@ class LauncherModel(
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
-        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE -> emptyList()
+        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
@@ -404,6 +412,7 @@ class LauncherModel(
         Screen.GAMEHELP -> gameHelp(key, digit)
         Screen.WEATHER -> weatherKey(key)
         Screen.BATTERY -> batteryKey(key)
+        Screen.MUSIC -> musicKey(key, digit)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
@@ -818,6 +827,7 @@ class LauncherModel(
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
+        item.pkg == MUSIC_PKG -> { screen = Screen.MUSIC; selected = 0; Action.Redraw }
         item.pkg == NOTES_PKG -> { notesFrom = Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
@@ -951,6 +961,10 @@ class LauncherModel(
     /** The numbers on the battery page; the activity fills them in while the page is open. */
     var battery: BatteryInfo? = null
 
+    /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
+    var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
+    var musicApp = false
+
     /** The notifications, newest first (the activity fills this in). */
     var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
     private var noteKeyShown: String? = null
@@ -972,6 +986,24 @@ class LauncherModel(
         key == Key.RIGHT || key == Key.SOFT_RIGHT -> { screen = Screen.NOTES; Action.Redraw }
         key == Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
+    }
+
+    /**
+     * Music remote: OK, 5 or the left key play and pause; the D-pad Left and Right, and 4 and 6, go to the previous and next track;
+     * Up and Down, and 2 and 8, change the volume; the right key under the screen goes back. With nothing playing OK opens the music app.
+     */
+    private fun musicKey(key: Key, digit: Int): Action {
+        val d = if (key == Key.DIGIT) digit else -1
+        return when {
+            key == Key.OK || key == Key.SOFT_LEFT || d == 5 -> if (music.active) Action.MusicPlayPause else if (musicApp) Action.MusicOpenApp else Action.None
+            key == Key.RIGHT || d == 6 -> if (music.active) Action.MusicNext else Action.None
+            key == Key.LEFT || d == 4 -> if (music.active) Action.MusicPrevious else Action.None
+            key == Key.UP || d == 2 -> Action.MusicVolume(true)
+            key == Key.DOWN || d == 8 -> Action.MusicVolume(false)
+            key == Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0); Action.Redraw }
+            key == Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
     }
 
     private fun batteryKey(key: Key): Action {
