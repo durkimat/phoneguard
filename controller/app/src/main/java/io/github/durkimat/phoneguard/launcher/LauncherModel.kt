@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -182,6 +182,12 @@ class LauncherModel(
     var calls: List<CallEntry> = emptyList()
     val calc = Calculator()
     val snake = Snake()
+    val pairs = Pairs()
+    val shooter = Shooter()
+    val seeds = Seeds()
+    /** The fewest moves to finish pairs (0 = not played) and the best shooter score; the activity saves them. */
+    var pairsBest = 0
+    var shooterBest = 0
     /** The best snake score on this phone; the activity saves it. */
     var snakeBest = 0
     /** The call being shown, set by the call screen's activity. */
@@ -279,6 +285,9 @@ class LauncherModel(
         Screen.APPS -> "Other apps"
         Screen.GAMES -> "Games"
         Screen.SNAKE -> "Snake"
+        Screen.PAIRS -> "Pairs"
+        Screen.SHOOTER -> "Shooter"
+        Screen.SEEDS -> "Seeds"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -293,6 +302,9 @@ class LauncherModel(
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> "Call" to "Back"
         Screen.SNAKE -> (when (snake.state) { Snake.State.READY -> "Start"; Snake.State.RUNNING -> "Pause"; Snake.State.PAUSED -> "Resume"; Snake.State.OVER -> "Again" }) to "Back"
+        Screen.SHOOTER -> (when (shooter.state) { Shooter.State.READY -> "Start"; Shooter.State.RUNNING -> "Pause"; Shooter.State.PAUSED -> "Resume"; Shooter.State.OVER -> "Again" }) to "Back"
+        Screen.PAIRS -> (if (pairs.won) "Again" else "Turn") to "Back"
+        Screen.SEEDS -> (if (seeds.over) "Again" else "Sow") to "Back"
         Screen.DIAL -> "Call" to "Clear"
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
@@ -314,8 +326,8 @@ class LauncherModel(
     val rows: List<String> get() = when (screen) {
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
-        Screen.GAMES -> listOf("Snake")
-        Screen.SNAKE -> emptyList()
+        Screen.GAMES -> listOf("Snake", "Pairs", "Shooter", "Seeds")
+        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS -> emptyList()
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
@@ -359,6 +371,9 @@ class LauncherModel(
         Screen.APPS -> appList(key)
         Screen.GAMES -> gameList(key)
         Screen.SNAKE -> snakeKey(key, digit)
+        Screen.PAIRS -> pairsKey(key, digit)
+        Screen.SHOOTER -> shooterKey(key, digit)
+        Screen.SEEDS -> seedsKey(key, digit)
         Screen.SETTINGS -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
         Screen.FONT -> fonts(key, digit)
@@ -816,8 +831,16 @@ class LauncherModel(
         else -> Action.None
     }
 
-    private fun gameList(key: Key): Action = move(key, 1) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { snake.reset(); screen = Screen.SNAKE; Action.Redraw }
+    private fun gameList(key: Key): Action = move(key, 4) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+            when (selected) {
+                0 -> { snake.reset(); screen = Screen.SNAKE }
+                1 -> { pairs.reset(); screen = Screen.PAIRS }
+                2 -> { shooter.reset(); screen = Screen.SHOOTER }
+                else -> { seeds.reset(); screen = Screen.SEEDS }
+            }
+            Action.Redraw
+        }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == GAMES_PKG }.coerceAtLeast(0); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
@@ -840,12 +863,66 @@ class LauncherModel(
         return Action.Redraw
     }
 
-    /** One step of whatever game is running; the activity calls it on a timer while a game is on screen. */
-    fun gameTick(): Action {
-        if (screen != Screen.SNAKE || snake.state != Snake.State.RUNNING) return Action.None
-        snake.step()
-        if (snake.score > snakeBest) snakeBest = snake.score
+    private fun pairsKey(key: Key, digit: Int): Action {
+        when (key) {
+            Key.UP -> pairs.move(0, -1); Key.DOWN -> pairs.move(0, 1); Key.LEFT -> pairs.move(-1, 0); Key.RIGHT -> pairs.move(1, 0)
+            Key.DIGIT -> when (digit) { 2 -> pairs.move(0, -1); 8 -> pairs.move(0, 1); 4 -> pairs.move(-1, 0); 6 -> pairs.move(1, 0); 5 -> pairsPick() }
+            Key.OK, Key.SOFT_LEFT -> if (pairs.won) pairs.reset() else pairsPick()
+            Key.SOFT_RIGHT -> { screen = Screen.GAMES; selected = 1 }
+            Key.END -> goHome()
+            else -> return Action.None
+        }
         return Action.Redraw
+    }
+
+    private fun pairsPick() { pairs.pick(); if (pairs.won && (pairsBest == 0 || pairs.moves < pairsBest)) pairsBest = pairs.moves }
+
+    private fun shooterKey(key: Key, digit: Int): Action {
+        when (key) {
+            Key.UP -> shooter.move(-1); Key.DOWN -> shooter.move(1)
+            Key.DIGIT -> when (digit) { 2 -> shooter.move(-1); 8 -> shooter.move(1); 5 -> shooterFire() }
+            Key.OK -> shooterFire()
+            Key.LEFT, Key.SOFT_LEFT -> shooter.toggle()
+            Key.SOFT_RIGHT -> { shooter.reset(); screen = Screen.GAMES; selected = 2 }
+            Key.END -> { shooter.reset(); goHome() }
+            else -> return Action.None
+        }
+        return Action.Redraw
+    }
+
+    private fun shooterFire() { if (shooter.state == Shooter.State.OVER || shooter.state == Shooter.State.PAUSED) shooter.toggle() else shooter.fire() }
+
+    private fun seedsKey(key: Key, digit: Int): Action {
+        when (key) {
+            Key.LEFT -> seeds.moveCursor(-1); Key.RIGHT -> seeds.moveCursor(1)
+            Key.DIGIT -> if (digit in 1..6) { seeds.select(digit - 1); if (!seeds.over) seeds.play() }
+            Key.OK, Key.SOFT_LEFT -> if (seeds.over) seeds.reset() else seeds.play()
+            Key.SOFT_RIGHT -> { screen = Screen.GAMES; selected = 3 }
+            Key.END -> goHome()
+            else -> return Action.None
+        }
+        return Action.Redraw
+    }
+
+    /** One step of whatever game is on screen; the activity calls it on a timer while there is something to step. */
+    fun gameTick(): Action {
+        when (screen) {
+            Screen.SNAKE -> { if (snake.state != Snake.State.RUNNING) return Action.None; snake.step(); if (snake.score > snakeBest) snakeBest = snake.score }
+            Screen.PAIRS -> { if (!pairs.waiting) return Action.None; pairs.resolve() }
+            Screen.SHOOTER -> { if (shooter.state != Shooter.State.RUNNING) return Action.None; shooter.tick(); if (shooter.score > shooterBest) shooterBest = shooter.score }
+            Screen.SEEDS -> { if (!seeds.phoneToMove) return Action.None; seeds.phoneMove() }
+            else -> return Action.None
+        }
+        return Action.Redraw
+    }
+
+    /** How long until the game on screen next needs a tick, or null when it is waiting for a key. */
+    fun gameDelayMs(): Long? = when (screen) {
+        Screen.SNAKE -> if (snake.state == Snake.State.RUNNING) snake.stepMs else null
+        Screen.PAIRS -> if (pairs.waiting) 900L else null
+        Screen.SHOOTER -> if (shooter.state == Shooter.State.RUNNING) shooter.tickMs else null
+        Screen.SEEDS -> if (seeds.phoneToMove) 800L else null
+        else -> null
     }
 
     private fun appList(key: Key): Action = move(key, apps.size) ?: when (key) {
