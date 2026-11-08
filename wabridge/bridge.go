@@ -572,6 +572,9 @@ func (b *Bridge) onHistory(v *events.HistorySync) {
 	if v == nil || v.Data == nil || b.cli == nil {
 		return
 	}
+	// WhatsApp sends names (and more messages) in further bundles that can arrive after this one: tell the app each
+	// time one has been dealt with, so it can look the senders' names up again
+	defer b.l.OnStatus("history")
 	convs := append([]*waHistorySync.Conversation(nil), v.Data.GetConversations()...)
 	sort.SliceStable(convs, func(i, j int) bool { return convs[i].GetConversationTimestamp() > convs[j].GetConversationTimestamp() })
 	looked := 0
