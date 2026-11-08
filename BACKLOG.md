@@ -510,3 +510,6 @@ launcher in the same app; (3) notification counts and the status line.
 
 ## New-message icon on the home screen (owner, 2026-11-08)
 - The home screen shows "N new messages" and "N missed calls" as text lines today. Add a small outline envelope (and a phone-handset outline for missed calls) in the theme beside or in the status bar so a new message is visible at a glance, including WhatsApp when our screens are in use. Ideas: the envelope blinks gently or shows the count; the status bar icon stays when the home text is hidden; check it in all four themes and both fonts.
+
+## Lock screen (owner, 2026-11-08): option 1 tried
+- Owner chose to keep Android's own PIN unlock (a modern phone user expects typing a PIN) and theme what can be themed. Built `LockWallpaper`: paints the lock-screen wallpaper in the current theme (LCD colour, faint pixel lines, ink frame) at start and whenever the theme changes. Android adds its own dimming and white clock, so the green looks darker than the home screen. If it is not close enough: brighten the colours to counter the dimming, or look at a trust-agent/own-lock route (option 2) later. The PIN pad itself stays Android's.
