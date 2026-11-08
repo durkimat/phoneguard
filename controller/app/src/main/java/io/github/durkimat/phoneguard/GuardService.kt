@@ -40,6 +40,17 @@ class GuardService : Service() {
         override fun onReceive(c: Context, i: Intent) { SoundEnforcer.reassert(this@GuardService) }
     }
 
+    /** After the screen is unlocked the phone shows our home screen, like a Nokia waking up (not whatever app, or the old stock launcher, was last in front). */
+    private val unlocked = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            try {
+                val eff = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(c), Store.boost(c), Clock.now())
+                if (eff.lockdown.launcher == "nokia" && io.github.durkimat.phoneguard.incall.CallState.info == null)
+                    c.startActivity(Intent(c, io.github.durkimat.phoneguard.launcher.LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            } catch (e: Exception) { Log.log(c, "home after unlock failed: ${e.javaClass.simpleName}") }
+        }
+    }
+
     private val powerEvents = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { PowerLog.sample(c, (i.action ?: "?").substringAfterLast('.').lowercase(), force = true) }
     }
@@ -68,6 +79,7 @@ class GuardService : Service() {
             addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_POWER_CONNECTED); addAction(Intent.ACTION_POWER_DISCONNECTED)
         }, Context.RECEIVER_EXPORTED)
+        registerReceiver(unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), Context.RECEIVER_EXPORTED)
         PowerLog.sample(this, "service", force = true)
         Log.log(this, "service started")
     }
@@ -81,6 +93,7 @@ class GuardService : Service() {
         unregisterReceiver(packages)
         unregisterReceiver(sound)
         unregisterReceiver(powerEvents)
+        unregisterReceiver(unlocked)
         unregisterReceiver(CallBlocker.receiver)
         contentResolver.unregisterContentObserver(gray)
         super.onDestroy()
