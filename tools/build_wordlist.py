@@ -32,6 +32,19 @@ HAND = [("I'm", 12), ("it's", 18), ("don't", 25), ("that's", 40), ("you're", 55)
         ("they'll", 430), ("where's", 420), ("mummy", 420), ("hasn't", 450), ("nan", 450), ("weren't", 460), ("gran", 470), ("granny", 520),
         ("he'll", 520), ("daddy", 540), ("she'll", 560), ("okay", 75), ("pls", 900), ("thx", 950), ("cos", 700), ("tho", 750), ("xx", 1000)]
 
+# texting abbreviations and slang kids use (rank = where they sit among everyday words). Ones that stand for swear words
+# (wtf, fml, stfu, lmfao, af, jfc, omfg, ffs) are deliberately not here.
+HAND += [("btw", 280), ("idk", 285), ("tbh", 330), ("omw", 340), ("brb", 360), ("lmao", 380), ("rn", 400), ("np", 700), ("ty", 650),
+         ("plz", 910), ("jk", 800), ("imo", 1200), ("imho", 2500), ("smh", 900), ("ngl", 950), ("irl", 1100), ("fyi", 1200), ("bff", 1000),
+         ("ily", 1000), ("wyd", 1100), ("hbu", 1300), ("lmk", 1000), ("gtg", 1200), ("ttyl", 1500), ("bc", 1800), ("cuz", 1000),
+         ("coz", 800), ("ikr", 1400), ("bruh", 1100), ("fam", 1200), ("hbd", 2500), ("gn", 2500), ("gm", 2500), ("luv", 1300),
+         ("fwiw", 2500), ("tmi", 3000), ("nvm", 1000), ("idc", 1300), ("atm", 1400), ("fomo", 3500), ("yolo", 3000), ("ofc", 1500),
+         ("obvs", 3500), ("probs", 1800), ("convo", 2500), ("sesh", 4000), ("soz", 1500), ("thnx", 1500), ("cba", 1800), ("ik", 3500),
+         ("wbu", 2500), ("hmu", 1800), ("dm", 2500), ("bday", 1200), ("dw", 2500), ("kk", 1500), ("yh", 1800), ("yeh", 1500),
+         ("heya", 700), ("cya", 800), ("laters", 3000), ("gl", 3000), ("gg", 2500), ("afk", 4000), ("bbs", 5000), ("omds", 4000),
+         ("xo", 1800), ("xoxo", 1500), ("rofl", 2500), ("sis", 1500), ("bro", 900), ("gonna", 100), ("sorry", 138), ("pm", 4000),
+         ("tmrw", 2500), ("tmr", 2500)]
+
 CONTR = {"cant": "can't", "wont": "won't", "dont": "don't", "im": "I'm", "ive": "I've", "ill": "I'll", "id": "I'd"}
 SUFFIX = re.compile(r"^([a-z]+)'(s|t|re|ve|ll|d|m)$")
 
@@ -74,8 +87,9 @@ if prev_path:  # words dialogue lacks, in their old (web) order
 out = out[:50000]
 for w, pos in sorted(HAND, key=lambda x: x[1]):
     if w in out[:pos]:
+        out = [x for i, x in enumerate(out) if i < pos or x.lower() != w.lower()]  # keep the good one, drop later twins
         continue  # already ranks at least as well
-    out = [x for x in out if x != w]
+    out = [x for x in out if x.lower() != w.lower()]  # also drops capitalised twins like "Rn"
     out.insert(min(pos, len(out)), w)
 open(out_path, "w", encoding="utf-8").write("\n".join(out) + "\n")
 print(len(out), "words")

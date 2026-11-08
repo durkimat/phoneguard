@@ -33,4 +33,13 @@ class RealWordListTest {
     }
 
     @Test fun theListIsFullSized() { assertTrue(list.exact("4663").size >= 3); assertTrue(File("src/main/assets/words/words-en-gb.txt").readLines().size > 45000) }
+
+    @Test fun textingAbbreviationsAreThereAndReachable() {
+        for (w in listOf("lmao", "brb", "btw", "idk", "tbh", "omw", "smh", "ngl", "lmk", "wyd", "rn", "fwiw", "bff", "ily", "nvm", "cuz", "bruh", "lol", "omg", "jk"))
+            assertTrue("$w should be in the list near the front", list.exact(WordList.keyOf(w)).take(6).any { it.equals(w, true) })
+    }
+
+    @Test fun abbreviationsForSwearWordsAreNotThere() {
+        for (w in listOf("wtf", "fml", "stfu", "lmfao", "jfc", "omfg", "ffs")) assertFalse("$w should not be suggested", list.exact(WordList.keyOf(w)).any { it.equals(w, true) })
+    }
 }
