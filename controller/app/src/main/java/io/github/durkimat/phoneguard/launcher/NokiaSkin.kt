@@ -270,9 +270,10 @@ class NokiaSkin : LauncherSkin {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
                 text(c, if (m.musicApp) "OK opens Spotify" else "Install a music app", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
             } else {
-                text(c, ellipsize(mu.title.ifEmpty { "(no title)" }, 440f, 34f), 20f, 158f, 34f, u, bold = true)
-                text(c, ellipsize(mu.artist, 440f, 28f), 20f, 202f, 28f, u)
-                if (mu.album.isNotEmpty()) text(c, ellipsize(mu.album, 440f, 24f), 20f, 238f, 24f, u)
+                if (mu.device.isNotEmpty()) text(c, ellipsize("on " + mu.device + if (mu.thisPhone) " (here)" else "", 440f, 22f), 20f, 128f, 22f, u)
+                text(c, ellipsize(mu.title.ifEmpty { "(no title)" }, 440f, 34f), 20f, 166f, 34f, u, bold = true)
+                text(c, ellipsize(mu.artist, 440f, 28f), 20f, 206f, 28f, u)
+                if (mu.album.isNotEmpty()) text(c, ellipsize(mu.album, 440f, 24f), 20f, 242f, 24f, u)
                 // progress
                 stroke.strokeWidth = 3 * u
                 c.drawRect(20 * u, 290 * u, 460 * u, 310 * u, stroke)
@@ -283,6 +284,7 @@ class NokiaSkin : LauncherSkin {
                 if (mu.playing) { c.drawRect(222 * u, 366 * u, 234 * u, 402 * u, fill); c.drawRect(246 * u, 366 * u, 258 * u, 402 * u, fill) }
                 else { val t = android.graphics.Path().apply { moveTo(224f * u, 364f * u); lineTo(260f * u, 384f * u); lineTo(224f * u, 404f * u); close() }; c.drawPath(t, fill) }
                 text(c, "4 prev", 20f, 392f, 24f, u); text(c, "6 next", 460f, 392f, 24f, u, align = Paint.Align.RIGHT)
+                if (m.spSignedIn) text(c, "0 play on   * shuffle" + (if (mu.shuffle) " on" else ""), 240f, 548f, 22f, u, align = Paint.Align.CENTER)
             }
             // the volume
             text(c, "Volume", 20f, 470f, 24f, u)
@@ -381,7 +383,7 @@ class NokiaSkin : LauncherSkin {
                     text(c, label, 20f, top + 42f, 32f, u, bold = true, color = lcd)
                 } else text(c, label, 20f, top + 42f, 32f, u)
             }
-            if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
+            if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
@@ -484,9 +486,9 @@ class NokiaSkin : LauncherSkin {
             // the To field takes the title bar's place, inverted while it has focus
             if (m.writeField == 0) {
                 c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-                text(c, "To: " + m.writeLabel.ifBlank { m.writeTo } + "_", 16f, 85f, 30f, u, bold = true, color = lcd)
+                text(c, (if (m.writeSearch) "Search_" else "To: " + m.writeLabel.ifBlank { m.writeTo } + "_"), 16f, 85f, 30f, u, bold = true, color = lcd)
             } else {
-                text(c, "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
+                text(c, if (m.writeSearch) "Search" else "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
                 stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
             }
             val body = m.writeText

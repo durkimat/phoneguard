@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -117,6 +117,13 @@ sealed class Action {
     object MusicPrevious : Action()
     data class MusicVolume(val up: Boolean) : Action()
     object MusicOpenApp : Action()
+    object SpSignIn : Action()
+    object SpSignOut : Action()
+    data class SpLoad(val kind: String) : Action()
+    data class SpSearch(val query: String) : Action()
+    data class SpPlay(val uri: String) : Action()
+    data class SpTransfer(val id: String, val name: String) : Action()
+    object SpShuffle : Action()
     /** Open the app a notification came from, and clear it. */
     data class OpenNote(val key: String) : Action()
     data class ClearNote(val key: String) : Action()
@@ -317,7 +324,11 @@ class LauncherModel(
         Screen.GAMEHELP -> gameNames[helpGame]
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
-        Screen.MUSIC -> "Music"
+        Screen.MUSIC -> "Now playing"
+        Screen.MUSICMENU -> "Music"
+        Screen.PLAYLISTS -> "Playlists"
+        Screen.DEVICES -> "Play on"
+        Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
         Screen.NOTE -> "Notification"
         Screen.CALC -> "Calculator"
@@ -340,6 +351,7 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> "Select" to "Back"
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
@@ -366,6 +378,10 @@ class LauncherModel(
         Screen.APPS -> apps.map { it.label }
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
+        Screen.MUSICMENU -> musicMenuRows
+        Screen.PLAYLISTS -> spPlaylists.map { it.label }
+        Screen.SEARCHRES -> spResults.map { it.label }
+        Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
@@ -397,7 +413,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -413,6 +429,8 @@ class LauncherModel(
         Screen.WEATHER -> weatherKey(key)
         Screen.BATTERY -> batteryKey(key)
         Screen.MUSIC -> musicKey(key, digit)
+        Screen.MUSICMENU -> musicMenuKey(key)
+        Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
@@ -647,7 +665,7 @@ class LauncherModel(
 
     private fun startWrite(to: String, back: Screen, label: String = "", wa: Boolean = false): Action {
         writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1; commit()
-        writeWa = wa; writeLabel = label
+        writeWa = wa; writeLabel = label; writeSearch = false
         writeField = if (to.isEmpty()) 0 else 1
         screen = Screen.WRITE
         return Action.Redraw
@@ -680,7 +698,7 @@ class LauncherModel(
         Key.UP -> { commit(); writeField = 0; Action.Redraw }
         Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
         Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
-        Key.OK, Key.SOFT_LEFT -> { commit(); if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
+        Key.OK, Key.SOFT_LEFT -> { commit(); if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = if (writeWa) Action.SendWa(writeTo, writeText.trim()) else Action.Send(writeTo, writeText.trim())
             screen = Screen.MESSAGES; selected = 0; notice = "Message sent"
             a
@@ -827,7 +845,7 @@ class LauncherModel(
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
-        item.pkg == MUSIC_PKG -> { screen = Screen.MUSIC; selected = 0; Action.Redraw }
+        item.pkg == MUSIC_PKG -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
         item.pkg == NOTES_PKG -> { notesFrom = Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
@@ -898,7 +916,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -964,6 +982,17 @@ class LauncherModel(
     /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
+    /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
+    var spSignedIn = false
+    var spPlaylists: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
+    var spResults: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
+    var spDevices: List<io.github.durkimat.phoneguard.music.SpDevice> = emptyList()
+    var spStatus = ""
+    /** Tells whether a Spotify device is this phone (set by the activity, which knows the phone's name). */
+    var spIsThisPhone: (io.github.durkimat.phoneguard.music.SpDevice) -> Boolean = { false }
+    /** True while the text entry is a Spotify search rather than a message. */
+    var writeSearch = false
+        private set
 
     /** The notifications, newest first (the activity fills this in). */
     var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
@@ -1000,8 +1029,44 @@ class LauncherModel(
             key == Key.LEFT || d == 4 -> if (music.active) Action.MusicPrevious else Action.None
             key == Key.UP || d == 2 -> Action.MusicVolume(true)
             key == Key.DOWN || d == 8 -> Action.MusicVolume(false)
-            key == Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0); Action.Redraw }
+            key == Key.SOFT_RIGHT -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+            d == 0 && spSignedIn -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
+            key == Key.STAR && spSignedIn -> Action.SpShuffle
             key == Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else listOf("Sign in to Spotify"))
+
+    private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (musicMenuRows.getOrNull(selected)) {
+            "Now playing" -> { screen = Screen.MUSIC; Action.Redraw }
+            "Playlists" -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }
+            "Search" -> startSearch()
+            "Play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
+            "Sign out of Spotify" -> Action.SpSignOut
+            "Sign in to Spotify" -> Action.SpSignIn
+            else -> Action.None
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun startSearch(): Action { startWrite("", Screen.MUSICMENU); writeField = 1; writeSearch = true; return Action.Redraw }
+
+    /** The Spotify lists: OK plays the playlist or result, or moves playback to the device. */
+    private fun spListKey(key: Key): Action {
+        val size = when (screen) { Screen.PLAYLISTS -> spPlaylists.size; Screen.SEARCHRES -> spResults.size; else -> spDevices.size }
+        return move(key, size) ?: when (key) {
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (screen) {
+                Screen.PLAYLISTS -> spPlaylists.getOrNull(selected)?.let { screen = Screen.MUSIC; Action.SpPlay(it.uri) } ?: Action.None
+                Screen.SEARCHRES -> spResults.getOrNull(selected)?.let { screen = Screen.MUSIC; Action.SpPlay(it.uri) } ?: Action.None
+                else -> spDevices.getOrNull(selected)?.let { screen = Screen.MUSIC; Action.SpTransfer(it.id, it.name) } ?: Action.None
+            }
+            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
     }
