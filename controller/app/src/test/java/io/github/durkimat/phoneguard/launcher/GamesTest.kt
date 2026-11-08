@@ -181,4 +181,20 @@ class HomeBadgeTest {
         val school = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings"))); school.onKey(Key.OK); school.onKey(Key.DIGIT, 1)
         assertTrue("Android settings" !in school.rows)
     }
+
+    @Test fun musicScreenIsARemoteForTheMusicApp() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
+        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
+        assertEquals(Screen.MUSIC, m.screen)
+        assertEquals(Action.None, m.onKey(Key.OK)) // nothing playing, no music app: nothing to do
+        m.musicApp = true; assertEquals(Action.MusicOpenApp, m.onKey(Key.OK))
+        m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", "Song", "Band", "Album", true, 30_000, 200_000, 40)
+        assertEquals("Pause", m.softKeys.first)
+        assertEquals(Action.MusicPlayPause, m.onKey(Key.OK)); assertEquals(Action.MusicPlayPause, m.onKey(Key.DIGIT, 5)); assertEquals(Action.MusicPlayPause, m.onKey(Key.SOFT_LEFT))
+        assertEquals(Action.MusicNext, m.onKey(Key.RIGHT)); assertEquals(Action.MusicNext, m.onKey(Key.DIGIT, 6))
+        assertEquals(Action.MusicPrevious, m.onKey(Key.LEFT)); assertEquals(Action.MusicPrevious, m.onKey(Key.DIGIT, 4))
+        assertEquals(Action.MusicVolume(true), m.onKey(Key.UP)); assertEquals(Action.MusicVolume(false), m.onKey(Key.DIGIT, 8))
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
+        assertEquals("3:20", io.github.durkimat.phoneguard.music.MusicInfo.clock(200_000)); assertEquals("1:02:03", io.github.durkimat.phoneguard.music.MusicInfo.clock(3_723_000))
+    }
 }
