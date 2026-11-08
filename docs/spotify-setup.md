@@ -18,4 +18,6 @@ Needed once, by the person who owns the Spotify account (a Premium or Family pla
 4. **User management**: add the name and the Spotify email of every account that will use the phone (development mode only works for accounts added here; the number allowed is small, Spotify has said five).
 5. Copy the **Client ID** (not the Client secret, which is never needed and must not be shared) and give it to Phone Guard.
 
+Note: the player is planned around Spotify's Web API (devices, playlists, search, control of whichever device is playing), so the Web API option above matters most; the Android SDK option is only for the optional App Remote.
+
 Why: Spotify's App Remote lets an app control the Spotify app only if the app's package name and the fingerprint of the key it is signed with are registered against a client ID.
