@@ -145,4 +145,22 @@ class HomeBadgeTest {
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
         m.badges = emptyList(); assertEquals(Action.None, m.tap(240f, 510f))
     }
+
+    @Test fun swipingScrollsALongListAndTapsStillPickTheRowShown() {
+        val apps = (1..12).map { MenuItem("p.$it", "App $it") }
+        val m = LauncherModel(apps); m.onKey(Key.OK)
+        assertEquals(0, m.listFirst(LIST_VISIBLE))
+        assertTrue(m.scrollBy(3)); assertEquals(3, m.listFirst(LIST_VISIBLE))
+        assertTrue(m.selected in 3..9)
+        assertTrue(m.scrollBy(10)); assertEquals(5, m.listFirst(LIST_VISIBLE)) // 12 rows, 7 visible: the last page starts at row 5
+        assertEquals(false, m.scrollBy(1))
+        assertEquals(Action.Launch("p.8"), m.tap(100f, 104f + 62f * 2 + 10f)) // the third row shown is App 8
+        m.scrollBy(-10); assertEquals(0, m.listFirst(LIST_VISIBLE))
+    }
+
+    @Test fun gamesIgnoreTouch() {
+        val m = LauncherModel(listOf(MenuItem(GAMES_PKG, "Games"))); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 1); m.onKey(Key.OK)
+        assertEquals(Screen.SNAKE, m.screen)
+        assertEquals(Action.None, m.tap(40f, 610f)); assertEquals(Screen.SNAKE, m.screen)
+    }
 }

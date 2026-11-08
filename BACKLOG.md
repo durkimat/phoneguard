@@ -575,3 +575,7 @@ Questions to put to them together:
 
 ## Home symbols revised (2026-11-08)
 - Text messages: a square speech bubble with two lines. WhatsApp: a round bubble with a tail and a small handset inside. Missed calls: the handset. Symbols only show when the count is above zero, so with nothing new the row is empty by design (the test fake counts were switched off, which is why they went).
+
+## Swipe scrolling and classic games (owner, 2026-11-08)
+- Where touch is allowed, a swipe scrolls any list (the main menu is nine rows, seven fit): one row for every 62 design pixels of travel, a tap still chooses the row you touch, and the chosen row stays inside the visible rows. Checked on the J36 (menu swiped up and down). The games themselves ignore all touch, including their soft-key labels, so they stay keypad classics; the Classic Games list and How to play page still take touch.
+- Menu entry and list title renamed "Classic Games".

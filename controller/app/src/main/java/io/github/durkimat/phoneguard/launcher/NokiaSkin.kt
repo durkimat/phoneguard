@@ -35,6 +35,9 @@ class NokiaSkin : LauncherSkin {
     private inner class Canvas2(context: Context) : View(context) {
         private val typefaces = HashMap<String, Typeface>()
         private var sizeScale = 1f
+        private var downY = 0f
+        private var lastY = 0f
+        private var dragged = false
 
         private fun load(id: String): Typeface = try {
             when (id) {
@@ -54,7 +57,23 @@ class NokiaSkin : LauncherSkin {
         init {
             isFocusable = false
             // a Nokia has no touchscreen; where touch is allowed, a tap on the weather opens the forecast
-            setOnTouchListener { v, ev -> if (ev.action == android.view.MotionEvent.ACTION_UP) onTap?.invoke(ev.x / (v.width / 480f), ev.y / (v.width / 480f)); true }
+            setOnTouchListener { v, ev ->
+                val k = v.width / 480f
+                when (ev.action) {
+                    android.view.MotionEvent.ACTION_DOWN -> { downY = ev.y / k; lastY = downY; dragged = false }
+                    android.view.MotionEvent.ACTION_MOVE -> {
+                        val y = ev.y / k
+                        // a swipe up shows later rows: every 62 design pixels of travel is one row
+                        if (Math.abs(y - downY) > 14f) dragged = true
+                        if (dragged) {
+                            val rows = ((lastY - y) / 62f).toInt()
+                            if (rows != 0) { if (model?.scrollBy(rows) == true) invalidate(); lastY -= rows * 62f }
+                        }
+                    }
+                    android.view.MotionEvent.ACTION_UP -> if (!dragged) onTap?.invoke(ev.x / k, ev.y / k)
+                }
+                true
+            }
         }
 
         override fun onDraw(c: Canvas) {
@@ -264,8 +283,8 @@ class NokiaSkin : LauncherSkin {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
             text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
             val rowH = 62f
-            val visible = ((640f - 64 - 100) / rowH).toInt().coerceAtLeast(1)
-            val first = (m.selected - visible + 1).coerceAtLeast(0).coerceAtMost((m.rows.size - visible).coerceAtLeast(0))
+            val visible = LIST_VISIBLE
+            val first = m.listFirst(visible)
             for (n in 0 until visible) {
                 val idx = first + n
                 val row = m.rows.getOrNull(idx) ?: break
