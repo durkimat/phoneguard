@@ -365,3 +365,16 @@ def test_notifications_per_mode_and_hidden_apps(hub):
     modes = json.loads(json.dumps(ch["modes"])); modes["night"]["notes"] = "maybe"
     with pytest.raises(ValueError):
         hub.update_child("her", {"modes": modes})
+
+
+def test_spotify_client_id_is_an_option_for_every_phone(hub):
+    assert "spotifyClientId" not in S.build_config(hub.data["children"]["her"], hub.now(), hub.data.get("options"))
+    hub.set_options({"spotify_client_id": "9A2538D380E249B1A351A432CA5E70CE "})
+    assert S.build_config(hub.data["children"]["her"], hub.now(), hub.data.get("options"))["spotifyClientId"] == "9a2538d380e249b1a351a432ca5e70ce"
+    for bad in ("short", "z" * 32, "9a2538d380e249b1a351a432ca5e70c"):
+        with pytest.raises(ValueError):
+            hub.set_options({"spotify_client_id": bad})
+    with pytest.raises(ValueError):
+        hub.set_options({"something_else": "x"})
+    hub.set_options({"spotify_client_id": ""})
+    assert "spotifyClientId" not in S.build_config(hub.data["children"]["her"], hub.now(), hub.data.get("options"))

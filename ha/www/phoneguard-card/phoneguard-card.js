@@ -1,4 +1,4 @@
-/* Phone Guard card v0.14.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.15.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
@@ -239,7 +239,7 @@ class PhoneGuardCard extends HTMLElement {
       html += this._boostHtml(d) + this._holidayHtml(d) + this._newAppsHtml(d);
     }
     html += this._timetableHtml(d) + this._copyHtml(d);
-    if (dev && !dev.pending) html += this._matrixHtml(d) + this._weatherHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d);
+    if (dev && !dev.pending) html += this._matrixHtml(d) + this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -412,6 +412,14 @@ class PhoneGuardCard extends HTMLElement {
       <button data-act="wx_home" ${home && home.latitude != null ? "" : "disabled"}>Use this house's location</button>
       ${loc ? `<button data-act="wx_off">Turn weather off</button>` : ""}</div>
       <div class="sub">Shows a small weather symbol, the temperature and any rain coming in the next few hours on the home screen, and a Weather entry in the menu. Data by Open-Meteo.com. The place is rounded to about 100 metres.</div>`;
+  }
+
+  // the Spotify developer app's Client ID: public by design, entered once for every phone (never the client secret)
+  _spotifyHtml(d) {
+    const id = (d.options || {}).spotify_client_id || "";
+    return `<h3>Spotify</h3><div class="row"><input data-sp-id type="text" size="36" maxlength="32" placeholder="Client ID (32 letters and digits)" value="${this._esc(id)}">
+      <button data-act="sp_save">Save</button>${id ? `<button data-act="sp_clear">Remove</button>` : ""}</div>
+      <div class="sub">${id ? "The phone shows Music, sign in with the Spotify account." : "Register an app at developer.spotify.com/dashboard (steps in docs/spotify-setup.md) and paste its Client ID here. Never paste the Client secret."}</div>`;
   }
 
   _copyHtml(d) {
@@ -726,6 +734,10 @@ class PhoneGuardCard extends HTMLElement {
     const d = this._d;
     const ui = this._ui;
     ui.lastDev = ui.lastDev || {};
+    if (a === "sp_save" || a === "sp_clear") {
+      const v = a === "sp_clear" ? "" : (this.shadowRoot.querySelector("[data-sp-id]") || {}).value || "";
+      return this._hass.callService("phoneguard", "set_options", { spotify_client_id: v.trim() });
+    }
     if (a === "wx_home") { const h = this._hass.config; return this._svc("set_child", { config: { location: { lat: h.latitude, lon: h.longitude } } }); }
     if (a === "wx_off") return this._svc("set_child", { config: { location: null } });
     if (a === "select_person") {

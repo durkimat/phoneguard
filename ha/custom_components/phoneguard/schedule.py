@@ -101,7 +101,7 @@ def _in_holiday(child: dict, d: date) -> bool:
         return False
 
 
-def build_config(child: dict, now_ms: int) -> dict:
+def build_config(child: dict, now_ms: int, options: dict | None = None) -> dict:
     tz = ZoneInfo(child["tz"])
     today = datetime.fromtimestamp(now_ms / 1000, tz).date()
     segments = []
@@ -141,6 +141,8 @@ def build_config(child: dict, now_ms: int) -> dict:
     loc = child.get("location")
     if loc:
         cfg["location"] = {"lat": round(float(loc["lat"]), 3), "lon": round(float(loc["lon"]), 3)}
+    if options and options.get("spotify_client_id"):  # public by design (no secret), set once for all phones in the integration's options
+        cfg["spotifyClientId"] = options["spotify_client_id"]
     cfg["notesHide"] = sorted(str(x) for x in child.get("notes_hide", []))
     cfg["pinned"] = [str(x) for x in child.get("pinned", [])]
     if child.get("override") in modes:

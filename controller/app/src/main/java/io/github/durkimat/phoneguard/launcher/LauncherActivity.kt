@@ -188,6 +188,8 @@ class LauncherActivity : Activity() {
         model.weather = WeatherStore.current(this)
         model.androidSettings = LauncherData.touchAllowed(this)
         model.notes = io.github.durkimat.phoneguard.notes.Notes.all()
+        model.spConfigured = io.github.durkimat.phoneguard.music.Spotify.configured(this)
+        model.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this)
         if (model.screen == Screen.MUSIC) {
             model.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this)
             model.music = nowPlaying()

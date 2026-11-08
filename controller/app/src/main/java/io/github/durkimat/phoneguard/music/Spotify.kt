@@ -32,7 +32,10 @@ data class SpPlayer(
  * account, playlists, search, and playing or moving playback. The Client ID is public by design; there is no client secret anywhere.
  */
 object Spotify {
-    const val CLIENT_ID = "9a2538d380e249b1a351a432ca5e70ce"
+    /** From the config HA sends (see Config.spotifyClientId); the id used to sign in is remembered so refreshing the token always uses the same one. */
+    fun configuredId(c: Context): String = io.github.durkimat.phoneguard.Store.config(c)?.spotifyClientId.orEmpty()
+    private fun clientId(c: Context): String = sp(c).getString("client", null) ?: configuredId(c)
+    fun configured(c: Context) = configuredId(c).isNotEmpty()
     const val REDIRECT = "io.github.durkimat.phoneguard://spotify-callback"
     private const val SCOPES = "user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-library-read"
 
@@ -47,8 +50,8 @@ object Spotify {
         val bytes = ByteArray(48).also { SecureRandom().nextBytes(it) }
         val verifier = Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
         val challenge = Base64.encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray()), Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
-        sp(c).edit().putString("verifier", verifier).apply()
-        val url = "https://accounts.spotify.com/authorize?client_id=$CLIENT_ID&response_type=code&redirect_uri=${enc(REDIRECT)}" +
+        sp(c).edit().putString("verifier", verifier).putString("pending_client", configuredId(c)).apply()
+        val url = "https://accounts.spotify.com/authorize?client_id=${configuredId(c)}&response_type=code&redirect_uri=${enc(REDIRECT)}" +
             "&code_challenge_method=S256&code_challenge=$challenge&scope=${enc(SCOPES)}"
         return Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
@@ -56,8 +59,10 @@ object Spotify {
     /** The browser came back with a code: swap it for the tokens. Blocking; call off the main thread. */
     fun finishSignIn(c: Context, code: String): Boolean {
         val verifier = sp(c).getString("verifier", null) ?: return false
-        val r = token(c, "grant_type=authorization_code&code=${enc(code)}&redirect_uri=${enc(REDIRECT)}&client_id=$CLIENT_ID&code_verifier=${enc(verifier)}")
-        return r
+        val client = sp(c).getString("pending_client", null) ?: configuredId(c)
+        val ok = token(c, "grant_type=authorization_code&code=${enc(code)}&redirect_uri=${enc(REDIRECT)}&client_id=$client&code_verifier=${enc(verifier)}")
+        if (ok) sp(c).edit().putString("client", client).remove("pending_client").apply()
+        return ok
     }
 
     fun signOut(c: Context) { sp(c).edit().clear().apply() }
@@ -84,7 +89,7 @@ object Spotify {
     private fun accessToken(c: Context): String? {
         val p = sp(c)
         val refresh = p.getString("refresh", null) ?: return null
-        if (System.currentTimeMillis() >= p.getLong("expires", 0) && !token(c, "grant_type=refresh_token&refresh_token=${enc(refresh)}&client_id=$CLIENT_ID")) return null
+        if (System.currentTimeMillis() >= p.getLong("expires", 0) && !token(c, "grant_type=refresh_token&refresh_token=${enc(refresh)}&client_id=${clientId(c)}")) return null
         return p.getString("access", null)
     }
 

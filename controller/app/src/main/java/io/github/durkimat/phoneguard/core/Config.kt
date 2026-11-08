@@ -77,6 +77,8 @@ data class Config(
     val lon: Double? = null,
     /** Apps whose notifications are cleared as they arrive, besides the built-in list. */
     val notesHide: Set<String> = emptySet(),
+    /** The Spotify developer app's Client ID (public, no secret), set once in HA; empty means Spotify is not set up. */
+    val spotifyClientId: String = "",
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -142,6 +144,7 @@ data class Config(
                 lat = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lat"),
                 lon = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lon"),
                 notesHide = strings(o.optJSONArray("notesHide")),
+                spotifyClientId = o.optString("spotifyClientId", ""),
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

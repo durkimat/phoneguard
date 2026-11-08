@@ -984,6 +984,8 @@ class LauncherModel(
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
     var spSignedIn = false
+    /** False until HA has sent a Spotify Client ID. */
+    var spConfigured = true
     var spPlaylists: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
     var spResults: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
     var spDevices: List<io.github.durkimat.phoneguard.music.SpDevice> = emptyList()
@@ -1037,7 +1039,7 @@ class LauncherModel(
         }
     }
 
-    private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else listOf("Sign in to Spotify"))
+    private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
 
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (musicMenuRows.getOrNull(selected)) {
