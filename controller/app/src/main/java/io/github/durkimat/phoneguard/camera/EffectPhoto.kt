@@ -3,6 +3,12 @@ package io.github.durkimat.phoneguard.camera
 import android.content.ContentResolver
 import android.content.ContentValues
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Typeface
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.provider.MediaStore
@@ -15,25 +21,29 @@ import android.provider.MediaStore
 object EffectPhoto {
     private const val LONG_SIDE = 1440
 
-    /** The colours the effect paints with, as (screen colour, ink colour). Dots and tones follow the launcher theme. */
-    fun palette(e: Effect, lcd: Int, ink: Int): Pair<Int, Int> = when (e) {
-        Effect.MONO -> 0xFFFFFFFF.toInt() to 0xFF000000.toInt()
-        Effect.WARM -> 0xFFF6E7C8.toInt() to 0xFF2B1A0A.toInt()
-        else -> lcd to ink
-    }
-
-    /** Turn decoded pixels into the effect picture. [cell] pixels per dot (1 for smooth effects). */
+    /** Turn decoded pixels into the effect picture, at the effect's own grain. */
     fun render(px: IntArray, w: Int, h: Int, e: Effect, lcd: Int, ink: Int): Bitmap {
-        val cell = if (e == Effect.DOTS) 2 else 1
+        val cell = Effects.cellFor(e)
         val cols = (w / cell).coerceAtLeast(1); val rows = (h / cell).coerceAtLeast(1)
         val cells = Dither.sample(w, h, 0, false, cols, rows) { x, y -> val c = px[y * w + x]; (((c shr 16) and 255) * 299 + ((c shr 8) and 255) * 587 + (c and 255) * 114) / 1000 }
-        val (bright, dark) = palette(e, lcd, ink)
-        val out = if (e == Effect.DOTS) {
-            val inkCells = Dither.twoTone(cells, cols, true)
-            IntArray(inkCells.size) { if (inkCells[it]) dark or (0xFF shl 24) else bright or (0xFF shl 24) }
-        } else Dither.ramp(cells, bright, dark)
-        val small = Bitmap.createBitmap(out, cols, rows, Bitmap.Config.ARGB_8888)
-        return if (cell == 1) small else Bitmap.createScaledBitmap(small, cols * cell, rows * cell, false).also { small.recycle() }
+        val small = Bitmap.createBitmap(Effects.render(e, cells, cols, rows, lcd, ink, fine = true), cols, rows, Bitmap.Config.ARGB_8888)
+        val scaled = if (cell == 1) small else Bitmap.createScaledBitmap(small, cols * cell, rows * cell, false).also { small.recycle() }
+        return if (e == Effect.FRAME) framed(scaled, lcd, ink) else scaled
+    }
+
+    /** A border in the screen colour with the date and time under the picture, like an instant photo. */
+    private fun framed(pic: Bitmap, lcd: Int, ink: Int): Bitmap {
+        val side = pic.width / 18; val bottom = pic.width / 5
+        val out = Bitmap.createBitmap(pic.width + 2 * side, pic.height + side + bottom, Bitmap.Config.ARGB_8888)
+        val c = Canvas(out)
+        c.drawColor(lcd or (0xFF shl 24))
+        c.drawBitmap(pic, side.toFloat(), side.toFloat(), null)
+        val line = Paint().apply { color = ink; style = Paint.Style.STROKE; strokeWidth = (side / 6f).coerceAtLeast(2f) }
+        c.drawRect(side.toFloat(), side.toFloat(), (side + pic.width).toFloat(), (side + pic.height).toFloat(), line)
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ink; typeface = Typeface.MONOSPACE; isFakeBoldText = true; textAlign = Paint.Align.CENTER; textSize = bottom * 0.34f }
+        c.drawText(SimpleDateFormat("d MMM yyyy  HH:mm", Locale.UK).format(Date()).uppercase(), out.width / 2f, side + pic.height + bottom * 0.62f, text)
+        pic.recycle()
+        return out
     }
 
     /** Decode the saved photo, apply the effect and store it next to the original. Returns the new item's uri, or null. */

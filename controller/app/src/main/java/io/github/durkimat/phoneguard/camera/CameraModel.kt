@@ -9,7 +9,8 @@ enum class CamMode { PHOTO, VIDEO }
 enum class FlashMode { OFF, AUTO, ON }
 /** What the viewfinder shows and which extra copy a photo gets next to the colour original. NONE: plain viewfinder, no extra copy. */
 enum class Effect(val label: String, val extra: String) {
-    NONE("Plain", ""), DOTS("Dots", "dots"), TONES("Tones", "tones"), MONO("Mono", "mono"), WARM("Warm", "warm"),
+    NONE("Normal", ""), DOTS("Dots", "dots"), TONES("Tones", "tones"), MONO("Mono", "mono"), WARM("Warm", "warm"),
+    HALFTONE("Newsprint", "newsprint"), POSTER("Poster", "poster"), OUTLINE("Outline", "outline"), SCAN("Scan lines", "scan"), FRAME("Dated frame", "dated"),
 }
 
 sealed class CamAction {
@@ -85,7 +86,13 @@ class CameraModel {
         key == Key.DIGIT && digit == 1 -> CamAction.OpenGallery
         key == Key.DIGIT && digit == 2 -> { flash = FlashMode.values()[(flash.ordinal + 1) % (if (mode == CamMode.PHOTO) 3 else 3)]; CamAction.Redraw }
         key == Key.DIGIT && digit == 3 -> { timerSeconds = timers[(timers.indexOf(timerSeconds) + 1) % timers.size]; CamAction.Redraw }
-        key == Key.DIGIT && digit == 4 -> { effect = Effect.values()[(effect.ordinal + 1) % Effect.values().size]; CamAction.Redraw }
+        key == Key.DIGIT && (digit == 4 || digit == 6) -> {
+            val before = effect
+            val n = Effect.values().size
+            effect = Effect.values()[(effect.ordinal + (if (digit == 4) 1 else n - 1)) % n]
+            // the colour viewfinder is a different camera set-up from the drawn ones, so crossing Normal rebinds
+            if (before == Effect.NONE || effect == Effect.NONE) CamAction.Rebind else CamAction.Redraw
+        }
         key == Key.POUND -> if (recording) CamAction.None else { front = !front; zoomIndex = 0; CamAction.Rebind }
         key == Key.SOFT_LEFT -> shutter()
         key == Key.SOFT_RIGHT -> if (recording) CamAction.None else CamAction.Exit
