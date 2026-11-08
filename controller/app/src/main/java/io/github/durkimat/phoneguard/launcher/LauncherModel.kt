@@ -115,7 +115,9 @@ class LauncherModel(
 
     fun setItems(list: List<MenuItem>) {
         items = list
-        selected = selected.coerceIn(0, (list.size - 1).coerceAtLeast(0))
+        // only the app menu is as long as this list: trimming the selection on any other screen pulled it back to
+        // the menu's length (seven rows) every time the launcher redrew, so longer lists opened the wrong entry
+        if (screen == Screen.MENU) selected = selected.coerceIn(0, (list.size - 1).coerceAtLeast(0))
     }
 
     /** The id of the theme in use. The activity sets it from storage at start. */
