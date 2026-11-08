@@ -46,6 +46,7 @@ class LauncherActivity : Activity() {
         model.predictiveOn = prefs().getBoolean("predictive", true)
         model.speakerShown = prefs().getBoolean("speaker", true)
         model.waNameStyle = prefs().getString("wa_names", NameStyle.DEFAULT) ?: NameStyle.DEFAULT
+        model.snakeBest = prefs().getInt("snake_best", 0)
         loadWords()
         setContentView(skin.create(this))
         refresh()
@@ -112,11 +113,29 @@ class LauncherActivity : Activity() {
 
     override fun onDestroy() { WhatsApp.offChange(waChanged); super.onDestroy() }
 
+    private val gameStep = object : Runnable {
+        override fun run() {
+            gameScheduled = false
+            if (model.gameTick() == Action.Redraw) { saveBest(); refresh() }
+        }
+    }
+    private var gameScheduled = false
+
+    /** While snake is running, step it on a timer; the timer stops by itself when the game is paused, over or left. */
+    private fun scheduleGame() {
+        if (model.screen == Screen.SNAKE && model.snake.state == Snake.State.RUNNING && !gameScheduled) {
+            gameScheduled = true; ui.postDelayed(gameStep, model.snake.stepMs)
+        }
+    }
+
+    private fun saveBest() { if (model.snakeBest > prefs().getInt("snake_best", 0)) prefs().edit().putInt("snake_best", model.snakeBest).apply() }
+
     private val hideNotice = Runnable { model.clearNotice(); refresh() }
 
     private fun refresh() {
         // a notice ("Message sent") goes by itself after a moment
         ui.removeCallbacks(hideNotice)
+        scheduleGame()
         if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
         val all = LauncherData.items(this)
         val pinned = Store.config(this)?.pinned ?: emptyList()

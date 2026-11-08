@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -52,6 +52,7 @@ object Fonts {
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+const val GAMES_PKG = "pg:games"
 const val APPS_PKG = "pg:apps"
 const val CALC_PKG = "pg:calculator"
 const val CALLLOG_PKG = "pg:calllog"
@@ -180,6 +181,9 @@ class LauncherModel(
     /** Recent calls, newest first. The activity fills this in. */
     var calls: List<CallEntry> = emptyList()
     val calc = Calculator()
+    val snake = Snake()
+    /** The best snake score on this phone; the activity saves it. */
+    var snakeBest = 0
     /** The call being shown, set by the call screen's activity. */
     var call: CallInfo? = null
         private set
@@ -273,6 +277,8 @@ class LauncherModel(
         Screen.WASET -> "WhatsApp"
         Screen.WANAMES -> "Names in lists"
         Screen.APPS -> "Other apps"
+        Screen.GAMES -> "Games"
+        Screen.SNAKE -> "Snake"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -286,6 +292,7 @@ class LauncherModel(
         Screen.HOME -> "Menu" to "Contacts"
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> "Call" to "Back"
+        Screen.SNAKE -> (when (snake.state) { Snake.State.READY -> "Start"; Snake.State.RUNNING -> "Pause"; Snake.State.PAUSED -> "Resume"; Snake.State.OVER -> "Again" }) to "Back"
         Screen.DIAL -> "Call" to "Clear"
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
@@ -307,6 +314,8 @@ class LauncherModel(
     val rows: List<String> get() = when (screen) {
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
+        Screen.GAMES -> listOf("Snake")
+        Screen.SNAKE -> emptyList()
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
@@ -337,7 +346,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -348,6 +357,8 @@ class LauncherModel(
         Screen.HOME -> home(key, digit)
         Screen.MENU -> menu(key, digit)
         Screen.APPS -> appList(key)
+        Screen.GAMES -> gameList(key)
+        Screen.SNAKE -> snakeKey(key, digit)
         Screen.SETTINGS -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
         Screen.FONT -> fonts(key, digit)
@@ -755,6 +766,7 @@ class LauncherModel(
         item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
+        item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
         item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }
         else -> Action.Launch(item.pkg)
     }
@@ -802,6 +814,38 @@ class LauncherModel(
         Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
         Key.POUND -> { dialNumber = "#"; screen = Screen.DIAL; Action.Redraw }
         else -> Action.None
+    }
+
+    private fun gameList(key: Key): Action = move(key, 1) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { snake.reset(); screen = Screen.SNAKE; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == GAMES_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    /** Arrows or 2, 4, 6, 8 steer; OK or the left key starts and pauses; the right key leaves. */
+    private fun snakeKey(key: Key, digit: Int): Action {
+        when (key) {
+            Key.UP -> snake.steer(0)
+            Key.RIGHT -> snake.steer(1)
+            Key.DOWN -> snake.steer(2)
+            Key.LEFT -> snake.steer(3)
+            Key.DIGIT -> when (digit) { 2 -> snake.steer(0); 6 -> snake.steer(1); 8 -> snake.steer(2); 4 -> snake.steer(3); 5 -> snake.toggle() }
+            Key.OK, Key.SOFT_LEFT -> snake.toggle()
+            Key.SOFT_RIGHT -> { snake.reset(); screen = Screen.GAMES; selected = 0 }
+            Key.END -> { snake.reset(); goHome() }
+            else -> return Action.None
+        }
+        if (snake.score > snakeBest) snakeBest = snake.score
+        return Action.Redraw
+    }
+
+    /** One step of whatever game is running; the activity calls it on a timer while a game is on screen. */
+    fun gameTick(): Action {
+        if (screen != Screen.SNAKE || snake.state != Snake.State.RUNNING) return Action.None
+        snake.step()
+        if (snake.score > snakeBest) snakeBest = snake.score
+        return Action.Redraw
     }
 
     private fun appList(key: Key): Action = move(key, apps.size) ?: when (key) {
