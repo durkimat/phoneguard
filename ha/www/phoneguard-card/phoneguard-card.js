@@ -1,8 +1,8 @@
-/* Phone Guard card v0.7.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.8.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.7.0";
+const PG_VERSION = "0.8.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -11,7 +11,7 @@ class PhoneGuardCard extends HTMLElement {
     if (!this._ui) {
       let sel = null;
       try { sel = localStorage.getItem("phoneguard-card:selected"); } catch (e) { /* private mode */ }
-      this._ui = { sel, sas: "", from: "", until: "", boostMode: "day", adding: false, newName: "", tts: {}, usageDay: null, newPerson: "", newPersonName: "", copyOpen: false, copyTo: "", copyParts: { timetable: true, holiday: false, restrictions: false, mode_options: false }, renaming: false, rnPerson: "", rnName: "" };
+      this._ui = { sel, sas: "", from: "", until: "", boostMode: "day", adding: false, newName: "", tts: {}, usageDay: null, newPerson: "", newPersonName: "", copyOpen: false, copyTo: "", copyParts: { timetable: true, holiday: false, restrictions: false, mode_options: false, whatsapp: false }, renaming: false, rnPerson: "", rnName: "" };
     }
     if (!this._root) this._root = this.attachShadow({ mode: "open" });
   }
@@ -237,7 +237,7 @@ class PhoneGuardCard extends HTMLElement {
       html += this._boostHtml(d) + this._holidayHtml(d) + this._newAppsHtml(d);
     }
     html += this._timetableHtml(d) + this._copyHtml(d);
-    if (dev && !dev.pending) html += this._matrixHtml(d) + this._usageHtml(d);
+    if (dev && !dev.pending) html += this._matrixHtml(d) + this._whatsappHtml(d) + this._usageHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -379,6 +379,7 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>Touchscreen works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="touch" data-mode="${m}" ${d.modes[m].touch !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Pull-down shade works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="shade" data-mode="${m}" ${d.modes[m].shade !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Sound</td>${ids.map((m) => `<td><select data-mode-opt="sound" data-mode="${m}">${[["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].sound || "normal") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
+      <tr class="opt"><td>WhatsApp checks</td>${ids.map((m) => `<td><select data-mode-opt="wa" data-mode="${m}">${[["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa || "open") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Incoming calls allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="inbound" data-mode="${m}" ${d.modes[m].inbound !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
@@ -388,7 +389,7 @@ class PhoneGuardCard extends HTMLElement {
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
         }).join("") + `</tr>`;
     }
-    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
+    return h + `</table><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp checks: Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
       <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
   }
 
@@ -403,7 +404,8 @@ class PhoneGuardCard extends HTMLElement {
       <label class="rs"><input type="checkbox" data-cp="timetable" ${P.timetable ? "checked" : ""}><span>Weekly timetable<small>Including the base mode and time zone.</small></span></label>
       <label class="rs"><input type="checkbox" data-cp="holiday" ${P.holiday ? "checked" : ""}><span>Holiday dates</span></label>
       <label class="rs"><input type="checkbox" data-cp="restrictions" ${P.restrictions ? "checked" : ""}><span>Phone restrictions</span></label>
-      <label class="rs"><input type="checkbox" data-cp="mode_options" ${P.mode_options ? "checked" : ""}><span>Grey screen, sound, incoming calls and "Everything allowed" for each mode<small>Only for modes both devices have.</small></span></label>
+      <label class="rs"><input type="checkbox" data-cp="whatsapp" ${P.whatsapp ? "checked" : ""}><span>WhatsApp settings<small>Who is allowed, and the send limits.</small></span></label>
+      <label class="rs"><input type="checkbox" data-cp="mode_options" ${P.mode_options ? "checked" : ""}><span>Grey screen, sound, incoming calls, WhatsApp checks and "Everything allowed" for each mode<small>Only for modes both devices have.</small></span></label>
       <div class="sub">App lists are never copied: each device has its own apps, so choose those on that device.</div>
       <div class="row" style="margin-top:8px"><button class="primary" data-act="copy_go">Copy</button><button data-act="copy_toggle">Close</button></div></div>`;
     return h;
@@ -456,6 +458,18 @@ class PhoneGuardCard extends HTMLElement {
       ["no_control_apps", "Block uninstall, force stop and clear data", "For every app, which also stops you doing it on the phone.", false],
       ["no_install_unknown_sources", "Block installing apps from unknown sources", "DumberOS also sets this itself; turning it off here may not undo that.", false],
     ];
+  }
+
+  // who WhatsApp on the phone may read and write to, and how fast it may send (the checks per mode are in the table above)
+  _whatsappHtml(d) {
+    const w = d.whatsapp || { all: false, allowed: [], perMinute: 5, perDay: 200 };
+    return `<h3>WhatsApp</h3>
+      <label class="rs"><input type="checkbox" data-wa="all" ${w.all ? "checked" : ""}><span>Allow everyone and every group<small>Without this, only the people and groups listed below can be read or written to.</small></span></label>
+      <div class="sub" style="margin-top:6px">One per line: a phone number with country code and no plus (447700900111), or g: and a group's name (g:Family). Names are matched from the phone's contacts.</div>
+      <textarea data-wa="allowed" rows="4" style="width:100%;box-sizing:border-box">${this._esc((w.allowed || []).join("\n"))}</textarea>
+      <div class="row" style="margin-top:6px"><span>Send at most</span><input type="number" data-wa="perMinute" min="1" max="60" value="${Number(w.perMinute) || 5}" style="width:4em"><span>a minute and</span><input type="number" data-wa="perDay" min="1" max="2000" value="${Number(w.perDay) || 200}" style="width:5em"><span>a day</span></div>
+      <div class="row" style="margin-top:8px"><button class="primary" data-act="wa_save">Save WhatsApp settings</button></div>
+      <div class="sub">Messages stay on the phone. Home Assistant never sees them.</div>`;
   }
 
   _restrictionsHtml(d) {
@@ -614,6 +628,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "gray") modes[mode].gray = i.checked;
     if (opt === "launcher") modes[mode].launcher = i.value;
     if (opt === "sound") modes[mode].sound = i.value;
+    if (opt === "wa") modes[mode].wa = i.value;
     if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
       modes[mode].allowAll = i.checked;
@@ -697,6 +712,10 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "approve") {
       const modes = [...this._root.querySelectorAll(`input[data-pick="${CSS.escape(b.dataset.pkg)}"]:checked`)].map((i) => i.dataset.mode);
       return this._svc("approve_app", { package: b.dataset.pkg, modes });
+    }
+    if (a === "wa_save") {
+      const get = (k) => this._root.querySelector(`[data-wa="${k}"]`);
+      return this._svc("set_child", { config: { whatsapp: { all: get("all").checked, allowed: get("allowed").value.split("\n"), perMinute: Number(get("perMinute").value) || 5, perDay: Number(get("perDay").value) || 200 } } });
     }
     if (a === "rs_default") return this._svc("set_child", { config: { restrictions: null } });
     if (a === "release" && confirm("Release this phone? It stops being managed and everything is unhidden on its next sync.")) return this._svc("release");
