@@ -41,7 +41,24 @@ object Spotify {
 
     private fun sp(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("spotify", Context.MODE_PRIVATE)
 
-    fun signedIn(c: Context) = sp(c).getString("refresh", null) != null
+    fun signedIn(c: Context): Boolean { adopt(c); return sp(c).getString("refresh", null) != null }
+
+    /**
+     * Sign-in done in HA: HA sends its refresh token in the settings. A new one is taken up once (the phone may then refresh
+     * and rotate its own copy, so the one HA sent is remembered and not taken again); HA clearing it signs the phone out.
+     */
+    fun adopt(c: Context) {
+        val want = io.github.durkimat.phoneguard.Store.config(c)?.spotifyRefresh.orEmpty()
+        val p = sp(c)
+        val had = p.getString("adopted", "").orEmpty()
+        if (want.isNotEmpty() && want != had) {
+            p.edit().putString("refresh", want).putString("client", configuredId(c)).putString("adopted", want).putLong("expires", 0).remove("access").apply()
+            Log.log(c, "spotify: signed in from HA")
+        } else if (want.isEmpty() && had.isNotEmpty()) {
+            p.edit().clear().apply()
+            Log.log(c, "spotify: signed out from HA")
+        }
+    }
 
     // ---- sign-in (authorisation code with PKCE)
 
@@ -65,7 +82,8 @@ object Spotify {
         return ok
     }
 
-    fun signOut(c: Context) { sp(c).edit().clear().apply() }
+    /** Forget this phone's tokens. The token HA sent stays remembered, so the same one is not taken up again. */
+    fun signOut(c: Context) { val a = sp(c).getString("adopted", null); sp(c).edit().clear().apply(); if (a != null) sp(c).edit().putString("adopted", a).apply() }
 
     private fun token(c: Context, form: String): Boolean = try {
         val h = URL("https://accounts.spotify.com/api/token").openConnection() as HttpURLConnection
@@ -87,6 +105,7 @@ object Spotify {
     } catch (e: Exception) { Log.log(c, "spotify token: ${e.javaClass.simpleName}"); false }
 
     private fun accessToken(c: Context): String? {
+        adopt(c)
         val p = sp(c)
         val refresh = p.getString("refresh", null) ?: return null
         if (System.currentTimeMillis() >= p.getLong("expires", 0) && !token(c, "grant_type=refresh_token&refresh_token=${enc(refresh)}&client_id=${clientId(c)}")) return null

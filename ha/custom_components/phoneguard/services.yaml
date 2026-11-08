@@ -99,3 +99,13 @@ set_override:
   fields:
     child: {required: true, selector: {text: {}}}
     mode: {required: true, example: school, selector: {text: {}}}
+
+spotify_signout:
+  name: Sign out of Spotify
+  description: Forget the Spotify sign-in held for this phone (the phone signs out at its next check-in).
+  fields:
+    child:
+      name: Device
+      required: true
+      selector:
+        text:
