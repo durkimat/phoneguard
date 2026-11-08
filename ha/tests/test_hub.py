@@ -354,3 +354,14 @@ def test_phone_positions_are_validated_and_the_newest_kept(hub):
     assert dev["fix"][0] == 1000  # the older, out-of-range and negative-accuracy ones are refused
     hub._merge_fix(dev, [[5000, 51.77, -0.33, 8.0, "network", "school"]])
     assert dev["fix"][:3] == [5000, 51.77, -0.33]
+
+
+def test_notifications_per_mode_and_hidden_apps(hub):
+    ch = hub.data["children"]["her"]
+    cfg = S.build_config(ch, hub.now())
+    assert cfg["modes"]["school"]["notes"] == "off" and cfg["modes"]["day"]["notes"] == "show" and cfg["notesHide"] == []
+    hub.update_child("her", {"notes_hide": ["a.b", "", "a.b", "c.d"]})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["notesHide"] == ["a.b", "c.d"]
+    modes = json.loads(json.dumps(ch["modes"])); modes["night"]["notes"] = "maybe"
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"modes": modes})

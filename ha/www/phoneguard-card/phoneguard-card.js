@@ -1,8 +1,8 @@
-/* Phone Guard card v0.13.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.14.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.13.0";
+const PG_VERSION = "0.14.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -378,7 +378,7 @@ class PhoneGuardCard extends HTMLElement {
     let h = `<h3>Modes and apps</h3>`;
     const pinned = d.pinned || [];
     if (!d.apps.length) return h + `<div class="sub">The phone has not reported its apps yet.</div>`;
-    h += `<table><tr><th>App</th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}<th>Main menu</th></tr>
+    h += `<table><tr><th>App</th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}<th>Main menu</th><th>Hide notes</th></tr>
       <tr class="opt"><td>Everything allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="allowAll" data-mode="${m}" ${d.modes[m].allowAll ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Grey screen</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="gray" data-mode="${m}" ${d.modes[m].gray ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Home screen</td>${ids.map((m) => `<td><select data-mode-opt="launcher" data-mode="${m}"><option value="default" ${d.modes[m].launcher !== "nokia" ? "selected" : ""}>Normal</option><option value="nokia" ${d.modes[m].launcher === "nokia" ? "selected" : ""}>Nokia</option></select></td>`).join("")}</tr>
@@ -391,15 +391,16 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>Camera offered</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="camera" data-mode="${m}" ${d.modes[m].camera !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Location</td>${ids.map((m) => `<td><select data-mode-opt="location" data-mode="${m}">${[["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].location || "off") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Location every</td>${ids.map((m) => `<td><select data-mode-opt="loc_every" data-mode="${m}" ${(d.modes[m].location || "off") === "off" ? "disabled" : ""}>${[[0, "Live"], [1, "1 min"], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].loc_every ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
+      <tr class="opt"><td>Notifications</td>${ids.map((m) => `<td><select data-mode-opt="notes" data-mode="${m}">${[["show", "Listed"], ["off", "Cleared"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].notes || "show") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
       h += `<tr><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
         ids.map((m) => {
           const on = d.modes[m].allowAll || (d.modes[m].allow || []).includes(a.pkg);
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
-        }).join("") + `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td></tr>`;
+        }).join("") + `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td><td><input type="checkbox" data-nh="${this._esc(a.pkg)}" ${(d.notes_hide || []).includes(a.pkg) ? "checked" : ""}></td></tr>`;
     }
-    return h + `</table><div class="sub" style="margin-top:6px">Main menu: on the Nokia home screen, ticked apps sit in the main menu; the other allowed apps are listed under "Android Apps". Touch-only apps need the touchscreen, so allow them only in modes where touch works.</div><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
+    return h + `</table><div class="sub" style="margin-top:6px">Main menu: on the Nokia home screen, ticked apps sit in the main menu; the other allowed apps are listed under "Android Apps". Hide notes: tick an app to clear its notifications as they arrive (Android housekeeping, Messages and the dialler are always cleared, since the Nokia screens show those themselves). Notifications: Listed shows a bell with a count on the home screen and a Notifications list; Cleared removes them all as they arrive. Touch-only apps need the touchscreen, so allow them only in modes where touch works.</div><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
       <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
   }
 
@@ -665,6 +666,12 @@ class PhoneGuardCard extends HTMLElement {
     r.querySelectorAll("input[data-f], select[data-f]").forEach((i) => i.addEventListener("input", () => { this._ui[i.dataset.f] = i.value; }));
     const sas = r.querySelector("input.sas");
     if (sas) sas.addEventListener("input", () => { this._ui.sas = sas.value; });
+    r.querySelectorAll("input[data-nh]").forEach((i) =>
+      i.addEventListener("change", () => {
+        const cur = (this._d.notes_hide || []).filter((p) => p !== i.dataset.nh);
+        if (i.checked) cur.push(i.dataset.nh);
+        return this._svc("set_child", { config: { notes_hide: cur } });
+      }));
     r.querySelectorAll("input[data-pin]").forEach((i) =>
       i.addEventListener("change", () => {
         const cur = (this._d.pinned || []).filter((p) => p !== i.dataset.pin);
@@ -694,6 +701,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "wa") modes[mode].wa = i.value;
     if (opt === "wa_app") modes[mode].wa_app = i.value;
     if (opt === "location") modes[mode].location = i.value;
+    if (opt === "notes") modes[mode].notes = i.value;
     if (opt === "loc_every") modes[mode].loc_every = parseInt(i.value, 10);
     if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound" || opt === "camera") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
