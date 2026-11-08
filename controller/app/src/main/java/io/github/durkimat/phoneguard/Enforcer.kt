@@ -21,6 +21,8 @@ object Enforcer {
         "no_factory_reset", "no_safe_boot", "no_config_date_time", "no_add_user", "no_add_managed_profile",
     )
 
+    private val STOCK_HOMES = setOf("com.android.launcher3")
+
     data class Result(val hid: Int, val unhid: Int, val failed: List<String>, val manageable: Set<String>)
 
     fun launcherPackages(c: Context): Set<String> =
@@ -32,7 +34,12 @@ object Enforcer {
     fun manageable(c: Context, cfg: Config?): Set<String> =
         (launcherPackages(c) + Store.hidden(c)) - Protected.all(c, cfg)
 
-    fun applyApps(c: Context, cfg: Config?, allowed: Allowed): Result {
+    /** True when Android already sends the Home key to our launcher (so hiding the stock one cannot leave the phone without a home screen). */
+    fun weAreHome(c: Context): Boolean = try {
+        c.packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == c.packageName
+    } catch (_: Exception) { false }
+
+    fun applyApps(c: Context, cfg: Config?, allowed: Allowed, hideStockHome: Boolean = false): Result {
         val dpm = Dpm.dpm(c)
         val admin = Dpm.admin(c)
         val prot = Protected.all(c, cfg)
@@ -42,6 +49,7 @@ object Enforcer {
         var unhid = 0
         val failed = mutableListOf<String>()
         for (pkg in mg) {
+            if (pkg in STOCK_HOMES) continue // handled below, so it is not unhidden and hidden again every evaluation
             try {
                 val isProt = pkg in prot
                 val shouldHide = !isProt && !allowed.all && pkg !in allowed.pkgs
@@ -56,6 +64,13 @@ object Enforcer {
             } catch (e: Exception) {
                 failed += "$pkg(${e.javaClass.simpleName})"
             }
+        }
+        // the stock home screen is hidden while the Nokia screens are the home (its old window can no longer come back), and put back after
+        for (pkg in STOCK_HOMES) {
+            try {
+                if (hideStockHome && pkg !in ours && !dpm.isApplicationHidden(admin, pkg)) { if (dpm.setApplicationHidden(admin, pkg, true)) { ours += pkg; hid++ } else failed += pkg }
+                else if (!hideStockHome && pkg in ours) { if (dpm.setApplicationHidden(admin, pkg, false)) { ours -= pkg; unhid++ } else failed += pkg }
+            } catch (e: Exception) { failed += "$pkg(${e.javaClass.simpleName})" }
         }
         Store.setHidden(c, ours)
         return Result(hid, unhid, failed, mg - prot)
