@@ -667,3 +667,4 @@ Questions to put to them together:
 - Outify (Codeberg, TomKo): third-party open-source Android client, Kotlin plus Rust, built on librespot, needs Premium, its own README says use can be against Spotify's terms, early development.
 - Jetispot (GitHub, original by iTaysonLab, archived; forks such as BobbyESP): Compose and Material 3 client built on librespot-java, Apache-2.0, needs Premium, listed as discontinued.
 - So of the four, only Sidespot might use the "official app in the background" approach; Outify and Jetispot use the unofficial librespot route (the one with the terms-of-service and account risk). The plan stays: App Remote SDK driving the official app, unless Sidespot turns out to be reusable.
+- Decision (owner, 2026-11-08): write our own Spotify screens rather than adopt Sidespot or another client, so the whole player works from the keypad. One-time set-up (Spotify login and the App Remote consent) needs touch, so do it in a touch mode first.
