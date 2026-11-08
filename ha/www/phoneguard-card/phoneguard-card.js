@@ -1,8 +1,8 @@
-/* Phone Guard card v0.8.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.8.1. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.8.0";
+const PG_VERSION = "0.8.1";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -11,7 +11,7 @@ class PhoneGuardCard extends HTMLElement {
     if (!this._ui) {
       let sel = null;
       try { sel = localStorage.getItem("phoneguard-card:selected"); } catch (e) { /* private mode */ }
-      this._ui = { sel, sas: "", from: "", until: "", boostMode: "day", adding: false, newName: "", tts: {}, usageDay: null, newPerson: "", newPersonName: "", copyOpen: false, copyTo: "", copyParts: { timetable: true, holiday: false, restrictions: false, mode_options: false, whatsapp: false }, renaming: false, rnPerson: "", rnName: "" };
+      this._ui = { sel, sas: "", from: "", until: "", boostMode: "day", adding: false, addMode: "", newName: "", tts: {}, usageDay: null, newPerson: "", newPersonName: "", copyOpen: false, copyTo: "", copyParts: { timetable: true, holiday: false, restrictions: false, mode_options: false, whatsapp: false }, renaming: false, rnPerson: "", rnName: "" };
     }
     if (!this._root) this._root = this.attachShadow({ mode: "open" });
   }
@@ -271,8 +271,8 @@ class PhoneGuardCard extends HTMLElement {
     if (!me) return "";
     let h = `<div class="who">${this._avatar(me.picture, me.person, 56)}<div><h2 class="pname">${this._esc(me.person)}</h2>`;
     const others = this._groups().filter((g) => g.key !== me.personKey);
-    if (others.length && !this._config.entity) {
-      h += `<div class="chips">${others.map((g) => `<button class="small" data-act="select_person" data-key="${this._esc(g.key)}">${this._esc(g.name)}</button>`).join("")}</div>`;
+    if (!this._config.entity) {
+      h += `<div class="chips">${others.map((g) => `<button class="small" data-act="select_person" data-key="${this._esc(g.key)}">${this._esc(g.name)}</button>`).join("")}<button class="small" data-act="add_person" title="Add someone else, with their first device">＋ Add a person</button></div>`;
     }
     return h + `</div></div>`;
   }
@@ -300,14 +300,18 @@ class PhoneGuardCard extends HTMLElement {
       const phones = this._companionChoices(this._hass, people);
       const phone = this._ui.newPhone !== undefined && this._ui.newPhone !== "" ? this._ui.newPhone : (phones[0] ? phones[0].service : "__other");
       const chosen = phones.find((p) => p.service === phone);
-      const sel = this._ui.newPerson || (chosen && chosen.person ? chosen.person.id : (me && people.find((p) => p.id === me.personKey) ? me.personKey : (people[0] ? people[0].id : "__new")));
-      h += `<div class="addform"><b>Add a device</b>
+      const personMode = this._ui.addMode === "person";
+      // adding a person: offer the Home Assistant people who have no device here yet (or someone new); adding a device: anyone
+      const taken = new Set(this._groups().map((g) => g.key));
+      const choices = personMode ? people.filter((p) => !taken.has(p.id)) : people;
+      const sel = this._ui.newPerson || (personMode ? (choices[0] ? choices[0].id : "__new") : (chosen && chosen.person ? chosen.person.id : (me && people.find((p) => p.id === me.personKey) ? me.personKey : (people[0] ? people[0].id : "__new"))));
+      h += `<div class="addform"><b>${personMode ? "Add a person" : "Add a device"}</b>
         <select data-f="newPhone">${phones.map((p) => `<option value="${this._esc(p.service)}" ${phone === p.service ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__other" ${phone === "__other" ? "selected" : ""}>Not in Home Assistant yet…</option></select>
         ${phone === "__other" ? `<input type="text" data-f="newName" placeholder="Device name, e.g. Tablet" value="${this._esc(this._ui.newName)}">` : ""}
-        <select data-f="newPerson">${people.map((p) => `<option value="${this._esc(p.id)}" ${sel === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__new" ${sel === "__new" ? "selected" : ""}>Someone without a Home Assistant person…</option></select>
+        <select data-f="newPerson">${choices.map((p) => `<option value="${this._esc(p.id)}" ${sel === p.id ? "selected" : ""}>${this._esc(p.name)}</option>`).join("")}<option value="__new" ${sel === "__new" ? "selected" : ""}>Someone without a Home Assistant person…</option></select>
         ${sel === "__new" ? `<input type="text" data-f="newPersonName" placeholder="Name" value="${this._esc(this._ui.newPersonName)}">` : ""}
         <button class="primary" data-act="add_go">Create</button><button data-act="add_cancel">Cancel</button></div>
-        <div class="sub" style="width:100%">Pick the phone running the Home Assistant app and its name and owner follow Home Assistant (Settings, Devices, and People).</div>`;
+        <div class="sub" style="width:100%">${personMode ? "Choose the person and their first phone. Each person has their own devices, timetable and settings." : "Pick the phone running the Home Assistant app and its name and owner follow Home Assistant (Settings, Devices, and People)."}</div>`;
     } else h += `<button data-act="add">＋ Add a device</button>`;
     return h + `</div>`;
   }
@@ -660,21 +664,24 @@ class PhoneGuardCard extends HTMLElement {
       this._last = null; return (this.hass = this._hass);
     }
     if (a === "select") { ui.sel = b.dataset.id; if (this._all && this._all[ui.sel]) ui.lastDev[this._all[ui.sel].personKey] = ui.sel; try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ } this._last = null; return (this.hass = this._hass); }
-    if (a === "add") { ui.adding = true; return this._render(); }
-    if (a === "add_cancel") { ui.adding = false; ui.newName = ""; return this._render(); }
+    if (a === "add") { ui.adding = true; ui.addMode = ""; ui.newPerson = ""; return this._render(); }
+    if (a === "add_person") { ui.adding = true; ui.addMode = "person"; ui.newPerson = ""; ui.newPersonName = ""; return this._render(); }
+    if (a === "add_cancel") { ui.adding = false; ui.addMode = ""; ui.newName = ""; return this._render(); }
     if (a === "add_go") {
       const known = this._people || [];
       const phones = this._companionChoices(this._hass, known);
       const phone = ui.newPhone !== undefined && ui.newPhone !== "" ? ui.newPhone : (phones[0] ? phones[0].service : "__other");
       const chosen = phones.find((p) => p.service === phone);
-      const choice = ui.newPerson || (chosen && chosen.person ? chosen.person.id : (known[0] ? known[0].id : "__new"));
+      const taken = new Set(this._groups().map((g) => g.key));
+      const free = known.filter((p) => !taken.has(p.id));
+      const choice = ui.newPerson || (ui.addMode === "person" ? (free[0] ? free[0].id : "__new") : (chosen && chosen.person ? chosen.person.id : (known[0] ? known[0].id : "__new")));
       const person = (choice === "__new" ? ui.newPersonName : choice).trim();
       const name = (chosen ? chosen.name : ui.newName).trim();
       const shown = choice === "__new" ? person : (known.find((p) => p.id === choice) || { name: person }).name;
       const slug = this._slug(shown + "_" + name);
       if (!person || !name || !slug) return alert("Choose the phone and the person, or give them names.");
       if ((this._ids || []).includes("sensor.phoneguard_" + slug)) return alert("That device already exists.");
-      ui.adding = false; ui.newName = ""; ui.newPersonName = ""; ui.newPerson = ""; ui.newPhone = undefined;
+      ui.adding = false; ui.addMode = ""; ui.newName = ""; ui.newPersonName = ""; ui.newPerson = ""; ui.newPhone = undefined;
       ui.sel = "sensor.phoneguard_" + slug;
       try { localStorage.setItem("phoneguard-card:selected", ui.sel); } catch (e) { /* ignore */ }
       const made = this._hass.callService("phoneguard", "create_pairing", { child: slug, name, person });

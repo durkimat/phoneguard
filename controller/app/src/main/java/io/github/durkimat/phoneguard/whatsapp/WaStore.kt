@@ -20,14 +20,14 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 1) {
      * Keeps one message. [chatName] is the person's or group's name; [sender] writes it (shown in front of group
      * messages, so the reader knows who is talking).
      */
-    @Synchronized fun add(chat: String, chatName: String, sender: String, text0: String, ts: Long, mine: Boolean, keep: Int = KEEP) {
+    @Synchronized fun add(chat: String, chatName: String, sender: String, text0: String, ts: Long, mine: Boolean, keep: Int = KEEP, history: Boolean = false) {
         val isGroup = chat.startsWith("g")
         val text = if (isGroup && !mine && sender.isNotBlank()) "$sender: $text0" else text0
         val name = chatName
         val db = writableDatabase
         // the same message can arrive twice (queued, then live): ignore an exact repeat
         db.rawQuery("SELECT 1 FROM msg WHERE chat=? AND ts=? AND mine=? AND text=?", arrayOf(chat, ts.toString(), if (mine) "1" else "0", text)).use { if (it.moveToFirst()) return }
-        db.insert("msg", null, ContentValues().apply { put("chat", chat); put("ts", ts); put("mine", if (mine) 1 else 0); put("text", text); put("unread", if (mine) 0 else 1) })
+        db.insert("msg", null, ContentValues().apply { put("chat", chat); put("ts", ts); put("mine", if (mine) 1 else 0); put("text", text); put("unread", if (mine || history) 0 else 1) })
         if (name.isNotBlank() && (!mine || isGroup)) db.insertWithOnConflict("chat", null, ContentValues().apply { put("number", chat); put("name", name) }, SQLiteDatabase.CONFLICT_REPLACE)
         db.execSQL("DELETE FROM msg WHERE chat=? AND id NOT IN (SELECT id FROM msg WHERE chat=? ORDER BY ts DESC, id DESC LIMIT ?)", arrayOf(chat, chat, keep))
     }
