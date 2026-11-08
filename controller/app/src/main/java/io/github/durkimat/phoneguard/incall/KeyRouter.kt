@@ -19,6 +19,7 @@ object LeftKey {
 class KeyRouter : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        io.github.durkimat.phoneguard.Log.log(this, "assist request ${intent?.action} extras=${intent?.extras?.keySet()?.joinToString { it + '=' + intent.extras?.get(it) }}")
         val l = LeftKey.listener
         val cam = LeftKey.camera
         if (CallState.info != null && l != null) l()
