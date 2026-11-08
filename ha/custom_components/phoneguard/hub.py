@@ -37,9 +37,18 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp"}
         before = {k: ch.get(k) for k in allowed}
         for k, v in patch.items():
+            if k == "whatsapp" and isinstance(v, dict):
+                v = dict(v)
+                if isinstance(v.get("allowed"), list):  # tidy what the parent typed: no blanks, no repeats
+                    seen: list[str] = []
+                    for x in v["allowed"]:
+                        x = x.strip() if isinstance(x, str) else x
+                        if x and x not in seen:
+                            seen.append(x)
+                    v["allowed"] = seen
             if k in allowed:
                 ch[k] = v
         try:
@@ -55,8 +64,15 @@ class Hub:
                 if mode not in ch["modes"]:
                     raise ValueError(f"the timetable uses mode {mode!r}, which this device does not have")
         for mid, m in ch["modes"].items():
+            if m.get("wa", "open") not in S.WA_CHECKS:
+                raise ValueError(f"mode {mid!r} has an unknown WhatsApp check setting {m['wa']!r}")
             if m.get("sound", "normal") not in S.SOUNDS:
                 raise ValueError(f"mode {mid!r} has an unknown sound setting {m['sound']!r}")
+        w = S.whatsapp_with_defaults(ch)
+        if not isinstance(w["allowed"], list) or not all(isinstance(x, str) for x in w["allowed"]):
+            raise ValueError("the WhatsApp allowed list must be a list of numbers and group names")
+        if not (1 <= int(w["perMinute"]) <= 60) or not (1 <= int(w["perDay"]) <= 2000):
+            raise ValueError("WhatsApp send limits must be 1 to 60 a minute and 1 to 2000 a day")
         if ch["base"] not in ch["modes"]:
             raise ValueError(f"base mode {ch['base']!r} does not exist")
         if ch.get("override") is not None and ch["override"] not in ch["modes"]:
@@ -66,7 +82,7 @@ class Hub:
         """Force one mode regardless of the timetable (None or "auto" goes back to the timetable)."""
         self.update_child(cid, {"override": None if mode in (None, "", "auto") else mode})
 
-    COPY_PARTS = ("timetable", "holiday", "restrictions", "mode_options")
+    COPY_PARTS = ("timetable", "holiday", "restrictions", "mode_options", "whatsapp")
 
     def copy_settings(self, src: str, dst: str, parts: list[str]) -> list[str]:
         """Copy settings between two guarded devices. App lists are never copied: they depend on what is installed."""
@@ -82,6 +98,8 @@ class Hub:
                 patch["holiday"] = json.loads(json.dumps(a["holiday"]))
             elif part == "restrictions":
                 patch["restrictions"] = json.loads(json.dumps(a.get("restrictions")))
+            elif part == "whatsapp":
+                patch["whatsapp"] = json.loads(json.dumps(S.whatsapp_with_defaults(a)))
             elif part == "mode_options":
                 modes = json.loads(json.dumps(b["modes"]))
                 for mid, m in a["modes"].items():
@@ -299,6 +317,7 @@ class Hub:
             "mode_now": S.resolve_mode(cfg, boost, now), "boost": boost, "now": now,
             "device": None, "apps": [], "pending_apps": [], "usage": {}, "labels": {},
             "restrictions": ch.get("restrictions"),
+            "whatsapp": S.whatsapp_with_defaults(ch),
         }
         pairing = next(((d, p) for d, p in self.data["pairing"].items() if p["child"] == cid), None)
         if pairing and pairing[1]["expires"] > now:

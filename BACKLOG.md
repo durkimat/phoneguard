@@ -402,3 +402,8 @@ launcher in the same app; (3) notification counts and the status line.
 - Home screen "new messages" now includes unread WhatsApp.
 - Rig test `wa` (9 checks) passes on the J36: the alarm is armed in Day, a check connects briefly and disconnects, Night hourly, School no checks and the alarm cancelled.
 - To do: HA side (mode option, per-device settings in the card, defaults), the app's pairing screen, group test, battery measurement of the periodic checks.
+
+## HA side of the WhatsApp settings built and deployed (2026-11-07/08)
+- Integration: per-mode `wa` (off, open, 30, 60; defaults School "open", others "30"), per-device `whatsapp` (all, allowed list of numbers and "g:Group name", perMinute 1-60, perDay 1-2000; default nobody allowed), validation, tidy-up of the typed list (blanks and repeats dropped), copy between devices, in the view; pushed to the phone in the config. 13 HA tests pass. Card v0.8.0: "WhatsApp checks" row per mode and a WhatsApp panel (allow everyone, one entry per line, limits, save); resource ?v=0.8.0.
+- Deployed to the live HA with a restart (owner authorised it while asleep). Backups of the previous files on HA: /root/phoneguard-bak-20261107 and /root/phoneguard-bak-20261107b. The test device's allowed list was set to the owner's own number (447855260768) so the test chat keeps working.
+- Seen: when HA's default (nobody allowed) reached the phone, it forgot the stored WhatsApp chats of everyone not on the list (as designed). A rig run that ends with forgetcfg/sync can leave the phone briefly in Emergency mode until the next sync: nudge it.

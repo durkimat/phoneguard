@@ -273,3 +273,29 @@ def test_sound_defaults_validation_and_copy(hub):
     hub.ensure_child("sib", "Sib")
     hub.copy_settings("her", "sib", ["mode_options"])
     assert hub.data["children"]["sib"]["modes"]["night"]["sound"] == "vibrate"
+
+
+def test_whatsapp_defaults_validation_and_copy(hub):
+    ch = hub.data["children"]["her"]
+    cfg = S.build_config(ch, hub.now())
+    assert cfg["modes"]["school"]["wa"] == "open" and cfg["modes"]["day"]["wa"] == "30"
+    assert cfg["whatsapp"] == {"all": False, "allowed": [], "perMinute": 5, "perDay": 200}  # nobody until a parent chooses
+    hub.update_child("her", {"whatsapp": {"all": False, "allowed": ["+44 7700 900111", "g:Family", "  "], "perMinute": 3, "perDay": 40}})
+    w = S.build_config(hub.data["children"]["her"], hub.now())["whatsapp"]
+    assert w == {"all": False, "allowed": ["+44 7700 900111", "g:Family"], "perMinute": 3, "perDay": 40}
+    modes = json.loads(json.dumps(ch["modes"])); modes["school"]["wa"] = "off"
+    hub.update_child("her", {"modes": modes})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["modes"]["school"]["wa"] == "off"
+    for bad in ({"allowed": "07700"}, {"allowed": [], "perMinute": 0}, {"allowed": [], "perDay": 5000}):
+        with pytest.raises(ValueError):
+            hub.update_child("her", {"whatsapp": bad})
+    badmodes = json.loads(json.dumps(modes)); badmodes["day"]["wa"] = "always"
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"modes": badmodes})
+    assert hub.data["children"]["her"]["whatsapp"]["perMinute"] == 3  # refused changes were not kept
+    hub.ensure_child("sib", "Sib")
+    hub.copy_settings("her", "sib", ["whatsapp", "mode_options"])
+    assert hub.data["children"]["sib"]["whatsapp"]["allowed"] == ["+44 7700 900111", "g:Family"]
+    assert hub.data["children"]["sib"]["modes"]["school"]["wa"] == "off"
+    assert hub.view("her")["whatsapp"]["perDay"] == 40
+

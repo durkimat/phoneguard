@@ -11,15 +11,17 @@ WINDOW_DAYS = 14
 
 
 # What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
-LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound")
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa")
 SOUNDS = ("normal", "vibrate", "silent")
+# how WhatsApp may check for messages in a mode: never, only when opened, or briefly every 30 or 60 minutes
+WA_CHECKS = ("off", "open", "30", "60")
 CLOCK = "com.android.deskclock"
 
 
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
-        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False}
-    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True}
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open"}
+    return {"launcher": "default", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30"}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:
@@ -28,6 +30,17 @@ def mode_with_defaults(mode_id: str, mode: dict) -> dict:
     for k, v in lockdown_defaults(mode_id).items():
         out.setdefault(k, v)
     return out
+
+
+def whatsapp_defaults() -> dict:
+    """Nobody is allowed until a parent chooses: everyone, or a list of numbers and "g:Group name" entries."""
+    return {"all": False, "allowed": [], "perMinute": 5, "perDay": 200}
+
+
+def whatsapp_with_defaults(child: dict) -> dict:
+    w = whatsapp_defaults()
+    w.update(child.get("whatsapp") or {})
+    return w
 
 
 def default_child(name: str) -> dict:
@@ -55,6 +68,7 @@ def default_child(name: str) -> dict:
         "protect_extra": [],
         "unprotect": [CLOCK],  # a mode can hide the Clock
         "restrictions": None,
+        "whatsapp": whatsapp_defaults(),
         "known": None,  # packages the parent has already seen; None until the first sync
     }
 
@@ -94,7 +108,8 @@ def build_config(child: dict, now_ms: int) -> dict:
                       "allow": sorted(set(m.get("allow", []))), "gray": bool(m.get("gray")),
                       "launcher": "nokia" if m["launcher"] == "nokia" else "default",
                       "touch": bool(m["touch"]), "shade": bool(m["shade"]), "kiosk": bool(m["kiosk"]),
-                      "sound": m["sound"] if m["sound"] in SOUNDS else "normal", "inbound": bool(m["inbound"])}
+                      "sound": m["sound"] if m["sound"] in SOUNDS else "normal", "inbound": bool(m["inbound"]),
+                      "wa": m["wa"] if m["wa"] in WA_CHECKS else "open"}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,
@@ -106,6 +121,9 @@ def build_config(child: dict, now_ms: int) -> dict:
     }
     if child.get("restrictions") is not None:
         cfg["restrictions"] = sorted(child["restrictions"])
+    w = whatsapp_with_defaults(child)
+    cfg["whatsapp"] = {"all": bool(w["all"]), "allowed": [str(x).strip() for x in w["allowed"] if str(x).strip()],
+                       "perMinute": int(w["perMinute"]), "perDay": int(w["perDay"])}
     if child.get("override") in modes:
         cfg["override"] = child["override"]
     digest = hashlib.sha1(json.dumps(cfg, sort_keys=True).encode()).hexdigest()[:12]
