@@ -76,6 +76,8 @@ sealed class Action {
     data class PairWa(val number: String) : Action()
     /** Unlink WhatsApp from the account. */
     object UnlinkWa : Action()
+    /** Refresh WhatsApp names and ask for older messages, without unlinking. */
+    object ResyncWa : Action()
     /** The WhatsApp list was opened: the activity connects the bridge on demand. */
     object WaOpen : Action()
     /** A WhatsApp chat was opened: mark it read. */
@@ -297,7 +299,7 @@ class LauncherModel(
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
         Screen.CALC, Screen.DIAL, Screen.CALL, Screen.WAPAIR -> emptyList()
         Screen.CALLMENU -> (if (speakerShown) listOf(if (call?.speaker == true) "Speaker off" else "Speaker on") else emptyList()) + (if (call?.muted == true) "Unmute" else "Mute")
-        Screen.WASET -> listOf(if (waLinked) "Unlink account" else "Link account")
+        Screen.WASET -> if (waLinked) listOf("Re-sync names and messages", "Unlink account") else listOf("Link account")
         Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
@@ -457,8 +459,12 @@ class LauncherModel(
     private fun startPair(back: Screen): Action { waPairNumber = ""; waCode = null; waPairBack = back; screen = Screen.WAPAIR; return Action.Redraw }
     private var waPairBack = Screen.WHATSAPP
 
-    private fun waSettings(key: Key, digit: Int): Action = move(key, 1) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (waLinked) { screen = Screen.SETTINGS; selected = 4; Action.UnlinkWa } else startPair(Screen.WASET)
+    private fun waSettings(key: Key, digit: Int): Action = move(key, if (waLinked) 2 else 1) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
+            !waLinked -> startPair(Screen.WASET)
+            selected == 0 -> { notice = "Re-syncing..."; Action.ResyncWa }
+            else -> { screen = Screen.SETTINGS; selected = 4; Action.UnlinkWa }
+        }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 4; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None

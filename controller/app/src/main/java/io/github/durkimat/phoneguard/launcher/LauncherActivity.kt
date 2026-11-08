@@ -143,6 +143,10 @@ class LauncherActivity : Activity() {
                 val r = WhatsApp.pair(this, a.number)
                 ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); refresh() }
             }.start()
+            Action.ResyncWa -> Thread {
+                val r = WhatsApp.resync(this)
+                ui.post { model.notify(if (r.startsWith("error")) "Re-sync failed: " + r.removePrefix("error: ").take(28) else "Re-synced"); refresh() }
+            }.start()
             Action.UnlinkWa -> Thread {
                 val r = WhatsApp.logout(this)
                 ui.post { model.notify(if (r.startsWith("error")) "Could not unlink: " + r.removePrefix("error: ").take(30) else "Unlinked"); refresh() }
