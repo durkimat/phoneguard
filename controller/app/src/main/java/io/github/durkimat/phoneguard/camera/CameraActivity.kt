@@ -56,10 +56,13 @@ class CameraActivity : AppCompatActivity() {
     private var videoCapture: VideoCapture<Recorder>? = null
     private var recording: Recording? = null
     private var lastFrame = 0L
+    private var analysisUse: ImageAnalysis? = null
     private var loadToken = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // debug builds can force a sideways start for testing the layout: --ez land true
+        if (intent?.getBooleanExtra("land", false) == true) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         if (!io.github.durkimat.phoneguard.launcher.LauncherData.cameraAllowed(this)) { finish(); return } // the mode does not offer the camera
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", MODE_PRIVATE)
@@ -69,11 +72,13 @@ class CameraActivity : AppCompatActivity() {
         root.addView(view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         root.addView(previewView, FrameLayout.LayoutParams(10, 10))
         // the colour viewfinder sits exactly in the frame the dotted one is drawn in
-        root.addOnLayoutChangeListener { _, l, _, r, _, _, _, _, _ ->
-            val k = (r - l) / 480f
+        root.addOnLayoutChangeListener { _, l, t, r, bt, _, _, _, _ ->
+            val land = (r - l) > (bt - t)
+            val k = (r - l) / (if (land) 640f else 480f)
             val lp = previewView.layoutParams as FrameLayout.LayoutParams
-            val w = (CamView.COLS * CamView.CELL * k).toInt(); val h = (CamView.ROWS * CamView.CELL * k).toInt()
-            val left = ((480f - CamView.COLS * CamView.CELL) / 2 * k).toInt(); val top = (64f * k).toInt()
+            val cc = if (land) 140 else 105; val rr = if (land) 105 else 140
+            val w = (cc * CamView.CELL * k).toInt(); val h = (rr * CamView.CELL * k).toInt()
+            val left = (((if (land) 640f else 480f) - cc * CamView.CELL) / 2 * k).toInt(); val top = ((if (land) 48f else 64f) * k).toInt()
             if (lp.width != w || lp.height != h || lp.leftMargin != left || lp.topMargin != top) { lp.width = w; lp.height = h; lp.leftMargin = left; lp.topMargin = top; previewView.layoutParams = lp }
         }
         setContentView(root)
@@ -114,13 +119,28 @@ class CameraActivity : AppCompatActivity() {
                 videoCapture = vc; imageCapture = null; main = vc
             }
             camera = p.bindToLifecycle(this, selector, *listOfNotNull(preview, analysis, main).toTypedArray())
+            analysisUse = analysis
             if (!colour) view.show(null)
+            applyRotation()
             syncPreview()
             applyZoomAndTorch()
         } catch (e: Exception) {
             Log.log(this, "camera: could not start: ${e.javaClass.simpleName} ${e.message}")
             flash("No camera")
         }
+    }
+
+    /** Photos, video and frames are turned to match how the phone is held, so a sideways shot is saved upright. */
+    private fun applyRotation() {
+        val r = display?.rotation ?: android.view.Surface.ROTATION_0
+        imageCapture?.targetRotation = r
+        analysisUse?.targetRotation = r
+        videoCapture?.targetRotation = r
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        applyRotation(); view.show(null); view.invalidate()
     }
 
     /** The colour viewfinder only shows for Normal, and not over the gallery. */
@@ -145,14 +165,14 @@ class CameraActivity : AppCompatActivity() {
             lastFrame = now
             val plane = img.planes[0]; val buf = plane.buffer; val rs = plane.rowStride; val ps = plane.pixelStride
             val w = img.width; val h = img.height
-            val cells = Dither.sample(w, h, img.imageInfo.rotationDegrees, model.front, CamView.COLS, CamView.ROWS) { x, y -> buf.get(y * rs + x * ps).toInt() and 0xFF }
+            val cells = Dither.sample(w, h, img.imageInfo.rotationDegrees, model.front, view.cols, view.rows) { x, y -> buf.get(y * rs + x * ps).toInt() and 0xFF }
             view.show(bitmapOf(cells))
         } catch (_: Exception) { } finally { img.close() }
     }
 
     private fun bitmapOf(cells: IntArray): Bitmap {
-        val px = Effects.render(if (model.effect == Effect.NONE) Effect.TONES else model.effect, cells, CamView.COLS, CamView.ROWS, view.lcd, view.ink, fine = false)
-        return Bitmap.createBitmap(px, CamView.COLS, CamView.ROWS, Bitmap.Config.ARGB_8888)
+        val px = Effects.render(if (model.effect == Effect.NONE) Effect.TONES else model.effect, cells, view.cols, view.rows, view.lcd, view.ink, fine = false)
+        return Bitmap.createBitmap(px, view.cols, view.rows, Bitmap.Config.ARGB_8888)
     }
 
     private fun flash(msg: String, ms: Long = 1400) {
@@ -287,7 +307,9 @@ class CameraActivity : AppCompatActivity() {
             try {
                 val bmp = contentResolver.loadThumbnail(android.net.Uri.parse(item.uri), Size(640, 640), null)
                 if (token != loadToken) return@Thread
-                val (cols, rows) = if (bmp.width >= bmp.height) CamView.COLS to (CamView.COLS * bmp.height / bmp.width).coerceAtLeast(1) else (CamView.ROWS * bmp.width / bmp.height).coerceAtLeast(1) to CamView.ROWS
+                val maxC = view.cols; val maxR = view.rows
+                val k = minOf(maxC.toFloat() / bmp.width, maxR.toFloat() / bmp.height)
+                val cols = (bmp.width * k).toInt().coerceAtLeast(1); val rows = (bmp.height * k).toInt().coerceAtLeast(1)
                 val px = IntArray(bmp.width * bmp.height).also { bmp.getPixels(it, 0, bmp.width, 0, 0, bmp.width, bmp.height) }
                 val cells = Dither.sample(bmp.width, bmp.height, 0, false, cols, rows) { x, y -> val c = px[y * bmp.width + x]; (((c shr 16) and 255) * 299 + ((c shr 8) and 255) * 587 + (c and 255) * 114) / 1000 }
                 val dots = Effects.render(if (model.effect == Effect.NONE) Effect.TONES else model.effect, cells, cols, rows, view.lcd, view.ink, fine = false)
@@ -296,5 +318,14 @@ class CameraActivity : AppCompatActivity() {
         }.start()
     }
 
-    override fun onDestroy() { recording?.stop(); exec.shutdown(); super.onDestroy() }
+    /** The left key under the screen reaches us through the key router (see HardKeys); it is the Shoot key. */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        io.github.durkimat.phoneguard.incall.LeftKey.camera = if (hasFocus) ({ ui.post { perform(model.onKey(Key.SOFT_LEFT, -1)) }; Unit }) else null
+    }
+
+    override fun onDestroy() {
+        io.github.durkimat.phoneguard.incall.LeftKey.camera = null
+        recording?.stop(); exec.shutdown(); super.onDestroy()
+    }
 }

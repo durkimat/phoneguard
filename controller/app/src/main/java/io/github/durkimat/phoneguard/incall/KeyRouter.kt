@@ -8,6 +8,8 @@ import io.github.durkimat.phoneguard.launcher.LauncherActivity
 /** Hands the left key to the call screen while a call is on, and otherwise on to the launcher (see HardKeys). */
 object LeftKey {
     @Volatile var listener: (() -> Unit)? = null
+    /** Set while the camera screen has the focus: the left key is its Shoot key. */
+    @Volatile var camera: (() -> Unit)? = null
 }
 
 /**
@@ -18,7 +20,9 @@ class KeyRouter : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val l = LeftKey.listener
+        val cam = LeftKey.camera
         if (CallState.info != null && l != null) l()
+        else if (cam != null) cam()
         else startActivity(Intent(this, LauncherActivity::class.java).setAction(intent?.action)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
         finish()
