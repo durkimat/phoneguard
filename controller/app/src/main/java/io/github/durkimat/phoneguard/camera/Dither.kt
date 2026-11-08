@@ -34,6 +34,24 @@ object Dither {
         return out
     }
 
+    /** Like [sample] but for colour: one sample per cell from the Y, U and V values at a source position, returned as ARGB. */
+    fun sampleColour(w: Int, h: Int, rotation: Int, mirror: Boolean, cols: Int, rows: Int, yuv: (Int, Int) -> Int): IntArray {
+        val out = IntArray(cols * rows)
+        for (v in 0 until rows) for (u in 0 until cols) {
+            val fx0 = (u + 0.5f) / cols; val fy = (v + 0.5f) / rows
+            val fx = if (mirror) 1f - fx0 else fx0
+            val sx: Float; val sy: Float
+            when (rotation) {
+                90 -> { sx = fy; sy = 1f - fx }
+                180 -> { sx = 1f - fx; sy = 1f - fy }
+                270 -> { sx = 1f - fy; sy = fx }
+                else -> { sx = fx; sy = fy }
+            }
+            out[v * cols + u] = yuv((sx * w).toInt().coerceIn(0, w - 1), (sy * h).toInt().coerceIn(0, h - 1))
+        }
+        return out
+    }
+
     /** Stretch the brightest and darkest 2% to the ends so a dull scene still uses the whole range. */
     fun levels(cells: IntArray): IntArray {
         if (cells.isEmpty()) return cells

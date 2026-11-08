@@ -12,18 +12,15 @@ import io.github.durkimat.phoneguard.launcher.Themes
 
 /** Draws the camera screens in the launcher's theme and font: a title bar, the picture, a settings line and two soft keys. */
 class CamView(context: Context, private val model: CameraModel, themeId: String?, fontId: String?) : View(context) {
-    companion object { const val CELL = 3f }
-
-    /** Held sideways the screen is wider than tall: the layout is drawn on a 640 by 480 grid and the picture is 140 by 105 cells. */
-    @Volatile var land = false
-        private set
-    val cols: Int get() = if (land) 140 else 105
-    val rows: Int get() = if (land) 105 else 140
-    /** The picture frame on the design grid: left, top, width, height. */
-    fun frame(): FloatArray {
-        val w = cols * CELL; val h = rows * CELL
-        return if (land) floatArrayOf((640f - w) / 2, 48f, w, h) else floatArrayOf((480f - w) / 2, 64f, w, h)
+    companion object {
+        const val CELL = 3f
+        /** The picture box on the 480 by 640 design grid is 105 by 140 cells of 3 pixels. */
+        const val BOX_COLS = 105
+        const val BOX_ROWS = 140
     }
+
+    /** The picture box: left, top, width, height. */
+    fun frame(): FloatArray { val w = BOX_COLS * CELL; val h = BOX_ROWS * CELL; return floatArrayOf((480f - w) / 2, 64f, w, h) }
 
     private val theme = Themes.byId(themeId)
     val lcd = theme.lcd
@@ -47,13 +44,17 @@ class CamView(context: Context, private val model: CameraModel, themeId: String?
 
     /** The live (or gallery) picture, already turned into theme colours; set from any thread through [show]. */
     @Volatile private var pic: Bitmap? = null
+    /** Quarter turns clockwise to draw the live picture with so it looks upright to whoever holds the phone (the screen itself never turns). */
+    @Volatile private var turn = 0
+    @Volatile private var smoothPic = false
     /** The colour photo, drawn smooth, when the gallery is asked for colour. */
     @Volatile private var colourPic: Bitmap? = null
     @Volatile var blink = false
 
     init { setOnTouchListener { _, _ -> true } /* the camera is a keypad screen */ }
 
-    fun show(b: Bitmap?, colour: Bitmap? = null) { pic = b; colourPic = colour; postInvalidate() }
+    /** [degrees]: 0, 90, 180 or 270 clockwise; [smooth] draws a high-resolution picture with filtering instead of chunky cells. */
+    fun show(b: Bitmap?, colour: Bitmap? = null, degrees: Int = 0, smooth: Boolean = false) { pic = b; colourPic = colour; turn = degrees; smoothPic = smooth; postInvalidate() }
 
     private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
         p.textSize = size * sizeScale * u; p.isFakeBoldText = bold; p.textAlign = align; p.color = color
@@ -61,21 +62,18 @@ class CamView(context: Context, private val model: CameraModel, themeId: String?
     }
 
     override fun onDraw(c: Canvas) {
-        land = width > height
-        val gw = if (land) 640f else 480f
-        val u = width / gw
+        val u = width / 480f
         c.drawColor(lcd)
         // title bar
-        val barH = if (land) 40f else 52f
-        c.drawRect(0f, 0f, width.toFloat(), barH * u, fill)
+        c.drawRect(0f, 0f, width.toFloat(), 52 * u, fill)
         val title = when {
             model.inGallery -> "Gallery" + if (model.items.isNotEmpty()) "  ${model.index + 1}/${model.items.size}" else ""
             model.recording -> "REC %02d:%02d".format(model.recordingSeconds / 60, model.recordingSeconds % 60)
             model.mode == CamMode.VIDEO -> "Video"
             else -> "Photo"
         }
-        text(c, title, gw / 2, barH - 12f, if (land) 26f else 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
-        if (model.recording && blink) { fill.color = lcd; c.drawCircle(36 * u, barH / 2 * u, 8 * u, fill); fill.color = ink }
+        text(c, title, 240f, 36f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+        if (model.recording && blink) { fill.color = lcd; c.drawCircle(40 * u, 26 * u, 9 * u, fill); fill.color = ink }
         // the picture, centred in its frame
         val f = frame(); val left = f[0]; val top = f[1]; val w = f[2]; val h = f[3]
         stroke.strokeWidth = 2 * u
@@ -87,30 +85,34 @@ class CamView(context: Context, private val model: CameraModel, themeId: String?
             val dw = colour.width * s; val dh = colour.height * s
             c.drawBitmap(colour, null, RectF((left + (w - dw) / 2) * u, (top + (h - dh) / 2) * u, (left + (w + dw) / 2) * u, (top + (h + dh) / 2) * u), smooth)
         } else if (b != null) {
-            val dw = b.width * CELL; val dh = b.height * CELL
-            c.drawBitmap(b, null, RectF((left + (w - dw) / 2) * u, (top + (h - dh) / 2) * u, (left + (w + dw) / 2) * u, (top + (h + dh) / 2) * u), bmpPaint)
-        } else if (model.inGallery && model.items.isEmpty()) text(c, "No photos yet", gw / 2, top + h / 2, 30f, u, align = Paint.Align.CENTER)
-        val midY = top + h / 2
+            // turned a quarter, a wide picture becomes a tall one in the box
+            val sideways = (turn == 90 || turn == 270) && !model.inGallery
+            val bw = if (sideways) b.height else b.width; val bh = if (sideways) b.width else b.height
+            val s = minOf(w / bw, h / bh)
+            val dw = b.width * s; val dh = b.height * s
+            c.save()
+            c.translate((left + w / 2) * u, (top + h / 2) * u)
+            if (!model.inGallery) c.rotate(turn.toFloat())
+            c.drawBitmap(b, null, RectF(-dw / 2 * u, -dh / 2 * u, dw / 2 * u, dh / 2 * u), if (smoothPic) smooth else bmpPaint)
+            c.restore()
+        } else if (model.inGallery && model.items.isEmpty()) text(c, "No photos yet", 240f, 280f, 30f, u, align = Paint.Align.CENTER)
         // self-timer count
         if (model.countdown > 0) {
-            c.drawRect((gw / 2 - 50) * u, (midY - 55) * u, (gw / 2 + 50) * u, (midY + 55) * u, fill)
-            text(c, model.countdown.toString(), gw / 2, midY + 35, 90f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            c.drawRect(190 * u, 210 * u, 290 * u, 320 * u, fill)
+            text(c, model.countdown.toString(), 240f, 300f, 90f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }
         model.notice?.let {
-            c.drawRect(60 * u, (midY - 30) * u, (gw - 60) * u, (midY + 30) * u, fill)
-            text(c, it, gw / 2, midY + 12, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            c.drawRect(60 * u, 250 * u, 420 * u, 310 * u, fill)
+            text(c, it, 240f, 292f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }
-        val infoY = top + h + (if (land) 30f else 22f) + 8f
-        if (model.inGallery) model.current?.let { text(c, (if (it.video) "Video  " else "") + it.name, gw / 2, infoY, 22f, u, align = Paint.Align.CENTER) }
-        else text(c, model.infoLine, gw / 2, infoY, 22f, u, align = Paint.Align.CENTER)
+        if (model.inGallery) model.current?.let { text(c, (if (it.video) "Video  " else "") + it.name, 240f, 560f, 22f, u, align = Paint.Align.CENTER) }
+        else text(c, model.infoLine, 240f, 560f, 22f, u, align = Paint.Align.CENTER)
         // soft keys
-        val keyLine = (if (land) 424f else 576f)
-        c.drawLine(0f, keyLine * u, width.toFloat(), keyLine * u, stroke)
+        c.drawLine(0f, 576 * u, width.toFloat(), 576 * u, stroke)
         val left1 = if (model.inGallery) (if (model.colour) "Dots" else "Colour") else if (model.mode == CamMode.VIDEO) (if (model.recording) "Stop" else "Record") else "Shoot"
         val right1 = "Back"
-        val cy = keyLine + (if (land) 30f else 30f)
-        arrow(c, 22f, cy, -1, u); text(c, left1, 46f, cy + 8f, 28f, u, bold = true)
-        arrow(c, gw - 22f, cy, 1, u); text(c, right1, gw - 46f, cy + 8f, 28f, u, bold = true, align = Paint.Align.RIGHT)
+        arrow(c, 22f, 606f, -1, u); text(c, left1, 46f, 614f, 30f, u, bold = true)
+        arrow(c, 458f, 606f, 1, u); text(c, right1, 434f, 614f, 30f, u, bold = true, align = Paint.Align.RIGHT)
     }
 
     private fun arrow(c: Canvas, x: Float, y: Float, dir: Int, u: Float) {

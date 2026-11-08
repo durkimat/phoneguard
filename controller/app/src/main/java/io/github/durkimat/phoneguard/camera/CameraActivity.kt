@@ -19,9 +19,8 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
-import androidx.camera.core.Preview
-import androidx.camera.view.PreviewView
-import android.widget.FrameLayout
+import android.view.OrientationEventListener
+import android.view.Surface
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.MediaStoreOutputOptions
@@ -45,9 +44,17 @@ import java.util.concurrent.Executors
  * is the ordinary colour file. Works from the keypad; the OK key, the volume keys and a camera key all take the picture.
  */
 class CameraActivity : AppCompatActivity() {
+    companion object {
+        /** For tests on a real phone: pretend the phone is held this way (a Surface.ROTATION_ value), or null. */
+        @Volatile var debugHeld: Int? = null
+        @Volatile var refresh: (() -> Unit)? = null
+    }
+
     private val model = CameraModel()
     private lateinit var view: CamView
-    private lateinit var previewView: PreviewView
+    /** How the phone is held, as the rotation CameraX wants (the screen itself always stays portrait). */
+    @Volatile private var held = Surface.ROTATION_0
+    private var orient: OrientationEventListener? = null
     private val ui = Handler(Looper.getMainLooper())
     private val exec = Executors.newSingleThreadExecutor()
     private var provider: ProcessCameraProvider? = null
@@ -61,31 +68,23 @@ class CameraActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // debug builds can force a sideways start for testing the layout: --ez land true
-        if (intent?.getBooleanExtra("land", false) == true) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         if (!io.github.durkimat.phoneguard.launcher.LauncherData.cameraAllowed(this)) { finish(); return } // the mode does not offer the camera
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", MODE_PRIVATE)
         view = CamView(this, model, prefs.getString("theme", null), prefs.getString("font", null))
-        previewView = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE; scaleType = PreviewView.ScaleType.FILL_CENTER; visibility = android.view.View.GONE }
-        val root = FrameLayout(this)
-        root.addView(view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
-        root.addView(previewView, FrameLayout.LayoutParams(10, 10))
-        // the colour viewfinder sits exactly in the frame the dotted one is drawn in
-        root.addOnLayoutChangeListener { _, l, t, r, bt, _, _, _, _ ->
-            val land = (r - l) > (bt - t)
-            val k = (r - l) / (if (land) 640f else 480f)
-            val lp = previewView.layoutParams as FrameLayout.LayoutParams
-            val cc = if (land) 140 else 105; val rr = if (land) 105 else 140
-            val w = (cc * CamView.CELL * k).toInt(); val h = (rr * CamView.CELL * k).toInt()
-            val left = (((if (land) 640f else 480f) - cc * CamView.CELL) / 2 * k).toInt(); val top = ((if (land) 48f else 64f) * k).toInt()
-            if (lp.width != w || lp.height != h || lp.leftMargin != left || lp.topMargin != top) { lp.width = w; lp.height = h; lp.leftMargin = left; lp.topMargin = top; previewView.layoutParams = lp }
-        }
-        setContentView(root)
+        setContentView(view)
         if (!allowed(Manifest.permission.CAMERA)) {
             requestPermissions(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1)
             flash("Camera needs permission")
         } else start()
+        refresh = { ui.post { applyRotation() } }
+        orient = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(o: Int) {
+                if (o == ORIENTATION_UNKNOWN) return
+                val r = when (o) { in 45..134 -> Surface.ROTATION_270; in 135..224 -> Surface.ROTATION_180; in 225..314 -> Surface.ROTATION_90; else -> Surface.ROTATION_0 }
+                if (r != held) { held = r; ui.post { applyRotation() } }
+            }
+        }.also { if (it.canDetectOrientation()) it.enable() }
     }
 
     private fun allowed(p: String) = checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED
@@ -105,10 +104,8 @@ class CameraActivity : AppCompatActivity() {
         try {
             p.unbindAll()
             val selector = if (model.front) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
-            // Normal shows the camera's own colour picture; any effect draws the viewfinder from camera frames
-            val colour = model.effect == Effect.NONE
-            val preview = if (colour) Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) } else null
-            val analysis = if (colour) null else ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(Size(480, 640)).build().also { a -> a.setAnalyzer(exec) { img -> frame(img) } }
+            // every viewfinder, Normal included, is drawn by us from the camera's frames, so the picture can follow how the phone is held
+            val analysis = ImageAnalysis.Builder().setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetResolution(Size(480, 640)).build().also { a -> a.setAnalyzer(exec) { img -> frame(img) } }
             val main: androidx.camera.core.UseCase
             if (model.mode == CamMode.PHOTO) {
                 val cap = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).setFlashMode(flashMode()).build()
@@ -118,11 +115,10 @@ class CameraActivity : AppCompatActivity() {
                 val vc = VideoCapture.withOutput(rec)
                 videoCapture = vc; imageCapture = null; main = vc
             }
-            camera = p.bindToLifecycle(this, selector, *listOfNotNull(preview, analysis, main).toTypedArray())
+            camera = p.bindToLifecycle(this, selector, analysis, main)
             analysisUse = analysis
-            if (!colour) view.show(null)
+            view.show(null)
             applyRotation()
-            syncPreview()
             applyZoomAndTorch()
         } catch (e: Exception) {
             Log.log(this, "camera: could not start: ${e.javaClass.simpleName} ${e.message}")
@@ -132,19 +128,17 @@ class CameraActivity : AppCompatActivity() {
 
     /** Photos, video and frames are turned to match how the phone is held, so a sideways shot is saved upright. */
     private fun applyRotation() {
-        val r = display?.rotation ?: android.view.Surface.ROTATION_0
-        imageCapture?.targetRotation = r
-        analysisUse?.targetRotation = r
-        videoCapture?.targetRotation = r
+        imageCapture?.targetRotation = heldNow
+        analysisUse?.targetRotation = heldNow
+        videoCapture?.targetRotation = heldNow
+        view.show(null)
     }
 
-    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
-        super.onConfigurationChanged(newConfig)
-        applyRotation(); view.show(null); view.invalidate()
-    }
+    private val heldNow get() = debugHeld ?: held
+    private val landscapeHeld get() = heldNow == Surface.ROTATION_90 || heldNow == Surface.ROTATION_270
 
-    /** The colour viewfinder only shows for Normal, and not over the gallery. */
-    private fun syncPreview() { previewView.visibility = if (model.effect == Effect.NONE && !model.inGallery) android.view.View.VISIBLE else android.view.View.GONE }
+    /** The angle to draw the upright picture at in the fixed portrait screen so it looks upright to the person holding the phone. */
+    private val drawTurn get() = when (heldNow) { Surface.ROTATION_90 -> 90; Surface.ROTATION_270 -> 270; Surface.ROTATION_180 -> 180; else -> 0 }
 
     private fun flashMode() = when (model.flash) { FlashMode.OFF -> ImageCapture.FLASH_MODE_OFF; FlashMode.AUTO -> ImageCapture.FLASH_MODE_AUTO; FlashMode.ON -> ImageCapture.FLASH_MODE_ON }
 
@@ -163,16 +157,31 @@ class CameraActivity : AppCompatActivity() {
             val now = System.currentTimeMillis()
             if (now - lastFrame < 80 || model.inGallery) return
             lastFrame = now
-            val plane = img.planes[0]; val buf = plane.buffer; val rs = plane.rowStride; val ps = plane.pixelStride
-            val w = img.width; val h = img.height
-            val cells = Dither.sample(w, h, img.imageInfo.rotationDegrees, model.front, view.cols, view.rows) { x, y -> buf.get(y * rs + x * ps).toInt() and 0xFF }
-            view.show(bitmapOf(cells))
+            val w = img.width; val h = img.height; val rot = img.imageInfo.rotationDegrees
+            val land = landscapeHeld
+            if (model.effect == Effect.NONE) {
+                // Normal: the real colours, at twice the cell resolution and drawn smooth
+                val cols = (if (land) 140 else 105) * 2; val rows = (if (land) 105 else 140) * 2
+                val y = img.planes[0]; val u = img.planes[1]; val v = img.planes[2]
+                val yb = y.buffer; val ub = u.buffer; val vb = v.buffer
+                val px = Dither.sampleColour(w, h, rot, model.front, cols, rows) { x, yy ->
+                    val yv = (yb.get(yy * y.rowStride + x * y.pixelStride).toInt() and 255) - 16
+                    val cx = x / 2; val cy = yy / 2
+                    val uv = (ub.get(cy * u.rowStride + cx * u.pixelStride).toInt() and 255) - 128
+                    val vv = (vb.get(cy * v.rowStride + cx * v.pixelStride).toInt() and 255) - 128
+                    val c = 1.164f * yv
+                    val r = (c + 1.596f * vv).toInt().coerceIn(0, 255); val g = (c - 0.392f * uv - 0.813f * vv).toInt().coerceIn(0, 255); val b = (c + 2.017f * uv).toInt().coerceIn(0, 255)
+                    (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+                }
+                view.show(Bitmap.createBitmap(px, cols, rows, Bitmap.Config.ARGB_8888), null, drawTurn, smooth = true)
+            } else {
+                val plane = img.planes[0]; val buf = plane.buffer; val rs = plane.rowStride; val ps = plane.pixelStride
+                val cols = if (land) 140 else 105; val rows = if (land) 105 else 140
+                val cells = Dither.sample(w, h, rot, model.front, cols, rows) { x, y -> buf.get(y * rs + x * ps).toInt() and 0xFF }
+                val px = Effects.render(model.effect, cells, cols, rows, view.lcd, view.ink, fine = false)
+                view.show(Bitmap.createBitmap(px, cols, rows, Bitmap.Config.ARGB_8888), null, drawTurn)
+            }
         } catch (_: Exception) { } finally { img.close() }
-    }
-
-    private fun bitmapOf(cells: IntArray): Bitmap {
-        val px = Effects.render(if (model.effect == Effect.NONE) Effect.TONES else model.effect, cells, view.cols, view.rows, view.lcd, view.ink, fine = false)
-        return Bitmap.createBitmap(px, view.cols, view.rows, Bitmap.Config.ARGB_8888)
     }
 
     private fun flash(msg: String, ms: Long = 1400) {
@@ -195,7 +204,7 @@ class CameraActivity : AppCompatActivity() {
     private fun perform(a: CamAction) {
         when (a) {
             CamAction.None -> {}
-            CamAction.Redraw -> { applyZoomAndTorch(); syncPreview(); view.invalidate() }
+            CamAction.Redraw -> { applyZoomAndTorch(); view.invalidate() }
             CamAction.Shoot -> if (model.countdown > 0) countdownThenShoot() else takePhoto()
             CamAction.ToggleRecording -> toggleRecording()
             CamAction.Rebind -> { bind(); view.invalidate() }
@@ -295,7 +304,7 @@ class CameraActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) { Log.log(this, "camera: gallery: ${e.javaClass.simpleName}") }
-            ui.post { model.setGallery(list); syncPreview(); showItem() }
+            ui.post { model.setGallery(list); showItem() }
         }.start()
     }
 
@@ -307,7 +316,7 @@ class CameraActivity : AppCompatActivity() {
             try {
                 val bmp = contentResolver.loadThumbnail(android.net.Uri.parse(item.uri), Size(640, 640), null)
                 if (token != loadToken) return@Thread
-                val maxC = view.cols; val maxR = view.rows
+                val maxC = CamView.BOX_COLS; val maxR = CamView.BOX_ROWS
                 val k = minOf(maxC.toFloat() / bmp.width, maxR.toFloat() / bmp.height)
                 val cols = (bmp.width * k).toInt().coerceAtLeast(1); val rows = (bmp.height * k).toInt().coerceAtLeast(1)
                 val px = IntArray(bmp.width * bmp.height).also { bmp.getPixels(it, 0, bmp.width, 0, 0, bmp.width, bmp.height) }
@@ -326,6 +335,7 @@ class CameraActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         io.github.durkimat.phoneguard.incall.LeftKey.camera = null
+        orient?.disable(); refresh = null
         recording?.stop(); exec.shutdown(); super.onDestroy()
     }
 }

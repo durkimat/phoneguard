@@ -26,8 +26,9 @@ class DebugReceiver : BroadcastReceiver() {
     }
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
+        "camrot" -> { io.github.durkimat.phoneguard.camera.CameraActivity.debugHeld = a.toIntOrNull(); io.github.durkimat.phoneguard.camera.CameraActivity.refresh?.invoke(); "held=$a" }
         "ping" -> "pong"
-        "camera" -> { c.startActivity(android.content.Intent(c, io.github.durkimat.phoneguard.camera.CameraActivity::class.java).putExtra("land", a == "land").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); "camera $a" }
+        "camera" -> { c.startActivity(android.content.Intent(c, io.github.durkimat.phoneguard.camera.CameraActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); "camera $a" }
         "lockwp" -> { // paint the lock wallpaper for a theme id and forget the cache so it really repaints
             c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE).edit().remove("lock_wp").apply()
             io.github.durkimat.phoneguard.launcher.LockWallpaper.apply(c, a); "lockwp $a"
