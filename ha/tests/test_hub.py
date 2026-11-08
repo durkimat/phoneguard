@@ -331,3 +331,18 @@ def test_weather_location_is_rounded_validated_and_sent_to_the_phone(hub):
     assert hub.data["children"]["her"]["location"]["lat"] == 51.753
     hub.update_child("her", {"location": None})
     assert "location" not in S.build_config(hub.data["children"]["her"], hub.now())
+
+
+def test_location_per_mode_defaults_validation_and_config(hub):
+    ch = hub.data["children"]["her"]
+    cfg = S.build_config(ch, hub.now())
+    assert cfg["modes"]["school"]["location"] == "off" and cfg["modes"]["day"]["locEvery"] == 30  # off until a parent chooses
+    modes = json.loads(json.dumps(ch["modes"])); modes["school"].update({"location": "network", "loc_every": 30}); modes["day"].update({"location": "gps", "loc_every": 0})
+    hub.update_child("her", {"modes": modes})
+    cfg = S.build_config(hub.data["children"]["her"], hub.now())
+    assert cfg["modes"]["school"]["location"] == "network" and cfg["modes"]["day"]["locEvery"] == 0
+    for bad in ({"location": "wifi"}, {"loc_every": -1}, {"loc_every": "5"}, {"loc_every": 5000}):
+        worse = json.loads(json.dumps(modes)); worse["night"].update(bad)
+        with pytest.raises(ValueError):
+            hub.update_child("her", {"modes": worse})
+    assert hub.data["children"]["her"]["modes"]["day"]["location"] == "gps"

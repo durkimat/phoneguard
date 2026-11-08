@@ -28,6 +28,10 @@ data class ModeDef(
     val waApp: String = "auto",
     /** Whether our themed camera is offered in the menu in this mode. */
     val camera: Boolean = true,
+    /** Position reporting: "off", "network" (low accuracy) or "gps". Off also switches the phone's location off. */
+    val location: String = "off",
+    /** Minutes between position reports; 0 means live (continuous). */
+    val locEvery: Int = 30,
 )
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
@@ -97,6 +101,8 @@ data class Config(
                     wa = m.optString("wa", "open"),
                     waApp = m.optString("waApp", "auto"),
                     camera = m.optBoolean("camera", true),
+                    location = m.optString("location", "off"),
+                    locEvery = m.optInt("locEvery", 30),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->

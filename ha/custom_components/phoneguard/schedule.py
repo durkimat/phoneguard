@@ -11,7 +11,9 @@ WINDOW_DAYS = 14
 
 
 # What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
-LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera")
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every")
+# position reporting per mode: off (also switches the phone's location off), low accuracy (network) or GPS; minutes between reports, 0 is live
+LOC_MODES = ("off", "network", "gps")
 SOUNDS = ("normal", "vibrate", "silent")
 # how WhatsApp may check for messages in a mode: never, only when opened, or briefly every 30 or 60 minutes
 WA_CHECKS = ("off", "open", "30", "60")
@@ -22,9 +24,9 @@ CLOCK = "com.android.deskclock"
 
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
-        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple", "camera": True}
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple", "camera": True, "location": "off", "loc_every": 30}
     # the Nokia screens are the home screen in every mode; only School also turns touch off and locks the phone to its apps
-    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto", "camera": True}
+    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto", "camera": True, "location": "off", "loc_every": 30}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:
@@ -116,7 +118,8 @@ def build_config(child: dict, now_ms: int) -> dict:
                       "sound": m["sound"] if m["sound"] in SOUNDS else "normal", "inbound": bool(m["inbound"]),
                       "wa": m["wa"] if m["wa"] in WA_CHECKS else "open",
                       "waApp": m["wa_app"] if m["wa_app"] in WA_APPS else "auto",
-                      "camera": bool(m["camera"])}
+                      "camera": bool(m["camera"]),
+                      "location": m["location"] if m["location"] in LOC_MODES else "off", "locEvery": max(0, int(m["loc_every"]))}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,
