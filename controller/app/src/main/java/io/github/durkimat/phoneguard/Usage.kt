@@ -23,6 +23,16 @@ object Usage {
             .unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), c.packageName) == AppOpsManager.MODE_ALLOWED
     } catch (_: Exception) { false }
 
+    /** The app whose screen was most recently resumed (looks back an hour), or null when unknown. */
+    fun foreground(c: Context): String? = try {
+        val now = System.currentTimeMillis()
+        val ev = c.getSystemService(android.app.usage.UsageStatsManager::class.java).queryEvents(now - 3_600_000, now)
+        val e = android.app.usage.UsageEvents.Event()
+        var last: String? = null
+        while (ev.hasNextEvent()) { ev.getNextEvent(e); if (e.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED && e.packageName !in skip) last = e.packageName }
+        last
+    } catch (_: Exception) { null }
+
     private fun midnight(offsetDays: Int): Long = Calendar.getInstance().run {
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
         add(Calendar.DAY_OF_YEAR, offsetDays); timeInMillis

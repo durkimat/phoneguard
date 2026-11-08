@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import io.github.durkimat.phoneguard.Log
+import io.github.durkimat.phoneguard.Usage
 import io.github.durkimat.phoneguard.camera.CameraActivity
 import io.github.durkimat.phoneguard.incall.CallState
 import io.github.durkimat.phoneguard.launcher.LauncherActivity
@@ -41,8 +42,8 @@ class F2Service : AccessibilityService() {
      * default" nag). Open our dial pad instead. On our own screens, and while a call is ringing or live, the key is left alone.
      */
     private fun callKey(ev: KeyEvent): Boolean {
-        Log.log(this, "call key ${ev.action} info=${CallState.info != null} front=$frontPkg")
-        if (CallState.info != null || frontPkg == packageName) return false
+        Log.log(this, "call key ${ev.action} info=${CallState.info != null} front=${Usage.foreground(this)}/$frontPkg")
+        if (CallState.info != null || (Usage.foreground(this) ?: frontPkg) == packageName) return false
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
             try { startActivity(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP).putExtra(LauncherActivity.EXTRA_DIAL, "")) }
             catch (e: Exception) { Log.log(this, "call key: ${e.javaClass.simpleName}") }
