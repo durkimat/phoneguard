@@ -540,4 +540,19 @@ class LauncherModelTest {
         val m = msgs(); m.waEnabled = false; open(m)
         assertEquals(listOf("Inbox", "Write message"), m.rows)
     }
+
+    @Test fun aLongListKeepsItsSelectionWhenTheLauncherRedraws() {
+        val menu = listOf(MenuItem("p.phone", "Phone"), MenuItem("com.android.messaging", "Messages"))
+        val m = LauncherModel(menu, "com.android.contacts", "com.android.messaging")
+        val msgs = (1..20).map { Msg("message $it", it * 1000L, false) }
+        m.convos = listOf(Convo("0222", "Mum", msgs, 0))
+        m.onKey(Key.OK); m.onKey(Key.DOWN); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.OK) // menu, Messages, Inbox, the chat list
+        assertEquals(Screen.CHAT, m.screen)
+        m.onKey(Key.DIGIT, 4)
+        assertEquals(Screen.THREAD, m.screen); assertEquals(17, m.selected); assertEquals("message 18", m.convoText()) // the fourth row (Reply, 20, 19, 18), not the menu's last
+        m.setItems(menu) // a redraw re-reads the menu: the selection must survive it
+        assertEquals(17, m.selected); assertEquals("message 18", m.convoText())
+        m.onKey(Key.SOFT_RIGHT); for (i in 1..9) m.onKey(Key.DOWN) // back on row 3, then nine down: row 12 of 21
+        m.setItems(menu); assertEquals(12, m.selected)
+    }
 }
