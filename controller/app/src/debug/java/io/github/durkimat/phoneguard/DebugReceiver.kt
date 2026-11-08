@@ -27,6 +27,7 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "ping" -> "pong"
+        "statusbar" -> try { val ok = Dpm.dpm(c).setStatusBarDisabled(Dpm.admin(c), a == "on"); "setStatusBarDisabled($a) -> $ok" } catch (e: Exception) { "statusbar failed: ${e.javaClass.simpleName} ${e.message}" }
         "location" -> { // patch the stored config with a weather location: a=lat b=lon
             val o = org.json.JSONObject(Store.configText(c) ?: "{}"); o.put("location", org.json.JSONObject().put("lat", a.toDouble()).put("lon", b.toDouble()))
             Store.setConfig(c, o.toString()); "location $a,$b"
