@@ -171,7 +171,10 @@ object WhatsApp {
             if (!wasOn) { connect(app); for (i in 1..40) { if (isConnected()) break; Thread.sleep(500) } }
             if (isConnected()) Thread.sleep(if (wasOn) 0 else SETTLE_MS) // queued messages arrive straight after connecting
             if (!wasOn) bridge?.disconnect()
-            Log.log(app, "whatsapp: checked (${if (wasOn) "already connected" else "connected briefly"})")
+            val bat = app.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
+            val pct = bat?.let { it.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / it.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) } ?: -1
+            val plugged = (bat?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+            Log.log(app, "whatsapp: checked (${if (wasOn) "already connected" else "connected briefly"}) battery=$pct% ${if (plugged) "charging" else "on battery"}")
         } finally {
             polling.set(false)
             schedule(app, if (p == "60") 60 else 30)

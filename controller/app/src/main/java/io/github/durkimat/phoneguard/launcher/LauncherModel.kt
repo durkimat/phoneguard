@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -72,6 +72,10 @@ sealed class Action {
     data class SaveFont(val id: String) : Action()
     data class SavePredictive(val on: Boolean) : Action()
     data class SaveSpeaker(val shown: Boolean) : Action()
+    /** Start linking WhatsApp: this is the account's phone number (digits, with country code). */
+    data class PairWa(val number: String) : Action()
+    /** Unlink WhatsApp from the account. */
+    object UnlinkWa : Action()
     /** The WhatsApp list was opened: the activity connects the bridge on demand. */
     object WaOpen : Action()
     /** A WhatsApp chat was opened: mark it read. */
@@ -124,13 +128,19 @@ class LauncherModel(
     private var contact: Contact? = null
     private var contactsFrom = Screen.HOME
 
-    private val settingsRows = listOf("Theme", "Font", "Predictive text", "Speakerphone")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone") + (if (waEnabled) listOf("WhatsApp") else emptyList())
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
     var convos: List<Convo> = emptyList()
     /** WhatsApp: whether the account is linked, the chats (newest first), the count unread and the bridge's state. */
     var waEnabled = false
+    /** Whether an account is linked. Not linked: the WhatsApp entry offers to link one. */
+    var waLinked = false
+    /** The pairing code to type into WhatsApp on the owner's other phone, once the bridge has one. */
+    var waCode: String? = null
+    var waPairNumber = ""
+        private set
     var waConvos: List<Convo> = emptyList()
     var waUnread = 0
     var waStatus = ""
@@ -139,6 +149,7 @@ class LauncherModel(
         "connected" -> ""
         "connecting" -> "Connecting..."
         "not linked" -> "Not linked yet"
+        "paired" -> "Linked"
         "logged_out" -> "Link was removed"
         "error" -> "Not available"
         else -> "Not connected"
@@ -181,7 +192,7 @@ class LauncherModel(
     val openConvo: Convo? get() = convo
     val shownMsg: Msg? get() = convo?.msgs?.getOrNull(selected)
     private val messagesRows: List<String> get() =
-        if (waEnabled) listOf("Inbox", "WhatsApp" + if (waUnread > 0) " ($waUnread)" else "", "Write message") else listOf("Inbox", "Write message")
+        if (waEnabled) listOf("Inbox", "WhatsApp" + if (waLinked && waUnread > 0) " ($waUnread)" else "", "Write message") else listOf("Inbox", "Write message")
 
     var writeTo = ""
         private set
@@ -239,6 +250,8 @@ class LauncherModel(
         Screen.WRITE -> "Write message"
         Screen.TYPING -> "Predictive text"
         Screen.SPEAKER -> "Speakerphone"
+        Screen.WAPAIR -> "Link WhatsApp"
+        Screen.WASET -> "WhatsApp"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -260,7 +273,9 @@ class LauncherModel(
             CallPhase.ACTIVE -> "Options" to "End"
             else -> "" to ""
         }
-        Screen.INBOX, Screen.WHATSAPP -> "Open" to "Back"
+        Screen.INBOX -> "Open" to "Back"
+        Screen.WHATSAPP -> (if (waLinked) "Open" else "Link") to "Back"
+        Screen.WAPAIR -> (if (waCode != null || waLinked) "" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
         Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
         else -> "Select" to "Back"
@@ -275,13 +290,14 @@ class LauncherModel(
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
-        Screen.CALC, Screen.DIAL, Screen.CALL -> emptyList()
+        Screen.CALC, Screen.DIAL, Screen.CALL, Screen.WAPAIR -> emptyList()
         Screen.CALLMENU -> (if (speakerShown) listOf(if (call?.speaker == true) "Speaker off" else "Speaker on") else emptyList()) + (if (call?.muted == true) "Unmute" else "Mute")
+        Screen.WASET -> listOf(if (waLinked) "Unlink account" else "Link account")
         Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
-        Screen.WHATSAPP -> waConvos.map { (if (it.unread > 0) "* " else "") + it.name }
+        Screen.WHATSAPP -> if (!waLinked) listOf("Link account") else waConvos.map { (if (it.unread > 0) "* " else "") + it.name }
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
 
@@ -292,7 +308,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -310,6 +326,8 @@ class LauncherModel(
         Screen.MESSAGES -> messagesMenu(key, digit)
         Screen.INBOX -> inbox(key, digit)
         Screen.WHATSAPP -> whatsapp(key, digit)
+        Screen.WAPAIR -> waPair(key, digit)
+        Screen.WASET -> waSettings(key, digit)
         Screen.THREAD -> thread(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
         Screen.TYPING -> typing(key, digit)
@@ -424,12 +442,37 @@ class LauncherModel(
     /** Row 0 is the SMS inbox; with WhatsApp linked row 1 is WhatsApp and the last row writes a text. */
     private fun messageEntry(row: Int): Action = when {
         row == 0 -> { screen = Screen.INBOX; selected = 0; Action.Redraw }
-        waEnabled && row == 1 -> { screen = Screen.WHATSAPP; selected = 0; threadWa = true; Action.WaOpen }
+        waEnabled && row == 1 -> { screen = Screen.WHATSAPP; selected = 0; threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
         else -> { threadWa = false; startWrite("", Screen.MESSAGES, wa = false) }
     }
 
-    private fun whatsapp(key: Key, digit: Int): Action = move(key, waConvos.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.THREAD; selected = (it.msgs.size - 1).coerceAtLeast(0); scroll = 0; Action.WaRead(it.address) } ?: Action.None
+    private fun startPair(back: Screen): Action { waPairNumber = ""; waCode = null; waPairBack = back; screen = Screen.WAPAIR; return Action.Redraw }
+    private var waPairBack = Screen.WHATSAPP
+
+    private fun waSettings(key: Key, digit: Int): Action = move(key, 1) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (waLinked) { screen = Screen.SETTINGS; selected = 4; Action.UnlinkWa } else startPair(Screen.WASET)
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 4; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun waPair(key: Key, digit: Int): Action {
+        val done = waCode != null || waLinked
+        return when (key) {
+            Key.DIGIT -> if (!done && waPairNumber.length < 15 && digit in 0..9) { waPairNumber += digit; Action.Redraw } else Action.None
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!done && waPairNumber.length >= 9) Action.PairWa(waPairNumber) else Action.None
+            Key.SOFT_RIGHT, Key.RIGHT -> when {
+                done -> { screen = waPairBack; selected = 0; Action.Redraw }
+                waPairNumber.isNotEmpty() -> { waPairNumber = waPairNumber.dropLast(1); Action.Redraw }
+                else -> { screen = waPairBack; selected = 0; Action.Redraw }
+            }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun whatsapp(key: Key, digit: Int): Action = move(key, if (waLinked) waConvos.size else 1) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked) startPair(Screen.WHATSAPP) else waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.THREAD; selected = (it.msgs.size - 1).coerceAtLeast(0); scroll = 0; Action.WaRead(it.address) } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MESSAGES; selected = 1; threadWa = false; Action.Redraw }
         Key.END -> { threadWa = false; goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -660,7 +703,8 @@ class LauncherModel(
                 0 -> { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
                 1 -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
                 2 -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
-                else -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
+                3 -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
+                else -> { screen = Screen.WASET; selected = 0 }
             }
             Action.Redraw
         }

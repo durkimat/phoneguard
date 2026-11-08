@@ -436,7 +436,7 @@ class LauncherModelTest {
     // ---- WhatsApp
     private fun wa(): LauncherModel {
         val m = msgs()
-        m.waEnabled = true; m.waUnread = 2; m.waStatus = "connected"
+        m.waEnabled = true; m.waLinked = true; m.waUnread = 2; m.waStatus = "connected"
         m.waConvos = listOf(
             Convo("447700900111", "Mum", listOf(Msg("dinner?", 1000, false), Msg("yes", 2000, true), Msg("[photo] pasta", 3000, false)), 2),
             Convo("g12036311", "Family", listOf(Msg("Dad: who is up?", 500, false)), 0),
@@ -483,5 +483,36 @@ class LauncherModelTest {
         val m = wa(); open(m); m.onKey(Key.DIGIT, 2)
         assertEquals(Action.WaRead("g12036311"), m.onKey(Key.DIGIT, 2))
         assertEquals("Family", m.title)
+    }
+
+    @Test fun notLinkedOffersToLinkAndTheCodeScreenWalksThroughIt() {
+        val m = msgs(); m.waEnabled = true; m.waLinked = false; open(m)
+        assertEquals(listOf("Inbox", "WhatsApp", "Write message"), m.rows)
+        assertEquals(Action.Redraw, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.WHATSAPP, m.screen); assertEquals(listOf("Link account"), m.rows)
+        assertEquals("Link" to "Back", m.softKeys)
+        m.onKey(Key.OK); assertEquals(Screen.WAPAIR, m.screen)
+        assertEquals(Action.None, m.onKey(Key.OK)) // too short to send
+        "447700900123".forEach { m.onKey(Key.DIGIT, it - '0') }
+        assertEquals("447700900123", m.waPairNumber)
+        m.onKey(Key.SOFT_RIGHT); assertEquals("44770090012", m.waPairNumber) // Clear deletes a digit
+        m.onKey(Key.DIGIT, 3)
+        assertEquals(Action.PairWa("447700900123"), m.onKey(Key.SOFT_LEFT))
+        m.waCode = "ABCD-1234"; assertEquals("" to "Back", m.softKeys)
+        assertEquals(Action.None, m.onKey(Key.DIGIT, 5)) // the number is locked once the code is showing
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.WHATSAPP, m.screen)
+    }
+
+    @Test fun settingsOffersWhatsAppUnlinkingWhenLinked() {
+        val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
+        m.waEnabled = true; m.waLinked = true
+        m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
+        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "WhatsApp"), m.rows)
+        m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Unlink account"), m.rows)
+        assertEquals(Action.UnlinkWa, m.onKey(Key.OK)); assertEquals(Screen.SETTINGS, m.screen)
+    }
+
+    @Test fun whatsAppSwitchedOffByTheModeIsNotOfferedAtAll() {
+        val m = msgs(); m.waEnabled = false; open(m)
+        assertEquals(listOf("Inbox", "Write message"), m.rows)
     }
 }

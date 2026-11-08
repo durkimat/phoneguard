@@ -114,8 +114,12 @@ class LauncherActivity : Activity() {
         if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)
         // not while reading or writing, so a message arriving cannot shift what is on the screen
         if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
-        model.waEnabled = WhatsApp.linked(this)
-        if (model.waEnabled) {
+        // WhatsApp is offered unless the mode switches it off; "linked" says whether an account is attached
+        model.waLinked = WhatsApp.linked(this)
+        model.waEnabled = WhatsApp.policy(this) != "off"
+        model.waCode = WhatsApp.pairCode
+        if (model.screen == Screen.WAPAIR && model.waLinked) { model.waCode = null }
+        if (model.waLinked) {
             model.waStatus = WhatsApp.status
             model.waUnread = WhatsApp.store(this).unreadTotal()
             if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.waConvos = WhatsApp.convos(this, model.contacts)
@@ -135,6 +139,14 @@ class LauncherActivity : Activity() {
         when (a) {
             Action.None -> {}
             Action.Redraw -> refresh()
+            is Action.PairWa -> Thread {
+                val r = WhatsApp.pair(this, a.number)
+                ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); refresh() }
+            }.start()
+            Action.UnlinkWa -> Thread {
+                val r = WhatsApp.logout(this)
+                ui.post { model.notify(if (r.startsWith("error")) "Could not unlink" else "Unlinked"); refresh() }
+            }.start()
             Action.WaOpen -> { WhatsApp.touch(this); refresh() }
             is Action.WaRead -> { WhatsApp.store(this).markRead(a.chat); refresh() }
             is Action.SendWa -> Thread {

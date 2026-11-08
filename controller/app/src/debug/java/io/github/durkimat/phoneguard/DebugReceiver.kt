@@ -62,6 +62,8 @@ class DebugReceiver : BroadcastReceiver() {
             val w = io.github.durkimat.phoneguard.whatsapp.WhatsApp
             when (a) {
                 "close" -> { w.close(); "closed" }
+                // only for looking at the link screens: hides or shows the "linked" flag the screens use (the real link is untouched)
+                "flag" -> { c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).edit().putBoolean("wa_linked", b == "on").apply(); "flag=$b" }
                 "poll" -> { Thread { w.poll(c) }.start(); "polling" }
                 "policy" -> "policy=${w.policy(c)} alarm=${c.getSystemService(android.app.AlarmManager::class.java).nextAlarmClock != null}"
                 "open" -> { w.open(c); "status=${w.status} paired=${w.isPaired(c)}" }

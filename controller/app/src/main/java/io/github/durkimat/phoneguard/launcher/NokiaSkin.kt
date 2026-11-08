@@ -70,6 +70,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
+                Screen.WAPAIR -> waPair(c, m, u)
                 Screen.DIAL -> dial(c, m, u)
                 Screen.CALL -> callScreen(c, m, u)
                 else -> menu(c, m, u)
@@ -339,6 +340,31 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun clock(secs: Int): String = if (secs >= 3600) "%d:%02d:%02d".format(secs / 3600, secs / 60 % 60, secs % 60) else "%02d:%02d".format(secs / 60, secs % 60)
+
+        private fun waPair(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            when {
+                m.waLinked -> {
+                    text(c, "Linked", 240f, 220f, 52f, u, bold = true, align = Paint.Align.CENTER)
+                    text(c, "WhatsApp is ready.", 240f, 280f, 30f, u, align = Paint.Align.CENTER)
+                }
+                m.waCode != null -> {
+                    val lines = wrap("On your own phone open WhatsApp, then Linked devices, Link a device, Link with phone number, and type:")
+                    lines.take(7).forEachIndexed { n, s -> text(c, s, 16f, 140f + n * 34f, 26f, u) }
+                    text(c, m.waCode ?: "", 240f, 440f, 56f, u, bold = true, align = Paint.Align.CENTER)
+                }
+                else -> {
+                    text(c, "Your WhatsApp number", 240f, 150f, 28f, u, align = Paint.Align.CENTER)
+                    text(c, "with country code, no plus", 240f, 186f, 24f, u, align = Paint.Align.CENTER)
+                    var size = 52f; val paint = bodyPaint(); paint.textSize = size
+                    while (paint.measureText(m.waPairNumber) > 440f && size > 28f) { size -= 4f; paint.textSize = size }
+                    text(c, m.waPairNumber + "_", 240f, 300f, size / (if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f), u, bold = true, align = Paint.Align.CENTER)
+                    text(c, "e.g. 447700900123", 240f, 360f, 24f, u, align = Paint.Align.CENTER)
+                }
+            }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
 
         private fun notice(c: Canvas, s: String, u: Float) {
             c.drawRect(30 * u, 250 * u, 450 * u, 350 * u, fill)
