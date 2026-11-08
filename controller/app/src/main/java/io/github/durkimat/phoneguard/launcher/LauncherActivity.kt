@@ -47,6 +47,7 @@ class LauncherActivity : Activity() {
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         WhatsApp.onChange(waChanged)
+        io.github.durkimat.phoneguard.keys.Torch.onChange(torchChanged)
         model.predictiveOn = prefs().getBoolean("predictive", true)
         model.speakerShown = prefs().getBoolean("speaker", true)
         model.waNameStyle = prefs().getString("wa_names", NameStyle.DEFAULT) ?: NameStyle.DEFAULT
@@ -125,7 +126,9 @@ class LauncherActivity : Activity() {
 
     private val waChanged: () -> Unit = { runOnUiThread { refresh() } }
 
-    override fun onDestroy() { WhatsApp.offChange(waChanged); super.onDestroy() }
+    private val torchChanged: () -> Unit = { refresh() }
+
+    override fun onDestroy() { WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); super.onDestroy() }
 
     private val gameStep = object : Runnable {
         override fun run() {

@@ -139,6 +139,17 @@ object Enforcer {
 
     private const val GRAY = "accessibility_display_daltonizer_enabled"
 
+    /** Switch our side-button service on (a device owner holding WRITE_SECURE_SETTINGS needs no prompt); it is only ever added, never removed. */
+    fun ensureSideButton(c: Context) {
+        if (!canWriteSecure(c)) return
+        try {
+            val me = "${c.packageName}/${c.packageName}.keys.F2Service"
+            val cur = Settings.Secure.getString(c.contentResolver, "enabled_accessibility_services").orEmpty()
+            if (me !in cur.split(':')) Settings.Secure.putString(c.contentResolver, "enabled_accessibility_services", if (cur.isEmpty()) me else "$cur:$me")
+            if (Settings.Secure.getInt(c.contentResolver, "accessibility_enabled", 0) != 1) Settings.Secure.putInt(c.contentResolver, "accessibility_enabled", 1)
+        } catch (e: Exception) { Log.log(c, "side button service: ${e.javaClass.simpleName}") }
+    }
+
     fun canWriteSecure(c: Context) =
         c.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
 

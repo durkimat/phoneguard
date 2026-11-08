@@ -27,6 +27,7 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "camrot" -> { io.github.durkimat.phoneguard.camera.CameraActivity.debugHeld = a.toIntOrNull(); io.github.durkimat.phoneguard.camera.CameraActivity.refresh?.invoke(); "held=$a" }
+        "torch" -> { io.github.durkimat.phoneguard.keys.Torch.toggle(c); "torch on=${io.github.durkimat.phoneguard.keys.Torch.on}" }
         "ping" -> "pong"
         "camera" -> { c.startActivity(android.content.Intent(c, io.github.durkimat.phoneguard.camera.CameraActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); "camera $a" }
         "lockwp" -> { // paint the lock wallpaper for a theme id and forget the cache so it really repaints
