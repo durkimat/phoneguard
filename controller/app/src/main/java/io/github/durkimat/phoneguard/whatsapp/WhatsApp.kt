@@ -45,8 +45,17 @@ object WhatsApp {
     private fun setLinked(c: Context, v: Boolean) { prefs(c).edit().putBoolean("wa_linked", v).apply() }
     // WhatsApp events can come in hundreds (the history sent when linking): merge them so the screen redraws at most
     // a few times a second instead of once per message
-    private val fireNow = Runnable { changed.forEach { it() } }
-    private fun fire() { main.removeCallbacks(fireNow); main.postDelayed(fireNow, 300) }
+    // live events redraw within 300 ms; the one-off history batch within 2 s (it does not need to be dynamic), and a
+    // redraw is never held back for more than 5 s however long the batch runs
+    private var pendingSince = 0L
+    private val fireNow = Runnable { pendingSince = 0L; changed.forEach { it() } }
+    private fun fire(slow: Boolean = false) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (pendingSince == 0L) pendingSince = now
+        main.removeCallbacks(fireNow)
+        val wait = if (slow) 2_000L else 300L
+        main.postDelayed(fireNow, minOf(wait, maxOf(0L, pendingSince + 5_000L - now)))
+    }
 
     @Synchronized fun store(c: Context): WaStore = store ?: WaStore(c.applicationContext).also { store = it }
 
@@ -65,7 +74,7 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean, history: Boolean) { st.add(chat, chatName, sender, text, ts, fromMe, history = history); fire() }
+                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean, history: Boolean) { st.add(chat, chatName, sender, text, ts, fromMe, history = history); fire(slow = history) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
                     st.add(chat, chatName, chatName, if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
