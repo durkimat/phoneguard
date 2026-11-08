@@ -108,7 +108,8 @@ class GamesTest {
         val m = LauncherModel(listOf(MenuItem(GAMES_PKG, "Games")))
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
         for ((n, s) in listOf(2 to Screen.PAIRS, 3 to Screen.SHOOTER, 4 to Screen.SEEDS)) {
-            m.onKey(Key.DIGIT, n); assertEquals(s, m.screen)
+            m.onKey(Key.DIGIT, n); assertEquals(Screen.GAMEHELP, m.screen); assertTrue(m.helpLines.isNotEmpty())
+            m.onKey(Key.OK); assertEquals(s, m.screen)
             m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.GAMES, m.screen); assertEquals(n - 1, m.selected)
         }
     }
