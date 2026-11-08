@@ -841,3 +841,12 @@ Questions to put to them together:
 - keys/VolumeBar.kt: the side-button service (which sees keys with the screen on) now takes the volume keys, changes the stream itself (call when a call is on, music when music plays on the phone, otherwise the ringer) and draws a small panel under the status bar for 1.6 s: a speaker, ten blocks, the stream name (CALL, MUSIC, RING), in the launcher's theme colours and font; a crossed speaker when the ringer is off. It is a non-touchable overlay, so it shows over any app. The camera keeps the volume keys as its shutter. A debug-only broadcast io.github.durkimat.phoneguard.DEBUG_VOLUME (--ez up true/false) shows it without a key.
 - Limits: not while the screen is off; Spotify playing on another device (Echo) still changes the ringer here (the Music screen's up/down changes that device). Idea: in the Music screen, make the volume keys control the playing device.
 - Android's own slider is not shown because the key is consumed before the system sees it; the quick settings volume and Settings > Sound are unchanged.
+
+## Music extras and tidy-up (2026-11-08 night, installed but not looked at on the phone)
+- Home screen right key is Music (when the mode shows Music; otherwise still Contacts). Back from the Music menu returns home when it was opened that way.
+- Volume keys while the Music screen is open and Spotify plays on another device: the themed bar shows that device's level (named, e.g. LOUNGE) and changes it in steps of 10 (LauncherActivity.remoteVolume, set in onResume, cleared in onPause).
+- Now playing: # cycles repeat (off / all / one), * shuffle as before; the hint lines show both states. Long titles, artists and albums pause, scroll to the end and restart (marquee in NokiaSkin; the view redraws every 90 ms only while a line is too long).
+- Music menu: "Sleep timer: off / 15 min / 30 min / 60 min" row; selecting steps it. At the end it pauses Spotify (any device) and local playback (music/SleepTimer.kt, lives in the app process). The Now playing screen shows "sleep in N min".
+- Removed the unused PHONEMENU screen and its code. 176 unit tests pass.
+- Not yet seen on the phone: it was locked after an adb End-key test (the End/power key locks it, and I cannot unlock a secure lock). Check the Music screen, the marquee and the home screen label tomorrow.
+- Lesson: do not send KEYCODE_ENDCALL over adb on this phone, it sleeps and locks it (hang-up is the power key).

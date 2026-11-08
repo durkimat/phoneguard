@@ -27,6 +27,8 @@ class LauncherActivity : Activity() {
     companion object {
         @Volatile private var words: WordList? = null
         const val EXTRA_DIAL = "dial"
+        /** Set while the Music screen is in front and the music plays on another Spotify device: the volume keys then change that device (returns its new level and short name). */
+        @Volatile var remoteVolume: ((Boolean) -> Pair<Int, String>?)? = null
         @Volatile var inFront = false
     }
 
@@ -84,6 +86,7 @@ class LauncherActivity : Activity() {
     override fun onResume() {
         super.onResume()
         inFront = true
+        remoteVolume = { up -> remoteVolumeStep(up) }
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { model.goHome(); cameBack = false }
         refresh()
@@ -98,6 +101,7 @@ class LauncherActivity : Activity() {
 
     override fun onPause() {
         inFront = false
+        remoteVolume = null
         ui.removeCallbacks(tick)
         try { unregisterReceiver(changes) } catch (_: Exception) { }
         super.onPause()
@@ -156,7 +160,7 @@ class LauncherActivity : Activity() {
         }
         val p = spPlayer ?: return local
         val mine = thisPhone(io.github.durkimat.phoneguard.music.SpDevice(p.deviceId, p.deviceName, p.deviceType, true, p.volume))
-        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", p.title, p.artist, p.album, p.playing, p.position(now), p.durationMs, if (mine) local.volumePct else p.volume, p.deviceName, mine, p.shuffle)
+        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", p.title, p.artist, p.album, p.playing, p.position(now), p.durationMs, if (mine) local.volumePct else p.volume, p.deviceName, mine, p.shuffle, p.repeat)
     }
     private val notesChanged: () -> Unit = { runOnUiThread { refresh() } }
 
@@ -213,6 +217,7 @@ class LauncherActivity : Activity() {
         // not while reading or writing, so a message arriving cannot shift what is on the screen
         if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
         // WhatsApp is offered unless the mode switches it off; "linked" says whether an account is attached
+        model.sleepLabel = io.github.durkimat.phoneguard.music.SleepTimer.label()
         model.waLinked = WhatsApp.linked(this)
         model.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
         model.waCode = WhatsApp.pairCode
@@ -291,6 +296,8 @@ class LauncherActivity : Activity() {
             }
             is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
             Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
+            Action.SpRepeat -> Thread { sp.repeat(this, when (model.music.repeat) { "off" -> "context"; "context" -> "track"; else -> "off" }); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
+            Action.SleepStep -> { io.github.durkimat.phoneguard.music.SleepTimer.step(this); refresh() }
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); refresh() }
             is Action.SpLoad -> Thread {
@@ -319,6 +326,15 @@ class LauncherActivity : Activity() {
             Action.CallKey -> { model.startDial(""); refresh() } // the green key anywhere in our screens: our dial pad, never the stock dialler
             else -> {} // the call actions belong to the call screen
         }
+    }
+
+    private fun remoteVolumeStep(up: Boolean): Pair<Int, String>? {
+        val m = model.music
+        if (model.screen != Screen.MUSIC || !sp.signedIn(this) || !m.active || m.thisPhone) return null
+        val pct = (m.volumePct + (if (up) 10 else -10)).coerceIn(0, 100)
+        model.music = m.copy(volumePct = pct)
+        Thread { sp.volume(this, pct); spPolledAt = 0 }.start()
+        return pct to m.device.uppercase().take(8)
     }
 
     private fun spOrLocal(api: () -> Unit, local: () -> Unit) {

@@ -185,7 +185,7 @@ class HomeBadgeTest {
     @Test fun musicScreenIsARemoteForTheMusicApp() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
-        assertEquals(Screen.MUSICMENU, m.screen); assertEquals(listOf("Now playing", "Sign in to Spotify"), m.rows)
+        assertEquals(Screen.MUSICMENU, m.screen); assertEquals(listOf("Now playing", "Sleep timer: off", "Sign in to Spotify"), m.rows)
         m.onKey(Key.OK); assertEquals(Screen.MUSIC, m.screen)
         assertEquals(Action.None, m.onKey(Key.OK)) // nothing playing, no music app: nothing to do
         m.musicApp = true; assertEquals(Action.MusicOpenApp, m.onKey(Key.OK))
@@ -199,19 +199,38 @@ class HomeBadgeTest {
         assertEquals("3:20", io.github.durkimat.phoneguard.music.MusicInfo.clock(200_000)); assertEquals("1:02:03", io.github.durkimat.phoneguard.music.MusicInfo.clock(3_723_000))
     }
 
+    @Test fun homeRightKeyOpensMusicAndBackComesHome() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"), MenuItem("com.android.contacts", "Contacts")), "com.android.contacts")
+        assertEquals("Menu" to "Music", m.softKeys)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        val none = LauncherModel(listOf(MenuItem("com.android.contacts", "Contacts")), "com.android.contacts")
+        assertEquals("Menu" to "Contacts", none.softKeys) // no music in this mode: the right key stays Contacts
+        none.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CONTACTS, none.screen)
+    }
+
+    @Test fun repeatAndSleepTimerKeys() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1); m.onKey(Key.OK) // Now playing
+        assertEquals(Screen.MUSIC, m.screen)
+        assertEquals(Action.SpRepeat, m.onKey(Key.POUND)); assertEquals(Action.SpShuffle, m.onKey(Key.STAR))
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 2))
+        m.sleepLabel = "30 min"; assertEquals("Sleep timer: 30 min", m.rows[1])
+    }
+
     @Test fun signedInMusicMenuOffersPlaylistsSearchAndDevices() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
-        assertEquals(listOf("Now playing", "Playlists", "Search", "Play on...", "Sign out of Spotify"), m.rows)
-        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.PLAYLISTS, m.screen)
+        assertEquals(listOf("Now playing", "Sleep timer: off", "Playlists", "Search", "Play on...", "Sign out of Spotify"), m.rows)
+        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.PLAYLISTS, m.screen)
         m.spPlaylists = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:playlist:1", "Chill", "10 tracks"))
         assertEquals(Action.SpPlay("spotify:playlist:1"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SpLoad("devices"), m.onKey(Key.DIGIT, 4)); assertEquals(Screen.DEVICES, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SpLoad("devices"), m.onKey(Key.DIGIT, 5)); assertEquals(Screen.DEVICES, m.screen)
         m.spDevices = listOf(io.github.durkimat.phoneguard.music.SpDevice("d1", "Lounge", "Speaker", false, 30), io.github.durkimat.phoneguard.music.SpDevice("d2", "Phone", "Smartphone", true, 50))
         m.spIsThisPhone = { it.id == "d2" }
         assertEquals(listOf("  Lounge", "> Phone (this phone)"), m.rows)
         assertEquals(Action.SpTransfer("d1", "Lounge"), m.onKey(Key.OK))
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 3) // search: the text entry, not a message
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 4) // search: the text entry, not a message
         assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
         m.onKey(Key.DIGIT, 2); m.onKey(Key.DIGIT, 2)
         val a = m.onKey(Key.OK); assertTrue(a is Action.SpSearch); assertEquals(Screen.SEARCHRES, m.screen)

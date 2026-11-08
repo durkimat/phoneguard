@@ -192,5 +192,7 @@ object Spotify {
     fun next(c: Context) = call(c, "POST", "/me/player/next").first
     fun previous(c: Context) = call(c, "POST", "/me/player/previous").first
     fun volume(c: Context, pct: Int) = call(c, "PUT", "/me/player/volume?volume_percent=${pct.coerceIn(0, 100)}").first
+    /** state is "off", "context" (the playlist or album) or "track". */
+    fun repeat(c: Context, state: String) = call(c, "PUT", "/me/player/repeat?state=$state").first
     fun shuffle(c: Context, on: Boolean) = call(c, "PUT", "/me/player/shuffle?state=$on").first
 }
