@@ -38,7 +38,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide"}
         before = {k: ch.get(k) for k in allowed}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
@@ -57,6 +57,8 @@ class Hub:
                     raise ValueError("location needs a lat and a lon") from None
                 if not (-90 <= v["lat"] <= 90 and -180 <= v["lon"] <= 180):
                     raise ValueError("location is out of range")
+            if k == "notes_hide" and isinstance(v, list):
+                v = list(dict.fromkeys(x for x in v if isinstance(x, str) and x))
             if k == "pinned" and isinstance(v, list):  # keep the parent's order, no blanks or repeats
                 v = list(dict.fromkeys(x for x in v if isinstance(x, str) and x))
             if k in allowed:
@@ -78,6 +80,8 @@ class Hub:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp check setting {m['wa']!r}")
             if m.get("wa_app", "auto") not in S.WA_APPS:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp app setting {m['wa_app']!r}")
+            if m.get("notes", "show") not in S.NOTE_MODES:
+                raise ValueError(f"mode {mid!r} has an unknown notifications setting {m['notes']!r}")
             if m.get("location", "off") not in S.LOC_MODES:
                 raise ValueError(f"mode {mid!r} has an unknown location setting {m['location']!r}")
             if not isinstance(m.get("loc_every", 30), int) or isinstance(m.get("loc_every", 30), bool) or not 0 <= m.get("loc_every", 30) <= 1440:
@@ -347,6 +351,7 @@ class Hub:
             "restrictions": ch.get("restrictions"),
             "whatsapp": S.whatsapp_with_defaults(ch),
             "pinned": list(ch.get("pinned") or []),
+            "notes_hide": list(ch.get("notes_hide") or []),
             "location": ch.get("location"),
         }
         pairing = next(((d, p) for d, p in self.data["pairing"].items() if p["child"] == cid), None)

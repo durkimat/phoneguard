@@ -11,7 +11,9 @@ WINDOW_DAYS = 14
 
 
 # What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
-LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every")
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes")
+# notifications per mode: listed on the Nokia screens (show) or cleared as they arrive (off)
+NOTE_MODES = ("show", "off")
 # position reporting per mode: off (also switches the phone's location off), low accuracy (network) or GPS; minutes between reports, 0 is live
 LOC_MODES = ("off", "network", "gps")
 SOUNDS = ("normal", "vibrate", "silent")
@@ -24,9 +26,9 @@ CLOCK = "com.android.deskclock"
 
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
-        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple", "camera": True, "location": "off", "loc_every": 30}
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple", "camera": True, "location": "off", "loc_every": 30, "notes": "off"}
     # the Nokia screens are the home screen in every mode; only School also turns touch off and locks the phone to its apps
-    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto", "camera": True, "location": "off", "loc_every": 30}
+    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto", "camera": True, "location": "off", "loc_every": 30, "notes": "show"}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:
@@ -75,6 +77,7 @@ def default_child(name: str) -> dict:
         "restrictions": None,
         "whatsapp": whatsapp_defaults(),
         "location": None,  # {"lat": 51.75, "lon": -0.34} for the weather on the phone; None means no weather
+        "notes_hide": [],  # apps whose notifications are cleared as they arrive, besides the built-in noise list
         "pinned": [],  # apps shown in the Nokia main menu itself; the other allowed apps are under "Android Apps"
         "known": None,  # packages the parent has already seen; None until the first sync
     }
@@ -119,7 +122,8 @@ def build_config(child: dict, now_ms: int) -> dict:
                       "wa": m["wa"] if m["wa"] in WA_CHECKS else "open",
                       "waApp": m["wa_app"] if m["wa_app"] in WA_APPS else "auto",
                       "camera": bool(m["camera"]),
-                      "location": m["location"] if m["location"] in LOC_MODES else "off", "locEvery": max(0, int(m["loc_every"]))}
+                      "location": m["location"] if m["location"] in LOC_MODES else "off", "locEvery": max(0, int(m["loc_every"])),
+                      "notes": m["notes"] if m["notes"] in NOTE_MODES else "show"}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,
@@ -137,6 +141,7 @@ def build_config(child: dict, now_ms: int) -> dict:
     loc = child.get("location")
     if loc:
         cfg["location"] = {"lat": round(float(loc["lat"]), 3), "lon": round(float(loc["lon"]), 3)}
+    cfg["notesHide"] = sorted(str(x) for x in child.get("notes_hide", []))
     cfg["pinned"] = [str(x) for x in child.get("pinned", [])]
     if child.get("override") in modes:
         cfg["override"] = child["override"]
