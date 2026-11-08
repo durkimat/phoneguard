@@ -579,3 +579,6 @@ Questions to put to them together:
 ## Swipe scrolling and classic games (owner, 2026-11-08)
 - Where touch is allowed, a swipe scrolls any list (the main menu is nine rows, seven fit): one row for every 62 design pixels of travel, a tap still chooses the row you touch, and the chosen row stays inside the visible rows. Checked on the J36 (menu swiped up and down). The games themselves ignore all touch, including their soft-key labels, so they stay keypad classics; the Classic Games list and How to play page still take touch.
 - Menu entry and list title renamed "Classic Games".
+
+## "Android Apps" (owner, 2026-11-08)
+- Main menu entry renamed from "Other apps" to "Android Apps" and hidden in any mode where touch is off (School), since Android apps are built for touch. An app a parent pins to the main menu still shows in School (so the Camera, allowed there, appears only if pinned). Card v0.11.1 text updated and deployed.

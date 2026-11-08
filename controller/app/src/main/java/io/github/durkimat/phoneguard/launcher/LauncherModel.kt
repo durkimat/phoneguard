@@ -127,7 +127,7 @@ class LauncherModel(
     var selected = 0
         private set
 
-    /** The allowed apps that are not in the main menu, shown under "Other apps". */
+    /** The allowed apps that are not in the main menu, shown under "Android Apps". */
     var apps: List<MenuItem> = emptyList()
 
     fun setItems(list: List<MenuItem>) {
@@ -292,7 +292,7 @@ class LauncherModel(
         Screen.WAPAIR -> "Link WhatsApp"
         Screen.WASET -> "WhatsApp"
         Screen.WANAMES -> "Names in lists"
-        Screen.APPS -> "Other apps"
+        Screen.APPS -> "Android Apps"
         Screen.GAMES -> "Classic Games"
         Screen.SNAKE -> "Snake"
         Screen.PAIRS -> "Pairs"

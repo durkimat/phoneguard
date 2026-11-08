@@ -73,7 +73,7 @@ def default_child(name: str) -> dict:
         "restrictions": None,
         "whatsapp": whatsapp_defaults(),
         "location": None,  # {"lat": 51.75, "lon": -0.34} for the weather on the phone; None means no weather
-        "pinned": [],  # apps shown in the Nokia main menu itself; the other allowed apps are under "Other apps"
+        "pinned": [],  # apps shown in the Nokia main menu itself; the other allowed apps are under "Android Apps"
         "known": None,  # packages the parent has already seen; None until the first sync
     }
 

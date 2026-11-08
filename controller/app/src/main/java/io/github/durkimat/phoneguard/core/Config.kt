@@ -62,7 +62,7 @@ data class Config(
     /** A parent forcing one mode regardless of the timetable, until HA clears it. */
     val override: String? = null,
     val whatsapp: WaConfig? = null,
-    /** Apps the parent put in the Nokia main menu itself; the other allowed apps go under "Other apps". */
+    /** Apps the parent put in the Nokia main menu itself; the other allowed apps go under "Android Apps". */
     val pinned: List<String> = emptyList(),
     /** Where the weather is for (set from HA, the phone never asks for its own location). */
     val lat: Double? = null,

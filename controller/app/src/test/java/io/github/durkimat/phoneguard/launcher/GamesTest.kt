@@ -163,4 +163,11 @@ class HomeBadgeTest {
         assertEquals(Screen.SNAKE, m.screen)
         assertEquals(Action.None, m.tap(40f, 610f)); assertEquals(Screen.SNAKE, m.screen)
     }
+
+    @Test fun androidAppsAreHiddenWhereTouchIsOff() {
+        val all = listOf(MenuItem("com.android.dialer", "Phone"), MenuItem("a.maps", "Maps"), MenuItem(SETTINGS_PKG, "Settings"))
+        assertTrue(LauncherData.menu(all, emptyList(), androidApps = true).any { it.label == "Android Apps" })
+        assertTrue(LauncherData.menu(all, emptyList(), androidApps = false).none { it.pkg == APPS_PKG })
+        assertTrue(LauncherData.menu(all, listOf("a.maps"), androidApps = false).any { it.label == "Maps" }) // a pinned app still shows
+    }
 }

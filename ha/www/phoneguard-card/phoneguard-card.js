@@ -1,8 +1,8 @@
-/* Phone Guard card v0.11.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.11.1. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.11.0";
+const PG_VERSION = "0.11.1";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -396,7 +396,7 @@ class PhoneGuardCard extends HTMLElement {
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
         }).join("") + `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td></tr>`;
     }
-    return h + `</table><div class="sub" style="margin-top:6px">Main menu: on the Nokia home screen, ticked apps sit in the main menu; the other allowed apps are listed under "Other apps". Touch-only apps need the touchscreen, so allow them only in modes where touch works.</div><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
+    return h + `</table><div class="sub" style="margin-top:6px">Main menu: on the Nokia home screen, ticked apps sit in the main menu; the other allowed apps are listed under "Android Apps". Touch-only apps need the touchscreen, so allow them only in modes where touch works.</div><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
       <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
   }
 
