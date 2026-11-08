@@ -129,6 +129,30 @@ class LauncherActivity : Activity() {
 
     private val torchChanged: () -> Unit = { refresh() }
     private val musicTick = Runnable { if (model.screen == Screen.MUSIC) refresh() }
+    private val sp = io.github.durkimat.phoneguard.music.Spotify
+    @Volatile private var spPlayer: io.github.durkimat.phoneguard.music.SpPlayer? = null
+    private var spPolledAt = 0L
+    @Volatile private var spPolling = false
+
+    /** The phone's own name as Spotify may list it, used to point out "this phone" among the devices. */
+    private fun thisPhone(d: io.github.durkimat.phoneguard.music.SpDevice): Boolean {
+        val names = listOfNotNull(android.provider.Settings.Global.getString(contentResolver, "device_name"), android.os.Build.MODEL, android.os.Build.DEVICE).map { it.lowercase() }
+        return d.name.lowercase() in names || (d.type.equals("Smartphone", true) && names.any { d.name.lowercase().contains(it) })
+    }
+
+    /** What the Now playing screen shows: Spotify's view of the account when signed in (it knows where playback is), else the music app's own session. */
+    private fun nowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo {
+        val local = io.github.durkimat.phoneguard.music.MusicController.info(this)
+        if (!sp.signedIn(this)) return local
+        val now = System.currentTimeMillis()
+        if (!spPolling && now - spPolledAt > 3000) {
+            spPolling = true; spPolledAt = now
+            Thread { try { spPlayer = sp.player(this) } finally { spPolling = false } }.start()
+        }
+        val p = spPlayer ?: return local
+        val mine = thisPhone(io.github.durkimat.phoneguard.music.SpDevice(p.deviceId, p.deviceName, p.deviceType, true, p.volume))
+        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", p.title, p.artist, p.album, p.playing, p.position(now), p.durationMs, if (mine) local.volumePct else p.volume, p.deviceName, mine, p.shuffle)
+    }
     private val notesChanged: () -> Unit = { runOnUiThread { refresh() } }
 
     override fun onDestroy() { WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
@@ -165,7 +189,8 @@ class LauncherActivity : Activity() {
         model.androidSettings = LauncherData.touchAllowed(this)
         model.notes = io.github.durkimat.phoneguard.notes.Notes.all()
         if (model.screen == Screen.MUSIC) {
-            model.music = io.github.durkimat.phoneguard.music.MusicController.info(this)
+            model.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this)
+            model.music = nowPlaying()
             model.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)
             ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000)
         }
@@ -248,10 +273,28 @@ class LauncherActivity : Activity() {
             }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
-            Action.MusicPlayPause -> { io.github.durkimat.phoneguard.music.MusicController.playPause(this); ui.postDelayed({ refresh() }, 300) }
-            Action.MusicNext -> { io.github.durkimat.phoneguard.music.MusicController.next(this); ui.postDelayed({ refresh() }, 500) }
-            Action.MusicPrevious -> { io.github.durkimat.phoneguard.music.MusicController.previous(this); ui.postDelayed({ refresh() }, 500) }
-            is Action.MusicVolume -> { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); refresh() }
+            Action.MusicPlayPause -> spOrLocal({ if (model.music.playing) sp.pause(this) else sp.resume(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
+            Action.MusicNext -> spOrLocal({ sp.next(this) }, { io.github.durkimat.phoneguard.music.MusicController.next(this) })
+            Action.MusicPrevious -> spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
+            is Action.MusicVolume -> {
+                // on another device the volume is Spotify's for that device; on this phone it is the phone's music volume
+                if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { refresh() } }.start()
+                else { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); refresh() }
+            }
+            Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
+            Action.SpSignIn -> start(sp.signInIntent(this))
+            Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); refresh() }
+            is Action.SpLoad -> Thread {
+                if (a.kind == "playlists") { val l = sp.playlists(this); ui.post { model.spPlaylists = l ?: emptyList(); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
+                else {
+                    val l = sp.devices(this)
+                    ui.post { model.spIsThisPhone = { d -> thisPhone(d) }; model.spDevices = (l ?: emptyList()).sortedByDescending { thisPhone(it) }; model.spStatus = if (l == null) "Could not load" else "No devices: open Spotify on this phone"; refresh() }
+                }
+            }.start()
+            is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
+            is Action.SpPlay -> Thread { playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ refresh() }, 800) }.start()
+            is Action.SpTransfer -> Thread { sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ refresh() }, 800) }.start()
+
             Action.MusicOpenApp -> launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)
@@ -267,6 +310,28 @@ class LauncherActivity : Activity() {
             Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
             else -> {} // the call actions belong to the call screen
         }
+    }
+
+    private fun spOrLocal(api: () -> Unit, local: () -> Unit) {
+        if (sp.signedIn(this) && spPlayer != null) Thread { api(); spPolledAt = 0; ui.postDelayed({ refresh() }, 600) }.start()
+        else { local(); ui.postDelayed({ refresh() }, 500) }
+    }
+
+    /** Start a playlist, album or song on the chosen device: the one picked in "Play on" if it is still there, else this phone, else wherever it is playing. */
+    private fun playOnTarget(uri: String) {
+        val pickedId = getSharedPreferences("music", MODE_PRIVATE).getString("target", null)
+        var list = sp.devices(this) ?: emptyList()
+        var target = list.firstOrNull { it.id == pickedId } ?: list.firstOrNull { thisPhone(it) }
+        if (target == null) {
+            // this phone is not on the list until Spotify has been running here: wake it in the background, then look again
+            launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
+            Thread.sleep(3500)
+            ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
+            Thread.sleep(1000)
+            list = sp.devices(this) ?: emptyList()
+            target = list.firstOrNull { thisPhone(it) } ?: list.firstOrNull { it.active }
+        }
+        sp.play(this, uri, target?.id)
     }
 
     private fun placeCall(number: String) {

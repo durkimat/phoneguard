@@ -163,6 +163,19 @@
 
         <receiver android:name=".AlarmReceiver" android:directBootAware="true" android:exported="false" />
 
+        <activity
+            android:name=".music.SpotifyAuthActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="io.github.durkimat.phoneguard" android:host="spotify-callback" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".notes.NoteService"
             android:exported="true"
