@@ -31,6 +31,7 @@ object LockdownEnforcer {
         RotationLock.set(c, locked = ld.launcher == "nokia")
         LockScreenNotes.set(c, hidden = ld.launcher == "nokia")
         HeadsUp.set(c, off = ld.launcher == "nokia")
+        EndKey.set(c, home = ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
@@ -52,6 +53,7 @@ object LockdownEnforcer {
         LocationLock.set(c, false)
         LockScreenNotes.set(c, false)
         HeadsUp.set(c, false)
+        EndKey.set(c, false)
     }
 }
 
@@ -170,6 +172,26 @@ object LockScreenNotes {
                 }
             } catch (e: Exception) { Log.log(c, "lock screen $key: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
         }
+    }
+}
+
+/** The hang-up key takes the phone to the home screen (Nokia style) instead of switching the screen off; the power button still does that. */
+object EndKey {
+    private const val KEY = "end_button_behavior" // 1 = home, 2 = sleep
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("endkey", Context.MODE_PRIVATE)
+
+    fun set(c: Context, home: Boolean) {
+        try {
+            val r = c.contentResolver
+            val p = prefs(c)
+            if (home) {
+                if (!p.contains("was")) p.edit().putInt("was", Settings.System.getInt(r, KEY, 2)).apply()
+                if (Settings.System.getInt(r, KEY, 2) != 1) Settings.System.putInt(r, KEY, 1)
+            } else if (p.contains("was")) {
+                Settings.System.putInt(r, KEY, p.getInt("was", 2))
+                p.edit().remove("was").apply()
+            }
+        } catch (e: Exception) { Log.log(c, "end key: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
     }
 }
 
