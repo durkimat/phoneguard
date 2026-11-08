@@ -1,8 +1,8 @@
-/* Phone Guard card v0.10.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.11.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.10.0";
+const PG_VERSION = "0.11.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -239,7 +239,7 @@ class PhoneGuardCard extends HTMLElement {
       html += this._boostHtml(d) + this._holidayHtml(d) + this._newAppsHtml(d);
     }
     html += this._timetableHtml(d) + this._copyHtml(d);
-    if (dev && !dev.pending) html += this._matrixHtml(d) + this._whatsappHtml(d) + this._usageHtml(d);
+    if (dev && !dev.pending) html += this._matrixHtml(d) + this._weatherHtml(d) + this._whatsappHtml(d) + this._usageHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -398,6 +398,16 @@ class PhoneGuardCard extends HTMLElement {
     }
     return h + `</table><div class="sub" style="margin-top:6px">Main menu: on the Nokia home screen, ticked apps sit in the main menu; the other allowed apps are listed under "Other apps". Touch-only apps need the touchscreen, so allow them only in modes where touch works.</div><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
       <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
+  }
+
+  // the weather on the Nokia home screen comes from Open-Meteo for a place chosen here; the phone never asks for its own location
+  _weatherHtml(d) {
+    const loc = d.location;
+    const home = this._hass && this._hass.config;
+    return `<h3>Weather</h3><div class="row"><span>${loc ? `Showing the weather for ${loc.lat}, ${loc.lon}` : "No weather on the phone"}</span>
+      <button data-act="wx_home" ${home && home.latitude != null ? "" : "disabled"}>Use this house's location</button>
+      ${loc ? `<button data-act="wx_off">Turn weather off</button>` : ""}</div>
+      <div class="sub">Shows a small weather symbol, the temperature and any rain coming in the next few hours on the home screen, and a Weather entry in the menu. Data by Open-Meteo.com. The place is rounded to about 100 metres.</div>`;
   }
 
   _copyHtml(d) {
@@ -666,6 +676,8 @@ class PhoneGuardCard extends HTMLElement {
     const d = this._d;
     const ui = this._ui;
     ui.lastDev = ui.lastDev || {};
+    if (a === "wx_home") { const h = this._hass.config; return this._svc("set_child", { config: { location: { lat: h.latitude, lon: h.longitude } } }); }
+    if (a === "wx_off") return this._svc("set_child", { config: { location: null } });
     if (a === "select_person") {
       const g = this._groups().find((x) => x.key === b.dataset.key);
       if (!g) return;

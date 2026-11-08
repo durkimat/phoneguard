@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -52,6 +52,7 @@ object Fonts {
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+const val WEATHER_PKG = "pg:weather"
 const val GAMES_PKG = "pg:games"
 const val APPS_PKG = "pg:apps"
 const val CALC_PKG = "pg:calculator"
@@ -182,6 +183,9 @@ class LauncherModel(
     var calls: List<CallEntry> = emptyList()
     val calc = Calculator()
     val snake = Snake()
+    /** The latest weather, or null when none is set up or it is out of date. */
+    var weather: WeatherData? = null
+    private var weatherFrom = Screen.MENU
     val pairs = Pairs()
     val shooter = Shooter()
     val seeds = Seeds()
@@ -289,6 +293,7 @@ class LauncherModel(
         Screen.SHOOTER -> "Blaster"
         Screen.SEEDS -> "Seeds"
         Screen.GAMEHELP -> gameNames[helpGame]
+        Screen.WEATHER -> "Weather"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -307,6 +312,7 @@ class LauncherModel(
         Screen.PAIRS -> (if (pairs.won) "Again" else "Turn") to "Back"
         Screen.SEEDS -> (if (seeds.over) "Again" else "Sow") to "Back"
         Screen.GAMEHELP -> "Play" to "Back"
+        Screen.WEATHER -> "" to "Back"
         Screen.DIAL -> "Call" to "Clear"
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
@@ -329,7 +335,7 @@ class LauncherModel(
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
-        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP -> emptyList()
+        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER -> emptyList()
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
@@ -373,6 +379,7 @@ class LauncherModel(
         Screen.APPS -> appList(key)
         Screen.GAMES -> gameList(key)
         Screen.GAMEHELP -> gameHelp(key, digit)
+        Screen.WEATHER -> weatherKey(key)
         Screen.SNAKE -> snakeKey(key, digit)
         Screen.PAIRS -> pairsKey(key, digit)
         Screen.SHOOTER -> shooterKey(key, digit)
@@ -784,6 +791,7 @@ class LauncherModel(
         item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
+        item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
         item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }
         else -> Action.Launch(item.pkg)
@@ -845,6 +853,18 @@ class LauncherModel(
         1 -> listOf("Turn over two cards at a", "time and find every pair", "in as few moves as you can.", "", "Arrows or 2 4 6 8: move", "OK or 5: turn a card")
         2 -> listOf("Shoot the enemies and dodge", "their fire. Each stage ends", "with a boss.", "", "Arrows or 2 4 6 8: fly", "OK or 5: fire; hold, then", "let go for a piercing beam", "#: send the pod out or back", "Crates: P pod, S spread,", "B bounce, + speed", "Left key: pause")
         else -> listOf("Your pits are the bottom row,", "your store is on the right.", "Pick a pit and sow its seeds", "round the board. End in your", "store for another go; end in", "an empty pit of yours to take", "the seeds opposite. Most", "seeds wins.", "", "Left/Right then OK, or 1 to 6")
+    }
+
+    /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
+    fun openWeather(): Action { if (screen != Screen.HOME || weather == null) return Action.None; weatherFrom = Screen.HOME; screen = Screen.WEATHER; return Action.Redraw }
+
+    private fun weatherKey(key: Key): Action {
+        when (key) {
+            Key.RIGHT, Key.SOFT_RIGHT, Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (weatherFrom == Screen.HOME) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == WEATHER_PKG }.coerceAtLeast(0) }
+            Key.END -> goHome()
+            else -> return Action.None
+        }
+        return Action.Redraw
     }
 
     private fun gameHelp(key: Key, digit: Int): Action {

@@ -64,6 +64,9 @@ data class Config(
     val whatsapp: WaConfig? = null,
     /** Apps the parent put in the Nokia main menu itself; the other allowed apps go under "Other apps". */
     val pinned: List<String> = emptyList(),
+    /** Where the weather is for (set from HA, the phone never asks for its own location). */
+    val lat: Double? = null,
+    val lon: Double? = null,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -122,6 +125,8 @@ data class Config(
                 unprotect = strings(o.optJSONArray("unprotect")),
                 restrictions = if (o.has("restrictions")) strings(o.getJSONArray("restrictions")) else null,
                 override = o.optString("override", "").ifEmpty { null },
+                lat = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lat"),
+                lon = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lon"),
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

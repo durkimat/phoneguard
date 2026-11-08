@@ -47,12 +47,12 @@ object LauncherData {
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+            (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Other apps" if any are left, then the built-ins. */
     fun menu(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
-        val builtIn = setOf(GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+        val builtIn = setOf(WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         val apps = all.filter { it.pkg !in builtIn }
         val core = apps.filter { it.pkg in preferred }
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
@@ -62,7 +62,7 @@ object LauncherData {
 
     /** The allowed apps that are not in the main menu, for the "Other apps" list. */
     fun otherApps(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {
-        val builtIn = setOf(GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+        val builtIn = setOf(WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         return all.filter { it.pkg !in builtIn && it.pkg !in preferred && it.pkg !in pinned }
     }
 

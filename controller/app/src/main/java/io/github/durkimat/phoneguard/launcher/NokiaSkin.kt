@@ -18,6 +18,8 @@ class NokiaSkin : LauncherSkin {
     override val id = "nokia-list"
 
     private var model: LauncherModel? = null
+    /** A touch that lifted at this height on the 640 high design grid (only reaches us where touch is allowed). */
+    var onTap: ((Float) -> Unit)? = null
     private var info: HomeInfo? = null
     private var view: Canvas2? = null
 
@@ -51,7 +53,8 @@ class NokiaSkin : LauncherSkin {
 
         init {
             isFocusable = false
-            setOnTouchListener { _, _ -> true } // a Nokia has no touchscreen
+            // a Nokia has no touchscreen; where touch is allowed, a tap on the weather opens the forecast
+            setOnTouchListener { v, ev -> if (ev.action == android.view.MotionEvent.ACTION_UP) onTap?.invoke(ev.y / (v.width / 480f)); true }
         }
 
         override fun onDraw(c: Canvas) {
@@ -66,7 +69,8 @@ class NokiaSkin : LauncherSkin {
             c.drawColor(lcd)
             statusLine(c, i, u)
             when (m.screen) {
-                Screen.HOME -> home(c, i, u)
+                Screen.HOME -> { home(c, i, u); m.weather?.let { w -> weatherStrip(c, w, u) } }
+                Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
@@ -126,6 +130,78 @@ class NokiaSkin : LauncherSkin {
                 moveTo((x + 10 * dir) * u, y * u); lineTo((x - 10 * dir) * u, (y - 12) * u); lineTo((x - 10 * dir) * u, (y + 12) * u); close()
             }
             c.drawPath(path, fill)
+        }
+
+        /** One weather symbol as an outline: a filled shape in the ink colour with the same shape inset in the screen colour. */
+        private fun cloud(c: Canvas, cx: Float, cy: Float, s: Float, u: Float, color: Int, grow: Float) {
+            fill.color = color
+            c.drawCircle((cx - 0.26f * s) * u, (cy + 0.06f * s) * u, (0.2f * s + grow) * u, fill)
+            c.drawCircle((cx - 0.02f * s) * u, (cy - 0.1f * s) * u, (0.28f * s + grow) * u, fill)
+            c.drawCircle((cx + 0.27f * s) * u, (cy + 0.08f * s) * u, (0.19f * s + grow) * u, fill)
+            c.drawRect((cx - 0.26f * s) * u, (cy + 0.06f * s - grow) * u, (cx + 0.27f * s) * u, (cy + 0.27f * s + grow) * u, fill)
+            fill.color = ink
+        }
+
+        private fun sun(c: Canvas, cx: Float, cy: Float, r: Float, u: Float) {
+            stroke.strokeWidth = 3 * u
+            c.drawCircle(cx * u, cy * u, r * u, stroke)
+            for (k in 0 until 8) {
+                val a = Math.PI * k / 4
+                c.drawLine((cx + Math.cos(a) * r * 1.4).toFloat() * u, (cy + Math.sin(a) * r * 1.4).toFloat() * u, (cx + Math.cos(a) * r * 1.9).toFloat() * u, (cy + Math.sin(a) * r * 1.9).toFloat() * u, stroke)
+            }
+        }
+
+        private fun weatherIcon(c: Canvas, kind: WeatherIcon, cx: Float, cy: Float, s: Float, u: Float) {
+            stroke.strokeWidth = 3 * u
+            fun outlineCloud(x: Float, y: Float, size: Float) { cloud(c, x, y, size, u, ink, 2.5f); cloud(c, x, y, size, u, lcd, 0f) }
+            when (kind) {
+                WeatherIcon.SUN -> sun(c, cx, cy, s * 0.22f, u)
+                WeatherIcon.MOON -> { fill.color = ink; c.drawCircle(cx * u, cy * u, s * 0.3f * u, fill); fill.color = lcd; c.drawCircle((cx + s * 0.16f) * u, (cy - s * 0.1f) * u, s * 0.27f * u, fill); fill.color = ink }
+                WeatherIcon.PARTLY -> { sun(c, cx - s * 0.15f, cy - s * 0.15f, s * 0.14f, u); outlineCloud(cx + s * 0.05f, cy + s * 0.08f, s * 0.8f) }
+                WeatherIcon.CLOUD -> outlineCloud(cx, cy, s)
+                WeatherIcon.FOG -> for (k in 0 until 4) c.drawLine((cx - s * 0.35f + (k % 2) * s * 0.1f) * u, (cy - s * 0.25f + k * s * 0.17f) * u, (cx + s * 0.35f + (k % 2) * s * 0.1f) * u, (cy - s * 0.25f + k * s * 0.17f) * u, stroke)
+                WeatherIcon.RAIN -> { outlineCloud(cx, cy - s * 0.12f, s * 0.9f); for (k in 0 until 3) { val x = cx - s * 0.22f + k * s * 0.22f; c.drawLine(x * u, (cy + s * 0.2f) * u, (x - s * 0.07f) * u, (cy + s * 0.38f) * u, stroke) } }
+                WeatherIcon.SNOW -> { outlineCloud(cx, cy - s * 0.12f, s * 0.9f); for (k in 0 until 3) c.drawCircle((cx - s * 0.22f + k * s * 0.22f) * u, (cy + s * 0.3f) * u, 2.5f * u, fill) }
+                WeatherIcon.STORM -> {
+                    outlineCloud(cx, cy - s * 0.12f, s * 0.9f)
+                    val b = android.graphics.Path().apply { moveTo((cx + s * 0.05f) * u, (cy + s * 0.12f) * u); lineTo((cx - s * 0.1f) * u, (cy + s * 0.3f) * u); lineTo((cx + s * 0.03f) * u, (cy + s * 0.3f) * u); lineTo((cx - s * 0.05f) * u, (cy + s * 0.45f) * u) }
+                    c.drawPath(b, stroke)
+                }
+            }
+        }
+
+        /** The weather row on the home screen: symbol, temperature and a note when rain is on its way. */
+        private fun weatherStrip(c: Canvas, w: WeatherData, u: Float) {
+            weatherIcon(c, w.icon, 64f, 392f, 62f, u)
+            text(c, "${w.temp}°", 112f, 410f, 46f, u, bold = true)
+            w.hint()?.let { text(c, it, 464f, 404f, 24f, u, align = Paint.Align.RIGHT) }
+        }
+
+        private fun weatherScreen(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            val w = m.weather
+            if (w == null) { text(c, "No weather yet", 240f, 300f, 30f, u, align = Paint.Align.CENTER) }
+            else {
+                weatherIcon(c, w.icon, 70f, 160f, 80f, u)
+                text(c, "${w.temp}°", 132f, 176f, 56f, u, bold = true)
+                text(c, w.description, 464f, 160f, 26f, u, align = Paint.Align.RIGHT)
+                w.hint()?.let { text(c, it, 464f, 196f, 24f, u, bold = true, align = Paint.Align.RIGHT) }
+                stroke.strokeWidth = 2 * u; c.drawLine(16 * u, 226 * u, 464 * u, 226 * u, stroke)
+                w.hours.drop(1).take(5).forEachIndexed { n, h ->
+                    text(c, h.time, 20f, 262f + n * 32f, 24f, u)
+                    text(c, "${h.temp}°", 150f, 262f + n * 32f, 24f, u)
+                    text(c, WeatherData.describe(h.code) + if (h.prob >= 20) " ${h.prob}%" else "", 464f, 262f + n * 32f, 22f, u, align = Paint.Align.RIGHT)
+                }
+                c.drawLine(16 * u, 432 * u, 464 * u, 432 * u, stroke)
+                w.days.take(3).forEachIndexed { n, d ->
+                    text(c, d.label, 20f, 468f + n * 32f, 24f, u)
+                    text(c, "${d.min}° to ${d.max}°", 150f, 468f + n * 32f, 24f, u)
+                    text(c, WeatherData.describe(d.code), 464f, 468f + n * 32f, 22f, u, align = Paint.Align.RIGHT)
+                }
+                text(c, "Weather data by Open-Meteo.com", 240f, 570f, 18f, u, align = Paint.Align.CENTER)
+            }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {

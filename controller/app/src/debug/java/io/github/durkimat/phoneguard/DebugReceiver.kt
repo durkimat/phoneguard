@@ -27,6 +27,10 @@ class DebugReceiver : BroadcastReceiver() {
 
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "ping" -> "pong"
+        "location" -> { // patch the stored config with a weather location: a=lat b=lon
+            val o = org.json.JSONObject(Store.configText(c) ?: "{}"); o.put("location", org.json.JSONObject().put("lat", a.toDouble()).put("lon", b.toDouble()))
+            Store.setConfig(c, o.toString()); "location $a,$b"
+        }
         "keyguard" -> try { // can a device owner switch the keyguard off while a PIN is set? (a=on|off)
             val ok = Dpm.dpm(c).setKeyguardDisabled(Dpm.admin(c), a == "on"); "setKeyguardDisabled($a) -> $ok"
         } catch (e: Exception) { "keyguard failed: ${e.javaClass.simpleName} ${e.message}" }
