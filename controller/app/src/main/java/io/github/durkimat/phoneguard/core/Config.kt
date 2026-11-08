@@ -32,6 +32,8 @@ data class ModeDef(
     val location: String = "off",
     /** Minutes between position reports; 0 means live (continuous). */
     val locEvery: Int = 30,
+    /** Notifications: "show" lists them on the Nokia screens, "off" clears them as they arrive. */
+    val notes: String = "show",
 )
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
@@ -73,6 +75,8 @@ data class Config(
     /** Where the weather is for (set from HA, the phone never asks for its own location). */
     val lat: Double? = null,
     val lon: Double? = null,
+    /** Apps whose notifications are cleared as they arrive, besides the built-in list. */
+    val notesHide: Set<String> = emptySet(),
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -103,6 +107,7 @@ data class Config(
                     camera = m.optBoolean("camera", true),
                     location = m.optString("location", "off"),
                     locEvery = m.optInt("locEvery", 30),
+                    notes = m.optString("notes", "show"),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
@@ -136,6 +141,7 @@ data class Config(
                 override = o.optString("override", "").ifEmpty { null },
                 lat = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lat"),
                 lon = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lon"),
+                notesHide = strings(o.optJSONArray("notesHide")),
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

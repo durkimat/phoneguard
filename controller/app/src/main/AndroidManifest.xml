@@ -164,6 +164,14 @@
         <receiver android:name=".AlarmReceiver" android:directBootAware="true" android:exported="false" />
 
         <service
+            android:name=".notes.NoteService"
+            android:exported="true"
+            android:label="Phone Guard notifications"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+        </service>
+
+        <service
             android:name=".keys.F2Service"
             android:exported="true"
             android:label="@string/f2_service_label"

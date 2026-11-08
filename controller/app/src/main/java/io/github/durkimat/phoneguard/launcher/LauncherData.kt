@@ -45,6 +45,9 @@ object LauncherData {
     /** True when the mode in force lets the touchscreen work: Android apps are made for touch, so they are only offered then. */
     fun touchAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.touch
 
+    /** True when the mode in force lists notifications on the Nokia screens. */
+    fun notesShown(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).notes == "show"
+
     /** True when the mode in force offers the themed camera. */
     fun cameraAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).camera
 
@@ -54,12 +57,12 @@ object LauncherData {
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+            (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
     fun menu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
-        val builtIn = setOf(CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+        val builtIn = setOf(NOTES_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
         val apps = all.filter { it.pkg !in builtIn }
         val core = apps.filter { it.pkg in preferred }
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
@@ -142,6 +145,7 @@ object LauncherData {
                 Badge(BadgeKind.SMS, newMessages(c)),
                 Badge(BadgeKind.WHATSAPP, if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
                 Badge(BadgeKind.MISSED, missedCalls(c)),
+                Badge(BadgeKind.NOTES, io.github.durkimat.phoneguard.notes.Notes.count()),
             ).filter { it.count > 0 }.let { debugBadges ?: it },
             batteryPct = if (level >= 0) level * 100 / scale else 0,
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,

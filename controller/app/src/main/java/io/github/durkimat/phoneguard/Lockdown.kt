@@ -30,6 +30,7 @@ object LockdownEnforcer {
         HomeApp.apply(c, ld.launcher == "nokia")
         RotationLock.set(c, locked = ld.launcher == "nokia")
         LockScreenNotes.set(c, hidden = ld.launcher == "nokia")
+        HeadsUp.set(c, off = ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
@@ -50,6 +51,7 @@ object LockdownEnforcer {
         RotationLock.set(c, false)
         LocationLock.set(c, false)
         LockScreenNotes.set(c, false)
+        HeadsUp.set(c, false)
     }
 }
 
@@ -165,6 +167,26 @@ object LockScreenNotes {
                 p.edit().remove("was").apply()
             }
         } catch (e: Exception) { Log.log(c, "lock screen notes: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
+    }
+}
+
+/** No pop-up banners over the Nokia screens (notifications are listed on the phone's own Notifications screen instead). */
+object HeadsUp {
+    private const val KEY = "heads_up_notifications_enabled"
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("headsup", Context.MODE_PRIVATE)
+
+    fun set(c: Context, off: Boolean) {
+        try {
+            val r = c.contentResolver
+            val p = prefs(c)
+            if (off) {
+                if (!p.contains("was")) p.edit().putInt("was", Settings.Global.getInt(r, KEY, 1)).apply()
+                if (Settings.Global.getInt(r, KEY, 1) != 0) Settings.Global.putInt(r, KEY, 0)
+            } else if (p.contains("was")) {
+                Settings.Global.putInt(r, KEY, p.getInt("was", 1))
+                p.edit().remove("was").apply()
+            }
+        } catch (e: Exception) { Log.log(c, "heads-up setting: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
     }
 }
 

@@ -48,6 +48,7 @@ class LauncherActivity : Activity() {
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         WhatsApp.onChange(waChanged)
         io.github.durkimat.phoneguard.keys.Torch.onChange(torchChanged)
+        io.github.durkimat.phoneguard.notes.Notes.onChange(notesChanged)
         model.predictiveOn = prefs().getBoolean("predictive", true)
         model.speakerShown = prefs().getBoolean("speaker", true)
         model.waNameStyle = prefs().getString("wa_names", NameStyle.DEFAULT) ?: NameStyle.DEFAULT
@@ -127,8 +128,9 @@ class LauncherActivity : Activity() {
     private val waChanged: () -> Unit = { runOnUiThread { refresh() } }
 
     private val torchChanged: () -> Unit = { refresh() }
+    private val notesChanged: () -> Unit = { runOnUiThread { refresh() } }
 
-    override fun onDestroy() { WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); super.onDestroy() }
+    override fun onDestroy() { WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
 
     private val gameStep = object : Runnable {
         override fun run() {
@@ -160,6 +162,7 @@ class LauncherActivity : Activity() {
         if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
         model.weather = WeatherStore.current(this)
         model.androidSettings = LauncherData.touchAllowed(this)
+        model.notes = io.github.durkimat.phoneguard.notes.Notes.all()
         if (model.screen == Screen.BATTERY) model.battery = LauncherData.batteryInfo(this)
         WeatherStore.refreshIfDue(this) { runOnUiThread { refresh() } }
         val all = LauncherData.items(this)
@@ -231,6 +234,14 @@ class LauncherActivity : Activity() {
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyBarColour(); Thread { LockWallpaper.apply(this, a.id) }.start(); refresh() }
+            is Action.OpenNote -> {
+                val n = io.github.durkimat.phoneguard.notes.Notes.all().firstOrNull { it.key == a.key }
+                try { n?.intent?.send() } catch (e: Exception) { Log.log(this, "open note: ${e.javaClass.simpleName}") }
+                io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key)
+                model.goHome(); refresh()
+            }
+            is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
+            Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)

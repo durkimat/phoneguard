@@ -91,6 +91,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.HOME -> { home(c, i, u); m.weather?.let { w -> weatherStrip(c, w, u) } }
                 Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.BATTERY -> batteryScreen(c, m, u)
+                Screen.NOTE -> noteScreen(c, m, u)
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
@@ -191,6 +192,15 @@ class NokiaSkin : LauncherSkin {
                     c.drawArc(RectF((cx - 9) * u, (cy - 9) * u, (cx + 9) * u, (cy + 9) * u), 200f, 140f, false, stroke)
                     stroke.strokeWidth = 3 * u
                 }
+                BadgeKind.NOTES -> { // a bell
+                    val bell = android.graphics.Path().apply {
+                        moveTo((cx - 16) * u, (cy + 12) * u); lineTo((cx - 12) * u, (cy + 12) * u); lineTo((cx - 12) * u, (cy - 4) * u)
+                        quadTo((cx - 12) * u, (cy - 18) * u, cx * u, (cy - 18) * u); quadTo((cx + 12) * u, (cy - 18) * u, (cx + 12) * u, (cy - 4) * u)
+                        lineTo((cx + 12) * u, (cy + 12) * u); lineTo((cx + 16) * u, (cy + 12) * u)
+                    }
+                    c.drawPath(bell, stroke); c.drawLine((cx - 16) * u, (cy + 12) * u, (cx + 16) * u, (cy + 12) * u, stroke)
+                    c.drawCircle(cx * u, (cy + 17) * u, 3f * u, fill)
+                }
                 BadgeKind.MISSED -> { // a handset, drawn as an arc with a blob at each end
                     stroke.strokeWidth = 7 * u
                     c.drawArc(RectF((cx - 22) * u, (cy - 6) * u, (cx + 22) * u, (cy + 38) * u), 200f, 140f, false, stroke)
@@ -249,6 +259,20 @@ class NokiaSkin : LauncherSkin {
             weatherIcon(c, w.icon, left + 31f, 392f, 62f, u)
             text(c, temp, left + 76f, 410f, 46f, u, bold = true)
             w.hint()?.let { text(c, it, 240f, 440f, 24f, u, align = Paint.Align.CENTER) }
+        }
+
+        private fun noteScreen(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            val n = m.currentNote
+            if (n == null) text(c, "Gone", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
+            else {
+                text(c, ellipsize(n.app, 440f, 28f), 20f, 140f, 28f, u, bold = true)
+                var y = 184f
+                for (line in m.wrapper(if (n.title.isNotEmpty()) n.title + "\n" + n.text else n.text).take(10)) { text(c, line, 20f, y, 26f, u); y += 36f }
+                text(c, "0 clear", 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
+            }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
         private fun batteryScreen(c: Canvas, m: LauncherModel, u: Float) {
