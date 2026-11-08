@@ -21,6 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/appstate"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/store"
@@ -30,18 +31,32 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
+// Message is one text message handed to the app. Chat is the other person's phone number (digits, with country code),
+// or "g" followed by the group's id. ChatName is the person's or the group's name, Sender who wrote it (a name, else a
+// number) and SenderID their number or id so names can be looked up again later, ID WhatsApp's id for the message
+// (needed to ask for older ones), FromMe is true for what this account sent from any device. Text is plain text; other
+// kinds arrive as "[photo]" style markers. History is true for messages from the history WhatsApp sends (on linking or
+// when asked): they are old, so the app should not count them as unread.
+type Message struct {
+	Chat     string
+	ChatName string
+	Sender   string
+	SenderID string
+	ID       string
+	Text     string
+	TS       int64
+	FromMe   bool
+	History  bool
+}
+
 // Listener is implemented by the app. Calls come from background threads.
 type Listener interface {
 	// OnStatus: "connected", "disconnected", "paired", "logged_out" or "error: ...".
 	OnStatus(state string)
 	// OnPairCode delivers the 8-character code to type under WhatsApp > Linked devices > Link with phone number.
 	OnPairCode(code string)
-	// OnMessage: chat is the other person's phone number (digits, with country code), or "g" followed by the
-	// group's id. chatName is the person's or the group's name, sender who wrote it (for a group), fromMe is true
-	// for what this account sent from any device. text is plain text; other kinds arrive as "[photo]" style markers.
-	// history is true for messages that come from the history WhatsApp sends when a device is linked: they are
-	// old, so the app should not count them as unread.
-	OnMessage(chat string, chatName string, sender string, text string, ts int64, fromMe bool, history bool)
+	// OnMessage delivers one message (see Message).
+	OnMessage(m *Message)
 	// OnCall: someone is calling on WhatsApp (chat as above). rejected says the bridge has already declined it.
 	// Voice itself is not carried by this library: calls are only noticed, and declined or left to ring out.
 	OnCall(chat string, chatName string, ts int64, rejected bool)
@@ -154,16 +169,8 @@ func (b *Bridge) IsConnected() bool { return b.cli.IsConnected() }
 // Logout unlinks this device from the account and forgets everything. WhatsApp must be told over a live connection,
 // so it connects first if needed (the bridge is usually disconnected to save battery).
 func (b *Bridge) Logout() error {
-	if !b.cli.IsConnected() {
-		if err := b.cli.Connect(); err != nil {
-			return err
-		}
-		for i := 0; i < 40 && !b.cli.IsConnected(); i++ {
-			time.Sleep(250 * time.Millisecond)
-		}
-		if !b.cli.IsConnected() {
-			return errors.New("could not reach WhatsApp")
-		}
+	if err := b.ensureConnected(); err != nil {
+		return err
 	}
 	return b.cli.Logout(context.Background())
 }
@@ -406,7 +413,7 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		if name == "" {
 			name = "Group"
 		}
-		b.l.OnMessage("g"+v.Info.Chat.User, name, who, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe, history)
+		b.l.OnMessage(&Message{Chat: "g" + v.Info.Chat.User, ChatName: name, Sender: who, SenderID: b.senderID(v), ID: v.Info.ID, Text: text, TS: v.Info.Timestamp.Unix(), FromMe: v.Info.IsFromMe, History: history})
 		return
 	}
 	chat := b.phoneOf(v.Info.Chat, v.Info.RecipientAlt, v.Info.SenderAlt, v.Info.IsFromMe)
@@ -414,7 +421,7 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		return
 	}
 	name := b.nameOf(v.Info.Chat, v.Info.SenderAlt, v.Info.PushName)
-	b.l.OnMessage(chat, name, name, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe, history)
+	b.l.OnMessage(&Message{Chat: chat, ChatName: name, Sender: name, SenderID: chat, ID: v.Info.ID, Text: text, TS: v.Info.Timestamp.Unix(), FromMe: v.Info.IsFromMe, History: history})
 }
 
 // nameOf finds the best name for a person: the name from the owner's own address book (WhatsApp syncs it from the
@@ -444,6 +451,82 @@ func (b *Bridge) nameOf(jid, alt types.JID, pushName string) string {
 		}
 	}
 	return strings.TrimSpace(pushName)
+}
+
+// senderID is the number of whoever wrote a group message (digits), or their hidden id when no number is known.
+func (b *Bridge) senderID(v *events.Message) string {
+	if n := b.phoneOf(v.Info.Sender, types.JID{}, v.Info.SenderAlt, false); n != "" {
+		return n
+	}
+	return v.Info.Sender.User
+}
+
+// NameFor looks a person up again by the number the app stored for them: their name from the address book or the display
+// name they chose, or "" when WhatsApp knows none. Used after a re-sync to give old messages their names.
+func (b *Bridge) NameFor(id string) string {
+	id = digits(id)
+	if id == "" {
+		return ""
+	}
+	if n := b.nameOf(types.NewJID(id, types.DefaultUserServer), types.JID{}, ""); n != "" {
+		return n
+	}
+	return b.nameOf(types.NewJID(id, types.HiddenUserServer), types.JID{}, "")
+}
+
+// Resync asks WhatsApp again for the address-book names and the list of groups, without unlinking. Connects first if needed.
+func (b *Bridge) Resync() error {
+	if err := b.ensureConnected(); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	err := b.cli.FetchAppState(ctx, appstate.WAPatchCriticalUnblockLow, true, false)
+	if groups, gerr := b.cli.GetJoinedGroups(ctx); gerr == nil {
+		b.mu.Lock()
+		for _, g := range groups {
+			b.gnames[g.JID.User] = g.Name
+		}
+		b.mu.Unlock()
+	}
+	return err
+}
+
+// RequestHistory asks the owner's main phone for up to count messages older than the one given (the oldest the app has
+// for that chat). They arrive afterwards as history messages. The main phone must be online.
+func (b *Bridge) RequestHistory(chat string, msgID string, ts int64, fromMe bool, count int) error {
+	if msgID == "" {
+		return errors.New("no message to start from")
+	}
+	if err := b.ensureConnected(); err != nil {
+		return err
+	}
+	to := types.NewJID(digits(chat), types.DefaultUserServer)
+	if strings.HasPrefix(chat, "g") {
+		to = types.NewJID(chat[1:], types.GroupServer)
+	}
+	info := &types.MessageInfo{MessageSource: types.MessageSource{Chat: to, IsFromMe: fromMe}, ID: msgID, Timestamp: time.Unix(ts, 0)}
+	_, err := b.cli.SendPeerMessage(context.Background(), b.cli.BuildHistorySyncRequest(info, count))
+	return err
+}
+
+// ensureConnected connects if the bridge is not connected and waits a few seconds for it.
+func (b *Bridge) ensureConnected() error {
+	if b.cli.IsConnected() {
+		return nil
+	}
+	if !b.IsPaired() {
+		return errors.New("not linked")
+	}
+	if err := b.cli.Connect(); err != nil {
+		return err
+	}
+	for i := 0; i < 40 && !b.cli.IsConnected(); i++ {
+		time.Sleep(250 * time.Millisecond)
+	}
+	if !b.cli.IsConnected() {
+		return errors.New("could not reach WhatsApp")
+	}
+	return nil
 }
 
 // phoneOf finds the phone number of the other person in a one-to-one chat, whichever way WhatsApp addressed it.

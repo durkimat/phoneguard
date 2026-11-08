@@ -23,8 +23,8 @@ type rec struct {
 
 func (r *rec) OnStatus(string)   {}
 func (r *rec) OnPairCode(string) {}
-func (r *rec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe bool, history bool) {
-	r.msgs = append(r.msgs, chat+"|"+text)
+func (r *rec) OnMessage(m *Message) {
+	r.msgs = append(r.msgs, m.Chat+"|"+m.Text)
 }
 
 func (r *rec) OnCall(chat, chatName string, ts int64, rejected bool) {
@@ -245,8 +245,8 @@ type senderRec struct{ out *string }
 func (s *senderRec) OnStatus(string)                                       {}
 func (s *senderRec) OnPairCode(string)                                     {}
 func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
-func (s *senderRec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe, history bool) {
-	*s.out = sender
+func (s *senderRec) OnMessage(m *Message) {
+	*s.out = m.Sender
 }
 
 type fakeContacts struct{ byUser map[string]types.ContactInfo }
@@ -300,5 +300,47 @@ func TestSenderNamePrefersTheAddressBookThenTheDisplayNameThenTheMessage(t *test
 	hidden := types.NewJID("1705269850318", types.HiddenUserServer)
 	if got := b.nameOf(hidden, jid("447700900222"), ""); got != "Joe from the club" {
 		t.Errorf("alternative address, got %q", got)
+	}
+}
+
+type fullRec struct{ got []*Message }
+
+func (f *fullRec) OnStatus(string)                                       {}
+func (f *fullRec) OnPairCode(string)                                     {}
+func (f *fullRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
+func (f *fullRec) OnMessage(m *Message)                                  { f.got = append(f.got, m) }
+
+func TestMessagesCarryTheirIdAndTheSendersNumber(t *testing.T) {
+	f := &fullRec{}
+	b := &Bridge{l: f, allowed: map[string]bool{"447700900111": true}, groups: map[string]bool{"family": true}, gnames: map[string]string{"12036311": "Family"}}
+	d := dm("447700900111", "hello")
+	d.Info.ID = "ABC123"
+	b.onMessage(d)
+	g := dm("447700900999", "in the group")
+	g.Info.Chat = types.NewJID("12036311", types.GroupServer)
+	g.Info.IsGroup = true
+	g.Info.Sender = types.NewJID("447700900999", types.DefaultUserServer)
+	g.Info.ID = "GRP9"
+	b.onMessage(g)
+	if len(f.got) != 2 {
+		t.Fatalf("got %d messages", len(f.got))
+	}
+	if f.got[0].ID != "ABC123" || f.got[0].SenderID != "447700900111" || f.got[0].Chat != "447700900111" {
+		t.Errorf("direct message fields: %+v", f.got[0])
+	}
+	if f.got[1].ID != "GRP9" || f.got[1].SenderID != "447700900999" || f.got[1].Chat != "g12036311" || f.got[1].ChatName != "Family" {
+		t.Errorf("group message fields: %+v", f.got[1])
+	}
+}
+
+func TestNameForTriesBothAddressesAndGivesNothingWhenUnknown(t *testing.T) {
+	d := *store.NoopDevice
+	d.Contacts = fakeContacts{byUser: map[string]types.ContactInfo{"447700900111": {FullName: "Mum Durkin"}}}
+	b := &Bridge{cli: whatsmeow.NewClient(&d, nil)}
+	if b.NameFor("+44 7700 900111") != "Mum Durkin" {
+		t.Error("a number written with spaces should still find the name")
+	}
+	if b.NameFor("447700900999") != "" || b.NameFor("") != "" {
+		t.Error("an unknown number should give no name")
 	}
 }

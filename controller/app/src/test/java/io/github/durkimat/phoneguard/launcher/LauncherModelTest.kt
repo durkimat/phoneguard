@@ -532,8 +532,9 @@ class LauncherModelTest {
         m.waEnabled = true; m.waLinked = true
         m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
         assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "WhatsApp"), m.rows)
-        m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Unlink account"), m.rows)
-        assertEquals(Action.UnlinkWa, m.onKey(Key.OK)); assertEquals(Screen.SETTINGS, m.screen)
+        m.onKey(Key.DIGIT, 5); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Unlink account"), m.rows)
+        assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
+        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.SETTINGS, m.screen)
     }
 
     @Test fun whatsAppSwitchedOffByTheModeIsNotOfferedAtAll() {

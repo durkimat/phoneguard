@@ -13,6 +13,7 @@ import io.github.durkimat.phoneguard.launcher.Contact
 import io.github.durkimat.phoneguard.launcher.Convo
 import wabridge.Bridge
 import wabridge.Listener
+import wabridge.Message
 import wabridge.Wabridge
 import java.io.File
 
@@ -74,10 +75,10 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean, history: Boolean) { st.add(chat, chatName, nameFor(app, sender), text, ts, fromMe, history = history); fire(slow = history) }
+                override fun onMessage(m: Message) { st.add(m.chat, m.chatName, nameFor(app, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
-                    st.add(chat, chatName, chatName, if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
+                    st.add(chat, chatName, chatName, chat, "", if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
                 }
             })
             bridge = b
@@ -223,7 +224,7 @@ object WhatsApp {
         if (!isConnected()) return "not connected"
         val r = send(c, chat, text)
         // WhatsApp does not echo a message back to the device that sent it, so keep our own copy
-        if (r == "sent") { store(c).add(chat, "", "Me", text.trim(), System.currentTimeMillis() / 1000, true); fire() }
+        if (r == "sent") { store(c).add(chat, "", "Me", "", "", text.trim(), System.currentTimeMillis() / 1000, true); fire() }
         return r
     }
 
@@ -237,6 +238,29 @@ object WhatsApp {
     fun disconnect() { bridge?.disconnect() }
     fun isConnected(): Boolean = bridge?.isConnected ?: false
     fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, text); "sent" } catch (e: Throwable) { e.message ?: "error" }
+    /**
+     * Pulls names and gaps back in without unlinking: asks WhatsApp again for the address-book names and the groups, gives
+     * stored messages their senders' names, then asks the owner's main phone for older messages in the recently active chats
+     * (they arrive afterwards as history). Returns a short result for the screen.
+     */
+    fun resync(c: Context): String {
+        val b = open(c) ?: return "not available"
+        if (!linked(c)) return "not linked"
+        main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
+        var problem = ""
+        try { b.resync() } catch (e: Throwable) { problem = e.message ?: "error"; Log.log(c, "whatsapp: resync names failed: $problem") }
+        val st = store(c)
+        val renamed = st.renameSenders { id -> b.nameFor(id).ifBlank { nameFor(c, id).takeIf { it != id } } }
+        var asked = 0
+        for (a in st.anchors()) {
+            try { b.requestHistory(a.chat, a.mid, a.ts, a.mine, 20); asked++ } catch (e: Throwable) { if (problem.isEmpty()) problem = e.message ?: "error" }
+            Thread.sleep(400)
+        }
+        Log.log(c, "whatsapp: re-sync done: $renamed names refreshed, older messages asked for in $asked chats${if (problem.isNotEmpty()) " (problem: $problem)" else ""}")
+        fire()
+        return if (problem.isNotEmpty() && asked == 0) "error: $problem" else "ok"
+    }
+
     /** Unlinks the account: the bridge connects if it has to, then everything stored is wiped and the bridge is reset so a new link starts clean. */
     @Synchronized fun logout(c: Context): String = try {
         open(c)?.logout()
