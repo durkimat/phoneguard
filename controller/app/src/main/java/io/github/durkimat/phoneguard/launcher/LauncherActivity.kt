@@ -314,7 +314,7 @@ class LauncherActivity : Activity() {
                 model.notify(r); refresh()
             }
             Action.ForgetWords -> { io.github.durkimat.phoneguard.whatsapp.LearnedStore.forget(this); model.notify("Forgotten"); refresh() }
-            Action.CallKey -> start(Intent(Intent.ACTION_VIEW, CallLog.Calls.CONTENT_URI).setType(CallLog.Calls.CONTENT_TYPE))
+            Action.CallKey -> { model.startDial(""); refresh() } // the green key anywhere in our screens: our dial pad, never the stock dialler
             else -> {} // the call actions belong to the call screen
         }
     }
