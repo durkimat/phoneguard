@@ -124,4 +124,13 @@ class GamesTest {
             m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.GAMES, m.screen); assertEquals(n - 1, m.selected)
         }
     }
+
+    @Test fun touchChoosesRowsAndSoftKeys() {
+        val m = LauncherModel(LauncherData.menu(listOf(MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem(GAMES_PKG, "Games"), MenuItem(SETTINGS_PKG, "Settings")), emptyList()))
+        assertEquals(Action.Redraw, m.tap(40f, 600f)); assertEquals(Screen.MENU, m.screen) // left soft key: Menu
+        m.tap(100f, 104f + 62f * 2 + 10f) // third row
+        assertEquals(Screen.GAMES, m.screen)
+        m.tap(400f, 610f); assertEquals(Screen.MENU, m.screen) // right soft key: Back
+        assertEquals(Action.None, m.tap(100f, 80f))
+    }
 }

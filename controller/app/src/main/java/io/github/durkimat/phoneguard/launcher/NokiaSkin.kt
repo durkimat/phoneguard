@@ -19,7 +19,7 @@ class NokiaSkin : LauncherSkin {
 
     private var model: LauncherModel? = null
     /** A touch that lifted at this height on the 640 high design grid (only reaches us where touch is allowed). */
-    var onTap: ((Float) -> Unit)? = null
+    var onTap: ((Float, Float) -> Unit)? = null
     private var info: HomeInfo? = null
     private var view: Canvas2? = null
 
@@ -54,7 +54,7 @@ class NokiaSkin : LauncherSkin {
         init {
             isFocusable = false
             // a Nokia has no touchscreen; where touch is allowed, a tap on the weather opens the forecast
-            setOnTouchListener { v, ev -> if (ev.action == android.view.MotionEvent.ACTION_UP) onTap?.invoke(ev.y / (v.width / 480f)); true }
+            setOnTouchListener { v, ev -> if (ev.action == android.view.MotionEvent.ACTION_UP) onTap?.invoke(ev.x / (v.width / 480f), ev.y / (v.width / 480f)); true }
         }
 
         override fun onDraw(c: Canvas) {

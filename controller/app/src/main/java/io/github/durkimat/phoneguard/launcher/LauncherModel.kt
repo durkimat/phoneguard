@@ -855,6 +855,26 @@ class LauncherModel(
         else -> listOf("Your pits are the bottom row,", "your store is on the right.", "Pick a pit and sow its seeds", "round the board. End in your", "store for another go; end in", "an empty pit of yours to take", "the seeds opposite. Most", "seeds wins.", "", "Left/Right then OK, or 1 to 6")
     }
 
+    /** Screens that are a plain list of rows, where a tap on a row chooses it. */
+    private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
+        Screen.APPS, Screen.GAMES, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+
+    /**
+     * A touch, in the 480 by 640 design grid. Only reaches us where a mode allows touch (School blocks it). The two soft-key labels
+     * at the bottom work as keys, a row in a list is chosen, and the weather on the home screen opens the forecast.
+     */
+    fun tap(x: Float, y: Float): Action {
+        if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
+        if (screen == Screen.HOME) return if (y in 345f..440f) openWeather() else Action.None
+        if (screen in rowScreens && y >= 104f) {
+            val visible = 7
+            val first = (selected - visible + 1).coerceAtLeast(0).coerceAtMost((rows.size - visible).coerceAtLeast(0))
+            val idx = first + ((y - 104f) / 62f).toInt()
+            if (idx in rows.indices) { selected = idx; return onKey(Key.OK) }
+        }
+        return Action.None
+    }
+
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
     fun openWeather(): Action { if (screen != Screen.HOME || weather == null) return Action.None; weatherFrom = Screen.HOME; screen = Screen.WEATHER; return Action.Redraw }
 
