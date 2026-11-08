@@ -27,6 +27,17 @@ class GamesTest {
 
     private fun blaster(): Shooter { val g = Shooter(rnd = Random(1)); g.fireDown(); g.fireUp(); return g }
 
+    @Test fun theGunFiresByItselfAndDiagonalKeysMoveTwoWays() {
+        val g = blaster(); repeat(7) { g.tick() }
+        assertTrue(g.shots.isNotEmpty())
+        val m = LauncherModel(listOf(MenuItem(GAMES_PKG, "Games"))); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3); m.onKey(Key.OK)
+        assertEquals(Screen.SHOOTER, m.screen)
+        val y = m.shooter.shipY; val x = m.shooter.shipX
+        m.onKey(Key.DIGIT, 3); m.shooter.tick(); m.shooter.tick()
+        assertTrue(m.shooter.shipY < y && m.shooter.shipX > x)
+        val y2 = m.shooter.shipY; m.onRelease(Key.DIGIT, 3); m.shooter.tick(); assertEquals(y2, m.shooter.shipY)
+    }
+
     @Test fun aShotKillsAnEnemyInItsLane() {
         val g = blaster(); g.fireDown(); g.fireUp()
         g.addEnemy(Shooter.Enemy(g.shipX + 14, g.shipY - 1, 7, 6, 1, 1, 0)) // a tank flies straight; drones weave
@@ -77,7 +88,7 @@ class GamesTest {
     }
 
     @Test fun bouncingShotsTurnAtTheWall() {
-        val g = blaster(); g.giveCrate(g.shipX + 1, g.shipY, 2); g.tick(); g.fireDown()
+        val g = blaster(); g.giveCrate(g.shipX + 1, g.shipY, 2); g.tick(); g.fireDown(); g.fireUp()
         repeat(8) { g.tick() }
         assertTrue(g.shots.any { it[2] != 0 && it[3] < 3 && it[1] in 0 until g.rows })
     }

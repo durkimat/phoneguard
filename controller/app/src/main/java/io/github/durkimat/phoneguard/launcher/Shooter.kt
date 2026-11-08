@@ -4,10 +4,10 @@ import java.util.Random
 import kotlin.math.sin
 
 /**
- * A side-scrolling blaster in the spirit of the classic arcade shoot-em-ups. The ship flies in four directions; a tap fires,
+ * A side-scrolling blaster in the spirit of the classic arcade shoot-em-ups. The ship flies in four directions; the gun fires by itself,
  * holding the fire key charges a piercing beam, and a pod picked up from a drifting crate clings to the front of the ship,
  * blocking shots and smashing small enemies. The pod can be launched ahead of the ship and called back. Crates also bring
- * a spread or a bouncing weapon and more speed. Each stage ends in a boss. Positions are in small cells ([cols] by [rows]);
+ * a spread or a bouncing weapon and more speed. The ordinary gun fires by itself. Each stage ends in a boss. Positions are in small cells ([cols] by [rows]);
  * the skin scales them.
  */
 class Shooter(val cols: Int = 44, val rows: Int = 40, private val rnd: Random = Random()) {
@@ -107,13 +107,13 @@ class Shooter(val cols: Int = 44, val rows: Int = 40, private val rnd: Random = 
     fun fireDown() {
         when (state) {
             State.READY, State.PAUSED, State.OVER -> toggle()
-            State.RUNNING -> { fireHeld = true; charge = 0; fireShot() }
+            State.RUNNING -> { fireHeld = true; charge = 0 }
         }
     }
 
     /** The fire key comes up: a long enough hold lets the beam go. */
     fun fireUp() {
-        if (state == State.RUNNING && fireHeld && charge >= chargeNeeded) beam = 6
+        if (state == State.RUNNING && fireHeld) { if (charge >= chargeNeeded) beam = 6 else fireShot() }
         fireHeld = false; charge = 0
     }
 
@@ -168,6 +168,8 @@ class Shooter(val cols: Int = 44, val rows: Int = 40, private val rnd: Random = 
         if (up) shipY -= pace; if (down) shipY += pace; if (left) shipX -= pace; if (right) shipX += pace
         shipY = shipY.coerceIn(0, rows - shipH); shipX = shipX.coerceIn(0, cols / 2)
         if (fireHeld) charge = (charge + 1).coerceAtMost(40)
+        // the gun fires by itself, so the keys are free for flying: the fire key only charges the beam (a quick tap adds a shot)
+        if (ticks % 6 == 0) fireShot()
 
         // the pod: stuck to the nose, flying ahead on its own, or coming home
         when (podMode) {

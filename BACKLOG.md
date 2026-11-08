@@ -539,3 +539,8 @@ Questions to put to them together:
 - Findings from the Open-Meteo docs: 15-minute rain is native only in Central Europe (ICON-D2), France and North America; the UK gets hourly data interpolated, so the rain hint works by the hour. Attribution is a link "Weather data by Open-Meteo.com" next to the data (the phone shows the text; the card text mentions it). Free use is for non-commercial apps with no subscriptions or ads; 10,000 calls a day.
 - Not yet: the forecast screen on the phone was not seen (testing keys put the phone to sleep, locked); the home strip is checked (cloud, 10°). To do: icon check for all symbols, rain hint in a real rainy spell, other themes, phone-width of long descriptions, setting the location in HA (card button) so the phone keeps it after the next sync (the debug-set location is replaced by HA's config until then).
 - Test-script lesson: KEYCODE_ENDCALL sleeps the phone even with the screen on; avoid it in scripts, use Back keys to get home.
+
+## Game keys reviewed for a T9 keypad (owner, 2026-11-08)
+- Rule: movement on the arrows and 2 4 6 8 (1 3 7 9 for diagonals where it matters), action on OK or 5, pause on the left key, Back on the right key, no letter keys. Crate letters (P, S, B, +) in Blaster are labels on the screen, not keys; the help page now says so in words.
+- Blaster: the gun now fires by itself, so one thumb can fly; hold OK or 5 and let go for the beam (a quick tap adds a shot); pod out/in on # or 0; pause on the left key or *; 1 3 7 9 fly diagonally; any direction key starts the game.
+- Snake, Pairs, Seeds unchanged (arrows or 2 4 6 8, OK or 5, Seeds 1 to 6 for the pits). Idea: crate symbols drawn as shapes instead of letters.

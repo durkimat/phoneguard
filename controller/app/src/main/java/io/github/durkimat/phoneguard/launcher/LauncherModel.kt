@@ -849,9 +849,9 @@ class LauncherModel(
 
     /** What to do and which keys to use, one short line each, shown before a game starts. */
     val helpLines: List<String> get() = when (helpGame) {
-        0 -> listOf("Eat the squares to grow.", "Don't hit a wall or your", "own tail.", "", "Arrows or 2 4 6 8: steer", "OK or 5: pause / resume")
+        0 -> listOf("Eat the squares to grow.", "Don't hit a wall or your", "own tail.", "", "Arrows or 2 4 6 8: steer", "OK, 5 or left key: pause")
         1 -> listOf("Turn over two cards at a", "time and find every pair", "in as few moves as you can.", "", "Arrows or 2 4 6 8: move", "OK or 5: turn a card")
-        2 -> listOf("Shoot the enemies and dodge", "their fire. Each stage ends", "with a boss.", "", "Arrows or 2 4 6 8: fly", "OK or 5: fire; hold, then", "let go for a piercing beam", "#: send the pod out or back", "Crates: P pod, S spread,", "B bounce, + speed", "Left key: pause")
+        2 -> listOf("Shoot the enemies and dodge", "their fire. Each stage ends", "with a boss.", "", "Arrows or 2 4 6 8: fly", "1 3 7 9: fly diagonally", "Your gun fires by itself.", "Hold OK or 5, then let go:", "a piercing beam", "# or 0: pod out or back", "Fly into crates for a pod,", "spread, bounce or speed.", "Left key or *: pause")
         else -> listOf("Your pits are the bottom row,", "your store is on the right.", "Pick a pit and sow its seeds", "round the board. End in your", "store for another go; end in", "an empty pit of yours to take", "the seeds opposite. Most", "seeds wins.", "", "Left/Right then OK, or 1 to 6")
     }
 
@@ -925,20 +925,24 @@ class LauncherModel(
 
     private fun pairsPick() { pairs.pick(); if (pairs.won && (pairsBest == 0 || pairs.moves < pairsBest)) pairsBest = pairs.moves }
 
-    /** Direction held by a key in the blaster, or -1. */
-    private fun shotDir(key: Key, digit: Int): Int = when (key) {
-        Key.UP -> 0; Key.RIGHT -> 1; Key.DOWN -> 2; Key.LEFT -> 3
-        Key.DIGIT -> when (digit) { 2 -> 0; 6 -> 1; 8 -> 2; 4 -> 3; else -> -1 }
-        else -> -1
+    /** The directions a key means in the blaster: the arrows and 2 4 6 8, and 1 3 7 9 for the diagonals. */
+    private fun shotDirs(key: Key, digit: Int): List<Int> = when (key) {
+        Key.UP -> listOf(0); Key.RIGHT -> listOf(1); Key.DOWN -> listOf(2); Key.LEFT -> listOf(3)
+        Key.DIGIT -> when (digit) { 2 -> listOf(0); 6 -> listOf(1); 8 -> listOf(2); 4 -> listOf(3); 1 -> listOf(0, 3); 3 -> listOf(0, 1); 7 -> listOf(2, 3); 9 -> listOf(2, 1); else -> emptyList() }
+        else -> emptyList()
     }
 
     private fun shooterKey(key: Key, digit: Int): Action {
-        val d = shotDir(key, digit)
-        if (d >= 0) { shooter.hold(d, true); return Action.Redraw }
+        val dirs = shotDirs(key, digit)
+        if (dirs.isNotEmpty()) {
+            if (shooter.state == Shooter.State.READY) shooter.toggle()
+            dirs.forEach { shooter.hold(it, true) }
+            return Action.Redraw
+        }
         when {
             key == Key.OK || (key == Key.DIGIT && digit == 5) -> shooter.fireDown()
-            key == Key.POUND -> shooter.podToggle()
-            key == Key.SOFT_LEFT -> shooter.toggle()
+            key == Key.POUND || (key == Key.DIGIT && digit == 0) -> shooter.podToggle()
+            key == Key.SOFT_LEFT || key == Key.STAR -> shooter.toggle()
             key == Key.SOFT_RIGHT -> { shooter.reset(); screen = Screen.GAMES; selected = 2 }
             key == Key.END -> { shooter.reset(); goHome() }
             else -> return Action.None
@@ -949,8 +953,8 @@ class LauncherModel(
     /** A key came up: the blaster stops moving that way, or lets a charged beam go. */
     fun onRelease(key: Key, digit: Int): Action {
         if (screen != Screen.SHOOTER) return Action.None
-        val d = shotDir(key, digit)
-        if (d >= 0) { shooter.hold(d, false); return Action.None }
+        val dirs = shotDirs(key, digit)
+        if (dirs.isNotEmpty()) { dirs.forEach { shooter.hold(it, false) }; return Action.None }
         if (key == Key.OK || (key == Key.DIGIT && digit == 5)) shooter.fireUp()
         return Action.None
     }
