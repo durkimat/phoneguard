@@ -24,7 +24,16 @@ class F2Service : AccessibilityService() {
     private var longFired = false
     private val longPress = Runnable { longFired = true; if (!CameraActivity.isFront()) Torch.toggle(this) }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    /** The package whose window came to the front last (window titles and contents are never read). */
+    @Volatile private var frontPkg = ""
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val p = event.packageName?.toString().orEmpty()
+            // pop-ups and the system's own windows do not count as the app in front
+            if (p.isNotEmpty() && p != "android" && p != "com.android.systemui") frontPkg = p
+        }
+    }
     override fun onInterrupt() {}
 
     /**
@@ -32,8 +41,8 @@ class F2Service : AccessibilityService() {
      * default" nag). Open our dial pad instead. On our own screens, and while a call is ringing or live, the key is left alone.
      */
     private fun callKey(ev: KeyEvent): Boolean {
-        Log.log(this, "call key ${ev.action} info=${CallState.info != null} front=${LauncherActivity.inFront}")
-        if (CallState.info != null || LauncherActivity.inFront) return false
+        Log.log(this, "call key ${ev.action} info=${CallState.info != null} front=$frontPkg")
+        if (CallState.info != null || frontPkg == packageName) return false
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
             try { startActivity(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP).putExtra(LauncherActivity.EXTRA_DIAL, "")) }
             catch (e: Exception) { Log.log(this, "call key: ${e.javaClass.simpleName}") }
