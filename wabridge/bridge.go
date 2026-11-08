@@ -396,8 +396,8 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		if !b.groupAllowed(name) {
 			return
 		}
-		who := v.Info.PushName
-		if who == "" { // history often has no display name: fall back to the number, which the app can match to a contact
+		who := b.nameOf(v.Info.Sender, v.Info.SenderAlt, v.Info.PushName)
+		if who == "" { // nobody knows a name: fall back to the number, which the app can match to a contact
 			who = b.phoneOf(v.Info.Sender, types.JID{}, v.Info.SenderAlt, false)
 		}
 		if v.Info.IsFromMe {
@@ -413,7 +413,37 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 	if chat == "" || !b.isAllowed(chat) {
 		return
 	}
-	b.l.OnMessage(chat, v.Info.PushName, v.Info.PushName, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe, history)
+	name := b.nameOf(v.Info.Chat, v.Info.SenderAlt, v.Info.PushName)
+	b.l.OnMessage(chat, name, name, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe, history)
+}
+
+// nameOf finds the best name for a person: the name from the owner's own address book (WhatsApp syncs it from the
+// main phone), else the display name they chose for themselves, else a business name, else what the message carried
+// (pushName), else "" (the caller falls back to the number). Both addresses WhatsApp may use for a person are tried.
+func (b *Bridge) nameOf(jid, alt types.JID, pushName string) string {
+	if b.cli != nil && b.cli.Store != nil && b.cli.Store.Contacts != nil {
+		cands := []types.JID{jid, alt}
+		if jid.Server == types.HiddenUserServer && b.cli.Store.LIDs != nil {
+			if pn, err := b.cli.Store.LIDs.GetPNForLID(context.Background(), jid); err == nil {
+				cands = append(cands, pn)
+			}
+		}
+		for _, c := range cands {
+			if c.IsEmpty() {
+				continue
+			}
+			info, err := b.cli.Store.Contacts.GetContact(context.Background(), c.ToNonAD())
+			if err != nil || !info.Found {
+				continue
+			}
+			for _, n := range []string{info.FullName, info.FirstName, info.PushName, info.BusinessName} {
+				if strings.TrimSpace(n) != "" {
+					return strings.TrimSpace(n)
+				}
+			}
+		}
+	}
+	return strings.TrimSpace(pushName)
 }
 
 // phoneOf finds the phone number of the other person in a one-to-one chat, whichever way WhatsApp addressed it.
