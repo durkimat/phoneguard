@@ -169,6 +169,7 @@ class LauncherActivity : Activity() {
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(model.onKey(k.first, k.second))
+        else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
         return true // consume the key up as well so Back never leaves the launcher
     }
 
