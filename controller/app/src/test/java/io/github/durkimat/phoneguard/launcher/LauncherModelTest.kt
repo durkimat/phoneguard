@@ -497,7 +497,8 @@ class LauncherModelTest {
         m.onKey(Key.SOFT_RIGHT); assertEquals("44770090012", m.waPairNumber) // Clear deletes a digit
         m.onKey(Key.DIGIT, 3)
         assertEquals(Action.PairWa("447700900123"), m.onKey(Key.SOFT_LEFT))
-        m.waCode = "ABCD-1234"; assertEquals("" to "Back", m.softKeys)
+        m.waCode = "ABCD-1234"; assertEquals("New code" to "Back", m.softKeys)
+        assertEquals(Action.PairWa("447700900123"), m.onKey(Key.SOFT_LEFT)) // a fresh code can be asked for
         assertEquals(Action.None, m.onKey(Key.DIGIT, 5)) // the number is locked once the code is showing
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.WHATSAPP, m.screen)
     }
