@@ -482,3 +482,10 @@ launcher in the same app; (3) notification counts and the status line.
 ## Games: Snake built (2026-11-08)
 - Menu: Games (before Call log) > Snake. Pure model `Snake.kt` (22x20 grid, walls and own body end the game, speeds up with score, best score saved on the phone), drawn by NokiaSkin in the theme. Keys: D-pad or 2/4/6/8 steer, OK/5/left key start-pause-resume-again, right key Back. Installed on the J36, drew correctly; needs hands-on play (feel of the speed, key repeat).
 - Next games: Pairs, then Space Impact-style shooter, then Seeds (mancala). Each is a pure model plus a skin screen plus a row in the Games list.
+
+## APK updates for the phone (owner, 2026-11-08)
+- Find a way to update the Phone Guard APK on the phone from HA (or another route) instead of adb: for example HA offers the new release APK, the phone checks it against the signing key and installs it as device owner (silent install through the device-owner package installer), with a version check, a rollback path and the update only in a mode that allows it. Needs a design: where the APK is hosted (HA /config/www or Nabu Casa), integrity (hash signed with the project key), and testing on a spare phone first.
+
+## Games: Pairs, Shooter, Seeds built (2026-11-08)
+- Games menu: Snake, Pairs (4x4 memory, fewest moves saved), Shooter (side-scrolling, 3 lives, best score saved; OK fires, left key pauses), Seeds (Kalah mancala against the phone; 1-6 or arrows then OK). Pure models Pairs.kt, Shooter.kt, Seeds.kt with tests (GamesTest.kt); drawn by NokiaSkin. Not yet seen on the phone: the phone's system restarted during the install test.
+- Finding: with the screen off, an adb End-call key (KEYCODE_ENDCALL) crashed the phone's system process (WakeLock under-locked in ScreenOffMediaKeyHandler, a DumberOS/Android bug), which restarts the phone and asks for the PIN. Never send keys over adb after the screen has gone off; wake it first. Seeds, shooter and pairs screenshots wait for the unlock.

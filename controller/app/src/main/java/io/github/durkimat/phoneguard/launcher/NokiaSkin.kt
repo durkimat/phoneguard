@@ -71,6 +71,9 @@ class NokiaSkin : LauncherSkin {
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
                 Screen.SNAKE -> snake(c, m, u)
+                Screen.PAIRS -> pairs(c, m, u)
+                Screen.SHOOTER -> shooter(c, m, u)
+                Screen.SEEDS -> seeds(c, m, u)
                 Screen.WAPAIR -> waPair(c, m, u)
                 Screen.DIAL -> dial(c, m, u)
                 Screen.CALL -> callScreen(c, m, u)
@@ -323,6 +326,82 @@ class NokiaSkin : LauncherSkin {
             }
             text(c, "Score ${g.score}", 16f, 556f, 26f, u, bold = true)
             text(c, "Best ${m.snakeBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun gameTitle(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+        }
+
+        /** A filled box with a message in the theme's light colour. */
+        private fun banner(c: Canvas, msg: String, u: Float, y: Float) {
+            c.drawRect(60 * u, y * u, 420 * u, (y + 90) * u, fill)
+            text(c, msg, 240f, y + 58f, 34f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+        }
+
+        private fun pairs(c: Canvas, m: LauncherModel, u: Float) {
+            val g = m.pairs
+            gameTitle(c, m, u)
+            val size = 100f; val left = 40f; val top = 112f
+            for (i in 0 until Pairs.COLS * Pairs.ROWS) {
+                val x = left + (i % Pairs.COLS) * size; val y = top + (i / Pairs.COLS) * size
+                val r = RectF((x + 4) * u, (y + 4) * u, (x + size - 4) * u, (y + size - 4) * u)
+                val up = g.shown[i] != 0
+                stroke.strokeWidth = (if (i == g.cursor) 6 else 2) * u
+                if (g.shown[i] == 2) { c.drawRect(r, stroke); text(c, Pairs.SYMBOLS[g.cards[i]].toString(), x + size / 2, y + 68f, 44f, u, align = Paint.Align.CENTER) }
+                else if (up) { c.drawRect(r, fill); text(c, Pairs.SYMBOLS[g.cards[i]].toString(), x + size / 2, y + 68f, 48f, u, bold = true, align = Paint.Align.CENTER, color = lcd) }
+                else { c.drawRect(r, stroke); text(c, "?", x + size / 2, y + 66f, 40f, u, align = Paint.Align.CENTER) }
+            }
+            stroke.strokeWidth = 2 * u
+            if (g.won) banner(c, "Done in ${g.moves}", u, 230f)
+            text(c, "Moves ${g.moves}", 16f, 556f, 26f, u, bold = true)
+            if (m.pairsBest > 0) text(c, "Best ${m.pairsBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun shooter(c: Canvas, m: LauncherModel, u: Float) {
+            val g = m.shooter
+            gameTitle(c, m, u)
+            val cell = 20f; val left = (480f - g.cols * cell) / 2; val top = 110f
+            stroke.strokeWidth = 2 * u
+            c.drawRect((left - 3) * u, (top - 3) * u, (left + g.cols * cell + 3) * u, (top + g.rows * cell + 3) * u, stroke)
+            fun cellRect(x: Int, y: Int, pad: Float) = RectF((left + x * cell + pad) * u, (top + y * cell + pad) * u, (left + x * cell + cell - pad) * u, (top + y * cell + cell - pad) * u)
+            // the ship is a wedge pointing right; it blinks while it cannot be hit
+            if (g.invulnerable % 2 == 0) {
+                val path = android.graphics.Path().apply {
+                    val r = cellRect(g.shipX, g.shipY, 1f)
+                    moveTo(r.left, r.top); lineTo(r.right, (r.top + r.bottom) / 2); lineTo(r.left, r.bottom); close()
+                }
+                c.drawPath(path, fill)
+            }
+            for ((x, y) in g.bullets) c.drawRect(cellRect(x, y, 7f), fill)
+            for ((x, y) in g.enemies) c.drawRect(cellRect(x, y, 2f), stroke)
+            val msg = when (g.state) { Shooter.State.READY -> "Press OK"; Shooter.State.PAUSED -> "Paused"; Shooter.State.OVER -> "Game over"; else -> null }
+            if (msg != null) banner(c, msg, u, 190f)
+            text(c, "Score ${g.score}   Lives ${g.lives}", 16f, 556f, 26f, u, bold = true)
+            text(c, "Best ${m.shooterBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
+            text(c, "Up/Down move   OK fire", 240f, 520f, 22f, u, align = Paint.Align.CENTER)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun seeds(c: Canvas, m: LauncherModel, u: Float) {
+            val g = m.seeds
+            gameTitle(c, m, u)
+            fun box(x: Float, y: Float, w: Float, h: Float, n: Int, on: Boolean = false) {
+                val r = RectF(x * u, y * u, (x + w) * u, (y + h) * u)
+                if (on) { c.drawRect(r, fill); text(c, "" + n, x + w / 2, y + h / 2 + 14f, 40f, u, bold = true, align = Paint.Align.CENTER, color = lcd) }
+                else { stroke.strokeWidth = 2 * u; c.drawRect(r, stroke); text(c, "" + n, x + w / 2, y + h / 2 + 14f, 40f, u, align = Paint.Align.CENTER) }
+            }
+            text(c, "Phone", 240f, 138f, 26f, u, align = Paint.Align.CENTER)
+            box(8f, 150f, 52f, 260f, g.theirs)
+            box(428f, 150f, 52f - 8f, 260f, g.yours)
+            for (i in 0 until 6) {
+                box(64f + i * 60f, 150f, 56f, 120f, g.board[12 - i])
+                box(64f + i * 60f, 290f, 56f, 120f, g.board[i], on = i == g.cursor && g.yourGo && !g.over)
+            }
+            text(c, "You", 240f, 446f, 26f, u, align = Paint.Align.CENTER)
+            text(c, g.note, 240f, 520f, 30f, u, bold = true, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 

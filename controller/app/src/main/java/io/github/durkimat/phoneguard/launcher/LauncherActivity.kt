@@ -47,6 +47,8 @@ class LauncherActivity : Activity() {
         model.speakerShown = prefs().getBoolean("speaker", true)
         model.waNameStyle = prefs().getString("wa_names", NameStyle.DEFAULT) ?: NameStyle.DEFAULT
         model.snakeBest = prefs().getInt("snake_best", 0)
+        model.shooterBest = prefs().getInt("shooter_best", 0)
+        model.pairsBest = prefs().getInt("pairs_best", 0)
         loadWords()
         setContentView(skin.create(this))
         refresh()
@@ -123,12 +125,16 @@ class LauncherActivity : Activity() {
 
     /** While snake is running, step it on a timer; the timer stops by itself when the game is paused, over or left. */
     private fun scheduleGame() {
-        if (model.screen == Screen.SNAKE && model.snake.state == Snake.State.RUNNING && !gameScheduled) {
-            gameScheduled = true; ui.postDelayed(gameStep, model.snake.stepMs)
-        }
+        val d = model.gameDelayMs()
+        if (d != null && !gameScheduled) { gameScheduled = true; ui.postDelayed(gameStep, d) }
     }
 
-    private fun saveBest() { if (model.snakeBest > prefs().getInt("snake_best", 0)) prefs().edit().putInt("snake_best", model.snakeBest).apply() }
+    private fun saveBest() {
+        val p = prefs()
+        if (model.snakeBest > p.getInt("snake_best", 0)) p.edit().putInt("snake_best", model.snakeBest).apply()
+        if (model.shooterBest > p.getInt("shooter_best", 0)) p.edit().putInt("shooter_best", model.shooterBest).apply()
+        if (model.pairsBest > 0 && (p.getInt("pairs_best", 0) == 0 || model.pairsBest < p.getInt("pairs_best", 0))) p.edit().putInt("pairs_best", model.pairsBest).apply()
+    }
 
     private val hideNotice = Runnable { model.clearNotice(); refresh() }
 
@@ -169,7 +175,7 @@ class LauncherActivity : Activity() {
     private fun perform(a: Action) {
         when (a) {
             Action.None -> {}
-            Action.Redraw -> refresh()
+            Action.Redraw -> { saveBest(); refresh() }
             is Action.PairWa -> Thread {
                 val r = WhatsApp.pair(this, a.number)
                 ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); refresh() }
