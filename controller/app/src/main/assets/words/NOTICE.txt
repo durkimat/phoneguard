@@ -1,10 +1,15 @@
-words-en-gb.txt: a list of common English words (British spelling) ordered by how common they are, used for
-predictive text in the Phone Guard launcher.
+words-en-gb.txt: a list of common English words (British spelling), most likely first, used for predictive text in the Phone Guard
+launcher. Rebuilt by tools/build_wordlist.py in the repository.
 
 Made from:
-- the order of words in Peter Norvig's count_1w.txt (https://norvig.com/ngrams/), derived from the Google Web
-  Trillion Word Corpus. Only the ordering is used, no counts. Norvig's page licenses his code under MIT;
-  the licence of the data itself is not stated there, so check before any public release.
-- the spelling filter and British forms from SCOWL (http://wordlist.aspell.net), hunspell en_GB-ise 2026.02.25,
-  whose licence and copyright are in NOTICE-SCOWL.txt.
-- a few texting words and common contractions added by hand.
+- Word order: how often words occur in film and TV dialogue, from the OpenSubtitles frequency list en_50k.txt in
+  https://github.com/hermitdave/FrequencyWords (generated from the OPUS OpenSubtitles 2018 corpus). That content is licensed
+  CC-BY-SA-4.0 (https://creativecommons.org/licenses/by-sa/4.0/). This word list is derived from it and is therefore shared
+  under the same licence, CC-BY-SA-4.0, with credit to the FrequencyWords project and OpenSubtitles. The app's code is
+  licensed separately.
+- Words the dialogue list lacks come after it, in the order of the web-based ranking of Peter Norvig's count_1w.txt
+  (https://norvig.com/ngrams/; derived from the Google Web Trillion Word Corpus). Only the ordering is used, no counts. Norvig's
+  page licenses his code under MIT; the licence of that data is not stated there: check before any public release.
+- The spelling filter and British forms come from SCOWL (http://wordlist.aspell.net), hunspell en_GB-ise 2026.02.25, whose
+  licence and copyright are in NOTICE-SCOWL.txt.
+- Common contractions and a few texting words were placed by hand; strong swear words are left out of the suggestions.
