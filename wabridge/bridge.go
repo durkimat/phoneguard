@@ -140,8 +140,22 @@ func (b *Bridge) Disconnect() { b.cli.Disconnect() }
 
 func (b *Bridge) IsConnected() bool { return b.cli.IsConnected() }
 
-// Logout unlinks this device from the account and forgets everything.
-func (b *Bridge) Logout() error { return b.cli.Logout(context.Background()) }
+// Logout unlinks this device from the account and forgets everything. WhatsApp must be told over a live connection,
+// so it connects first if needed (the bridge is usually disconnected to save battery).
+func (b *Bridge) Logout() error {
+	if !b.cli.IsConnected() {
+		if err := b.cli.Connect(); err != nil {
+			return err
+		}
+		for i := 0; i < 40 && !b.cli.IsConnected(); i++ {
+			time.Sleep(250 * time.Millisecond)
+		}
+		if !b.cli.IsConnected() {
+			return errors.New("could not reach WhatsApp")
+		}
+	}
+	return b.cli.Logout(context.Background())
+}
 
 // SetAllowed sets who may be read and written to. Entries are separated by commas, semicolons or new lines: a phone
 // number written any way (spaces and brackets are ignored) allows that person, and "g:Family" allows the group

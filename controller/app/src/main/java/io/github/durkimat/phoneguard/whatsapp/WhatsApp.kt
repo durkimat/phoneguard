@@ -199,5 +199,16 @@ object WhatsApp {
     fun disconnect() { bridge?.disconnect() }
     fun isConnected(): Boolean = bridge?.isConnected ?: false
     fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, text); "sent" } catch (e: Throwable) { e.message ?: "error" }
-    fun logout(c: Context): String = try { open(c)?.logout(); store(c).wipe(); "logged out" } catch (e: Throwable) { "error: ${e.message}" }
+    /** Unlinks the account: the bridge connects if it has to, then everything stored is wiped and the bridge is reset so a new link starts clean. */
+    @Synchronized fun logout(c: Context): String = try {
+        open(c)?.logout()
+        store(c).wipe()
+        setLinked(c, false)
+        close() // the old client is finished; the next open() starts a fresh, unlinked one
+        status = "not linked"; fire()
+        "logged out"
+    } catch (e: Throwable) {
+        Log.log(c, "whatsapp: unlink failed: ${e.message}")
+        "error: ${e.message}"
+    }
 }
