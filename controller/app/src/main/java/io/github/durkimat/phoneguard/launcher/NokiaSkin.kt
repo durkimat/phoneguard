@@ -70,6 +70,7 @@ class NokiaSkin : LauncherSkin {
                 Screen.THREAD -> thread(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
+                Screen.SNAKE -> snake(c, m, u)
                 Screen.WAPAIR -> waPair(c, m, u)
                 Screen.DIAL -> dial(c, m, u)
                 Screen.CALL -> callScreen(c, m, u)
@@ -302,6 +303,26 @@ class NokiaSkin : LauncherSkin {
             text(c, "*   + - x /", 16f, 360f, 26f, u)
             text(c, "#   decimal point", 16f, 400f, 26f, u)
             text(c, "Up/Down   + and -", 16f, 440f, 26f, u)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun snake(c: Canvas, m: LauncherModel, u: Float) {
+            val g = m.snake
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            val cell = 20f; val left = (480f - g.cols * cell) / 2; val top = 110f
+            stroke.strokeWidth = 2 * u
+            c.drawRect((left - 3) * u, (top - 3) * u, (left + g.cols * cell + 3) * u, (top + g.rows * cell + 3) * u, stroke)
+            for ((x, y) in g.body) c.drawRect((left + x * cell + 1) * u, (top + y * cell + 1) * u, (left + x * cell + cell - 1) * u, (top + y * cell + cell - 1) * u, fill)
+            // the food is a small hollow square so it is not mistaken for the snake
+            c.drawRect((left + g.food.first * cell + 5) * u, (top + g.food.second * cell + 5) * u, (left + g.food.first * cell + cell - 5) * u, (top + g.food.second * cell + cell - 5) * u, stroke)
+            val msg = when (g.state) { Snake.State.READY -> "Press a key"; Snake.State.PAUSED -> "Paused"; Snake.State.OVER -> "Game over"; else -> null }
+            if (msg != null) {
+                c.drawRect((left + 40) * u, (top + 150) * u, (left + g.cols * cell - 40) * u, (top + 250) * u, fill)
+                text(c, msg, 240f, top + 212f, 34f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            }
+            text(c, "Score ${g.score}", 16f, 556f, 26f, u, bold = true)
+            text(c, "Best ${m.snakeBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 

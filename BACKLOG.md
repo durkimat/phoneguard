@@ -478,3 +478,7 @@ launcher in the same app; (3) notification counts and the status line.
 ## Camera without touch (owner, 2026-11-08): after the games
 - Does the stock Camera app work with the keypad alone (shutter on a key, switching camera, viewing photos)? Check it. If it does not, or looks out of place, build a themed camera screen in our launcher (preview, shutter on OK, gallery list). Decide after testing; touch-only Camera should stay out of School.
 - HA deployed 2026-11-08 (pinned apps, card v0.10.0); backup at /root/phoneguard-bak-20261108c on HA.
+
+## Games: Snake built (2026-11-08)
+- Menu: Games (before Call log) > Snake. Pure model `Snake.kt` (22x20 grid, walls and own body end the game, speeds up with score, best score saved on the phone), drawn by NokiaSkin in the theme. Keys: D-pad or 2/4/6/8 steer, OK/5/left key start-pause-resume-again, right key Back. Installed on the J36, drew correctly; needs hands-on play (feel of the speed, key repeat).
+- Next games: Pairs, then Space Impact-style shooter, then Seeds (mancala). Each is a pure model plus a skin screen plus a row in the Games list.
