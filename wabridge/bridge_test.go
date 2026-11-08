@@ -4,6 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waCommon"
+	"go.mau.fi/whatsmeow/proto/waHistorySync"
+	"go.mau.fi/whatsmeow/proto/waWeb"
+	"go.mau.fi/whatsmeow/store"
+
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -16,7 +22,7 @@ type rec struct {
 
 func (r *rec) OnStatus(string)   {}
 func (r *rec) OnPairCode(string) {}
-func (r *rec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe bool) {
+func (r *rec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe bool, history bool) {
 	r.msgs = append(r.msgs, chat+"|"+text)
 }
 
@@ -191,6 +197,25 @@ func TestCallsAreReportedForAllowedPeopleOnly(t *testing.T) {
 	b.onCall(mk("447700900111"))
 	b.onCall(mk("447700900999"))
 	if len(r.msgs) != 1 || r.msgs[0] != "call:447700900111" {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestHistoryIsPassedOnForAllowedChatsOnlyAndMarkedAsHistory(t *testing.T) {
+	r := &rec{}
+	b := &Bridge{l: r, allowed: map[string]bool{"447700900111": true}, groups: map[string]bool{}, gnames: map[string]string{}, cli: whatsmeow.NewClient(store.NoopDevice, nil)}
+	mk := func(id, text string, ts uint64) *waHistorySync.HistorySyncMsg {
+		return &waHistorySync.HistorySyncMsg{Message: &waWeb.WebMessageInfo{
+			Key:              &waCommon.MessageKey{RemoteJID: proto.String("x"), FromMe: proto.Bool(false), ID: proto.String(id)},
+			Message:          &waE2E.Message{Conversation: proto.String(text)},
+			MessageTimestamp: proto.Uint64(ts),
+		}}
+	}
+	allowed := &waHistorySync.Conversation{ID: proto.String("447700900111@s.whatsapp.net"), Messages: []*waHistorySync.HistorySyncMsg{mk("1", "older", 100), mk("2", "newer", 200)}}
+	other := &waHistorySync.Conversation{ID: proto.String("447700900999@s.whatsapp.net"), Messages: []*waHistorySync.HistorySyncMsg{mk("3", "private", 150)}}
+	news := &waHistorySync.Conversation{ID: proto.String("120363@newsletter"), Messages: []*waHistorySync.HistorySyncMsg{mk("4", "channel", 160)}}
+	b.onHistory(&events.HistorySync{Data: &waHistorySync.HistorySync{Conversations: []*waHistorySync.Conversation{allowed, other, news}}})
+	if len(r.msgs) != 2 || r.msgs[0] != "447700900111|older" || r.msgs[1] != "447700900111|newer" {
 		t.Fatalf("got %v", r.msgs)
 	}
 }

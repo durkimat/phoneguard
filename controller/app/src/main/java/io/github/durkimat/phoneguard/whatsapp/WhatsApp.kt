@@ -58,7 +58,7 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean) { st.add(chat, chatName, sender, text, ts, fromMe); fire() }
+                override fun onMessage(chat: String, chatName: String, sender: String, text: String, ts: Long, fromMe: Boolean, history: Boolean) { st.add(chat, chatName, sender, text, ts, fromMe, history = history); fire() }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
                     st.add(chat, chatName, chatName, if (rejected) "[call declined]" else "[missed call]", ts, false); fire()

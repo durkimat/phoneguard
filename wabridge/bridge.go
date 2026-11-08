@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"errors"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
@@ -37,7 +39,9 @@ type Listener interface {
 	// OnMessage: chat is the other person's phone number (digits, with country code), or "g" followed by the
 	// group's id. chatName is the person's or the group's name, sender who wrote it (for a group), fromMe is true
 	// for what this account sent from any device. text is plain text; other kinds arrive as "[photo]" style markers.
-	OnMessage(chat string, chatName string, sender string, text string, ts int64, fromMe bool)
+	// history is true for messages that come from the history WhatsApp sends when a device is linked: they are
+	// old, so the app should not count them as unread.
+	OnMessage(chat string, chatName string, sender string, text string, ts int64, fromMe bool, history bool)
 	// OnCall: someone is calling on WhatsApp (chat as above). rejected says the bridge has already declined it.
 	// Voice itself is not carried by this library: calls are only noticed, and declined or left to ring out.
 	OnCall(chat string, chatName string, ts int64, rejected bool)
@@ -70,6 +74,13 @@ func Open(dir string, l Listener) (*Bridge, error) {
 			return d.DialContext(ctx, "udp", "1.1.1.1:53")
 		}}
 		store.SetOSInfo("PhoneGuard", [3]uint32{0, 1, 0})
+		// ask for a month of recent history, not everything: this phone is small and the chats it shows are short
+		if h := store.DeviceProps.HistorySyncConfig; h != nil {
+			h.RecentSyncDaysLimit = proto.Uint32(30)
+			h.FullSyncDaysLimit = proto.Uint32(30)
+			h.FullSyncSizeMbLimit = proto.Uint32(20)
+			h.StorageQuotaMb = proto.Uint32(50)
+		}
 	})
 	ctx := context.Background()
 	log := waLog.Noop
@@ -294,7 +305,9 @@ func (b *Bridge) onEvent(evt interface{}) {
 	case *events.CallOffer:
 		b.onCall(v)
 	case *events.Message:
-		b.onMessage(v)
+		b.deliver(v, false)
+	case *events.HistorySync:
+		b.onHistory(v)
 	}
 }
 
@@ -366,7 +379,10 @@ func (b *Bridge) onCall(v *events.CallOffer) {
 	b.l.OnCall(chat, name, v.Timestamp.Unix(), rejected)
 }
 
-func (b *Bridge) onMessage(v *events.Message) {
+// onMessage handles a live message.
+func (b *Bridge) onMessage(v *events.Message) { b.deliver(v, false) }
+
+func (b *Bridge) deliver(v *events.Message, history bool) {
 	srv := v.Info.Chat.Server
 	if srv == types.BroadcastServer || srv == types.NewsletterServer {
 		return // status updates, broadcast lists and channels are never read
@@ -387,14 +403,14 @@ func (b *Bridge) onMessage(v *events.Message) {
 		if name == "" {
 			name = "Group"
 		}
-		b.l.OnMessage("g"+v.Info.Chat.User, name, who, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe)
+		b.l.OnMessage("g"+v.Info.Chat.User, name, who, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe, history)
 		return
 	}
 	chat := b.phoneOf(v.Info.Chat, v.Info.RecipientAlt, v.Info.SenderAlt, v.Info.IsFromMe)
 	if chat == "" || !b.isAllowed(chat) {
 		return
 	}
-	b.l.OnMessage(chat, v.Info.PushName, v.Info.PushName, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe)
+	b.l.OnMessage(chat, v.Info.PushName, v.Info.PushName, text, v.Info.Timestamp.Unix(), v.Info.IsFromMe, history)
 }
 
 // phoneOf finds the phone number of the other person in a one-to-one chat, whichever way WhatsApp addressed it.
@@ -425,4 +441,57 @@ func digits(s string) string {
 		}
 	}
 	return sb.String()
+}
+
+// maxHistoryPerChat is how many of each chat's most recent history messages are passed on (the app keeps 20).
+const maxHistoryPerChat = 40
+
+// onHistory passes on the recent messages WhatsApp sends when a device is linked, for allowed chats only, newest few
+// per chat. Everything else in the bundle is dropped without being looked at further.
+func (b *Bridge) onHistory(v *events.HistorySync) {
+	if v == nil || v.Data == nil || b.cli == nil {
+		return
+	}
+	for _, conv := range v.Data.GetConversations() {
+		jid, err := types.ParseJID(conv.GetID())
+		if err != nil || jid.Server == types.BroadcastServer || jid.Server == types.NewsletterServer {
+			continue
+		}
+		if !b.historyChatAllowed(jid, conv.GetPnJID()) {
+			continue
+		}
+		msgs := conv.GetMessages()
+		if len(msgs) > maxHistoryPerChat { // the bundle may list oldest or newest first: keep the newest by time
+			sorted := append([]*waHistorySync.HistorySyncMsg(nil), msgs...)
+			sort.Slice(sorted, func(i, j int) bool {
+				return sorted[i].GetMessage().GetMessageTimestamp() > sorted[j].GetMessage().GetMessageTimestamp()
+			})
+			msgs = sorted[:maxHistoryPerChat]
+		}
+		for _, m := range msgs {
+			evt, err := b.cli.ParseWebMessage(jid, m.GetMessage())
+			if err != nil || evt == nil {
+				continue
+			}
+			if jid.Server == types.HiddenUserServer && conv.GetPnJID() != "" { // let the number resolve from the bundle itself
+				if pn, err := types.ParseJID(conv.GetPnJID()); err == nil {
+					evt.Info.SenderAlt, evt.Info.RecipientAlt = pn, pn
+				}
+			}
+			b.deliver(evt, true)
+		}
+	}
+}
+
+// historyChatAllowed is the cheap check made before a chat's messages are even parsed.
+func (b *Bridge) historyChatAllowed(jid types.JID, pn string) bool {
+	if jid.Server == types.GroupServer {
+		return b.groupAllowed(b.groupName(jid))
+	}
+	alt := types.JID{}
+	if pn != "" {
+		alt, _ = types.ParseJID(pn)
+	}
+	chat := b.phoneOf(jid, alt, alt, false)
+	return chat != "" && b.isAllowed(chat)
 }
