@@ -80,4 +80,32 @@ object PowerLog {
 
     @Synchronized
     fun commit(c: Context) { val p = sp(c); p.edit().putLong("uploaded", p.getLong("inflight", p.getLong("uploaded", 0))).apply() }
+
+    /** One diary line, reduced to what the drain rate needs. */
+    data class Point(val t: Long, val uah: Long, val plugged: Boolean)
+
+    /** mAh used per hour while on battery, from consecutive points (gaps over three hours and charging ignored); null if there is nothing to go on. */
+    fun rate(points: List<Point>): Double? {
+        var used = 0.0; var hours = 0.0
+        for ((a, b) in points.zip(points.drop(1))) {
+            val dt = b.t - a.t
+            if (dt < 30_000 || dt > 3 * 3600_000 || a.plugged || b.plugged) continue
+            val d = (a.uah - b.uah) / 1000.0
+            if (d < -1) continue
+            used += d.coerceAtLeast(0.0); hours += dt / 3600_000.0
+        }
+        return if (hours >= 0.25) used / hours else null
+    }
+
+    /** The last [hours] hours of the diary as points. */
+    fun recent(c: Context, hours: Int = 12): List<Point> {
+        val out = ArrayList<Point>()
+        try {
+            val since = System.currentTimeMillis() - hours * 3600_000L
+            file(c).takeIf { it.exists() }?.forEachLine { l ->
+                try { val a = JSONArray(l); val t = a.getLong(0); if (t >= since) out.add(Point(t, a.getLong(2), a.getInt(4) == 1)) } catch (_: Exception) { }
+            }
+        } catch (_: Exception) { }
+        return out
+    }
 }

@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -150,7 +150,7 @@ class LauncherModel(
     private var contact: Contact? = null
     private var contactsFrom = Screen.HOME
 
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone") + (if (waEnabled) listOf("WhatsApp") else emptyList())
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -303,6 +303,7 @@ class LauncherModel(
         Screen.SEEDS -> "Seeds"
         Screen.GAMEHELP -> gameNames[helpGame]
         Screen.WEATHER -> "Weather"
+        Screen.BATTERY -> "Battery"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -322,6 +323,7 @@ class LauncherModel(
         Screen.SEEDS -> (if (seeds.over) "Again" else "Sow") to "Back"
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
+        Screen.BATTERY -> "" to "Back"
         Screen.DIAL -> "Call" to "Clear"
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
@@ -344,7 +346,7 @@ class LauncherModel(
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
-        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER -> emptyList()
+        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY -> emptyList()
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
@@ -389,6 +391,7 @@ class LauncherModel(
         Screen.GAMES -> gameList(key)
         Screen.GAMEHELP -> gameHelp(key, digit)
         Screen.WEATHER -> weatherKey(key)
+        Screen.BATTERY -> batteryKey(key)
         Screen.SNAKE -> snakeKey(key, digit)
         Screen.PAIRS -> pairsKey(key, digit)
         Screen.SHOOTER -> shooterKey(key, digit)
@@ -814,7 +817,7 @@ class LauncherModel(
                 1 -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
                 2 -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
                 3 -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
-                else -> { screen = Screen.WASET; selected = 0 }
+                else -> if (selected == settingsRows.size - 1) { screen = Screen.BATTERY; selected = 0 } else { screen = Screen.WASET; selected = 0 }
             }
             Action.Redraw
         }
@@ -925,6 +928,18 @@ class LauncherModel(
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
     fun openWeather(): Action { if (screen != Screen.HOME || weather == null) return Action.None; weatherFrom = Screen.HOME; screen = Screen.WEATHER; return Action.Redraw }
+
+    /** The numbers on the battery page; the activity fills them in while the page is open. */
+    var battery: BatteryInfo? = null
+
+    private fun batteryKey(key: Key): Action {
+        when (key) {
+            Key.RIGHT, Key.SOFT_RIGHT, Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.SETTINGS; selected = settingsRows.size - 1 }
+            Key.END -> goHome()
+            else -> return Action.None
+        }
+        return Action.Redraw
+    }
 
     private fun weatherKey(key: Key): Action {
         when (key) {
@@ -1081,6 +1096,9 @@ class LauncherModel(
 
 enum class BadgeKind { SMS, WHATSAPP, MISSED }
 data class Badge(val kind: BadgeKind, val count: Int)
+
+/** The battery page: level, charging, a rough time left, today's screen time and the apps that used it most. */
+data class BatteryInfo(val level: Int, val charging: Boolean, val hoursLeft: Double?, val screenMinutes: Int, val top: List<Pair<String, Int>>)
 
 /** What the home screen shows besides the menu. Plain data so a skin can draw it any way it likes. */
 data class HomeInfo(

@@ -91,6 +91,30 @@ object LauncherData {
     /** For tests on a real phone: shows these symbols instead of the real counts (set by the debug build only). */
     @Volatile var debugBadges: List<Badge>? = null
 
+    /** The battery page: the level now, a rough time left from the diary, today's screen time and the top apps by minutes. */
+    fun batteryInfo(c: Context): BatteryInfo {
+        val bat = c.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = bat?.getIntExtra(BatteryManager.EXTRA_LEVEL, 0) ?: 0
+        val scale = bat?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
+        val charging = (bat?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) > 0
+        val pts = io.github.durkimat.phoneguard.PowerLog.recent(c)
+        val rate = io.github.durkimat.phoneguard.PowerLog.rate(pts)
+        val remaining = pts.lastOrNull()?.uah?.div(1000.0)
+        val left = if (!charging && rate != null && rate > 1.0 && remaining != null && remaining > 0) remaining / rate else null
+        var total = 0
+        val top = ArrayList<Pair<String, Int>>()
+        try {
+            val today = io.github.durkimat.phoneguard.Usage.recent(c)?.let { u -> u.optJSONObject(u.keys().asSequence().sorted().last()) }
+            if (today != null) {
+                val pm = c.packageManager
+                val list = today.keys().asSequence().map { it to today.getInt(it) }.filter { it.first != c.packageName && it.first != "com.android.launcher3" }.sortedByDescending { it.second }.toList()
+                total = list.sumOf { it.second } / 60
+                list.take(3).forEach { (pkg, sec) -> top.add((try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { pkg }) to sec / 60) }
+            }
+        } catch (_: Exception) { }
+        return BatteryInfo(level * 100 / scale, charging, left, total, top)
+    }
+
     fun info(c: Context): HomeInfo {
         val now = Clock.now()
         val cfg = Store.config(c)
