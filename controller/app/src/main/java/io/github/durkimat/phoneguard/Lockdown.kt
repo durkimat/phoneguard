@@ -29,6 +29,7 @@ object LockdownEnforcer {
         Pregrant.run(c, visible)
         HomeApp.apply(c, ld.launcher == "nokia")
         RotationLock.set(c, locked = ld.launcher == "nokia")
+        LockScreenNotes.set(c, hidden = ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
@@ -48,6 +49,7 @@ object LockdownEnforcer {
         HomeApp.apply(c, false)
         RotationLock.set(c, false)
         LocationLock.set(c, false)
+        LockScreenNotes.set(c, false)
     }
 }
 
@@ -139,6 +141,30 @@ object LocationLock {
                 p.edit().remove("was").apply()
             }
         } catch (e: Exception) { Log.log(c, "location lock: ${e.javaClass.simpleName} ${e.message}") }
+    }
+}
+
+/**
+ * No notification cards on the lock screen while the Nokia screens are in use: they get in the way of the look (and show Android's own
+ * notes, such as the one about permissions an organisation granted). This uses the same setting as Settings > Display > Lock screen
+ * (the device-admin keyguard switch was refused for this admin), is put back afterwards, and is set again at every evaluation.
+ */
+object LockScreenNotes {
+    private const val KEY = "lock_screen_show_notifications"
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("lockscreen", Context.MODE_PRIVATE)
+
+    fun set(c: Context, hidden: Boolean) {
+        try {
+            val r = c.contentResolver
+            val p = prefs(c)
+            if (hidden) {
+                if (!p.contains("was")) p.edit().putInt("was", Settings.Secure.getInt(r, KEY, 1)).apply()
+                if (Settings.Secure.getInt(r, KEY, 1) != 0) Settings.Secure.putInt(r, KEY, 0)
+            } else if (p.contains("was")) {
+                Settings.Secure.putInt(r, KEY, p.getInt("was", 1))
+                p.edit().remove("was").apply()
+            }
+        } catch (e: Exception) { Log.log(c, "lock screen notes: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
     }
 }
 
