@@ -144,7 +144,7 @@ class NokiaSkin : LauncherSkin {
                 val idx = first + n
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
-                val label = (if (idx < 9) "${idx + 1}  " else "   ") + row
+                val label = ellipsize((if (idx < 9) "${idx + 1}  " else "   ") + row, 440f, 32f)
                 if (idx == m.selected) {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
                     text(c, label, 20f, top + 42f, 32f, u, bold = true, color = lcd)
@@ -209,6 +209,17 @@ class NokiaSkin : LauncherSkin {
             if (m.scroll > 0) arrowV(c, 456f, 150f, -1, u)
             if (m.scroll + m.pageLines < lines.size) arrowV(c, 456f, 548f, 1, u)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** Cuts a long line to fit the screen, ending in "..." (previews of messages are often longer than one line). */
+        private fun ellipsize(s: String, room: Float, size: Float): String {
+            val paint = bodyPaint(); paint.textSize = size * (if (Fonts.byId(model?.font).id == "vt323") 1.3f else 1f); paint.isFakeBoldText = true
+            val fits = paint.measureText(s) <= room
+            if (fits) { paint.isFakeBoldText = false; return s }
+            var t = s
+            while (t.length > 1 && paint.measureText("$t...") > room) t = t.dropLast(1)
+            paint.isFakeBoldText = false
+            return "$t..."
         }
 
         private fun measureBold(s: String, size: Float): Float {

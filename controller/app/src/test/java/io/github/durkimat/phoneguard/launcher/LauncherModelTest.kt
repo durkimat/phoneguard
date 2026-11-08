@@ -175,21 +175,43 @@ class LauncherModelTest {
         val m = msgs(); open(m); m.onKey(Key.OK)
         assertEquals(Screen.INBOX, m.screen); assertEquals(listOf("* Mum", "Dad"), m.rows)
         m.onKey(Key.OK)
+        assertEquals(Screen.CHAT, m.screen); assertEquals("Mum", m.title)
+        // the chat is a list: Reply first, then the messages newest first
+        assertEquals(listOf("Reply", "< Can you get milk on the way home please", "> ok", "< Dinner at 6?"), m.rows)
+        assertEquals(1, m.selected) // opens on the newest message
+        assertEquals("Read" to "Back", m.softKeys)
+        m.onKey(Key.OK)
         assertEquals(Screen.THREAD, m.screen); assertEquals("Mum", m.title); assertEquals(2, m.selected)
     }
 
+    @Test fun anyMessageInTheListCanBeReadAndBackReturnsToIt() {
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK) // the chat list
+        m.onKey(Key.DOWN); m.onKey(Key.DOWN) // the oldest message, third row
+        assertEquals(3, m.selected); m.onKey(Key.OK)
+        assertEquals(Screen.THREAD, m.screen); assertEquals(0, m.selected); assertEquals("Dinner at 6?", m.convoText())
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CHAT, m.screen); assertEquals(3, m.selected) // back on the same row
+        m.onKey(Key.UP); m.onKey(Key.UP); m.onKey(Key.UP); assertEquals("Reply" to "Back", m.softKeys) // Reply is the first row
+        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.WRITE, m.screen); assertEquals("0222", m.writeTo)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CHAT, m.screen) // Clear on an empty reply returns to the list
+    }
+
+    @Test fun backFromTheChatListGoesToWhereItCameFrom() {
+        val sms = msgs(); open(sms); sms.onKey(Key.OK); sms.onKey(Key.OK); sms.onKey(Key.SOFT_RIGHT); assertEquals(Screen.INBOX, sms.screen)
+        val w = wa(); open(w); w.onKey(Key.DIGIT, 2); w.onKey(Key.OK); w.onKey(Key.SOFT_RIGHT); assertEquals(Screen.WHATSAPP, w.screen)
+    }
+
     @Test fun conversationScrollsLongMessagesThenMovesToTheNextMessage() {
-        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK) // newest: 40 chars = 4 lines of 12, 2 per page
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK) // newest: 40 chars = 4 lines of 12, 2 per page
         assertEquals(0, m.scroll)
         m.onKey(Key.DOWN); assertEquals(2, m.scroll)
         assertEquals(Action.None, m.onKey(Key.DOWN)) // last message, last page
         m.onKey(Key.UP); assertEquals(0, m.scroll)
         m.onKey(Key.UP); assertEquals(1, m.selected); assertEquals(0, m.scroll) // previous message
-        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.INBOX, m.screen)
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.CHAT, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.INBOX, m.screen)
     }
 
     @Test fun replyOpensWriteWithTheNumberAndGreenKeyCalls() {
-        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK)
+        val m = msgs(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK)
         assertEquals(Action.Call("0222"), m.onKey(Key.CALL))
         m.onKey(Key.SOFT_LEFT)
         assertEquals(Screen.WRITE, m.screen); assertEquals("0222", m.writeTo); assertEquals(1, m.writeField)
@@ -455,19 +477,21 @@ class LauncherModelTest {
         assertEquals(Action.WaOpen, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.WHATSAPP, m.screen)
         assertEquals(listOf("* Mum", "Family"), m.rows)
         assertEquals(Action.WaRead("447700900111"), m.onKey(Key.OK))
-        assertEquals(Screen.THREAD, m.screen); assertEquals("Mum", m.title); assertEquals(2, m.selected)
+        assertEquals(Screen.CHAT, m.screen); assertEquals("Mum", m.title); assertEquals("Reply", m.rows[0]); assertEquals("< [photo] pasta", m.rows[1])
+        m.onKey(Key.OK); assertEquals(Screen.THREAD, m.screen); assertEquals(2, m.selected)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CHAT, m.screen)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)); assertEquals(Screen.WHATSAPP, m.screen) // Back goes to the WhatsApp list, not the SMS inbox
     }
 
     @Test fun replyingInAWhatsAppChatSendsThroughWhatsApp() {
-        val m = wa(); open(m); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
+        val m = wa(); open(m); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
         assertEquals(Screen.WRITE, m.screen); assertEquals(true, m.writeWa); assertEquals("Mum", m.writeLabel); assertEquals("447700900111", m.writeTo)
         m.onKey(Key.DIGIT, 6, 0)
         assertEquals(Action.SendWa("447700900111", "M"), m.onKey(Key.OK)) // key 6 is "m" (capital at the start)
     }
 
     @Test fun smsRepliesStayOnSms() {
-        val m = wa(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
+        val m = wa(); open(m); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
         assertEquals(false, m.writeWa)
         m.onKey(Key.DIGIT, 4, 0); m.onKey(Key.DIGIT, 4, 100)
         assertEquals(true, m.onKey(Key.OK) is Action.Send)
