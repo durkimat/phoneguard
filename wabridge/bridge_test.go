@@ -1,6 +1,7 @@
 package wabridge
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -246,4 +247,58 @@ func (s *senderRec) OnPairCode(string)                                     {}
 func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (s *senderRec) OnMessage(chat, chatName, sender, text string, ts int64, fromMe, history bool) {
 	*s.out = sender
+}
+
+type fakeContacts struct{ byUser map[string]types.ContactInfo }
+
+func (f fakeContacts) PutPushName(ctx context.Context, u types.JID, n string) (bool, string, error) {
+	return false, "", nil
+}
+func (f fakeContacts) PutBusinessName(ctx context.Context, u types.JID, n string) (bool, string, error) {
+	return false, "", nil
+}
+func (f fakeContacts) PutContactName(ctx context.Context, u types.JID, a, b string) error { return nil }
+func (f fakeContacts) PutAllContactNames(ctx context.Context, c []store.ContactEntry) error {
+	return nil
+}
+func (f fakeContacts) PutManyRedactedPhones(ctx context.Context, e []store.RedactedPhoneEntry) error {
+	return nil
+}
+func (f fakeContacts) GetContact(ctx context.Context, u types.JID) (types.ContactInfo, error) {
+	if i, ok := f.byUser[u.User]; ok {
+		i.Found = true
+		return i, nil
+	}
+	return types.ContactInfo{}, nil
+}
+func (f fakeContacts) GetAllContacts(ctx context.Context) (map[types.JID]types.ContactInfo, error) {
+	return nil, nil
+}
+
+func TestSenderNamePrefersTheAddressBookThenTheDisplayNameThenTheMessage(t *testing.T) {
+	d := *store.NoopDevice
+	d.Contacts = fakeContacts{byUser: map[string]types.ContactInfo{
+		"447700900111": {FullName: "Mum Durkin", PushName: "Sarah"},
+		"447700900222": {PushName: "Joe from the club"},
+		"447700900333": {BusinessName: "Pizza Place"},
+	}}
+	b := &Bridge{cli: whatsmeow.NewClient(&d, nil)}
+	jid := func(u string) types.JID { return types.NewJID(u, types.DefaultUserServer) }
+	if got := b.nameOf(jid("447700900111"), types.JID{}, "x"); got != "Mum Durkin" {
+		t.Errorf("address book name should win, got %q", got)
+	}
+	if got := b.nameOf(jid("447700900222"), types.JID{}, "x"); got != "Joe from the club" {
+		t.Errorf("display name, got %q", got)
+	}
+	if got := b.nameOf(jid("447700900333"), types.JID{}, ""); got != "Pizza Place" {
+		t.Errorf("business name, got %q", got)
+	}
+	if got := b.nameOf(jid("447700900999"), types.JID{}, "From message"); got != "From message" {
+		t.Errorf("the message's own name when the store knows nothing, got %q", got)
+	}
+	// the other address WhatsApp may use for the same person is tried too
+	hidden := types.NewJID("1705269850318", types.HiddenUserServer)
+	if got := b.nameOf(hidden, jid("447700900222"), ""); got != "Joe from the club" {
+		t.Errorf("alternative address, got %q", got)
+	}
 }
