@@ -20,6 +20,7 @@ import io.github.durkimat.phoneguard.launcher.LauncherData
  */
 class F2Service : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
+    private val volume by lazy { VolumeBar(this) }
     private var downAt = 0L
     private var lastTap = 0L
     private var longFired = false
@@ -37,6 +38,17 @@ class F2Service : AccessibilityService() {
     }
     override fun onInterrupt() {}
 
+    /** Debug builds only: lets a test show the volume bar without a physical key (injected keys never reach this service). */
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        if (io.github.durkimat.phoneguard.BuildConfig.DEBUG) {
+            val r = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context?, i: Intent?) { volume.press(i?.getBooleanExtra("up", true) ?: true) }
+            }
+            registerReceiver(r, android.content.IntentFilter("io.github.durkimat.phoneguard.DEBUG_VOLUME"), android.content.Context.RECEIVER_EXPORTED)
+        }
+    }
+
     /**
      * The green key from another app: Android would send a "call button" intent that offers the stock dialler (and its "make
      * default" nag). Open our dial pad instead. On our own screens, and while a call is ringing or live, the key is left alone.
@@ -53,6 +65,12 @@ class F2Service : AccessibilityService() {
 
     override fun onKeyEvent(ev: KeyEvent): Boolean {
         if (ev.keyCode == KeyEvent.KEYCODE_CALL) return callKey(ev)
+        if (ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP || ev.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            // the camera uses the volume keys as its shutter; everywhere else our own themed bar replaces Android's slider
+            if (CameraActivity.isFront()) return false
+            if (ev.action == KeyEvent.ACTION_DOWN) volume.press(ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+            return true
+        }
         if (ev.keyCode != KeyEvent.KEYCODE_F2) return false
         when (ev.action) {
             KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) {

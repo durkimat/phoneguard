@@ -836,3 +836,8 @@ Questions to put to them together:
 - Phone: Config.spotifyRefresh; Spotify.adopt takes a new refresh token once (remembers the one HA sent so a rotated local copy is not overwritten), HA clearing it signs the phone out. The on-phone sign-in still works as a fallback.
 - Owner must: add https://<their HA address>/api/phoneguard/spotify_callback to Redirect URIs in the Spotify app. The card shows the exact address. Spotify refuses http addresses (so the local http://192.168... address cannot be used).
 - Backup of the previous HA files: /root/phoneguard-bak-20261108i on HA.
+
+## Themed volume bar (2026-11-08, installed, awaiting the owner's look)
+- keys/VolumeBar.kt: the side-button service (which sees keys with the screen on) now takes the volume keys, changes the stream itself (call when a call is on, music when music plays on the phone, otherwise the ringer) and draws a small panel under the status bar for 1.6 s: a speaker, ten blocks, the stream name (CALL, MUSIC, RING), in the launcher's theme colours and font; a crossed speaker when the ringer is off. It is a non-touchable overlay, so it shows over any app. The camera keeps the volume keys as its shutter. A debug-only broadcast io.github.durkimat.phoneguard.DEBUG_VOLUME (--ez up true/false) shows it without a key.
+- Limits: not while the screen is off; Spotify playing on another device (Echo) still changes the ringer here (the Music screen's up/down changes that device). Idea: in the Music screen, make the volume keys control the playing device.
+- Android's own slider is not shown because the key is consumed before the system sees it; the quick settings volume and Settings > Sound are unchanged.
