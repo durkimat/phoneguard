@@ -71,6 +71,8 @@ object WhatsApp {
                 override fun onStatus(state: String) {
                     status = state; Log.log(app, "whatsapp: $state")
                     if (state == "paired") { setLinked(app, true); pairCode = null }
+                    // names arrive in bundles of their own, often after the messages: look the senders up again
+                    if (state == "history" || state == "connected") scheduleRename(app)
                     if (state == "logged_out") { setLinked(app, false); st.wipe() }
                     fire()
                 }
@@ -98,6 +100,24 @@ object WhatsApp {
 
     /** Closes the bridge so the next use reopens it from the files (used after the session files are replaced). */
     @Synchronized fun close() { bridge?.close(); bridge = null; status = "off" }
+
+    private var renamePending: Runnable? = null
+
+    /** Gives stored group messages their senders' names, a few seconds after the last bundle (they come in bursts). */
+    private fun scheduleRename(c: Context) {
+        renamePending?.let { main.removeCallbacks(it) }
+        val r = Runnable {
+            Thread {
+                try {
+                    val b = bridge ?: return@Thread
+                    val n = store(c).renameSenders { id -> b.nameFor(id).ifBlank { nameFor(c, id).takeIf { it != id } } }
+                    if (n > 0) fire()
+                } catch (e: Throwable) { Log.log(c, "whatsapp: names refresh failed: ${e.javaClass.simpleName}") }
+            }.start()
+        }
+        renamePending = r
+        main.postDelayed(r, 3_000)
+    }
 
     private var nameCache: Map<String, String> = emptyMap()
     private var nameCacheAt = 0L
