@@ -522,3 +522,14 @@ launcher in the same app; (3) notification counts and the status line.
 - `setKeyguardDisabled(true)` as device owner returns false while a PIN is set, so the system lock screen cannot be hidden under our control.
 - A trust agent (which would let us declare the phone "unlocked" by day and keep the PIN for boot) needs `android.permission.PROVIDE_TRUST_AGENT`, which is signature|privileged on this ROM, so an ordinary app cannot provide one. Only possible if the DumberOS maker installs Phone Guard as a privileged system app: ask them (same conversation as the bootloader warning).
 - Still possible: (a) keep the PIN, dark system theme so the PIN pad is dark (owner: better, not ideal); (b) lengthen the time before the phone re-locks after the screen goes off so the PIN pad shows less (Settings.Secure lock_screen_lock_after_timeout, untested); (c) drop the system PIN and use only our own themed lock (a real security downgrade: not recommended).
+
+## Contacting the DumberOS maker (owner may get in touch, 2026-11-08)
+Questions to put to them together:
+1. **Privileged app.** Can Phone Guard be shipped as a privileged system app (a priv-app folder plus a privapp-permissions entry in their build)? That would allow `PROVIDE_TRUST_AGENT` (a themed lock by day with the real PIN kept for boot), and possibly other device-owner limits we work around today. Say what we need: only a trust agent permission to start.
+2. **Bootloader warning.** The unlocked-bootloader screen with its 5 second delay at start: can it be shortened or removed, or the bootloader re-locked on their builds?
+3. **Source.** Is DumberOS source published (device tree, patches)? A fork looks too large for us; a small patch is fine.
+4. **Quirks seen on the J36:** the NFC service (`com.android.nfc`) crashes about every 15 seconds though the phone has no NFC; an `adb` End-call key sent with the screen off crashed the system process (WakeLock under-locked in ScreenOffMediaKeyHandler); the left key under the screen is swallowed by DumberOS (we use the key_menu_action setting to get it).
+5. **Updates.** How do they ship OS updates, and would an update remove our device-owner setup or the left-key setting?
+
+## Option 3 (own lock, no system PIN): reasons it is not recommended
+- Storage encryption is tied to the PIN; without it the phone decrypts itself at every boot and our lock is only an app on top, so a lost phone is easier to read (the bootloader is unlocked, which makes it worse), the lock fails if our app crashes, it cannot stop a reboot into recovery, and it would have to offer emergency calls itself. Keep the system PIN.
