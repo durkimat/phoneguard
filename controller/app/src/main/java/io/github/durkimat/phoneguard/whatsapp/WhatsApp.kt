@@ -77,7 +77,7 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(m: Message) { st.add(m.chat, m.chatName, nameFor(app, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history) }
+                override fun onMessage(m: Message) { st.add(m.chat, m.chatName, nameFor(app, m.senderID, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
                     st.add(chat, chatName, chatName, chat, "", if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
@@ -110,7 +110,7 @@ object WhatsApp {
             Thread {
                 try {
                     val b = bridge ?: return@Thread
-                    val n = store(c).renameSenders { id -> b.nameFor(id).ifBlank { nameFor(c, id).takeIf { it != id } } }
+                    val n = store(c).renameSenders { id -> localName(c, id) ?: b.nameFor(id).ifBlank { null } }
                     if (n > 0) fire()
                 } catch (e: Throwable) { Log.log(c, "whatsapp: names refresh failed: ${e.javaClass.simpleName}") }
             }.start()
@@ -122,17 +122,25 @@ object WhatsApp {
     private var nameCache: Map<String, String> = emptyMap()
     private var nameCacheAt = 0L
 
-    /** A sender shown as a bare number becomes the contact's name from the phone's Contacts when there is one. */
-    private fun nameFor(c: Context, sender: String): String {
-        if (sender.length < 7 || !sender.all { it.isDigit() }) return sender
+    /** The name this phone's own Contacts give a number (the owner's nicknames: Mum, Dad, Wife), or null. */
+    private fun localName(c: Context, id: String): String? {
+        val digits = id.filter { it.isDigit() }
+        if (digits.length < 7) return null
         val now = System.currentTimeMillis()
-        if (now - nameCacheAt > 5 * 60_000L) {
+        if (now - nameCacheAt > 60_000L) {
             val m = HashMap<String, String>()
             for (ct in io.github.durkimat.phoneguard.launcher.LauncherData.contacts(c)) for (n in ct.numbers) m.putIfAbsent(n.filter { it.isDigit() }.takeLast(9), ct.name)
             nameCache = m; nameCacheAt = now
         }
-        return nameCache[sender.takeLast(9)] ?: sender
+        return nameCache[digits.takeLast(9)]
     }
+
+    /**
+     * What to call a sender. The owner's own nickname for them (this phone's Contacts) wins, as it does in WhatsApp itself;
+     * otherwise what WhatsApp knows ([whatsAppName]: their name in the owner's address book, or the display name they chose);
+     * otherwise the number.
+     */
+    private fun nameFor(c: Context, senderId: String, whatsAppName: String): String = localName(c, senderId) ?: whatsAppName
 
     fun isPaired(c: Context): Boolean = open(c)?.isPaired ?: false
 
@@ -270,7 +278,8 @@ object WhatsApp {
         var problem = ""
         try { b.resync() } catch (e: Throwable) { problem = e.message ?: "error"; Log.log(c, "whatsapp: resync names failed: $problem") }
         val st = store(c)
-        val renamed = st.renameSenders { id -> b.nameFor(id).ifBlank { nameFor(c, id).takeIf { it != id } } }
+        nameCacheAt = 0L // pick up Contacts changed since the last look
+        val renamed = st.renameSenders { id -> localName(c, id) ?: b.nameFor(id).ifBlank { null } }
         var asked = 0
         for (a in st.anchors()) {
             try { b.requestHistory(a.chat, a.mid, a.ts, a.mine, 20); asked++ } catch (e: Throwable) { if (problem.isEmpty()) problem = e.message ?: "error" }

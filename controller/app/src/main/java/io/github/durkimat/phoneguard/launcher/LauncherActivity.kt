@@ -44,6 +44,7 @@ class LauncherActivity : Activity() {
         WhatsApp.onChange(waChanged)
         model.predictiveOn = prefs().getBoolean("predictive", true)
         model.speakerShown = prefs().getBoolean("speaker", true)
+        model.waNameStyle = prefs().getString("wa_names", NameStyle.DEFAULT) ?: NameStyle.DEFAULT
         loadWords()
         setContentView(skin.create(this))
         refresh()
@@ -143,6 +144,7 @@ class LauncherActivity : Activity() {
                 val r = WhatsApp.pair(this, a.number)
                 ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); refresh() }
             }.start()
+            is Action.SaveNameStyle -> { prefs().edit().putString("wa_names", a.id).apply(); refresh() }
             Action.ResyncWa -> Thread {
                 val r = WhatsApp.resync(this)
                 ui.post { model.notify(if (r.startsWith("error")) "Re-sync failed: " + r.removePrefix("error: ").take(28) else "Re-synced"); refresh() }

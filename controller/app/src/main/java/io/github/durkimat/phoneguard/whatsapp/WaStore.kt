@@ -57,7 +57,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         return out
     }
 
-    /** One chat, oldest first. Group messages from other people carry "Name: " in front. */
+    /** One chat, oldest first. Group messages from other people carry who wrote them in [Msg.sender]. */
     @Synchronized fun messages(chat: String): List<Msg> {
         val out = ArrayList<Msg>()
         val group = chat.startsWith("g")
@@ -65,8 +65,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
             while (cur.moveToNext()) {
                 val mine = cur.getInt(2) == 1
                 val who = (cur.getString(3) ?: "").ifBlank { cur.getString(4) ?: "" }
-                val text = if (group && !mine && who.isNotBlank()) "$who: ${cur.getString(0)}" else cur.getString(0)
-                out.add(Msg(text, cur.getLong(1) * 1000, mine))
+                out.add(Msg(cur.getString(0), cur.getLong(1) * 1000, mine, if (group && !mine) who else ""))
             }
         }
         return out
