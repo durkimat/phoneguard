@@ -71,6 +71,7 @@ def default_child(name: str) -> dict:
         "unprotect": [CLOCK],  # a mode can hide the Clock
         "restrictions": None,
         "whatsapp": whatsapp_defaults(),
+        "pinned": [],  # apps shown in the Nokia main menu itself; the other allowed apps are under "Other apps"
         "known": None,  # packages the parent has already seen; None until the first sync
     }
 
@@ -127,6 +128,7 @@ def build_config(child: dict, now_ms: int) -> dict:
     w = whatsapp_with_defaults(child)
     cfg["whatsapp"] = {"all": bool(w["all"]), "allowed": [str(x).strip() for x in w["allowed"] if str(x).strip()],
                        "perMinute": int(w["perMinute"]), "perDay": int(w["perDay"])}
+    cfg["pinned"] = [str(x) for x in child.get("pinned", [])]
     if child.get("override") in modes:
         cfg["override"] = child["override"]
     digest = hashlib.sha1(json.dumps(cfg, sort_keys=True).encode()).hexdigest()[:12]

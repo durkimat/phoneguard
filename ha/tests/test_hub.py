@@ -312,3 +312,9 @@ def test_whatsapp_app_choice_defaults_validation_and_config(hub):
         hub.update_child("her", {"modes": bad})
     assert hub.data["children"]["her"]["modes"]["day"]["wa_app"] == "full"
 
+
+
+def test_pinned_apps_are_tidied_and_reach_the_phone_config(hub):
+    assert S.build_config(hub.data["children"]["her"], hub.now())["pinned"] == []
+    hub.update_child("her", {"pinned": ["a.music", "", "a.maps", "a.music"]})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["pinned"] == ["a.music", "a.maps"]

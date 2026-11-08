@@ -37,7 +37,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned"}
         before = {k: ch.get(k) for k in allowed}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
@@ -49,6 +49,8 @@ class Hub:
                         if x and x not in seen:
                             seen.append(x)
                     v["allowed"] = seen
+            if k == "pinned" and isinstance(v, list):  # keep the parent's order, no blanks or repeats
+                v = list(dict.fromkeys(x for x in v if isinstance(x, str) and x))
             if k in allowed:
                 ch[k] = v
         try:
@@ -320,6 +322,7 @@ class Hub:
             "device": None, "apps": [], "pending_apps": [], "usage": {}, "labels": {},
             "restrictions": ch.get("restrictions"),
             "whatsapp": S.whatsapp_with_defaults(ch),
+            "pinned": list(ch.get("pinned") or []),
         }
         pairing = next(((d, p) for d, p in self.data["pairing"].items() if p["child"] == cid), None)
         if pairing and pairing[1]["expires"] > now:

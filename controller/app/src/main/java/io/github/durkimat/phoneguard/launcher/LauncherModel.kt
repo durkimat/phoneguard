@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -52,6 +52,7 @@ object Fonts {
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+const val APPS_PKG = "pg:apps"
 const val CALC_PKG = "pg:calculator"
 const val CALLLOG_PKG = "pg:calllog"
 
@@ -121,6 +122,9 @@ class LauncherModel(
         private set
     var selected = 0
         private set
+
+    /** The allowed apps that are not in the main menu, shown under "Other apps". */
+    var apps: List<MenuItem> = emptyList()
 
     fun setItems(list: List<MenuItem>) {
         items = list
@@ -268,6 +272,7 @@ class LauncherModel(
         Screen.WAPAIR -> "Link WhatsApp"
         Screen.WASET -> "WhatsApp"
         Screen.WANAMES -> "Names in lists"
+        Screen.APPS -> "Other apps"
         Screen.CALC -> "Calculator"
         Screen.CALLLOG -> "Call log"
         Screen.DIAL -> "Call"
@@ -301,6 +306,7 @@ class LauncherModel(
     /** The lines of whichever list is showing. */
     val rows: List<String> get() = when (screen) {
         Screen.MENU -> items.map { it.label }
+        Screen.APPS -> apps.map { it.label }
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
@@ -331,7 +337,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -341,6 +347,7 @@ class LauncherModel(
     private fun route(key: Key, digit: Int, nowMs: Long): Action = when (screen) {
         Screen.HOME -> home(key, digit)
         Screen.MENU -> menu(key, digit)
+        Screen.APPS -> appList(key)
         Screen.SETTINGS -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
         Screen.FONT -> fonts(key, digit)
@@ -748,6 +755,7 @@ class LauncherModel(
         item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
+        item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }
         else -> Action.Launch(item.pkg)
     }
 
@@ -793,6 +801,13 @@ class LauncherModel(
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); screen = Screen.DIAL; Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
         Key.POUND -> { dialNumber = "#"; screen = Screen.DIAL; Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun appList(key: Key): Action = move(key, apps.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> apps.getOrNull(selected)?.let { Action.Launch(it.pkg) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == APPS_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 

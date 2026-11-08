@@ -62,6 +62,8 @@ data class Config(
     /** A parent forcing one mode regardless of the timetable, until HA clears it. */
     val override: String? = null,
     val whatsapp: WaConfig? = null,
+    /** Apps the parent put in the Nokia main menu itself; the other allowed apps go under "Other apps". */
+    val pinned: List<String> = emptyList(),
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -120,6 +122,7 @@ data class Config(
                 unprotect = strings(o.optJSONArray("unprotect")),
                 restrictions = if (o.has("restrictions")) strings(o.getJSONArray("restrictions")) else null,
                 override = o.optString("override", "").ifEmpty { null },
+                pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(
                         all = w.optBoolean("all", false),
