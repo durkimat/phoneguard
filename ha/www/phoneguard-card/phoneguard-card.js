@@ -1,8 +1,8 @@
-/* Phone Guard card v0.11.1. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.12.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.11.1";
+const PG_VERSION = "0.12.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -239,7 +239,7 @@ class PhoneGuardCard extends HTMLElement {
       html += this._boostHtml(d) + this._holidayHtml(d) + this._newAppsHtml(d);
     }
     html += this._timetableHtml(d) + this._copyHtml(d);
-    if (dev && !dev.pending) html += this._matrixHtml(d) + this._weatherHtml(d) + this._whatsappHtml(d) + this._usageHtml(d);
+    if (dev && !dev.pending) html += this._matrixHtml(d) + this._weatherHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -388,6 +388,7 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>WhatsApp checks</td>${ids.map((m) => `<td><select data-mode-opt="wa" data-mode="${m}">${[["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa || "open") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>WhatsApp app</td>${ids.map((m) => `<td><select data-mode-opt="wa_app" data-mode="${m}">${[["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa_app || "auto") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Incoming calls allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="inbound" data-mode="${m}" ${d.modes[m].inbound !== false ? "checked" : ""}></td>`).join("")}</tr>
+      <tr class="opt"><td>Camera offered</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="camera" data-mode="${m}" ${d.modes[m].camera !== false ? "checked" : ""}></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
       h += `<tr><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
@@ -436,6 +437,43 @@ class PhoneGuardCard extends HTMLElement {
     return t.charAt(0).toUpperCase() + t.slice(1);
   }
   _dur(sec) { const m = Math.round(sec / 60); return m < 60 ? m + " min" : Math.floor(m / 60) + " h " + String(m % 60).padStart(2, "0") + " min"; }
+
+  // the phone's battery diary: a level line over the last day with the modes shaded behind it, and where the power went
+  _batteryHtml(d) {
+    const p = d.power;
+    let h = `<h3>Battery</h3>`;
+    if (!p || !p.chart || p.chart.length < 2) return h + `<div class="sub">No battery readings yet. They arrive with each sync once the phone has the newest version.</div>`;
+    const c = p.chart, t0 = c[0][0], t1 = c[c.length - 1][0], W = 600, H = 110, span = Math.max(t1 - t0, 1);
+    const x = (t) => ((t - t0) / span * W).toFixed(1), y = (lv) => (H - 6 - (H - 12) * lv / 100).toFixed(1);
+    const modes = [...new Set(c.map((r) => r[4]))];
+    const hue = (m) => (modes.indexOf(m) * 67 + 200) % 360;
+    let bands = "", i = 0;
+    while (i < c.length) {
+      let j = i; while (j + 1 < c.length && c[j + 1][4] === c[i][4]) j++;
+      const xe = j + 1 < c.length ? x(c[j + 1][0]) : W;
+      bands += `<rect x="${x(c[i][0])}" y="0" width="${Math.max(0, xe - x(c[i][0])).toFixed(1)}" height="${H}" fill="hsl(${hue(c[i][4])},60%,55%)" opacity=".18"/>`;
+      i = j + 1;
+    }
+    const line = c.map((r) => `${x(r[0])},${y(r[1])}`).join(" ");
+    const dots = c.filter((r) => r[2]).map((r) => `<circle cx="${x(r[0])}" cy="${y(r[1])}" r="2" fill="#2e9e4f"/>`).join("");
+    const screen = c.filter((r) => r[3]).map((r) => `<rect x="${x(r[0])}" y="${H - 5}" width="2" height="5" fill="currentColor"/>`).join("");
+    h += `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;color:var(--primary-text-color)" role="img" aria-label="Battery level over the last day">
+      ${bands}<line x1="0" y1="${y(50)}" x2="${W}" y2="${y(50)}" stroke="currentColor" opacity=".15"/>
+      <polyline points="${line}" fill="none" stroke="currentColor" stroke-width="2"/>${dots}${screen}</svg>
+      <div class="sub">${modes.map((m) => `<span style="display:inline-block;width:10px;height:10px;background:hsl(${hue(m)},60%,55%);opacity:.5;margin:0 4px 0 8px"></span>${this._esc(m)}`).join("")}
+      <span style="margin-left:8px">green dots: charging, ticks along the bottom: screen on</span></div>`;
+    const f = (b) => (b && b.mah_per_h != null ? `${b.mah_per_h} mAh/h over ${b.hours} h` : "no data");
+    const rows = [];
+    rows.push(["Now", `${p.level}%${p.plugged ? " (charging)" : ""}${p.hours_left != null ? `, about ${p.hours_left} h left at this rate` : ""}${p.full_mah ? `, battery about ${p.full_mah} mAh` : ""}`]);
+    rows.push(["On battery, last " + p.window_hours + " h", f(p.on_battery)]);
+    for (const k of ["off", "on"]) if (p.by_screen && p.by_screen[k]) rows.push(["Screen " + k, f(p.by_screen[k])]);
+    for (const m of Object.keys(p.by_mode || {})) rows.push(["Mode " + m, f(p.by_mode[m])]);
+    for (const k of ["off", "on"]) if (p.by_location && p.by_location[k]) rows.push(["Location " + k, f(p.by_location[k])]);
+    for (const k of ["off", "on"]) if (p.by_wifi && p.by_wifi[k]) rows.push(["Wi-Fi " + k, f(p.by_wifi[k])]);
+    h += `<table>${rows.map((r) => `<tr><td>${this._esc(r[0])}</td><td>${this._esc(r[1])}</td></tr>`).join("")}</table>
+      <div class="sub" style="margin-top:6px">Measured from the phone's own charge counter between check-ins, so it is finer than the percentage. It ignores time on charge and gaps of over three hours.</div>`;
+    return h;
+  }
 
   _usageHtml(d) {
     const days = Object.keys(d.usage || {}).sort().reverse().slice(0, 7);
@@ -653,7 +691,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "sound") modes[mode].sound = i.value;
     if (opt === "wa") modes[mode].wa = i.value;
     if (opt === "wa_app") modes[mode].wa_app = i.value;
-    if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound") modes[mode][opt] = i.checked;
+    if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound" || opt === "camera") modes[mode][opt] = i.checked;
     if (opt === "allowAll") {
       modes[mode].allowAll = i.checked;
       // leaving "everything allowed": start from every current app ticked, so nothing changes until you untick something
