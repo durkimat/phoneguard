@@ -1,8 +1,8 @@
-/* Phone Guard card v0.8.1. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.8.2. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.8.1";
+const PG_VERSION = "0.8.2";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -147,7 +147,9 @@ class PhoneGuardCard extends HTMLElement {
       .seg { display:flex; flex-wrap:wrap; gap:6px; }
       .seg button.sel { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
       .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 12px; }
-      .who { display:flex; align-items:center; gap:14px; margin-bottom: 12px; }
+      .people { display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; margin-bottom: 12px; }
+      .who { display:flex; align-items:center; gap:14px; }
+      .peoplebar { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
       .pname { font-size: 24px; margin: 0; }
       .chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
       .av { border-radius: 50%; object-fit: cover; display:inline-block; flex: none; }
@@ -269,12 +271,11 @@ class PhoneGuardCard extends HTMLElement {
   _personHtml() {
     const all = this._all || {}, me = all[this._ui.sel];
     if (!me) return "";
-    let h = `<div class="who">${this._avatar(me.picture, me.person, 56)}<div><h2 class="pname">${this._esc(me.person)}</h2>`;
+    const who = `<div class="who">${this._avatar(me.picture, me.person, 56)}<h2 class="pname">${this._esc(me.person)}</h2></div>`;
+    if (this._config.entity) return `<div class="people">${who}</div>`;
+    // the other people, and adding a person, sit level with this person, not under their name: they are not part of them
     const others = this._groups().filter((g) => g.key !== me.personKey);
-    if (!this._config.entity) {
-      h += `<div class="chips">${others.map((g) => `<button class="small" data-act="select_person" data-key="${this._esc(g.key)}">${this._esc(g.name)}</button>`).join("")}<button class="small" data-act="add_person" title="Add someone else, with their first device">＋ Add a person</button></div>`;
-    }
-    return h + `</div></div>`;
+    return `<div class="people">${who}<div class="peoplebar">${others.map((g) => `<button class="small" data-act="select_person" data-key="${this._esc(g.key)}">${this._esc(g.name)}</button>`).join("")}<button class="small" data-act="add_person" title="Add someone else, with their first device">＋ Add a person</button></div></div>`;
   }
 
   _groups() {
