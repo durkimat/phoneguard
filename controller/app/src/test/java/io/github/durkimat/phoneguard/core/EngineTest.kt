@@ -207,4 +207,19 @@ class EngineTest {
         assertEquals("30", c.modes["day"]!!.wa); assertEquals("open", c.modes["school"]!!.wa)
         assertEquals(listOf("+44 7700 900111", "g:Family"), c.whatsapp!!.allowed); assertEquals(3, c.whatsapp!!.perMinute); assertEquals(false, c.whatsapp!!.all)
     }
+
+    @Test fun theRealWhatsAppIsUsedWhenAskedForAndThere() {
+        assertTrue(Engine.useRealWhatsApp("auto", true)); assertTrue(Engine.useRealWhatsApp("full", true))
+        assertFalse(Engine.useRealWhatsApp("simple", true)) // our screens, even though the real app is installed
+        assertFalse(Engine.useRealWhatsApp("auto", false)); assertFalse(Engine.useRealWhatsApp("full", false)) // not installed or not visible: ours
+    }
+
+    @Test fun aBoostOnlyEverOpensTheRealWhatsAppUp() {
+        assertEquals("full", Engine.moreFull("simple", "full")); assertEquals("auto", Engine.moreFull("simple", "auto")); assertEquals("simple", Engine.moreFull("simple", "simple"))
+        val m2 = modes + ("school" to ModeDef("school", "School", false, setOf("a.calc"), false, waApp = "simple"))
+        val c = cfg().copy(modes = m2)
+        assertEquals("simple", Engine.effective(c, null, at(2026, 11, 3, 10)).waApp)
+        assertEquals("auto", Engine.effective(c, Boost("day", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).waApp)
+        assertEquals("full", Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day","waApp":"full"}},"segments":[]}""").modes["day"]!!.waApp)
+    }
 }

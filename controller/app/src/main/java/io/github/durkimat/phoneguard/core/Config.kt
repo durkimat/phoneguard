@@ -24,6 +24,8 @@ data class ModeDef(
     val inbound: Boolean = true,
     /** WhatsApp checks: "off", "open" (only when the owner opens WhatsApp), "30" or "60" (minutes between checks). */
     val wa: String = "open",
+    /** Which WhatsApp the menus use: "auto" (the real app when it is installed and allowed), "simple" (our screens) or "full" (the real app). */
+    val waApp: String = "auto",
 )
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
@@ -86,6 +88,7 @@ data class Config(
                     sound = m.optString("sound", "normal"),
                     inbound = m.optBoolean("inbound", true),
                     wa = m.optString("wa", "open"),
+                    waApp = m.optString("waApp", "auto"),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->

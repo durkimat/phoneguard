@@ -66,6 +66,8 @@ class Hub:
         for mid, m in ch["modes"].items():
             if m.get("wa", "open") not in S.WA_CHECKS:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp check setting {m['wa']!r}")
+            if m.get("wa_app", "auto") not in S.WA_APPS:
+                raise ValueError(f"mode {mid!r} has an unknown WhatsApp app setting {m['wa_app']!r}")
             if m.get("sound", "normal") not in S.SOUNDS:
                 raise ValueError(f"mode {mid!r} has an unknown sound setting {m['sound']!r}")
         w = S.whatsapp_with_defaults(ch)

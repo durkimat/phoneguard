@@ -124,7 +124,7 @@ class LauncherActivity : Activity() {
         if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
         // WhatsApp is offered unless the mode switches it off; "linked" says whether an account is attached
         model.waLinked = WhatsApp.linked(this)
-        model.waEnabled = WhatsApp.policy(this) != "off"
+        model.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
         model.waCode = WhatsApp.pairCode
         if (model.screen == Screen.WAPAIR && model.waLinked) { model.waCode = null }
         if (model.waLinked) {

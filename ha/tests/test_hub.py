@@ -299,3 +299,16 @@ def test_whatsapp_defaults_validation_and_copy(hub):
     assert hub.data["children"]["sib"]["modes"]["school"]["wa"] == "off"
     assert hub.view("her")["whatsapp"]["perDay"] == 40
 
+
+def test_whatsapp_app_choice_defaults_validation_and_config(hub):
+    ch = hub.data["children"]["her"]
+    cfg = S.build_config(ch, hub.now())
+    assert cfg["modes"]["school"]["waApp"] == "simple" and cfg["modes"]["day"]["waApp"] == "auto"  # School keeps our screens
+    modes = json.loads(json.dumps(ch["modes"])); modes["day"]["wa_app"] = "full"
+    hub.update_child("her", {"modes": modes})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["modes"]["day"]["waApp"] == "full"
+    bad = json.loads(json.dumps(modes)); bad["night"]["wa_app"] = "both"
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"modes": bad})
+    assert hub.data["children"]["her"]["modes"]["day"]["wa_app"] == "full"
+
