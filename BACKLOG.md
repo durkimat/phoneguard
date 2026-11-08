@@ -782,3 +782,7 @@ Questions to put to them together:
 
 ## Aurora Store installed (owner asked, 2026-11-08, 21:05)
 - Aurora Store 4.8.4 (9.4 MB) downloaded from f-droid.org (the official F-Droid repository: file com.aurora.store_76.apk, SHA-256 fd9c75d9...c4d11 matches the repository index, signed by F-Droid), installed over USB, and given the "install other apps" permission with `appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow` so it does not stop to ask. It shows up in Android Apps (Day) and as a new app waiting in the card (decide there where it may run). Use: open it, choose anonymous sign-in, search for Spotify, install, then open Spotify and log in (owner's job). Risks to note: Aurora is a third-party client for Google Play; installing Spotify this way is the owner's call; some apps refuse an uncertified phone.
+
+## Music remote tried against Spotify (2026-11-08, 21:20)
+- Spotify installed (through Aurora) and playing. The Music screen showed the real track (title, artist, album), the progress bar with times, and the controls worked: OK paused and resumed, 6 skipped to the next track, volume steps changed the phone's music volume. The screen refreshes once a second while open.
+- Next: the playlist picker and search (needs the owner to register a Spotify developer app: Client ID plus our package name and signing fingerprint), album art in the dithered style, a sleep timer, shuffle and repeat keys, the track title scrolling when it is longer than the line, per-mode Music setting in HA, and keeping Spotify allowed in the modes where music is wanted.
