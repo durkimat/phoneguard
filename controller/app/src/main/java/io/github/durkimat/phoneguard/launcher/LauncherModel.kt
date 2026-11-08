@@ -150,7 +150,9 @@ class LauncherModel(
     private var contact: Contact? = null
     private var contactsFrom = Screen.HOME
 
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + listOf("Battery")
+    /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
+    var androidSettings = false
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -812,14 +814,17 @@ class LauncherModel(
 
     private fun settings(key: Key, digit: Int): Action = move(key, settingsRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
-            when (selected) {
-                0 -> { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
-                1 -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
-                2 -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
-                3 -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
-                else -> if (selected == settingsRows.size - 1) { screen = Screen.BATTERY; selected = 0 } else { screen = Screen.WASET; selected = 0 }
+            var out: Action = Action.Redraw
+            when (settingsRows.getOrNull(selected)) {
+                "Theme" -> { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
+                "Font" -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
+                "Predictive text" -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
+                "Speakerphone" -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
+                "WhatsApp" -> { screen = Screen.WASET; selected = 0 }
+                "Android settings" -> out = Action.Launch("com.android.settings")
+                "Battery" -> { screen = Screen.BATTERY; selected = 0 }
             }
-            Action.Redraw
+            out
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
