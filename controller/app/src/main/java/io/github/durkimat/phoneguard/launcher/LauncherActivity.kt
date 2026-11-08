@@ -284,6 +284,7 @@ class LauncherActivity : Activity() {
                 if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { refresh() } }.start()
                 else { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); refresh() }
             }
+            is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
             Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); refresh() }

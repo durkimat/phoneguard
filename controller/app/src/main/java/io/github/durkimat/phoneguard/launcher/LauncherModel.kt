@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, PHONEMENU, SOUNDTEST }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -125,6 +125,8 @@ sealed class Action {
     data class SpPlay(val uri: String) : Action()
     data class SpTransfer(val id: String, val name: String) : Action()
     object SpShuffle : Action()
+    /** Play a test tone: 0 loudspeaker, 1 call speaker, 2 earpiece. */
+    data class SoundTest(val route: Int) : Action()
     /** Open the app a notification came from, and clear it. */
     data class OpenNote(val key: String) : Action()
     data class ClearNote(val key: String) : Action()
@@ -171,7 +173,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -327,6 +329,8 @@ class LauncherModel(
         Screen.BATTERY -> "Battery"
         Screen.MUSIC -> "Now playing"
         Screen.LOGSET -> "Logs & Settings"
+        Screen.PHONEMENU -> "Phone"
+        Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> "Playlists"
         Screen.DEVICES -> "Play on"
@@ -353,7 +357,8 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.PHONEMENU -> "Select" to "Back"
+        Screen.SOUNDTEST -> "Play" to "Back"
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
@@ -382,6 +387,8 @@ class LauncherModel(
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.MUSICMENU -> musicMenuRows
         Screen.LOGSET -> logItems.map { it.label }
+        Screen.PHONEMENU -> listOf("Recent calls", "Contacts", "Dial a number")
+        Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
@@ -416,7 +423,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.PHONEMENU, Screen.SOUNDTEST)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -434,6 +441,8 @@ class LauncherModel(
         Screen.MUSIC -> musicKey(key, digit)
         Screen.MUSICMENU -> musicMenuKey(key)
         Screen.LOGSET -> logSetKey(key)
+        Screen.PHONEMENU -> phoneMenuKey(key, digit)
+        Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
@@ -504,7 +513,7 @@ class LauncherModel(
             Key.STAR -> when { dialNumber.endsWith("*") -> dialNumber = dialNumber.dropLast(1) + "+"; dialNumber.endsWith("+") -> dialNumber = dialNumber.dropLast(1) + "*"; dialNumber.length < 24 -> dialNumber += "*" }
             Key.POUND -> if (dialNumber.length < 24) dialNumber += "#"
             Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.HOME) else Action.PlaceCall(dialNumber)
-            Key.RIGHT, Key.SOFT_RIGHT -> { dialNumber = dialNumber.dropLast(1); if (dialNumber.isEmpty()) goHome() }
+            Key.RIGHT, Key.SOFT_RIGHT -> { dialNumber = dialNumber.dropLast(1); if (dialNumber.isEmpty()) { if (dialFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 2 } else goHome() } }
             Key.END -> { dialNumber = ""; goHome() }
             else -> return Action.None
         }
@@ -515,7 +524,7 @@ class LauncherModel(
 
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 0 } else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -810,6 +819,7 @@ class LauncherModel(
         Key.RIGHT, Key.SOFT_RIGHT -> {
             when {
                 picking -> { picking = false; screen = Screen.WRITE }
+                contactsFrom == Screen.PHONEMENU -> { screen = Screen.PHONEMENU; selected = 1 }
                 contactsFrom == Screen.MENU -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) }
                 else -> goHome()
             }
@@ -846,7 +856,7 @@ class LauncherModel(
         item.pkg == SETTINGS_PKG -> { settingsFrom = screen; screen = Screen.SETTINGS; selected = 0; Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
-        item.pkg == dialerApp -> { dialNumber = ""; screen = Screen.DIAL; Action.Redraw }
+        item.pkg == dialerApp -> openPhoneMenu(Screen.MENU)
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
@@ -866,6 +876,7 @@ class LauncherModel(
                 "Font" -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
                 "Predictive text" -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
                 "Speakerphone" -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
+                "Sound test" -> { screen = Screen.SOUNDTEST; selected = 0 }
                 "WhatsApp" -> { screen = Screen.WASET; selected = 0 }
                 "Android settings" -> out = Action.Launch("com.android.settings")
                 "Battery" -> { screen = Screen.BATTERY; selected = 0 }
@@ -899,8 +910,8 @@ class LauncherModel(
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME)
-        Key.CALL -> openCallLog(Screen.HOME)
-        Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); screen = Screen.DIAL; Action.Redraw } else Action.None
+        Key.CALL -> openPhoneMenu(Screen.HOME)
+        Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialFrom = Screen.HOME; screen = Screen.DIAL; Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
         Key.POUND -> { dialNumber = "#"; screen = Screen.DIAL; Action.Redraw }
         else -> Action.None
@@ -921,7 +932,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.PHONEMENU, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -988,6 +999,9 @@ class LauncherModel(
     /** What "Logs & Settings" lists (Call log, Notifications, Settings); the activity fills it in. */
     var logItems: List<MenuItem> = emptyList()
     private var settingsFrom = Screen.MENU
+    /** Where the Phone menu was opened from (Back returns there) and where the dial screen was opened from. */
+    private var phoneFrom = Screen.HOME
+    private var dialFrom = Screen.HOME
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
@@ -1048,6 +1062,29 @@ class LauncherModel(
     }
 
     private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
+
+    /** The calling menu: the green key at the home screen and the Phone entry in the menu both open it. */
+    private fun openPhoneMenu(from: Screen): Action { phoneFrom = from; screen = Screen.PHONEMENU; selected = 0; return Action.Redraw }
+
+    private fun phoneMenuKey(key: Key, digit: Int): Action = move(key, 3) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
+            0 -> openCallLog(Screen.PHONEMENU)
+            1 -> openContacts(Screen.PHONEMENU)
+            else -> { dialNumber = ""; dialFrom = Screen.PHONEMENU; screen = Screen.DIAL; Action.Redraw }
+        }
+        Key.CALL -> openCallLog(Screen.PHONEMENU) // the green key twice: straight to the recent calls
+        Key.DIGIT -> { dialNumber = digit.toString(); dialFrom = Screen.PHONEMENU; screen = Screen.DIAL; Action.Redraw } // 4 to 9 and 0 start dialling (1 to 3 choose a row)
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (phoneFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == dialerApp }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun soundTestKey(key: Key): Action = move(key, io.github.durkimat.phoneguard.SoundTest.routes.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> Action.SoundTest(selected)
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Sound test").coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
 
     private fun logSetKey(key: Key): Action = move(key, logItems.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(logItems.getOrNull(selected))

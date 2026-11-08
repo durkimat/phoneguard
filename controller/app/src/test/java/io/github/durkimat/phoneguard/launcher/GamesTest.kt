@@ -175,9 +175,9 @@ class HomeBadgeTest {
         val m = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")))
         m.androidSettings = true
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1) // the menu's only entry: Settings
-        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Android settings", "Battery"), m.rows)
-        assertEquals(Action.Launch("com.android.settings"), m.onKey(Key.DIGIT, 5))
-        assertEquals(Screen.BATTERY, run { m.onKey(Key.DIGIT, 6); m.screen })
+        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Android settings", "Battery"), m.rows)
+        assertEquals(Action.Launch("com.android.settings"), m.onKey(Key.DIGIT, 6))
+        assertEquals(Screen.BATTERY, run { m.onKey(Key.DIGIT, 7); m.screen })
         val school = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings"))); school.onKey(Key.OK); school.onKey(Key.DIGIT, 1)
         assertTrue("Android settings" !in school.rows)
     }
