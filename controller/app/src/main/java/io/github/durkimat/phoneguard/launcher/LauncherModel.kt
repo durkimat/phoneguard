@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -191,6 +191,8 @@ class LauncherModel(
     /** The conversation being read, its message on show and how many it has: for the skin to draw. */
     val openConvo: Convo? get() = convo
     val shownMsg: Msg? get() = convo?.msgs?.getOrNull(selected)
+    /** The text of the message being read (for tests and the skin). */
+    fun convoText(): String = shownMsg?.body ?: ""
     private val messagesRows: List<String> get() =
         if (waEnabled) listOf("Inbox", "WhatsApp" + if (waLinked && waUnread > 0) " ($waUnread)" else "", "Write message") else listOf("Inbox", "Write message")
 
@@ -246,7 +248,7 @@ class LauncherModel(
         Screen.MESSAGES -> "Messages"
         Screen.INBOX -> "Inbox"
         Screen.WHATSAPP -> "WhatsApp"
-        Screen.THREAD -> convo?.name ?: "Messages"
+        Screen.THREAD, Screen.CHAT -> convo?.name ?: "Messages"
         Screen.WRITE -> "Write message"
         Screen.TYPING -> "Predictive text"
         Screen.SPEAKER -> "Speakerphone"
@@ -277,6 +279,7 @@ class LauncherModel(
         Screen.WHATSAPP -> (if (waLinked) "Open" else "Link") to "Back"
         Screen.WAPAIR -> (if (waLinked) "" else if (waCode != null) "New code" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
+        Screen.CHAT -> (if (selected == 0) "Reply" else "Read") to "Back"
         Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
         else -> "Select" to "Back"
     }
@@ -298,6 +301,8 @@ class LauncherModel(
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
         Screen.WHATSAPP -> if (!waLinked) listOf("Link account") else waConvos.map { (if (it.unread > 0) "* " else "") + it.name }
+        // the messages of the open chat, newest first, behind a "Reply" entry; each is a one-line preview
+        Screen.CHAT -> listOf("Reply") + (convo?.msgs ?: emptyList()).asReversed().map { (if (it.mine) "> " else "< ") + it.body.lineSequence().firstOrNull().orEmpty() }
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
 
@@ -308,7 +313,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -329,6 +334,7 @@ class LauncherModel(
         Screen.WAPAIR -> waPair(key, digit)
         Screen.WASET -> waSettings(key, digit)
         Screen.THREAD -> thread(key, digit)
+        Screen.CHAT -> chat(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
         Screen.TYPING -> typing(key, digit)
         Screen.SPEAKER -> speakerSetting(key, digit)
@@ -473,7 +479,7 @@ class LauncherModel(
     }
 
     private fun whatsapp(key: Key, digit: Int): Action = move(key, if (waLinked) waConvos.size else 1) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked) startPair(Screen.WHATSAPP) else waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.THREAD; selected = (it.msgs.size - 1).coerceAtLeast(0); scroll = 0; Action.WaRead(it.address) } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked) startPair(Screen.WHATSAPP) else waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MESSAGES; selected = 1; threadWa = false; Action.Redraw }
         Key.END -> { threadWa = false; goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -481,11 +487,30 @@ class LauncherModel(
     }
 
     private fun inbox(key: Key, digit: Int): Action = move(key, convos.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; screen = Screen.THREAD; selected = (it.msgs.size - 1).coerceAtLeast(0); scroll = 0; Action.Redraw } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.Redraw } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MESSAGES; selected = 0; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> convos.getOrNull(selected)?.let { Action.Call(it.address) } ?: Action.CallKey
         else -> Action.None
+    }
+
+    /** The open chat as a list: "Reply" first, then every kept message newest first; choosing one reads it in full. */
+    private fun chat(key: Key, digit: Int): Action {
+        val c = convo ?: run { goHome(); return Action.Redraw }
+        val rows = c.msgs.size + 1
+        return move(key, rows) ?: when (key) {
+            Key.OK, Key.LEFT, Key.SOFT_LEFT ->
+                if (selected == 0) startWrite(c.address, Screen.CHAT, label = c.name, wa = threadWa)
+                else { val idx = c.msgs.size - selected; screen = Screen.THREAD; selected = idx.coerceIn(0, c.msgs.size - 1); scroll = 0; Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> {
+                if (threadWa) { screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.address == c.address }.coerceAtLeast(0) }
+                else { screen = Screen.INBOX; selected = convos.indexOfFirst { it.address == c.address }.coerceAtLeast(0) }
+                Action.Redraw
+            }
+            Key.CALL -> Action.Call(c.address)
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
     }
 
     private fun thread(key: Key, digit: Int): Action {
@@ -504,11 +529,7 @@ class LauncherModel(
                 else -> Action.None
             }
             Key.OK, Key.LEFT, Key.SOFT_LEFT -> startWrite(c.address, Screen.THREAD, label = c.name, wa = threadWa)
-            Key.RIGHT, Key.SOFT_RIGHT -> {
-                if (threadWa) { screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.address == c.address }.coerceAtLeast(0) }
-                else { screen = Screen.INBOX; selected = convos.indexOfFirst { it.address == c.address }.coerceAtLeast(0) }
-                Action.Redraw
-            }
+            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CHAT; selected = (c.msgs.size - selected).coerceIn(0, c.msgs.size); Action.Redraw }
             Key.CALL -> Action.Call(c.address)
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
