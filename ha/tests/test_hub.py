@@ -318,3 +318,16 @@ def test_pinned_apps_are_tidied_and_reach_the_phone_config(hub):
     assert S.build_config(hub.data["children"]["her"], hub.now())["pinned"] == []
     hub.update_child("her", {"pinned": ["a.music", "", "a.maps", "a.music"]})
     assert S.build_config(hub.data["children"]["her"], hub.now())["pinned"] == ["a.music", "a.maps"]
+
+
+def test_weather_location_is_rounded_validated_and_sent_to_the_phone(hub):
+    assert "location" not in S.build_config(hub.data["children"]["her"], hub.now())
+    hub.update_child("her", {"location": {"lat": 51.75321, "lon": -0.33987}})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["location"] == {"lat": 51.753, "lon": -0.34}
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"location": {"lat": 120, "lon": 0}})
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"location": {"lat": "x"}})
+    assert hub.data["children"]["her"]["location"]["lat"] == 51.753
+    hub.update_child("her", {"location": None})
+    assert "location" not in S.build_config(hub.data["children"]["her"], hub.now())

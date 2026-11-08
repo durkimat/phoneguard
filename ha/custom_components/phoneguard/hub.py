@@ -37,7 +37,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location"}
         before = {k: ch.get(k) for k in allowed}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
@@ -49,6 +49,13 @@ class Hub:
                         if x and x not in seen:
                             seen.append(x)
                     v["allowed"] = seen
+            if k == "location" and v is not None:  # two numbers on the map, rounded so the phone never holds an exact address
+                try:
+                    v = {"lat": round(float(v["lat"]), 3), "lon": round(float(v["lon"]), 3)}
+                except (KeyError, TypeError, ValueError):
+                    raise ValueError("location needs a lat and a lon") from None
+                if not (-90 <= v["lat"] <= 90 and -180 <= v["lon"] <= 180):
+                    raise ValueError("location is out of range")
             if k == "pinned" and isinstance(v, list):  # keep the parent's order, no blanks or repeats
                 v = list(dict.fromkeys(x for x in v if isinstance(x, str) and x))
             if k in allowed:
@@ -323,6 +330,7 @@ class Hub:
             "restrictions": ch.get("restrictions"),
             "whatsapp": S.whatsapp_with_defaults(ch),
             "pinned": list(ch.get("pinned") or []),
+            "location": ch.get("location"),
         }
         pairing = next(((d, p) for d, p in self.data["pairing"].items() if p["child"] == cid), None)
         if pairing and pairing[1]["expires"] > now:

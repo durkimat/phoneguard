@@ -28,7 +28,7 @@ class LauncherActivity : Activity() {
         const val EXTRA_DIAL = "dial"
     }
 
-    private val skin: LauncherSkin = NokiaSkin()
+    private val skin = NokiaSkin().also { s -> s.onTap = { y -> if (y in 345f..440f) perform(model.openWeather()) } }
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
     private val tick = object : Runnable { override fun run() { refresh(); ui.postDelayed(this, 20_000) } }
@@ -144,6 +144,8 @@ class LauncherActivity : Activity() {
         ui.removeCallbacks(hideNotice)
         scheduleGame()
         if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
+        model.weather = WeatherStore.current(this)
+        WeatherStore.refreshIfDue(this) { runOnUiThread { refresh() } }
         val all = LauncherData.items(this)
         val pinned = Store.config(this)?.pinned ?: emptyList()
         model.apps = LauncherData.otherApps(all, pinned)
