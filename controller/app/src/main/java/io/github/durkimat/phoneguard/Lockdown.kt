@@ -32,7 +32,8 @@ object LockdownEnforcer {
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
-        HardKeys.menuKeyOverlay(c, allowed = ld.shade && !ld.kiosk && io.github.durkimat.phoneguard.incall.CallState.info == null)
+        // the Nokia screens use the left key as their own soft key in every mode, so it is only left to DumberOS where another home screen is in use
+        HardKeys.menuKeyOverlay(c, allowed = ld.launcher != "nokia" && ld.shade && !ld.kiosk && io.github.durkimat.phoneguard.incall.CallState.info == null)
         // the kiosk allows what the launcher menu shows, nothing else (Settings is visible but must stay out of reach)
         Kiosk.apply(c, ld.kiosk, LauncherData.items(c).map { it.pkg }.toSet())
     }

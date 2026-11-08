@@ -24,7 +24,7 @@ object Effects {
         val (bright, dark) = palette(e, lcd, ink)
         return when (e) {
             Effect.DOTS -> { val t = Dither.twoTone(cells, cols, true); IntArray(t.size) { if (t[it]) opaque(dark) else opaque(bright) } }
-            Effect.HALFTONE -> halftone(cells, cols, rows, bright, dark, if (fine) 9 else 5)
+            Effect.HALFTONE -> halftone(cells, cols, rows, bright, dark, if (fine) 8 else 4)
             Effect.POSTER -> poster(cells, bright, dark)
             Effect.OUTLINE -> outline(cells, cols, rows, bright, dark)
             Effect.SCAN -> scan(cells, cols, bright, dark, if (fine) 3 else 2)
@@ -32,21 +32,38 @@ object Effects {
         }
     }
 
-    /** A newspaper dot screen: each square of [period] cells holds one round dot, bigger where the picture is darker. */
+    /**
+     * A newspaper dot screen: round dots on a grid turned 45 degrees (as printers do, so the pattern does not stand out), each dot
+     * as big as the picture is dark at its centre. [period] is the distance between dot centres, in cells.
+     */
     fun halftone(cells: IntArray, cols: Int, rows: Int, bright: Int, dark: Int, period: Int): IntArray {
         val lv = Dither.levels(cells)
-        val bw = (cols + period - 1) / period; val bh = (rows + period - 1) / period
-        val mean = IntArray(bw * bh)
-        for (by in 0 until bh) for (bx in 0 until bw) {
+        val p = period.toFloat()
+        val k = 0.70710678f
+        // the dot centres: find the range of rotated grid cells the picture touches, then measure the picture at each centre
+        fun rx(x: Float, y: Float) = (x + y) * k
+        fun ry(x: Float, y: Float) = (y - x) * k
+        val xs = floatArrayOf(rx(0f, 0f), rx(cols.toFloat(), 0f), rx(0f, rows.toFloat()), rx(cols.toFloat(), rows.toFloat()))
+        val ys = floatArrayOf(ry(0f, 0f), ry(cols.toFloat(), 0f), ry(0f, rows.toFloat()), ry(cols.toFloat(), rows.toFloat()))
+        val cx0 = Math.floor((xs.min() / p).toDouble()).toInt() - 1; val cx1 = Math.ceil((xs.max() / p).toDouble()).toInt() + 1
+        val cy0 = Math.floor((ys.min() / p).toDouble()).toInt() - 1; val cy1 = Math.ceil((ys.max() / p).toDouble()).toInt() + 1
+        val nx = cx1 - cx0 + 1; val ny = cy1 - cy0 + 1
+        val dark01 = FloatArray(nx * ny)
+        val half = (p / 2).toInt().coerceAtLeast(1)
+        for (j in 0 until ny) for (i in 0 until nx) {
+            val xr = (cx0 + i + 0.5f) * p; val yr = (cy0 + j + 0.5f) * p
+            val x = ((xr - yr) * k).toInt(); val y = ((xr + yr) * k).toInt() // back to the picture
             var sum = 0; var n = 0
-            for (y in by * period until minOf(rows, (by + 1) * period)) for (x in bx * period until minOf(cols, (bx + 1) * period)) { sum += lv[y * cols + x]; n++ }
-            mean[by * bw + bx] = if (n > 0) sum / n else 255
+            for (yy in (y - half)..(y + half)) for (xx in (x - half)..(x + half)) if (xx in 0 until cols && yy in 0 until rows) { sum += lv[yy * cols + xx]; n++ }
+            dark01[j * nx + i] = if (n > 0) 1f - sum / (255f * n) else 0f
         }
-        return IntArray(cols * rows) { i ->
-            val x = i % cols; val y = i / cols
-            val d = 1f - mean[(y / period) * bw + (x / period)] / 255f
-            val r = period * 0.72f * sqrt(d) // area grows with darkness; the 0.72 lets the darkest dots touch
-            val dx = (x % period) + 0.5f - period / 2f; val dy = (y % period) + 0.5f - period / 2f
+        return IntArray(cols * rows) { idx ->
+            val x = (idx % cols) + 0.5f; val y = (idx / cols) + 0.5f
+            val xr = rx(x, y); val yr = ry(x, y)
+            val ci = Math.floor((xr / p).toDouble()).toInt(); val cj = Math.floor((yr / p).toDouble()).toInt()
+            val d = dark01[(cj - cy0).coerceIn(0, ny - 1) * nx + (ci - cx0).coerceIn(0, nx - 1)]
+            val r = p * 0.72f * sqrt(d) // the dot's area follows the darkness; 0.72 lets the darkest dots touch
+            val dx = xr - (ci + 0.5f) * p; val dy = yr - (cj + 0.5f) * p
             if (dx * dx + dy * dy <= r * r) opaque(dark) else opaque(bright)
         }
     }
