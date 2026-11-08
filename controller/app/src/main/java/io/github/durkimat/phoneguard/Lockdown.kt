@@ -29,6 +29,7 @@ object LockdownEnforcer {
         Pregrant.run(c, visible)
         HomeApp.apply(c, ld.launcher == "nokia")
         RotationLock.set(c, locked = ld.launcher == "nokia")
+        LocationLock.set(c, off = ld.launcher == "nokia")
         Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
@@ -46,6 +47,7 @@ object LockdownEnforcer {
         try { Dpm.dpm(c).clearPackagePersistentPreferredActivities(Dpm.admin(c), c.packageName) } catch (_: Exception) { }
         HomeApp.apply(c, false)
         RotationLock.set(c, false)
+        LocationLock.set(c, false)
     }
 }
 
@@ -118,6 +120,28 @@ object AssistPin {
 }
 
 /** Which Home app is the default. Set explicitly, because a second Home app makes Android ask every time. */
+/**
+ * The phone's location is switched off while the Nokia screens are in use: nothing there needs it (the weather is for a place
+ * chosen in HA), and Android's own services ask for it now and then, which pops a location icon into the status bar.
+ */
+object LocationLock {
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("locationlock", Context.MODE_PRIVATE)
+
+    fun set(c: Context, off: Boolean) {
+        try {
+            val lm = c.getSystemService(android.location.LocationManager::class.java)
+            val p = prefs(c)
+            if (off) {
+                if (!p.contains("was")) p.edit().putBoolean("was", lm.isLocationEnabled).apply()
+                if (lm.isLocationEnabled) Dpm.dpm(c).setLocationEnabled(Dpm.admin(c), false)
+            } else if (p.contains("was")) {
+                if (p.getBoolean("was", true) && !lm.isLocationEnabled) Dpm.dpm(c).setLocationEnabled(Dpm.admin(c), true)
+                p.edit().remove("was").apply()
+            }
+        } catch (e: Exception) { Log.log(c, "location lock: ${e.javaClass.simpleName} ${e.message}") }
+    }
+}
+
 /** A keypad phone has no sideways mode: keep the screen upright while the Nokia screens are in use, and put the setting back after. */
 object RotationLock {
     private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("rotation", Context.MODE_PRIVATE)

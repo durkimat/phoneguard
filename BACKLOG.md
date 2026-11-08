@@ -544,3 +544,8 @@ Questions to put to them together:
 - Rule: movement on the arrows and 2 4 6 8 (1 3 7 9 for diagonals where it matters), action on OK or 5, pause on the left key, Back on the right key, no letter keys. Crate letters (P, S, B, +) in Blaster are labels on the screen, not keys; the help page now says so in words.
 - Blaster: the gun now fires by itself, so one thumb can fly; hold OK or 5 and let go for the beam (a quick tap adds a shot); pod out/in on # or 0; pause on the left key or *; 1 3 7 9 fly diagonally; any direction key starts the game.
 - Snake, Pairs, Seeds unchanged (arrows or 2 4 6 8, OK or 5, Seeds 1 to 6 for the pits). Idea: crate symbols drawn as shapes instead of letters.
+
+## Home screen tidy (owner, 2026-11-08)
+- Weather strip centred (symbol and temperature as a group, rain note under it); missed calls and messages moved down to make room.
+- Location icon in the status bar: caused by Android's own "twilight" service asking for the network location now and then (it was left on automatic dark mode earlier). While the Nokia screens are in use the device-owner switch now turns location off (LocationLock, restored on release; Settings.Secure location_mode now 0). Nothing needs it: weather uses the place chosen in HA. Trade-off: no phone finding by location while the Nokia launcher is on. If wanted back, make it a per-mode setting.
+- Dark bar when swiping from the top: it is Android's status bar showing briefly where "Pull-down shade works" is on. Launcher now gives the system bar the theme's LCD colour (untested: swipe test needs the phone unlocked). The sure fix is to untick the shade for the mode in the card, which disables the bar completely (School already does).
