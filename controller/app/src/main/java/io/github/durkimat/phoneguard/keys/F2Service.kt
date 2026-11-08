@@ -9,6 +9,7 @@ import android.view.accessibility.AccessibilityEvent
 import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.camera.CameraActivity
 import io.github.durkimat.phoneguard.incall.CallState
+import io.github.durkimat.phoneguard.launcher.LauncherActivity
 import io.github.durkimat.phoneguard.launcher.LauncherData
 
 /**
@@ -26,7 +27,22 @@ class F2Service : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
     override fun onInterrupt() {}
 
+    /**
+     * The green key from another app: Android would send a "call button" intent that offers the stock dialler (and its "make
+     * default" nag). Open our dial pad instead. On our own screens, and while a call is ringing or live, the key is left alone.
+     */
+    private fun callKey(ev: KeyEvent): Boolean {
+        Log.log(this, "call key ${ev.action} info=${CallState.info != null} front=${LauncherActivity.inFront}")
+        if (CallState.info != null || LauncherActivity.inFront) return false
+        if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
+            try { startActivity(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP).putExtra(LauncherActivity.EXTRA_DIAL, "")) }
+            catch (e: Exception) { Log.log(this, "call key: ${e.javaClass.simpleName}") }
+        }
+        return true
+    }
+
     override fun onKeyEvent(ev: KeyEvent): Boolean {
+        if (ev.keyCode == KeyEvent.KEYCODE_CALL) return callKey(ev)
         if (ev.keyCode != KeyEvent.KEYCODE_F2) return false
         when (ev.action) {
             KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) {

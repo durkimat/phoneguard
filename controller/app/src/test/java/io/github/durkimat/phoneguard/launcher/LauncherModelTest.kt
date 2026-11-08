@@ -38,7 +38,7 @@ class LauncherModelTest {
         m.onKey(Key.END); assertEquals(Screen.HOME, m.screen)
         m.onKey(Key.STAR); assertEquals("*", m.dialNumber); m.onKey(Key.END)
         m.onKey(Key.POUND); assertEquals("#", m.dialNumber); m.onKey(Key.END)
-        m.onKey(Key.CALL); assertEquals(Screen.PHONEMENU, m.screen); assertEquals(listOf("Recent calls", "Contacts", "Dial a number"), m.rows)
+        m.onKey(Key.CALL); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber); assertEquals("Contacts" to "Recent", m.softKeys)
         m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 
@@ -340,17 +340,16 @@ class LauncherModelTest {
         assertEquals(Screen.CALLLOG, m.screen); assertEquals(listOf("< Mum", "> Dad", "! 0999"), m.rows)
         assertEquals(Action.Call("0222"), m.onKey(Key.CALL)) // green key again rings the highlighted one
         m.onKey(Key.DOWN); assertEquals(Action.Call("0111"), m.onKey(Key.SOFT_LEFT))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.PHONEMENU, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen); m.onKey(Key.END); assertEquals(Screen.HOME, m.screen)
     }
 
-    @Test fun theGreenKeyOpensTheCallingMenuWithRecentCallsContactsAndDial() {
+    @Test fun theGreenKeyOpensTheDialPadWithContactsLeftAndRecentRight() {
         val m = withTools(); m.onKey(Key.CALL)
-        assertEquals(Screen.PHONEMENU, m.screen)
-        m.onKey(Key.DIGIT, 2); assertEquals(Screen.CONTACTS, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.PHONEMENU, m.screen); assertEquals(1, m.selected)
-        m.onKey(Key.DIGIT, 1); assertEquals(Screen.CALLLOG, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.PHONEMENU, m.screen)
-        m.onKey(Key.DIGIT, 7); assertEquals(Screen.DIAL, m.screen); assertEquals("7", m.dialNumber) // a digit not used by a row starts dialling
+        assertEquals(Screen.DIAL, m.screen); assertEquals("Contacts" to "Recent", m.softKeys)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CONTACTS, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CALLLOG, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen)
+        m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber); assertEquals("Call" to "Clear", m.softKeys)
     }
-
     @Test fun callLogFromTheMenuReturnsToTheMenu() {
         val m = withTools(); m.onKey(Key.OK); m.onKey(Key.OK)
         assertEquals(Screen.CALLLOG, m.screen); m.onKey(Key.RIGHT); assertEquals(Screen.MENU, m.screen)
@@ -377,13 +376,13 @@ class LauncherModelTest {
         assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.CALL))
         assertEquals(Action.PlaceCall("07700900222"), m.onKey(Key.SOFT_LEFT))
         m.onKey(Key.SOFT_RIGHT); assertEquals("0770090022", m.dialNumber)
-        repeat(10) { m.onKey(Key.SOFT_RIGHT) }; assertEquals(Screen.HOME, m.screen) // clearing the last digit goes home
+        repeat(10) { m.onKey(Key.SOFT_RIGHT) }; assertEquals("", m.dialNumber); assertEquals(Screen.DIAL, m.screen) // clearing the last digit stays on the pad
     }
 
     @Test fun starTwiceMakesAPlusAndTheGreenKeyOnAnEmptyNumberShowsRecentCalls() {
         val m = LauncherModel(emptyList()); m.onKey(Key.STAR); m.onKey(Key.STAR); assertEquals("+", m.dialNumber)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
-        m.onKey(Key.CALL); m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals("", m.dialNumber); assertEquals(Screen.DIAL, m.screen)
+        m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 
     // ---- Call screens
@@ -594,8 +593,7 @@ class LauncherModelTest {
     @Test fun thePhoneEntryOpensOurDialScreenNotTheStockDialler() {
         val m = LauncherModel(listOf(MenuItem("com.android.dialer", "Phone"), MenuItem("p.camera", "Camera")), "com.android.contacts", "com.android.messaging")
         m.onKey(Key.OK)
-        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.PHONEMENU, m.screen) // the Phone entry opens the calling menu
-        m.onKey(Key.DIGIT, 3); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber) // its third row is the dial pad
+        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber) // the Phone entry opens the dial pad
         m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber)
         // the camera still launches normally
         val c = LauncherModel(listOf(MenuItem("p.camera", "Camera")), "com.android.contacts", "com.android.messaging"); c.onKey(Key.OK)

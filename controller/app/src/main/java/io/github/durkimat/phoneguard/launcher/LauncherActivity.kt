@@ -27,6 +27,7 @@ class LauncherActivity : Activity() {
     companion object {
         @Volatile private var words: WordList? = null
         const val EXTRA_DIAL = "dial"
+        @Volatile var inFront = false
     }
 
     private val skin = NokiaSkin().also { s -> s.onTap = { x, y -> perform(model.tap(x, y)) } }
@@ -80,6 +81,7 @@ class LauncherActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        inFront = true
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { model.goHome(); cameBack = false }
         refresh()
@@ -93,6 +95,7 @@ class LauncherActivity : Activity() {
     }
 
     override fun onPause() {
+        inFront = false
         ui.removeCallbacks(tick)
         try { unregisterReceiver(changes) } catch (_: Exception) { }
         super.onPause()
