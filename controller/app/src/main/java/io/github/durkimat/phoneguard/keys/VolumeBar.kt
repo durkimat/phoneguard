@@ -38,6 +38,8 @@ class VolumeBar(private val svc: AccessibilityService) {
     }
 
     fun press(up: Boolean) {
+        // the Music screen is open and the music is on another Spotify device (the Echo): the keys change that device
+        io.github.durkimat.phoneguard.launcher.LauncherActivity.remoteVolume?.invoke(up)?.let { (pct, name) -> show(pct, 100, name, false); return }
         val (s, label) = stream()
         try {
             am.adjustStreamVolume(s, if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_ALLOW_RINGER_MODES)
@@ -47,7 +49,10 @@ class VolumeBar(private val svc: AccessibilityService) {
 
     private fun show(stream: Int, label: String) {
         val cur = am.getStreamVolume(stream); val max = am.getStreamMaxVolume(stream).coerceAtLeast(1)
-        val silent = stream == AudioManager.STREAM_RING && am.ringerMode != AudioManager.RINGER_MODE_NORMAL
+        show(cur, max, label, stream == AudioManager.STREAM_RING && am.ringerMode != AudioManager.RINGER_MODE_NORMAL)
+    }
+
+    private fun show(cur: Int, max: Int, label: String, silent: Boolean) {
         val v = view ?: Bar(svc).also { b ->
             val scale = svc.resources.displayMetrics.widthPixels / 480f
             val lp = WindowManager.LayoutParams((330 * scale).roundToInt(), (64 * scale).roundToInt(), WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,

@@ -271,9 +271,9 @@ class NokiaSkin : LauncherSkin {
                 text(c, if (m.musicApp) "OK opens Spotify" else "Install a music app", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
             } else {
                 if (mu.device.isNotEmpty()) text(c, ellipsize("on " + mu.device + if (mu.thisPhone) " (here)" else "", 440f, 22f), 20f, 128f, 22f, u)
-                text(c, ellipsize(mu.title.ifEmpty { "(no title)" }, 440f, 34f), 20f, 166f, 34f, u, bold = true)
-                text(c, ellipsize(mu.artist, 440f, 28f), 20f, 206f, 28f, u)
-                if (mu.album.isNotEmpty()) text(c, ellipsize(mu.album, 440f, 24f), 20f, 242f, 24f, u)
+                marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 166f, 34f, 440f, u, bold = true)
+                marquee(c, mu.artist, 20f, 206f, 28f, 440f, u)
+                if (mu.album.isNotEmpty()) marquee(c, mu.album, 20f, 242f, 24f, 440f, u)
                 // progress
                 stroke.strokeWidth = 3 * u
                 c.drawRect(20 * u, 290 * u, 460 * u, 310 * u, stroke)
@@ -284,15 +284,34 @@ class NokiaSkin : LauncherSkin {
                 if (mu.playing) { c.drawRect(222 * u, 366 * u, 234 * u, 402 * u, fill); c.drawRect(246 * u, 366 * u, 258 * u, 402 * u, fill) }
                 else { val t = android.graphics.Path().apply { moveTo(224f * u, 364f * u); lineTo(260f * u, 384f * u); lineTo(224f * u, 404f * u); close() }; c.drawPath(t, fill) }
                 text(c, "4 prev", 20f, 392f, 24f, u); text(c, "6 next", 460f, 392f, 24f, u, align = Paint.Align.RIGHT)
-                if (m.spSignedIn) text(c, "0 play on   * shuffle" + (if (mu.shuffle) " on" else ""), 240f, 548f, 22f, u, align = Paint.Align.CENTER)
+                if (m.spSignedIn) {
+                    text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 520f, 22f, u, align = Paint.Align.CENTER)
+                    text(c, "0 play on" + (if (m.sleepLabel.isNotEmpty()) "   sleep in " + m.sleepLabel else ""), 240f, 548f, 22f, u, align = Paint.Align.CENTER)
+                }
             }
             // the volume
             text(c, "Volume", 20f, 470f, 24f, u)
             stroke.strokeWidth = 3 * u
             c.drawRect(130 * u, 450 * u, 460 * u, 474 * u, stroke)
             c.drawRect(134 * u, 454 * u, (134 + 322f * mu.volumePct / 100f) * u, 470 * u, fill)
-            text(c, "Up/Down or 2/8", 240f, 520f, 22f, u, align = Paint.Align.CENTER)
+            if (!(mu.active && m.spSignedIn)) text(c, "Up/Down or 2/8", 240f, 520f, 22f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** A line that fits is drawn plainly; a longer one pauses, scrolls to its end, pauses and starts again. */
+        private fun marquee(c: Canvas, s: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean = false) {
+            val w = measureBold(s, size)
+            if (w <= room) { text(c, s, x, y, size, u, bold = bold); return }
+            val travel = w - room + 16f
+            val speed = 50f // pixels a second
+            val lead = 1500L; val tail = 1000L
+            val cycle = lead + (travel / speed * 1000).toLong() + tail
+            val t = System.currentTimeMillis() % cycle
+            val off = if (t < lead) 0f else minOf(travel, (t - lead) / 1000f * speed)
+            c.save(); c.clipRect(x * u, (y - size * 1.1f) * u, (x + room) * u, (y + size * 0.4f) * u)
+            text(c, s, x - off, y, size, u, bold = bold)
+            c.restore()
+            postInvalidateDelayed(90)
         }
 
         private fun noteScreen(c: Canvas, m: LauncherModel, u: Float) {

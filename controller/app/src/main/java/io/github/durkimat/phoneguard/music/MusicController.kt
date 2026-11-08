@@ -14,7 +14,7 @@ data class MusicInfo(
     val active: Boolean, val app: String, val title: String, val artist: String, val album: String,
     val playing: Boolean, val positionMs: Long, val durationMs: Long, val volumePct: Int,
     /** Where it is playing (Spotify account players only), and whether that is this phone. */
-    val device: String = "", val thisPhone: Boolean = true, val shuffle: Boolean = false,
+    val device: String = "", val thisPhone: Boolean = true, val shuffle: Boolean = false, val repeat: String = "off",
 ) {
     companion object {
         val NONE = MusicInfo(false, "", "", "", "", false, 0, 0, 0)

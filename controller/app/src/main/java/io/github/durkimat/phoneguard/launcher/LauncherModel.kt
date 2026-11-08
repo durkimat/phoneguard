@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, PHONEMENU, SOUNDTEST }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -125,6 +125,9 @@ sealed class Action {
     data class SpPlay(val uri: String) : Action()
     data class SpTransfer(val id: String, val name: String) : Action()
     object SpShuffle : Action()
+    object SpRepeat : Action()
+    /** Step the sleep timer: off, 15, 30, 60 minutes. */
+    object SleepStep : Action()
     /** Play a test tone: 0 loudspeaker, 1 call speaker, 2 earpiece. */
     data class SoundTest(val route: Int) : Action()
     /** Open the app a notification came from, and clear it. */
@@ -329,7 +332,6 @@ class LauncherModel(
         Screen.BATTERY -> "Battery"
         Screen.MUSIC -> "Now playing"
         Screen.LOGSET -> "Logs & Settings"
-        Screen.PHONEMENU -> "Phone"
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> "Playlists"
@@ -347,7 +349,7 @@ class LauncherModel(
 
     /** The two labels under the screen, which the two keys beneath it and D-pad Left/Right carry out. */
     val softKeys: Pair<String, String> get() = when (screen) {
-        Screen.HOME -> "Menu" to "Contacts"
+        Screen.HOME -> "Menu" to (if (items.any { it.pkg == MUSIC_PKG }) "Music" else "Contacts")
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> (if (callsFrom == Screen.DIAL) "Contacts" else "Call") to "Back"
         Screen.CONTACTS -> (if (contactsFrom == Screen.DIAL && !picking) "Dial" else "Select") to "Back"
@@ -358,7 +360,7 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.PHONEMENU -> "Select" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
@@ -388,7 +390,6 @@ class LauncherModel(
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.MUSICMENU -> musicMenuRows
         Screen.LOGSET -> logItems.map { it.label }
-        Screen.PHONEMENU -> listOf("Recent calls", "Contacts", "Dial a number")
         Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
         Screen.SEARCHRES -> spResults.map { it.label }
@@ -424,7 +425,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.PHONEMENU, Screen.SOUNDTEST)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -442,7 +443,6 @@ class LauncherModel(
         Screen.MUSIC -> musicKey(key, digit)
         Screen.MUSICMENU -> musicMenuKey(key)
         Screen.LOGSET -> logSetKey(key)
-        Screen.PHONEMENU -> phoneMenuKey(key, digit)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
         Screen.NOTES -> notesKey(key)
@@ -535,7 +535,7 @@ class LauncherModel(
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
         Key.LEFT, Key.SOFT_LEFT -> if (callsFrom == Screen.DIAL) openContacts(Screen.DIAL) else calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
         Key.OK, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.DIAL) exitDialler() else if (callsFrom == Screen.PHONEMENU) { screen = Screen.PHONEMENU; selected = 0 } else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.DIAL) exitDialler() else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -834,7 +834,6 @@ class LauncherModel(
             when {
                 picking -> { picking = false; screen = Screen.WRITE }
                 contactsFrom == Screen.DIAL -> exitDialler()
-                contactsFrom == Screen.PHONEMENU -> { screen = Screen.PHONEMENU; selected = 1 }
                 contactsFrom == Screen.MENU -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) }
                 else -> goHome()
             }
@@ -875,7 +874,7 @@ class LauncherModel(
         item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
-        item.pkg == MUSIC_PKG -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+        item.pkg == MUSIC_PKG -> { musicFromHome = false; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
         item.pkg == NOTES_PKG -> { notesFrom = if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
@@ -924,7 +923,7 @@ class LauncherModel(
     // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME)
+        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { musicFromHome = true; screen = Screen.MUSICMENU; selected = 0; Action.Redraw } else openContacts(Screen.HOME)
         Key.CALL -> openPhoneMenu(Screen.HOME)
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialFrom = Screen.HOME; screen = Screen.DIAL; Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
@@ -947,7 +946,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.PHONEMENU, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -1015,12 +1014,14 @@ class LauncherModel(
     var logItems: List<MenuItem> = emptyList()
     private var settingsFrom = Screen.MENU
     /** Where the Phone menu was opened from (Back returns there) and where the dial screen was opened from. */
-    private var phoneFrom = Screen.HOME
     private var dialFrom = Screen.HOME
+    private var musicFromHome = false
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
     var spSignedIn = false
+    /** What is left of the sleep timer ("20 min"), or empty when it is off; set by the activity. */
+    var sleepLabel = ""
     /** False until HA has sent a Spotify Client ID. */
     var spConfigured = true
     var spPlaylists: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
@@ -1071,29 +1072,17 @@ class LauncherModel(
             key == Key.SOFT_RIGHT -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
             d == 0 && spSignedIn -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
             key == Key.STAR && spSignedIn -> Action.SpShuffle
+            key == Key.POUND && spSignedIn -> Action.SpRepeat
             key == Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
     }
 
-    private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
+    private val musicMenuRows: List<String> get() = listOf("Now playing", "Sleep timer: " + sleepLabel.ifEmpty { "off" }) + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
 
-    /** The calling menu: the green key at the home screen and the Phone entry in the menu both open it. */
-    // the Phone entry and the green key open the dial pad: type a number, left key = contacts, right key = recent calls
-    private fun openPhoneMenu(from: Screen): Action { phoneFrom = from; dialNumber = ""; dialFrom = from; screen = Screen.DIAL; return Action.Redraw }
+    // the Phone entry and the green key open the dial pad (see the dialler notes in the backlog)
+    private fun openPhoneMenu(from: Screen): Action { dialNumber = ""; dialFrom = from; screen = Screen.DIAL; return Action.Redraw }
 
-    private fun phoneMenuKey(key: Key, digit: Int): Action = move(key, 3) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
-            0 -> openCallLog(Screen.PHONEMENU)
-            1 -> openContacts(Screen.PHONEMENU)
-            else -> { dialNumber = ""; dialFrom = Screen.PHONEMENU; screen = Screen.DIAL; Action.Redraw }
-        }
-        Key.CALL -> openCallLog(Screen.PHONEMENU) // the green key twice: straight to the recent calls
-        Key.DIGIT -> { dialNumber = digit.toString(); dialFrom = Screen.PHONEMENU; screen = Screen.DIAL; Action.Redraw } // 4 to 9 and 0 start dialling (1 to 3 choose a row)
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (phoneFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == dialerApp }.coerceAtLeast(0) } else goHome(); Action.Redraw }
-        Key.END -> { goHome(); Action.Redraw }
-        else -> Action.None
-    }
 
     private fun soundTestKey(key: Key): Action = move(key, io.github.durkimat.phoneguard.SoundTest.routes.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> Action.SoundTest(selected)
@@ -1112,6 +1101,7 @@ class LauncherModel(
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (musicMenuRows.getOrNull(selected)) {
             "Now playing" -> { screen = Screen.MUSIC; Action.Redraw }
+            "Sleep timer: ${sleepLabel.ifEmpty { "off" }}" -> Action.SleepStep
             "Playlists" -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }
             "Search" -> startSearch()
             "Play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
@@ -1119,8 +1109,8 @@ class LauncherModel(
             "Sign in to Spotify" -> Action.SpSignIn
             else -> Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0); Action.Redraw }
-        Key.END -> { goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (musicFromHome) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0) }; musicFromHome = false; Action.Redraw }
+        Key.END -> { musicFromHome = false; goHome(); Action.Redraw }
         else -> Action.None
     }
 
