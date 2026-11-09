@@ -2,12 +2,14 @@ package wabridge
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
+	"go.mau.fi/whatsmeow/proto/waSyncAction"
 	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/store"
 
@@ -29,6 +31,10 @@ func (r *rec) OnMessage(m *Message) {
 
 func (r *rec) OnCall(chat, chatName string, ts int64, rejected bool) {
 	r.msgs = append(r.msgs, "call:"+chat)
+}
+
+func (r *rec) OnRead(chat string, ts int64) {
+	r.msgs = append(r.msgs, fmt.Sprintf("read:%s@%d", chat, ts))
 }
 
 func bridge() (*Bridge, *rec) {
@@ -245,6 +251,7 @@ type senderRec struct{ out *string }
 func (s *senderRec) OnStatus(string)                                       {}
 func (s *senderRec) OnPairCode(string)                                     {}
 func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
+func (s *senderRec) OnRead(chat string, ts int64)                          {}
 func (s *senderRec) OnMessage(m *Message) {
 	*s.out = m.Sender
 }
@@ -308,6 +315,7 @@ type fullRec struct{ got []*Message }
 func (f *fullRec) OnStatus(string)                                       {}
 func (f *fullRec) OnPairCode(string)                                     {}
 func (f *fullRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
+func (f *fullRec) OnRead(chat string, ts int64)                          {}
 func (f *fullRec) OnMessage(m *Message)                                  { f.got = append(f.got, m) }
 
 func TestMessagesCarryTheirIdAndTheSendersNumber(t *testing.T) {
@@ -342,5 +350,29 @@ func TestNameForTriesBothAddressesAndGivesNothingWhenUnknown(t *testing.T) {
 	}
 	if b.NameFor("447700900999") != "" || b.NameFor("") != "" {
 		t.Error("an unknown number should give no name")
+	}
+}
+
+func TestReadOnAnotherDeviceClearsTheChat(t *testing.T) {
+	b, r := bridge()
+	at := time.Unix(1_700_000_000, 0)
+	// the main phone marks a one-to-one chat read
+	b.onEvent(&events.MarkChatAsRead{JID: types.NewJID("447700900111", types.DefaultUserServer), Timestamp: at, Action: &waSyncAction.MarkChatAsReadAction{Read: proto.Bool(true)}})
+	// ... and a group chat
+	b.onEvent(&events.MarkChatAsRead{JID: types.NewJID("12345", types.GroupServer), Timestamp: at, Action: &waSyncAction.MarkChatAsReadAction{Read: proto.Bool(true)}})
+	// marking unread does nothing
+	b.onEvent(&events.MarkChatAsRead{JID: types.NewJID("447700900111", types.DefaultUserServer), Timestamp: at, Action: &waSyncAction.MarkChatAsReadAction{Read: proto.Bool(false)}})
+	// our own read notice from another device, and a read receipt that is not from us (someone reading what we sent)
+	b.onEvent(&events.Receipt{MessageSource: types.MessageSource{Chat: types.NewJID("447700900222", types.DefaultUserServer), IsFromMe: false}, Timestamp: at, Type: types.ReceiptTypeReadSelf})
+	b.onEvent(&events.Receipt{MessageSource: types.MessageSource{Chat: types.NewJID("447700900333", types.DefaultUserServer), IsFromMe: false}, Timestamp: at, Type: types.ReceiptTypeRead})
+	b.onEvent(&events.Receipt{MessageSource: types.MessageSource{Chat: types.NewJID("447700900444", types.DefaultUserServer), IsFromMe: true}, Timestamp: at, Type: types.ReceiptTypeRead})
+	want := []string{"read:447700900111@1700000000", "read:g12345@1700000000", "read:447700900222@1700000000", "read:447700900444@1700000000"}
+	if len(r.msgs) != len(want) {
+		t.Fatalf("got %v, want %v", r.msgs, want)
+	}
+	for i := range want {
+		if r.msgs[i] != want[i] {
+			t.Fatalf("got %v, want %v", r.msgs, want)
+		}
 	}
 }

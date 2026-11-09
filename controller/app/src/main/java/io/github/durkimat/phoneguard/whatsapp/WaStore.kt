@@ -101,6 +101,13 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         return out
     }
 
+    /** Messages in the chat up to [ts] (unix seconds) were read elsewhere: clear their unread marks. True when something changed. */
+    @Synchronized fun markReadUpTo(chat: String, ts: Long): Boolean {
+        val db = writableDatabase
+        db.execSQL("UPDATE msg SET unread=0 WHERE chat=? AND unread=1 AND ts<=?", arrayOf(chat, ts))
+        return db.rawQuery("SELECT changes()", null).use { it.moveToFirst() && it.getInt(0) > 0 }
+    }
+
     @Synchronized fun markRead(chat: String) { writableDatabase.execSQL("UPDATE msg SET unread=0 WHERE chat=?", arrayOf(chat)) }
 
     @Synchronized fun unreadTotal(): Int = readableDatabase.rawQuery("SELECT COALESCE(SUM(unread),0) FROM msg", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
