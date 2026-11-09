@@ -1,8 +1,8 @@
-/* Phone Guard card v0.21.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.22.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.21.0";
+const PG_VERSION = "0.22.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -441,12 +441,26 @@ class PhoneGuardCard extends HTMLElement {
     const addable = d.apps.filter((a) => !keep.includes(a.pkg));
     let h = `<h3>Power and memory</h3><div class="sub" style="margin-bottom:8px">Apps nobody has used for a while are closed automatically, to save battery and memory. Android starts one again when something needs it.</div>
       <div class="scroll"><table class="mx"><tr><th class="name"></th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}</tr>
-      <tr class="opt"><td class="name">Close unused apps after</td>${ids.map((m) => `<td><select data-mode-opt="idle_min" data-mode="${m}">${[[0, "Never"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].idle_min ?? 10) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr></table></div>
+      <tr class="opt"><td class="name">Close unused apps after</td>${ids.map((m) => `<td><select data-mode-opt="idle_min" data-mode="${m}">${[[0, "Never"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].idle_min ?? 10) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
+      <tr class="opt"><td class="name">Close apps when the screen is off for</td>${ids.map((m) => `<td><select data-mode-opt="screen_off_min" data-mode="${m}">${[[0, "Never"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].screen_off_min ?? 5) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr></table></div>
       <div class="sub" style="margin:12px 0 6px"><b>Protected apps</b>: never closed, because they must keep running in the background.</div>
       <div class="chips">${keep.length ? keep.map((p) => `<span class="pchip">${this._esc(label(p))}<button data-act="keep_del" data-pkg="${this._esc(p)}" title="Remove from the protected list">✕</button></span>`).join("") : `<span class="sub">None</span>`}</div>
       <div class="row" style="margin-top:8px"><select data-keep-add ${addable.length ? "" : "disabled"}><option value="">Add an app…</option>${addable.map((a) => `<option value="${this._esc(a.pkg)}">${this._esc(a.label)}</option>`).join("")}</select>
       <button data-act="keep_add" ${addable.length ? "" : "disabled"}>Add</button></div>
+      ${this._reapedHtml(d)}
       <div class="sub" style="margin-top:8px">Always protected without being listed: the phone, messages, contacts, settings, an app playing music, and an app with an ongoing notification such as a download or navigation. The phone's Logs &amp; Settings menu has a Running Apps screen to close one by hand.</div>`;
+    return h;
+  }
+
+  // what the power saver has done in the last day, and the report-only switch
+  _reapedHtml(d) {
+    const r = d.reaped || { closed: 0, would: 0, by_reason: {}, top: [], latest: [] };
+    const dry = !!d.idle_dry_run;
+    const why = Object.entries(r.by_reason || {}).map(([k, v]) => `${v} ${k}`).join(", ");
+    const n = dry ? r.would : r.closed;
+    let h = `<div class="sub" style="margin:12px 0 4px"><b>Last 24 hours</b>: ${n ? `${dry ? "would have closed" : "closed"} ${n} app${n === 1 ? "" : "s"}${why ? " (" + this._esc(why) + ")" : ""}${r.top.length ? ": " + r.top.map(([nm, c]) => this._esc(nm) + (c > 1 ? " ×" + c : "")).join(", ") : ""}` : "nothing closed yet"}</div>`;
+    if (r.latest && r.latest.length) h += `<details style="margin:4px 0"><summary class="sub" style="cursor:pointer">Recent</summary><div class="sub">${r.latest.map(([t, nm, why2, would]) => `${this._fmtTime(t)} ${this._esc(nm)} · ${this._esc(why2)}${would ? " (report only)" : ""}`).join("<br>")}</div></details>`;
+    h += `<label class="sub" style="display:block;margin-top:6px"><input type="checkbox" data-dry ${dry ? "checked" : ""}> Report only: show what would be closed, but close nothing</label>`;
     return h;
   }
 
@@ -739,6 +753,7 @@ class PhoneGuardCard extends HTMLElement {
       this._ui.sec[el.dataset.sec] = el.open;
       try { localStorage.setItem("phoneguard-card:sections", JSON.stringify(this._ui.sec)); } catch (e) { /* private window */ }
     }));
+    r.querySelectorAll("input[data-dry]").forEach((i) => i.addEventListener("change", () => this._svc("set_child", { config: { idle_dry_run: i.checked } })));
     r.querySelectorAll("input[data-all]").forEach((i) => {
       const d = this._d, m = i.dataset.all, apps = d.apps || [];
       const n = apps.filter((a) => (d.modes[m].allow || []).includes(a.pkg)).length;
@@ -768,6 +783,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "notes") modes[mode].notes = i.value;
     if (opt === "loc_every") modes[mode].loc_every = parseInt(i.value, 10);
     if (opt === "idle_min") modes[mode].idle_min = parseInt(i.value, 10);
+    if (opt === "screen_off_min") modes[mode].screen_off_min = parseInt(i.value, 10);
     if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound" || opt === "camera") modes[mode][opt] = i.checked;
     if (opt === "auto_new") modes[mode].auto_new = i.checked;
     return this._svc("set_child", { config: { modes } });

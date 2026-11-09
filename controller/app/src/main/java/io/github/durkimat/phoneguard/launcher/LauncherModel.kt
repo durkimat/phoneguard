@@ -122,7 +122,6 @@ sealed class Action {
     object MusicNext : Action()
     object MusicPrevious : Action()
     data class MusicVolume(val up: Boolean) : Action()
-    object MusicOpenApp : Action()
     object SpSignIn : Action()
     object SpSignOut : Action()
     data class SpLoad(val kind: String) : Action()
@@ -371,7 +370,7 @@ class LauncherModel(
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
-        Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
+        Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else if (spSignedIn) "Playlists" else "") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
         Screen.DIAL -> "Calls" to (if (dialNumber.isEmpty()) "Back" else "Clear")
@@ -1076,7 +1075,7 @@ class LauncherModel(
     private fun musicKey(key: Key, digit: Int): Action {
         val d = if (key == Key.DIGIT) digit else -1
         return when {
-            key == Key.OK || key == Key.SOFT_LEFT || d == 5 -> if (music.active) Action.MusicPlayPause else if (musicApp) Action.MusicOpenApp else Action.None
+            key == Key.OK || key == Key.SOFT_LEFT || d == 5 -> if (music.active) Action.MusicPlayPause else if (spSignedIn) { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") } else Action.None
             key == Key.RIGHT || d == 6 -> if (music.active) Action.MusicNext else Action.None
             key == Key.LEFT || d == 4 -> if (music.active) Action.MusicPrevious else Action.None
             key == Key.UP || d == 2 -> Action.MusicVolume(true)

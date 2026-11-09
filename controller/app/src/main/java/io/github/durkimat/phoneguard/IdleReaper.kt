@@ -30,16 +30,47 @@ object IdleReaper {
         idleMin > 0 && nowMs - maxOf(lastUsedMs, lastPlayedMs) >= idleMin * 60_000L
 
     /** Stop an app now: hide it for a moment (Android ends all its processes) and show it again. Returns whether Android accepted it. */
-    fun stop(c: Context, pkg: String): Boolean = try {
+    fun stop(c: Context, pkg: String, reason: String = "by hand"): Boolean = try {
         val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
         if (dpm.isApplicationHidden(admin, pkg)) false // hidden by a mode: nothing of it runs anyway
         else {
             val ok = dpm.setApplicationHidden(admin, pkg, true)
             try { Thread.sleep(600) } finally { dpm.setApplicationHidden(admin, pkg, false) }
-            if (ok) prefs(c).edit().putLong("stopped_$pkg", System.currentTimeMillis()).apply()
+            if (ok) { prefs(c).edit().putLong("stopped_$pkg", System.currentTimeMillis()).apply(); record(c, pkg, reason, false) }
             ok
         }
     } catch (e: Exception) { Log.log(c, "idle stop $pkg: ${e.javaClass.simpleName}"); false }
+
+    // ---- what the saver did, kept for the parent: [time ms, package, app name, reason, "would" (1 when nothing was closed)]
+
+    private fun ledgerFile(c: Context) = java.io.File(c.createDeviceProtectedStorageContext().filesDir, "reaped.log")
+
+    @Synchronized
+    private fun record(c: Context, pkg: String, reason: String, dry: Boolean) {
+        try {
+            val name = try { c.packageManager.getApplicationLabel(c.packageManager.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { pkg }
+            val f = ledgerFile(c)
+            val keepFrom = System.currentTimeMillis() - 3L * 24 * 3600 * 1000
+            val lines = (if (f.exists()) f.readLines() else emptyList()).filter { it.substringBefore(',').removePrefix("[").toLongOrNull()?.let { t -> t > keepFrom } ?: false }.takeLast(300)
+            f.writeText((lines + org.json.JSONArray().put(System.currentTimeMillis()).put(pkg).put(name).put(reason).put(if (dry) 1 else 0).toString()).joinToString("\n") + "\n")
+        } catch (_: Exception) { }
+    }
+
+    /** Entries not yet sent to HA (kept until HA has them). */
+    @Synchronized
+    fun pending(c: Context): org.json.JSONArray {
+        val out = org.json.JSONArray()
+        try {
+            val p = prefs(c); val since = p.getLong("uploaded", 0); var last = since
+            ledgerFile(c).takeIf { it.exists() }?.forEachLine { l ->
+                try { val a = org.json.JSONArray(l); val t = a.getLong(0); if (t > since && out.length() < 200) { out.put(a); last = t } } catch (_: Exception) { }
+            }
+            p.edit().putLong("inflight", last).apply()
+        } catch (_: Exception) { }
+        return out
+    }
+
+    fun commit(c: Context) { val p = prefs(c); p.edit().putLong("uploaded", p.getLong("inflight", p.getLong("uploaded", 0))).apply() }
 
     /**
      * Apps that look to be running in the background (Android does not let an app list other apps' processes, so this is worked out
@@ -68,19 +99,27 @@ object IdleReaper {
         }.sortedWith(compareBy({ it.second }, { -it.third })).map { it.first }
     } catch (e: Exception) { Log.log(c, "running apps: ${e.javaClass.simpleName}"); emptyList() }
 
-    fun run(c: Context) {
+    /** The periodic check: stop apps nobody has used for the mode's idle time. */
+    fun run(c: Context) = reap(c, "idle")
+
+    /** The screen has been off for the mode's time: stop everything that is not protected, kept, playing or busy. */
+    fun sweep(c: Context) = reap(c, "screen off")
+
+    private fun reap(c: Context, reason: String) {
         try {
             if (!Dpm.isOwner(c) || !Usage.allowed(c)) return
             val cfg = Store.config(c)
             val eff = Engine.effective(cfg, Store.boost(c), Clock.now())
-            val min = Engine.modeDef(cfg, eff.modeId).idleMin
-            if (min <= 0) return
+            val mode = Engine.modeDef(cfg, eff.modeId)
+            val minutes = if (reason == "idle") mode.idleMin else mode.screenOffMin
+            if (minutes <= 0) return
             val now = System.currentTimeMillis()
             val p = prefs(c)
             val stats = c.getSystemService(UsageStatsManager::class.java).queryAndAggregateUsageStats(now - 24 * 3_600_000L, now)
             val playing = playingPackages(c)
             val busy = busyPackages(c)
             val keep = (cfg?.keepRunning ?: DEFAULT_KEEP) + Protected.all(c, cfg)
+            val dry = cfg?.idleDryRun == true
             val stopped = mutableListOf<String>()
             val e = p.edit()
             for (pkg in playing) e.putLong("play_$pkg", now)
@@ -88,13 +127,15 @@ object IdleReaper {
                 if (pkg in keep || pkg in playing || pkg in busy) continue
                 val used = stats[pkg]?.lastTimeUsed ?: continue // not used in the last day: nothing of it is likely running
                 val played = p.getLong("play_$pkg", 0)
-                if (!idle(now, used, played, min)) continue
-                if (now - p.getLong("stopped_$pkg", 0) < AGAIN_MS && p.getLong("stopped_$pkg", 0) > maxOf(used, played)) continue
-                if (stop(c, pkg)) { e.putLong("stopped_$pkg", now); stopped += pkg }
+                if (reason == "idle" && !idle(now, used, played, minutes)) continue
+                val last = p.getLong("stopped_$pkg", 0)
+                if (last > maxOf(used, played)) { if (now - last < AGAIN_MS || reason == "screen off") continue } // already stopped since it was last used
+                if (dry) { record(c, pkg, reason, true); e.putLong("stopped_$pkg", now); stopped += "$pkg (dry run)"; continue }
+                if (stop(c, pkg, reason)) stopped += pkg
             }
             e.apply()
-            if (stopped.isNotEmpty()) Log.log(c, "idle apps stopped after $min min: ${stopped.joinToString()}")
-        } catch (e: Exception) { Log.log(c, "idle saver: ${e.javaClass.simpleName}") }
+            if (stopped.isNotEmpty()) Log.log(c, "apps stopped ($reason, $minutes min): ${stopped.joinToString()}")
+        } catch (e: Exception) { Log.log(c, "power saver: ${e.javaClass.simpleName}") }
     }
 
     /** Every app with a media session, and what it is doing. */

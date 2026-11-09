@@ -36,6 +36,8 @@ data class ModeDef(
     val notes: String = "show",
     /** Minutes an app may sit unused before it is closed in the background (0 = never). Music that is playing is never closed. */
     val idleMin: Int = 10,
+    /** Minutes with the screen off before every app that is not protected, kept, playing or busy is stopped (0 = never). */
+    val screenOffMin: Int = 5,
 )
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
@@ -85,6 +87,8 @@ data class Config(
     val spotifyRefresh: String = "",
     /** Apps the parent says must keep running in the background: never closed by the idle saver. */
     val keepRunning: Set<String>? = null,
+    /** Report what the power saver would close without closing anything. */
+    val idleDryRun: Boolean = false,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -117,6 +121,7 @@ data class Config(
                     locEvery = m.optInt("locEvery", 30),
                     notes = m.optString("notes", "show"),
                     idleMin = m.optInt("idleMin", 10),
+                    screenOffMin = m.optInt("screenOffMin", 5),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
@@ -153,6 +158,7 @@ data class Config(
                 notesHide = strings(o.optJSONArray("notesHide")),
                 spotifyClientId = o.optString("spotifyClientId", ""),
                 spotifyRefresh = o.optString("spotifyRefresh", ""),
+                idleDryRun = o.optBoolean("idleDryRun", false),
                 keepRunning = if (o.has("keepRunning")) strings(o.optJSONArray("keepRunning")) else null,
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->

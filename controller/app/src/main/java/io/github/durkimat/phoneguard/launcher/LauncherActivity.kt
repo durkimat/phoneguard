@@ -347,7 +347,6 @@ class LauncherActivity : Activity() {
             is Action.SpPlay -> Thread { playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ refresh() }, 800) }.start()
             is Action.SpTransfer -> Thread { sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ refresh() }, 800) }.start()
 
-            Action.MusicOpenApp -> launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)
