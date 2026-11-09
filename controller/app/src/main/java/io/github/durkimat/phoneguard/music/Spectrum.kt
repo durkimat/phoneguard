@@ -33,6 +33,7 @@ object Spectrum {
         try {
             val v = Visualizer(0)
             v.enabled = false
+            try { v.scalingMode = Visualizer.SCALING_MODE_AS_PLAYED } catch (_: Throwable) { } // the default scales the data up to fill the range, so quiet music looked as loud as loud
             v.captureSize = Visualizer.getCaptureSizeRange()[1] // the largest: 1024 gives about 21 Hz per bin, the smallest would give 340 Hz and no bass detail
             v.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(vz: Visualizer?, wf: ByteArray?, rate: Int) { if (wf != null) feed(wf, rate) }
