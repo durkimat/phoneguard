@@ -53,6 +53,8 @@ class F2Service : AccessibilityService() {
         main.postDelayed({
             try {
                 val root = rootInActiveWindow ?: return@postDelayed
+                // only a dialog that has the two pairing buttons counts (not any other Settings window)
+                if (root.findAccessibilityNodeInfosByViewId("android:id/button1").isNullOrEmpty() || root.findAccessibilityNodeInfosByViewId("android:id/button2").isNullOrEmpty()) return@postDelayed
                 val texts = mutableListOf<String>()
                 fun walk(n: android.view.accessibility.AccessibilityNodeInfo) {
                     // "Allow contacts and call history": ticked for the person, as most people leave it (it does nothing for audio devices)
@@ -80,6 +82,11 @@ class F2Service : AccessibilityService() {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val p = event.packageName?.toString().orEmpty()
             if (event.className?.toString() == pairingClass) { onPairingDialog(); return }
+            // the dialog may be named differently: a Settings window soon after we asked to pair, or one that is titled "Pair with ..."
+            if (p == "com.android.settings" && !pairing) {
+                val sinceAsk = System.currentTimeMillis() - io.github.durkimat.phoneguard.net.BluetoothControl.pairAskedAt
+                if (sinceAsk < 90_000 || event.text.any { it.toString().startsWith("Pair", ignoreCase = true) }) { onPairingDialog(); return }
+            }
             if (pairing && p != packageName) { pairing = false; cover.hide() } // the dialog went away by itself
             // pop-ups and the system's own windows do not count as the app in front
             if (p.isNotEmpty() && p != "android" && p != "com.android.systemui") frontPkg = p
