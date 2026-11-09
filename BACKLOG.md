@@ -957,3 +957,5 @@ Questions to put to them together:
 - Spectrum v2: largest FFT (1024), bands by pitch in Hz (50 Hz-16 kHz), dB levels with a treble lift and a scale that follows the loudest recent band. v1 used the smallest FFT (340 Hz per bin) so the low bars all read the same bins.
 
 - Spectrum v3: the FFT is now computed here from the raw waveform (Hann window, float) because the Visualizer's own 8-bit FFT clips on bass (low bars moved regardless of the music). Scale floor stops silence being amplified; range 34 dB.
+
+- Bluetooth: "Connected" was shown as soon as Android accepted the request. Now the phone checks the profiles for up to 12 s and says "Not connected (in use?)" if the device never joined (e.g. another phone holds the speaker).

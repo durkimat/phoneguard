@@ -34,7 +34,7 @@ object BluetoothControl {
     } catch (e: Exception) { Log.log(c, "bluetooth switch: ${e.javaClass.simpleName}"); "Could not switch" }
 
     /** Devices connected right now, asked of the audio and headset profiles (Android only answers that through a profile connection, one at a time). */
-    private fun connected(c: Context): Set<String> {
+    fun connected(c: Context): Set<String> {
         val a = adapter(c) ?: return emptySet()
         val out = mutableSetOf<String>()
         for (profile in listOf(android.bluetooth.BluetoothProfile.A2DP, android.bluetooth.BluetoothProfile.HEADSET)) {
@@ -52,6 +52,19 @@ object BluetoothControl {
             } catch (_: Exception) { }
         }
         return out
+    }
+
+    /**
+     * Asks for the connection, then checks it really happened: Android accepts the request at once, but the device may refuse
+     * (the usual cause is another phone already holding it). Returns null for "yes", else a reason to show.
+     */
+    fun connectAndVerify(c: Context, address: String, connect: Boolean): String? {
+        if (!setConnected(c, address, connect)) return "Android refused"
+        for (i in 1..12) {
+            Thread.sleep(1000)
+            if ((address in connected(c)) == connect) return null
+        }
+        return if (connect) "Not connected (in use?)" else "Still connected"
     }
 
     /** Paired devices first (connected ones on top), then what the current search has found. */
