@@ -387,7 +387,11 @@ class LauncherActivity : Activity() {
             Action.BtSearch -> Thread { io.github.durkimat.phoneguard.net.BluetoothControl.search(this); netNotice("Searching..."); loadNet() }.start()
             Action.BtToggle -> Thread { val m = io.github.durkimat.phoneguard.net.BluetoothControl.setEnabled(this, !model.btOn); if (m.isNotEmpty()) netNotice(m); Thread.sleep(1500); loadNet() }.start()
             is Action.BtPair -> Thread { io.github.durkimat.phoneguard.keys.F2Service.cover(true, "Pairing..."); val ok = io.github.durkimat.phoneguard.net.BluetoothControl.pair(this, a.address); if (!ok) io.github.durkimat.phoneguard.keys.F2Service.cover(false); netNotice(if (ok) "Pairing..." else "Could not pair"); Thread.sleep(3000); loadNet() }.start()
-            is Action.BtConnect -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.setConnected(this, a.address, a.connect); netNotice(if (ok) (if (a.connect) "Connected" else "Disconnected") else "Android refused"); loadNet() }.start()
+            is Action.BtConnect -> Thread {
+                netNotice(if (a.connect) "Connecting..." else "Disconnecting...")
+                val why = io.github.durkimat.phoneguard.net.BluetoothControl.connectAndVerify(this, a.address, a.connect)
+                netNotice(why ?: (if (a.connect) "Connected" else "Disconnected")); loadNet()
+            }.start()
             is Action.BtForget -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.forget(this, a.address); netNotice(if (ok) "Forgotten" else "Android refused"); Thread.sleep(500); loadNet() }.start()
             is Action.KillApp -> Thread { io.github.durkimat.phoneguard.IdleReaper.stop(this, a.pkg); ui.postDelayed({ refresh() }, 300) }.start()
             Action.SpectrumToggle -> { val on = !model.spectrum; model.spectrum = on; prefs().edit().putBoolean("spectrum", on).apply(); refresh() }
