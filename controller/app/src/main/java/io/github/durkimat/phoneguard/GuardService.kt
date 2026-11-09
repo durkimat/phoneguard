@@ -27,6 +27,11 @@ class GuardService : Service() {
     }
     private val evalSoon = Runnable { Controller.evaluate(this, "package change"); Link.runAsync(this, "package change") }
 
+    private val radioWatch: () -> Unit = { io.github.durkimat.phoneguard.net.RadioManager.evaluate(this, "radio or call") }
+    private val audioWatch = object : android.media.AudioManager.AudioPlaybackCallback() {
+        override fun onPlaybackConfigChanged(configs: MutableList<android.media.AudioPlaybackConfiguration>?) { io.github.durkimat.phoneguard.net.RadioManager.evaluate(this@GuardService, "audio") }
+    }
+
     private val packages = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             // Hiding an app can itself raise package events: coalesce so we never loop.
@@ -50,6 +55,7 @@ class GuardService : Service() {
     /** After the screen is unlocked the phone shows our home screen, like a Nokia waking up (not whatever app, or the old stock launcher, was last in front). */
     private val unlocked = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
+            io.github.durkimat.phoneguard.net.RadioManager.onUnlock(c) // the child is here: radios go back to how they chose them
             try {
                 val eff = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(c), Store.boost(c), Clock.now())
                 if (eff.lockdown.launcher == "nokia" && io.github.durkimat.phoneguard.incall.CallState.info == null)
@@ -61,7 +67,9 @@ class GuardService : Service() {
     private val powerEvents = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             PowerLog.sample(c, (i.action ?: "?").substringAfterLast('.').lowercase(), force = true)
-            if (i.action == Intent.ACTION_SCREEN_OFF) scheduleSweep(c) else if (i.action == Intent.ACTION_SCREEN_ON) cancelSweep(c)
+            if (i.action == Intent.ACTION_SCREEN_OFF) { scheduleSweep(c); io.github.durkimat.phoneguard.net.RadioManager.onScreenOff(c) }
+            else if (i.action == Intent.ACTION_SCREEN_ON) { cancelSweep(c); io.github.durkimat.phoneguard.net.RadioManager.onScreenOn(c) }
+            else io.github.durkimat.phoneguard.net.RadioManager.evaluate(c, "power") // plugged in or out
         }
     }
 
@@ -105,6 +113,14 @@ class GuardService : Service() {
             addAction(Intent.ACTION_POWER_CONNECTED); addAction(Intent.ACTION_POWER_DISCONNECTED)
         }, Context.RECEIVER_EXPORTED)
         registerReceiver(unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), Context.RECEIVER_EXPORTED)
+        registerReceiver(io.github.durkimat.phoneguard.net.RadioManager.stateReceiver, IntentFilter().apply {
+            addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION); addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED)
+            addAction(android.telephony.TelephonyManager.ACTION_PHONE_STATE_CHANGED); addAction(Intent.ACTION_POWER_CONNECTED); addAction(Intent.ACTION_POWER_DISCONNECTED)
+        }, Context.RECEIVER_EXPORTED)
+        io.github.durkimat.phoneguard.music.Radio.onChange(radioWatch)
+        io.github.durkimat.phoneguard.incall.CallState.listen(radioWatch)
+        try { getSystemService(android.media.AudioManager::class.java).registerAudioPlaybackCallback(audioWatch, main) } catch (_: Exception) { }
+        io.github.durkimat.phoneguard.net.RadioManager.evaluate(this, "service start")
         PowerLog.sample(this, "service", force = true)
         main.postDelayed(reap, IdleReaper.EVERY_MS)
         Log.log(this, "service started")
@@ -120,6 +136,9 @@ class GuardService : Service() {
         unregisterReceiver(packages)
         unregisterReceiver(sound)
         unregisterReceiver(powerEvents)
+        try { unregisterReceiver(io.github.durkimat.phoneguard.net.RadioManager.stateReceiver) } catch (_: Exception) { }
+        io.github.durkimat.phoneguard.music.Radio.offChange(radioWatch); io.github.durkimat.phoneguard.incall.CallState.unlisten(radioWatch)
+        try { getSystemService(android.media.AudioManager::class.java).unregisterAudioPlaybackCallback(audioWatch) } catch (_: Exception) { }
         unregisterReceiver(unlocked)
         unregisterReceiver(CallBlocker.receiver)
         contentResolver.unregisterContentObserver(gray)

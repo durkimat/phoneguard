@@ -124,6 +124,8 @@ class Hub:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp check setting {m['wa']!r}")
             if m.get("wa_app", "auto") not in S.WA_APPS:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp app setting {m['wa_app']!r}")
+            if "radios_sleep" in m and not isinstance(m["radios_sleep"], bool):
+                raise ValueError(f"mode {mid!r}: radios_sleep must be true or false")
             if m.get("radio", "any") not in S.RADIO_MODES:
                 raise ValueError(f"mode {mid!r} has an unknown radio setting {m['radio']!r}")
             if m.get("notes", "show") not in S.NOTE_MODES:

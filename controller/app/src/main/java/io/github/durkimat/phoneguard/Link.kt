@@ -195,7 +195,12 @@ object Link {
 
     fun runAsync(c: Context, reason: String, pending: BroadcastReceiver.PendingResult? = null) {
         val app = c.applicationContext
-        pool.execute { try { sync(app, reason) } catch (e: Exception) { Log.log(app, "SYNC($reason) crashed: ${e.message}") } finally { pending?.finish() } }
+        io.github.durkimat.phoneguard.net.RadioManager.begin(app, "sync $reason") // radios resting while the phone is locked come up for this
+        pool.execute {
+            try { io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000); sync(app, reason) }
+            catch (e: Exception) { Log.log(app, "SYNC($reason) crashed: ${e.message}") }
+            finally { io.github.durkimat.phoneguard.net.RadioManager.end(app, "sync $reason"); pending?.finish() }
+        }
     }
 
     private fun pollIntent(c: Context) = PendingIntent.getBroadcast(

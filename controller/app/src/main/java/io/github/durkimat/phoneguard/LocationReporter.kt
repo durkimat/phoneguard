@@ -57,7 +57,8 @@ object LocationReporter {
         val eff = Engine.effective(Store.config(c), Store.boost(c), Clock.now())
         if (eff.location == "off" || eff.locEvery == 0) { pending?.finish(); return }
         val next = { c.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + eff.locEvery * 60_000L, alarm(c)) }
-        val done = { next(); Link.runAsync(c, "location", pending) }
+        io.github.durkimat.phoneguard.net.RadioManager.begin(c, "location") // network position needs the radios; they rest again when this and the sync after it are done
+        val done = { next(); Link.runAsync(c, "location", pending); io.github.durkimat.phoneguard.net.RadioManager.end(c, "location") }
         try {
             val lm = c.getSystemService(LocationManager::class.java)
             val prov = provider(eff.location)
