@@ -21,6 +21,17 @@ import io.github.durkimat.phoneguard.launcher.LauncherData
 class F2Service : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     private val volume by lazy { VolumeBar(this) }
+    private val cover by lazy { ScreenCover(this) }
+
+    companion object {
+        @Volatile private var instance: F2Service? = null
+        /** Cover the whole screen with the theme panel (false removes it). Returns false when the service is not running, so the caller shows nothing special. */
+        fun cover(on: Boolean, message: String = "Starting Spotify..."): Boolean {
+            val s = instance ?: return false
+            if (on) s.cover.show(message) else s.cover.hide()
+            return true
+        }
+    }
     private var downAt = 0L
     private var lastTap = 0L
     private var longFired = false
@@ -41,6 +52,7 @@ class F2Service : AccessibilityService() {
     /** Debug builds only: lets a test show the volume bar without a physical key (injected keys never reach this service). */
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         if (io.github.durkimat.phoneguard.BuildConfig.DEBUG) {
             val r = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context?, i: Intent?) { volume.press(i?.getBooleanExtra("up", true) ?: true) }
