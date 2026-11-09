@@ -20,6 +20,10 @@ object Spectrum {
     private val peakAge = LongArray(BARS)
 
     private val main = Handler(Looper.getMainLooper())
+    /** The capture callbacks arrive on the thread that made the Visualizer, so it is made here and the FFT never runs on the screen's thread. */
+    private val worker = android.os.HandlerThread("spectrum").also { it.start() }
+    private val work = Handler(worker.looper)
+    private var starting = false
     private var vis: Visualizer? = null
     private var lastUse = 0L
     private var failed = false
@@ -27,23 +31,27 @@ object Spectrum {
         override fun run() { if (System.currentTimeMillis() - lastUse > 1000) stop() else main.postDelayed(this, 500) }
     }
 
-    @Synchronized fun use(c: Context) {
+    fun use(c: Context) {
         lastUse = System.currentTimeMillis(); ctx = c.applicationContext
-        if (vis != null || failed) return
+        synchronized(this) { if (vis != null || failed || starting) return; starting = true }
+        work.post { start(c.applicationContext) }
+    }
+
+    private fun start(c: Context) {
         try {
             val v = Visualizer(0)
             v.enabled = false
             try { v.scalingMode = Visualizer.SCALING_MODE_AS_PLAYED } catch (_: Throwable) { } // the default scales the data up to fill the range, so quiet music looked as loud as loud
-            v.captureSize = Visualizer.getCaptureSizeRange()[1] // the largest: 1024 gives about 21 Hz per bin, the smallest would give 340 Hz and no bass detail
+            v.captureSize = Visualizer.getCaptureSizeRange()[1] // the largest: 1024 gives about 21 Hz per bin
             v.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
                 override fun onWaveFormDataCapture(vz: Visualizer?, wf: ByteArray?, rate: Int) { if (wf != null) feed(wf, rate) }
                 override fun onFftDataCapture(vz: Visualizer?, fft: ByteArray?, rate: Int) {}
             }, Visualizer.getMaxCaptureRate(), true, false)
             v.enabled = true
-            vis = v
-            main.postDelayed(watch, 500)
+            synchronized(this) { vis = v; starting = false }
+            main.post { main.removeCallbacks(watch); main.postDelayed(watch, 500) }
             Log.log(c, "spectrum: listening")
-        } catch (e: Throwable) { failed = true; Log.log(c, "spectrum: not available: ${e.javaClass.simpleName} ${e.message}") }
+        } catch (e: Throwable) { synchronized(this) { failed = true; starting = false }; Log.log(c, "spectrum: not available: ${e.javaClass.simpleName} ${e.message}") }
     }
 
     @Synchronized fun stop() {
