@@ -17,7 +17,7 @@ class DebugReceiver : BroadcastReceiver() {
         val a = i.getStringExtra("a") ?: ""
         val b = i.getStringExtra("b") ?: ""
         fun go(): String = try { run(c, cmd, a, b) } catch (e: Exception) { "EXCEPTION ${e.javaClass.simpleName}: ${e.message}" }
-        if (cmd == "pair" || cmd == "sync") { // these use the network
+        if (cmd == "pair" || cmd == "sync" || cmd.startsWith("radio")) { // these use the network
             val pending = goAsync()
             Thread { val out = go(); Log.log(c, "DBG $cmd $a => $out"); pending.finish() }.start()
             return
@@ -28,6 +28,28 @@ class DebugReceiver : BroadcastReceiver() {
     private fun run(c: Context, cmd: String, a: String, b: String): String = when (cmd) {
         "camrot" -> { io.github.durkimat.phoneguard.camera.CameraActivity.debugHeld = a.toIntOrNull(); io.github.durkimat.phoneguard.camera.CameraActivity.refresh?.invoke(); "held=$a" }
         "torch" -> { io.github.durkimat.phoneguard.keys.Torch.toggle(c); "torch on=${io.github.durkimat.phoneguard.keys.Torch.on}" }
+        "radio-wifi" -> { val on = a == "on"; val t0 = System.currentTimeMillis(); val r = io.github.durkimat.phoneguard.net.WifiControl.setEnabled(c, on)
+            var ms = -1L; for (n in 1..40) { Thread.sleep(250); if (io.github.durkimat.phoneguard.net.WifiControl.enabled(c) == on) { ms = System.currentTimeMillis() - t0; break } }
+            "call=$r now=${io.github.durkimat.phoneguard.net.WifiControl.enabled(c)} settled_ms=$ms" }
+        "radio-bt" -> { val on = a == "on"; val t0 = System.currentTimeMillis(); val r = io.github.durkimat.phoneguard.net.BluetoothControl.setEnabled(c, on)
+            var ms = -1L; for (n in 1..40) { Thread.sleep(250); if (io.github.durkimat.phoneguard.net.BluetoothControl.enabled(c) == on) { ms = System.currentTimeMillis() - t0; break } }
+            "msg='$r' now=${io.github.durkimat.phoneguard.net.BluetoothControl.enabled(c)} settled_ms=$ms" }
+        "radio-data" -> { val on = a == "on"; val out = StringBuilder()
+            val tm = c.getSystemService(android.telephony.TelephonyManager::class.java)
+            out.append("before=${android.provider.Settings.Global.getInt(c.contentResolver, "mobile_data", -1)} tmEnabled=${try { tm.isDataEnabled } catch (e: Exception) { e.javaClass.simpleName }} ")
+            if (b == "tm") out.append("setDataEnabled=" + try { tm.setDataEnabled(on); "ok" } catch (e: Exception) { e.javaClass.simpleName + ":" + e.message })
+            else out.append("putInt=" + try { android.provider.Settings.Global.putInt(c.contentResolver, "mobile_data", if (on) 1 else 0) } catch (e: Exception) { e.javaClass.simpleName + ":" + e.message })
+            Thread.sleep(1500)
+            out.append(" after=${android.provider.Settings.Global.getInt(c.contentResolver, "mobile_data", -1)} tmEnabled=${try { tm.isDataEnabled } catch (e: Exception) { e.javaClass.simpleName }}"); out.toString() }
+        "radio-air" -> { val on = a == "on"; val out = StringBuilder()
+            out.append("before=${android.provider.Settings.Global.getInt(c.contentResolver, "airplane_mode_on", -1)} ")
+            if (b == "cm") out.append("cm=" + try { val cm = c.getSystemService(android.net.ConnectivityManager::class.java); cm.javaClass.getMethod("setAirplaneMode", Boolean::class.javaPrimitiveType).invoke(cm, on); "ok" } catch (e: Exception) { e.javaClass.simpleName + ":" + (e.cause?.javaClass?.simpleName ?: e.message) })
+            else {
+                out.append("putInt=" + try { android.provider.Settings.Global.putInt(c.contentResolver, "airplane_mode_on", if (on) 1 else 0) } catch (e: Exception) { e.javaClass.simpleName + ":" + e.message })
+                out.append(" broadcast=" + try { c.sendBroadcast(android.content.Intent(android.content.Intent.ACTION_AIRPLANE_MODE_CHANGED).putExtra("state", on)); "sent" } catch (e: Exception) { e.javaClass.simpleName + ":" + e.message })
+            }
+            Thread.sleep(3000)
+            out.append(" after=${android.provider.Settings.Global.getInt(c.contentResolver, "airplane_mode_on", -1)} wifi=${io.github.durkimat.phoneguard.net.WifiControl.enabled(c)} bt=${io.github.durkimat.phoneguard.net.BluetoothControl.enabled(c)}"); out.toString() }
         "ping" -> "pong"
         "camera" -> { c.startActivity(android.content.Intent(c, io.github.durkimat.phoneguard.camera.CameraActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); "camera $a" }
         "lockwp" -> { // paint the lock wallpaper for a theme id and forget the cache so it really repaints
