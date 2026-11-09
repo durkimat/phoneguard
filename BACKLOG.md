@@ -951,3 +951,5 @@ Questions to put to them together:
 - Over-long text now scrolls forwards then back (NokiaSkin.marquee): title bars on every screen, the selected list row, and the Music fields. Anything over 3 screen widths is cut with "...". Unselected rows still just end in "...". Needs owner check on the phone.
 
 - Music: spectrum analyser (Spectrum.kt, Visualizer on the output mix, 16 bars with held peaks) can replace the progress bar. Swap with key 7, a touch on the bar, or Music menu "Bar shows". Choice kept per phone. Only live when playing on this phone (audio elsewhere is silent here). Needs owner test; if Visualizer is refused the log says "spectrum: not available".
+
+- Play on: if this phone is not in Spotify's device list, the list now starts Spotify here first (behind the cover) and waits up to 9 s for the phone to appear, as playing a playlist already did.

@@ -397,7 +397,8 @@ class LauncherActivity : Activity() {
             is Action.SpLoad -> Thread {
                 if (a.kind == "playlists") { val l = sp.playlists(this); ui.post { model.spPlaylists = l ?: emptyList(); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
                 else {
-                    val l = sp.devices(this)
+                    var l = sp.devices(this)
+                    if (l != null && l.none { thisPhone(it) }) l = wakeSpotify(l) // this phone only shows once Spotify is running on it
                     ui.post { model.spIsThisPhone = { d -> thisPhone(d) }; model.spDevices = (l ?: emptyList()).sortedByDescending { thisPhone(it) }; model.spStatus = if (l == null) "Could not load" else "No devices: open Spotify on this phone"; refresh() }
                 }
             }.start()
@@ -441,26 +442,35 @@ class LauncherActivity : Activity() {
         var list = sp.devices(this) ?: emptyList()
         var target = list.firstOrNull { it.id == pickedId } ?: list.firstOrNull { thisPhone(it) }
         if (target == null) {
-            // This phone is not on the list until Spotify is running here, and Spotify cannot be started invisibly (it refuses
-            // other apps' service connections). Open it, bring our screens back after a second, then wait for the phone to appear.
-            val covered = io.github.durkimat.phoneguard.keys.F2Service.cover(true)
-            if (covered) Thread.sleep(250) else ui.post { model.notify("Starting Spotify..."); refresh() }
-            launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
-            Thread.sleep(1200)
-            ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
-            var waited = 0
-            while (waited < 9000) {
-                Thread.sleep(1000); waited += 1000
-                list = sp.devices(this) ?: emptyList()
-                target = list.firstOrNull { thisPhone(it) }
-                if (target != null) break
-            }
-            io.github.durkimat.phoneguard.keys.F2Service.cover(false)
-            Log.log(this, "spotify cold start: " + (if (target != null) "phone listed after ${waited / 1000}s" else "phone did not appear"))
-            if (target == null) target = list.firstOrNull { it.active }
+            list = wakeSpotify(list)
+            target = list.firstOrNull { thisPhone(it) } ?: list.firstOrNull { it.active }
         }
         Log.log(this, "spotify play: devices=[" + list.joinToString { it.name + "/" + it.type + (if (it.active) "*" else "") } + "] target=" + (target?.name ?: "none"))
         sp.play(this, uri, target?.id)
+    }
+
+    /**
+     * This phone is not on Spotify's device list until Spotify is running here, and Spotify cannot be started invisibly (it refuses
+     * other apps' service connections). Open it, bring our screens back after a second, then wait up to 9 s for the phone to appear.
+     * Returns the newest device list.
+     */
+    private fun wakeSpotify(before: List<io.github.durkimat.phoneguard.music.SpDevice>): List<io.github.durkimat.phoneguard.music.SpDevice> {
+        var list = before
+        val covered = io.github.durkimat.phoneguard.keys.F2Service.cover(true)
+        if (covered) Thread.sleep(250) else ui.post { model.notify("Starting Spotify..."); refresh() }
+        launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
+        Thread.sleep(1200)
+        ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
+        var waited = 0
+        var found = false
+        while (waited < 9000 && !found) {
+            Thread.sleep(1000); waited += 1000
+            list = sp.devices(this) ?: emptyList()
+            found = list.any { thisPhone(it) }
+        }
+        io.github.durkimat.phoneguard.keys.F2Service.cover(false)
+        Log.log(this, "spotify cold start: " + (if (found) "phone listed after ${waited / 1000}s" else "phone did not appear"))
+        return list
     }
 
     private fun placeCall(number: String) {
