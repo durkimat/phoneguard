@@ -1,8 +1,8 @@
-/* Phone Guard card v0.17.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.18.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.17.0";
+const PG_VERSION = "0.18.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -173,8 +173,14 @@ class PhoneGuardCard extends HTMLElement {
       details.sec > summary::before { content: "\\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
       details.sec[open] > summary::before { transform: rotate(90deg); }
       details.sec > summary .note { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; background: var(--warning-color, #e67e22); color: #fff; border-radius: 999px; padding: 1px 9px; font-size: 12px; }
+      .scroll { overflow-x: auto; }
+      table.mx th, table.mx td { text-align: center; }
+      table.mx th.name, table.mx td.name { text-align: left; }
+      .mbtn { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--divider-color, #ccc); background: transparent; color: var(--primary-text-color); font-weight: 600; cursor: pointer; }
+      .mbtn.live { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: var(--primary-color); }
+      .mbtn.held::after { content: " \\1F4CC"; font-size: 11px; }
+      .newtag { border: 0; background: var(--warning-color, #e67e22); color: #fff; border-radius: 999px; font-size: 10px; font-weight: 700; padding: 1px 7px; margin-left: 6px; cursor: pointer; }
       tr.pend td { background: color-mix(in srgb, var(--warning-color, #e67e22) 18%, transparent); }
-      tr.pend td.name::after { content: "NEW"; margin-left: 8px; font-size: 11px; font-weight: 700; color: var(--warning-color, #e67e22); }
       .new { background: color-mix(in srgb, var(--warning-color, #e67e22) 14%, transparent); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
       .qr svg { width: 240px; max-width: 100%; height: auto; background: #fff; padding: 8px; border-radius: 8px; }
       .code { font-family: monospace; font-size: 12px; word-break: break-all; }
@@ -235,6 +241,7 @@ class PhoneGuardCard extends HTMLElement {
       if (s.canGray === false) bits.push("grayscale not permitted on the phone");
       if (s.canSilence === false && Object.values(d.modes).some((m) => m.sound === "silent")) bits.push("Silent needs Do Not Disturb access on the phone (it vibrates instead)");
       if (!dev.in_sync) bits.push("changes not on the phone yet");
+      if (stale) bits.push("check the phone's Wi-Fi");
       html += `<div class="sub">${this._esc(bits.join(" · "))}</div>`;
     }
 
@@ -245,10 +252,10 @@ class PhoneGuardCard extends HTMLElement {
         <div class="row" style="margin-top:8px"><input class="sas" type="text" inputmode="numeric" maxlength="4" placeholder="1234" value="${this._esc(this._ui.sas)}">
         <button class="primary" data-act="confirm">Confirm</button><button data-act="forget" class="danger">Cancel pairing</button></div>`;
     } else {
-      html += this._boostHtml(d) + this._holidayHtml(d) + this._newAppsHtml(d);
+      html += this._matrixHtml(d) + this._modeSettingsHtml(d) + this._holidayHtml(d);
     }
-    html += this._timetableHtml(d) + this._copyHtml(d);
-    if (dev && !dev.pending) html += this._matrixHtml(d) + this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d);
+    html += this._timetableHtml(d);
+    if (dev && !dev.pending) html += this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -265,6 +272,7 @@ class PhoneGuardCard extends HTMLElement {
     html += `<div class="row" style="margin-top:8px">
       ${dev && !dev.pending ? `<button data-act="release" class="danger">Release phone…</button>` : ""}
       <button data-act="remove" class="danger">Remove this device…</button></div>
+      ${this._copyHtml(d)}
       <div class="sub mut" style="margin-top:6px">${this._esc((dev && dev.model) || "")} · Phone Guard card ${PG_VERSION}</div>`;
     wrap(this._sections(html, d));
     this._wire();
@@ -272,7 +280,7 @@ class PhoneGuardCard extends HTMLElement {
 
   // Every heading becomes a fold-away section, so the page is not all open at once. What is open is remembered in this browser.
   _sections(html, d) {
-    const OPEN = ["Boost", "Mode", "New apps waiting", "Pair a phone", "Confirm the phone"];
+    const OPEN = ["Modes and apps", "Pair a phone", "Confirm the phone"];
     let saved = this._ui.sec;
     if (!saved) { try { saved = JSON.parse(localStorage.getItem("phoneguard-card:sections") || "{}"); } catch (e) { saved = {}; } this._ui.sec = saved; }
     const parts = html.split("<h3>");
@@ -355,26 +363,6 @@ class PhoneGuardCard extends HTMLElement {
   }
 
   // Boost (extra access for a while) and Mode (hold one mode) sit side by side
-  _boostHtml(d) {
-    const modes = Object.keys(d.modes);
-    const sel = this._ui.boostMode && d.modes[this._ui.boostMode] ? this._ui.boostMode : (d.modes.day ? "day" : modes[0]);
-    const name = (m) => (d.modes[m] || { name: m }).name;
-    const boost = `<h3>Boost</h3>
-      <div class="row"><span>Give</span><select data-f="boostMode">${modes.map((m) => `<option value="${m}" ${m === sel ? "selected" : ""}>${this._esc(name(m))}</option>`).join("")}</select><span>access for</span></div>
-      <div class="row" style="margin-top:8px"><button data-act="boost" data-min="15">+15 min</button><button data-act="boost" data-min="30">+30 min</button>
-      <button data-act="boost" data-min="60">+1 h</button>${d.boost ? `<button data-act="cancel_boost" class="danger">Cancel boost</button>` : ""}</div>
-      <div class="sub" style="margin-top:6px">${d.boost
-        ? `${this._esc(name(d.boost.mode))} access until ${this._fmtTime(d.boost.until)}. Each press adds time.`
-        : "Adds that mode's apps on top of what is allowed right now, then ends by itself."}</div>`;
-    const mode = `<h3>Mode</h3>
-      <div class="seg"><button class="${d.override ? "" : "sel"}" data-act="override" data-mode="auto">Auto</button>${modes.map((m) =>
-        `<button class="${d.override === m ? "sel" : ""}" data-act="override" data-mode="${m}">${this._esc(name(m))}</button>`).join("")}</div>
-      <div class="sub" style="margin-top:6px">${d.override
-        ? `Held in ${this._esc(name(d.override))} whatever the timetable says, until you choose Auto.`
-        : `Following the timetable (${this._esc(name(d.mode_now))} now). Pick a mode to hold it.`}</div>`;
-    return `<div class="split"><div class="blk">${boost}</div><div class="blk">${mode}</div></div>`;
-  }
-
   _holidayHtml(d) {
     const h = d.holiday || {};
     return `<h3>Holiday (School becomes Day)</h3><div class="row">
@@ -384,50 +372,50 @@ class PhoneGuardCard extends HTMLElement {
       ${d.holiday ? `<div class="sub">On from ${this._esc(h.from)} to ${this._esc(h.until)}.</div>` : ""}`;
   }
 
-  _newAppsHtml(d) {
-    if (!d.pending_apps.length) return "";
-    const all = Object.keys(d.modes);
-    let h = `<h3>New apps waiting</h3>`;
-    for (const pkg of d.pending_apps) {
-      const app = d.apps.find((a) => a.pkg === pkg) || { pkg, label: pkg };
-      h += `<div class="new"><b>${this._esc(app.label)}</b><div class="sub">${this._esc(pkg)} · hidden until you decide</div>
-        <div class="row" style="margin-top:6px">${all.map((m) => `<label><input type="checkbox" data-pick="${this._esc(pkg)}" data-mode="${m}"> ${this._esc(d.modes[m].name)}</label>`).join(" ")}
-        <button class="primary" data-act="approve" data-pkg="${this._esc(pkg)}">Approve</button>
-        <button data-act="dismiss" data-pkg="${this._esc(pkg)}">Keep hidden</button></div></div>`;
+  // The one place that decides what is visible: every mode is a column, every app a row. The mode buttons sit on top of the
+  // columns (the lit one is the mode the phone is in now), Auto and Boost are on the same row.
+  _matrixHtml(d) {
+    const ids = Object.keys(d.modes), pinned = d.pinned || [], pend = d.pending_apps || [];
+    let h = `<h3>Modes and apps</h3>`;
+    if (!d.apps.length) return h + `<div class="sub">The phone has not reported its apps yet.</div>`;
+    const bm = d.modes.day ? "day" : ids[0], bname = d.modes[bm].name;
+    const left = d.boost ? Math.max(1, Math.ceil((d.boost.until - d.now) / 60000)) : 0;
+    h += `<div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <span class="sub">${d.override ? `Held in <b>${this._esc((d.modes[d.override] || { name: d.override }).name)}</b> until you choose Auto.` : `Following the timetable: <b>${this._esc((d.modes[d.mode_now] || { name: d.mode_now }).name)}</b> now.`}</span>
+      <span class="row"><button data-act="boost" data-mode="${bm}" data-min="15" title="Each press adds 15 minutes">${d.boost ? `Boost ${this._esc(bname)}: ${left} min left, +15` : `Boost ${this._esc(bname)} +15 min`}</button>${d.boost ? `<button data-act="cancel_boost" class="danger" title="End the boost now">✕</button>` : ""}</span></div>`;
+    h += `<div class="scroll"><table class="mx"><tr class="modes"><th class="name"><button data-act="override" data-mode="auto" class="mbtn ${d.override ? "" : "live"}">Auto</button></th>${ids.map((m) =>
+      `<th><button data-act="override" data-mode="${m}" class="mbtn ${d.mode_now === m ? "live" : ""} ${d.override === m ? "held" : ""}" title="Hold the phone in ${this._esc(d.modes[m].name)}">${this._esc(d.modes[m].name)}</button></th>`).join("")}<th>Main menu</th><th>Hide notes</th></tr>
+      <tr class="opt"><td>Select all</td>${ids.map((m) => `<td><input type="checkbox" data-all="${m}" title="Allow every app in ${this._esc(d.modes[m].name)}"></td>`).join("")}<td></td><td></td></tr>
+      <tr class="opt"><td>Allow new apps automatically</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="auto_new" data-mode="${m}" ${d.modes[m].auto_new ? "checked" : ""} title="Off: a newly installed app stays hidden here until you tick it"></td>`).join("")}<td></td><td></td></tr>`;
+    for (const a of d.apps) {
+      const isNew = pend.includes(a.pkg);
+      h += `<tr class="${isNew ? "pend" : ""}"><td class="name">${this._esc(a.label)}${isNew ? ` <button class="newtag" data-act="dismiss" data-pkg="${this._esc(a.pkg)}" title="Mark as seen">NEW ✓</button>` : ""}<small>${this._esc(a.pkg)}</small></td>` +
+        ids.map((m) => `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${(d.modes[m].allow || []).includes(a.pkg) ? "checked" : ""}></td>`).join("") +
+        `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td><td><input type="checkbox" data-nh="${this._esc(a.pkg)}" ${(d.notes_hide || []).includes(a.pkg) ? "checked" : ""}></td></tr>`;
     }
-    return h;
+    return h + `</table></div><div class="sub" style="margin-top:6px">A tick means the app is visible in that mode. Phone, messages, contacts and Settings are always available. Main menu: ticked apps sit in the Nokia main menu, the others are under "Android Apps". Hide notes: clear that app's notifications as they arrive. The Clock hides its alarms, so leave it ticked in any mode where an alarm must ring.</div>`;
   }
 
-  // every mode is a column: whether it allows everything, whether the screen is grey, then app by app
-  _matrixHtml(d) {
+  // everything else that differs between modes, in the same columns
+  _modeSettingsHtml(d) {
     const ids = Object.keys(d.modes);
-    let h = `<h3>Modes and apps</h3>`;
-    const pinned = d.pinned || [];
-    if (!d.apps.length) return h + `<div class="sub">The phone has not reported its apps yet.</div>`;
-    h += `<table><tr><th>App</th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}<th>Main menu</th><th>Hide notes</th></tr>
-      <tr class="opt"><td>Everything allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="allowAll" data-mode="${m}" ${d.modes[m].allowAll ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Grey screen</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="gray" data-mode="${m}" ${d.modes[m].gray ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Home screen</td>${ids.map((m) => `<td><select data-mode-opt="launcher" data-mode="${m}"><option value="default" ${d.modes[m].launcher !== "nokia" ? "selected" : ""}>Normal</option><option value="nokia" ${d.modes[m].launcher === "nokia" ? "selected" : ""}>Nokia</option></select></td>`).join("")}</tr>
-      <tr class="opt"><td>Touchscreen works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="touch" data-mode="${m}" ${d.modes[m].touch !== false ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Pull-down shade works</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="shade" data-mode="${m}" ${d.modes[m].shade !== false ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Sound</td>${ids.map((m) => `<td><select data-mode-opt="sound" data-mode="${m}">${[["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].sound || "normal") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
-      <tr class="opt"><td>WhatsApp checks</td>${ids.map((m) => `<td><select data-mode-opt="wa" data-mode="${m}">${[["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa || "open") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
-      <tr class="opt"><td>WhatsApp app</td>${ids.map((m) => `<td><select data-mode-opt="wa_app" data-mode="${m}">${[["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].wa_app || "auto") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
-      <tr class="opt"><td>Incoming calls allowed</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="inbound" data-mode="${m}" ${d.modes[m].inbound !== false ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Camera offered</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="camera" data-mode="${m}" ${d.modes[m].camera !== false ? "checked" : ""}></td>`).join("")}</tr>
-      <tr class="opt"><td>Location</td>${ids.map((m) => `<td><select data-mode-opt="location" data-mode="${m}">${[["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].location || "off") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
-      <tr class="opt"><td>Location every</td>${ids.map((m) => `<td><select data-mode-opt="loc_every" data-mode="${m}" ${(d.modes[m].location || "off") === "off" ? "disabled" : ""}>${[[0, "Live"], [1, "1 min"], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].loc_every ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
-      <tr class="opt"><td>Notifications</td>${ids.map((m) => `<td><select data-mode-opt="notes" data-mode="${m}">${[["show", "Listed"], ["off", "Cleared"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].notes || "show") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
-      <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
-    for (const a of d.apps) {
-      h += `<tr class="${(d.pending_apps || []).includes(a.pkg) ? "pend" : ""}"><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
-        ids.map((m) => {
-          const on = d.modes[m].allowAll || (d.modes[m].allow || []).includes(a.pkg);
-          return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
-        }).join("") + `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td><td><input type="checkbox" data-nh="${this._esc(a.pkg)}" ${(d.notes_hide || []).includes(a.pkg) ? "checked" : ""}></td></tr>`;
-    }
-    return h + `</table><div class="sub" style="margin-top:6px">Main menu: on the Nokia home screen, ticked apps sit in the main menu; the other allowed apps are listed under "Android Apps". Hide notes: tick an app to clear its notifications as they arrive (Android housekeeping, Messages and the dialler are always cleared, since the Nokia screens show those themselves). Notifications: Listed shows a bell with a count on the home screen and a Notifications list; Cleared removes them all as they arrive. Touch-only apps need the touchscreen, so allow them only in modes where touch works.</div><div class="sub" style="margin-top:6px">Untick "Everything allowed" to choose apps for that mode (it starts with every app ticked). Phone, messages, contacts and Settings are always available. Grey screen turns the whole display black and white. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our simple screens; "Our screens" always uses ours (and hides the real app); "Real app" always uses the real one. WhatsApp checks (our screens only): Off means no WhatsApp at all in that mode; When opened connects only while WhatsApp is open on the phone; the others check briefly in the background. Sound: Silent is total silence with no exceptions. Incoming calls allowed: untick it and the phone hangs up on every call in that mode (parents ring the school office instead). A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>
-      <div class="sub" style="margin-top:6px">The Clock hides its alarms: leave it ticked in any mode where she needs her alarm to ring. In School it is left out on purpose.</div>`;
+    if (!d.apps.length) return "";
+    const sel = (opt, m, list, def) => `<td><select data-mode-opt="${opt}" data-mode="${m}">${list.map(([v, t]) => `<option value="${v}" ${(d.modes[m][opt] ?? def) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`;
+    const tick = (opt, m, dflt = true) => `<td><input type="checkbox" data-mode-opt="${opt}" data-mode="${m}" ${(d.modes[m][opt] ?? dflt) !== false && (d.modes[m][opt] ?? dflt) ? "checked" : ""}></td>`;
+    const row = (label, f) => `<tr class="opt"><td>${label}</td>${ids.map(f).join("")}</tr>`;
+    let h = `<h3>Mode settings</h3><div class="scroll"><table class="mx"><tr><th class="name"></th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}</tr>`;
+    h += row("Grey screen", (m) => `<td><input type="checkbox" data-mode-opt="gray" data-mode="${m}" ${d.modes[m].gray ? "checked" : ""}></td>`);
+    h += row("Home screen", (m) => `<td><select data-mode-opt="launcher" data-mode="${m}"><option value="default" ${d.modes[m].launcher !== "nokia" ? "selected" : ""}>Normal</option><option value="nokia" ${d.modes[m].launcher === "nokia" ? "selected" : ""}>Nokia</option></select></td>`);
+    h += row("Touchscreen works", (m) => tick("touch", m)) + row("Pull-down shade works", (m) => tick("shade", m));
+    h += row("Sound", (m) => sel("sound", m, [["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]], "normal"));
+    h += row("WhatsApp checks", (m) => sel("wa", m, [["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]], "open"));
+    h += row("WhatsApp app", (m) => sel("wa_app", m, [["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]], "auto"));
+    h += row("Incoming calls allowed", (m) => tick("inbound", m)) + row("Camera offered", (m) => tick("camera", m));
+    h += row("Location", (m) => sel("location", m, [["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]], "off"));
+    h += row("Location every", (m) => `<td><select data-mode-opt="loc_every" data-mode="${m}" ${(d.modes[m].location || "off") === "off" ? "disabled" : ""}>${[[0, "Live"], [1, "1 min"], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].loc_every ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`);
+    h += row("Notifications", (m) => sel("notes", m, [["show", "Listed"], ["off", "Cleared"]], "show"));
+    h += row("Locked to allowed apps", (m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`);
+    return h + `</table></div><div class="sub" style="margin-top:6px">Grey screen turns the display black and white. Sound: Silent is total silence with no exceptions. Incoming calls: untick and the phone hangs up on every call in that mode. WhatsApp checks (our screens only): Off means no WhatsApp in that mode; When opened connects only while WhatsApp is open; the others check briefly in the background. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our screens. A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>`;
   }
 
   // the weather on the Nokia home screen comes from Open-Meteo for a place chosen here; the phone never asks for its own location
@@ -729,6 +717,12 @@ class PhoneGuardCard extends HTMLElement {
       this._ui.sec[el.dataset.sec] = el.open;
       try { localStorage.setItem("phoneguard-card:sections", JSON.stringify(this._ui.sec)); } catch (e) { /* private window */ }
     }));
+    r.querySelectorAll("input[data-all]").forEach((i) => {
+      const d = this._d, m = i.dataset.all, apps = d.apps || [];
+      const n = apps.filter((a) => (d.modes[m].allow || []).includes(a.pkg)).length;
+      i.checked = apps.length > 0 && n === apps.length; i.indeterminate = n > 0 && n < apps.length;
+      i.addEventListener("change", () => this._svc("set_mode_all", { mode: m, allowed: i.checked }));
+    });
     r.querySelectorAll("input[data-cp]").forEach((i) => i.addEventListener("change", () => { this._ui.copyParts[i.dataset.cp] = i.checked; }));
     r.querySelectorAll("select[data-f=newPhone]").forEach((i) => i.addEventListener("change", () => { this._ui.newPerson = ""; this._render(); }));
     r.querySelectorAll("select[data-f=newPerson], select[data-f=copyTo]").forEach((i) => i.addEventListener("change", () => this._render()));
@@ -752,11 +746,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "notes") modes[mode].notes = i.value;
     if (opt === "loc_every") modes[mode].loc_every = parseInt(i.value, 10);
     if (opt === "touch" || opt === "shade" || opt === "kiosk" || opt === "inbound" || opt === "camera") modes[mode][opt] = i.checked;
-    if (opt === "allowAll") {
-      modes[mode].allowAll = i.checked;
-      // leaving "everything allowed": start from every current app ticked, so nothing changes until you untick something
-      if (!i.checked && !(modes[mode].allow || []).length) modes[mode].allow = d.apps.map((a) => a.pkg);
-    }
+    if (opt === "auto_new") modes[mode].auto_new = i.checked;
     return this._svc("set_child", { config: { modes } });
   }
 
@@ -840,7 +830,7 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "pair") return this._svc("create_pairing", { name: d.name });
     if (a === "confirm") return this._svc("confirm_pairing", { sas: ui.sas }).then(() => { ui.sas = ""; });
     if (a === "forget") return this._svc("forget");
-    if (a === "boost") return this._svc("boost", { mode: ui.boostMode && d.modes[ui.boostMode] ? ui.boostMode : (d.modes.day ? "day" : Object.keys(d.modes)[0]), minutes: Number(b.dataset.min) });
+    if (a === "boost") return this._svc("boost", { mode: b.dataset.mode, minutes: Number(b.dataset.min) });
     if (a === "cancel_boost") return this._svc("cancel_boost");
     if (a === "override") return this._svc("set_override", { mode: b.dataset.mode });
     if (a === "nudge") return this._svc("nudge");

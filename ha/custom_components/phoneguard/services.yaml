@@ -109,3 +109,11 @@ spotify_signout:
       required: true
       selector:
         text:
+
+set_mode_all:
+  name: Allow every app in a mode
+  description: Tick (or untick) every app the phone has reported in one mode's column.
+  fields:
+    child: {required: true, selector: {text: {}}}
+    mode: {required: true, example: day, selector: {text: {}}}
+    allowed: {required: true, selector: {boolean: {}}}

@@ -63,3 +63,44 @@ def test_refresh_token_reaches_the_phone_but_not_the_card_or_copies():
     h.set_spotify("ellie", None)
     assert "spotifyRefresh" not in S.build_config(h.data["children"]["ellie"], 1_794_000_000_000)
     assert h.view("ellie")["spotify"]["signed_in"] is False
+
+
+# ---- app visibility follows the matrix (no separate approvals)
+
+def _child_hub():
+    h = Hub({}, clock=lambda: 1_794_000_000_000)
+    h.ensure_child("ellie", "Ellie")
+    return h, h.data["children"]["ellie"]
+
+
+def test_allow_all_mode_becomes_ticked_apps_once_and_new_apps_need_approval_by_default():
+    h, ch = _child_hub()
+    assert ch["modes"]["day"]["allowAll"] is True
+    h.apply_app_policy(ch, {"a", "b"})
+    day = ch["modes"]["day"]
+    assert day["allowAll"] is False and day["allow"] == ["a", "b"] and not day.get("auto_new")
+    h.apply_app_policy(ch, {"a", "b", "c"})  # a new app: nothing is ticked for it
+    assert "c" not in ch["modes"]["day"]["allow"] and "c" in ch["seen"]
+    assert S.build_config(ch, 1_794_000_000_000)["modes"]["day"]["allowAll"] is False
+
+
+def test_a_mode_can_allow_new_apps_automatically_and_an_unticked_app_stays_unticked():
+    h, ch = _child_hub()
+    h.apply_app_policy(ch, {"a"})
+    ch["modes"]["day"]["auto_new"] = True
+    h.apply_app_policy(ch, {"a", "b"})
+    assert ch["modes"]["day"]["allow"] == ["a", "b"]
+    h.set_app_mode("ellie", "b", "day", False)  # the parent unticks it
+    h.apply_app_policy(ch, {"a", "b"})
+    assert "b" not in ch["modes"]["day"]["allow"]  # not added again: it is no longer "new"
+    assert "b" in ch["known"]  # and the parent has now seen it
+
+
+def test_select_all_ticks_and_unticks_every_reported_app_in_one_mode():
+    h, ch = _child_hub()
+    h.device_of = lambda cid: ("d", {"apps": [{"pkg": "a"}, {"pkg": "b"}]})
+    h.set_mode_all("ellie", "school", True)
+    assert ch["modes"]["school"]["allow"] == ["a", "b"]
+    h.set_mode_all("ellie", "school", False)
+    assert ch["modes"]["school"]["allow"] == []
+    assert ch["modes"]["night"]["allow"] == ["com.android.deskclock"]  # other modes untouched

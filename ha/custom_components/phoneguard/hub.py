@@ -153,7 +153,7 @@ class Hub:
                     if mid in modes:  # same mode on both: take the options, keep this device's own app list
                         m = S.mode_with_defaults(mid, m)
                         modes[mid]["gray"] = m.get("gray", False)
-                        modes[mid]["allowAll"] = m.get("allowAll", False)
+                        modes[mid]["auto_new"] = bool(m.get("auto_new", False))
                         for k in S.LOCKDOWN_KEYS:
                             modes[mid][k] = m[k]
                 patch["modes"] = modes
@@ -171,6 +171,35 @@ class Hub:
         s = set(m.get("allow", []))
         (s.add if allowed else s.discard)(pkg)
         m["allow"] = sorted(s)
+        self.dismiss_app(cid, pkg)  # touching an app's ticks is the parent's decision about it: no longer new
+
+    def set_mode_all(self, cid: str, mode: str, allowed: bool) -> None:
+        """The select-all tick at the top of a mode's column: every app the phone has reported, or none."""
+        found = self.device_of(cid)
+        pkgs = sorted({a["pkg"] for a in found[1]["apps"]}) if found else []
+        m = self.data["children"][cid]["modes"][mode]
+        keep = set(m.get("allow", []))
+        m["allow"] = sorted(keep | set(pkgs)) if allowed else sorted(keep - set(pkgs))
+
+    def apply_app_policy(self, ch: dict, pkgs: set[str]) -> None:
+        """Run on every report of the phone's apps. The matrix is the only authority on what is visible:
+        an old "allow everything" mode becomes that mode with every current app ticked (once), and a mode that
+        allows new apps automatically ticks each app the first time it is seen."""
+        for m in ch["modes"].values():
+            if m.get("allowAll"):
+                m["allow"] = sorted(set(m.get("allow", [])) | pkgs)
+                m["allowAll"] = False
+                m.setdefault("auto_new", False)
+        seen = ch.get("seen")
+        if seen is None:
+            ch["seen"] = sorted(pkgs)  # what is on the phone at the start is the baseline, not "new"
+            return
+        fresh = pkgs - set(seen)
+        if fresh:
+            for m in ch["modes"].values():
+                if m.get("auto_new"):
+                    m["allow"] = sorted(set(m.get("allow", [])) | fresh)
+            ch["seen"] = sorted(set(seen) | pkgs)
 
     def approve_app(self, cid: str, pkg: str, modes: list[str]) -> None:
         for mode in modes:
@@ -302,6 +331,8 @@ class Hub:
         ch = self.data["children"][dev["child"]]
         if ch.get("known") is None and dev["apps"]:
             ch["known"] = sorted(a["pkg"] for a in dev["apps"])  # the apps already on the phone are not "new"
+        if dev["apps"]:
+            self.apply_app_policy(ch, {a["pkg"] for a in dev["apps"]})
         if dev["pending"]:
             return P.make_reply(self.priv, did, n, {"kind": "sync", "pending": True, "sas": dev["sas"]}, now)
         cfg = S.build_config(ch, now, self.data.get("options"))
