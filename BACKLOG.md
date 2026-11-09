@@ -977,3 +977,8 @@ Questions to put to them together:
 
 ## Radios per mode: v2 design (owner, 2026-11-09)
 Simplified to one per-mode "radios sleep when locked"; check-ins follow loc_every; child intent restored on unlock; Settings > Connections (Wi-Fi, Bluetooth, Mobile data, Flight mode); status icons get a diagonal slash for off. See docs/radios-per-mode.md. Phone to be connected for the spike.
+
+## FM radio as a music source (owner, 2026-11-09: after radio-power testing)
+Idea: Music switches between sources behind one interface (Spotify now, FM radio, later others), with the spectrum if possible.
+Findings so far (test phone, MT6761): the FM driver is in the image (`/vendor/etc/init/init.fmradio_drv.rc` loads `fmradio_drv_*.ko`, `/dev/fm` exists, owner media:media mode 660) but there is **no FM app or tuner library** in the system (no fmradio package, no broadcastradio HAL, no `android.hardware.radio` feature). An ordinary app (our uid) cannot open `/dev/fm`.
+To prove before promising: (1) can we get the stock MediaTek FM app/native lib onto it, and would it run (it needs system/media privileges and SELinux rules; probably not for a normal app); (2) does the FM audio pass through Android's mixer, or straight to the codec by analogue/I2S path. If it bypasses the mixer, `Visualizer(0)` hears nothing and the spectrum cannot work for FM. Headphone lead usually acts as the aerial. Source interface to design first: `MusicSource` (play/pause, station list, now playing, volume, spectrum available?) so Spotify becomes one implementation.
