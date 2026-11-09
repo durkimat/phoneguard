@@ -15,7 +15,7 @@ One new setting: **Radios sleep when locked**: off or on. Nothing else.
   - Live location (0) means the radios never sleep in that mode.
   - Location off in a mode: fall back to the WhatsApp check (30 or 60) if on, else a fixed 60 minutes so HA can still reach the phone. Never longer.
   - Shortest interval 15 minutes (Doze lets allow-while-idle alarms through about once per 9 minutes).
-- Suggested defaults: Day off (messages stay quick), School on, Night on. Nothing changes until a parent switches it on.
+- Default: on in every mode, including Day (parents can switch any mode off). A locked, silent phone gains nothing from live radios. The cost is that WhatsApp and "sync now" wait for the next window, as with the existing 30 and 60 minute settings.
 
 ## The child's own settings are the "intent"
 The phone remembers what the child wants for each radio: **intent** (on or off). Sleeping never changes intent; it only suspends the radio.
@@ -40,7 +40,7 @@ Later, if real use shows holes, a traffic-rate test can be added (for example mo
 2. Wi-Fi first if a saved network exists (cheaper); if not connected in 20 s, mobile data.
 3. Work: HA sync, WhatsApp check if due, location report, any queued command results.
 4. Back to sleep when the work ends, or at 90 s at the latest. Three failed windows in a row: stay on until the next unlock and log it, so a bad network can never strand the phone.
-5. A radio the child switched off is **still** used for a window in a mode that reports location. The parent's location setting is the point of the mode, and switching a radio off should not defeat it. The window lights the icon briefly; the child's intent is unchanged. (Decision for the owner, below.)
+5. A radio the child switched off is **still** used for a window in a mode that reports location. The parent's location setting is the point of the mode, and switching a radio off should not defeat it. The window lights the icon briefly; the child's intent is unchanged.
 
 ## What the child sees: icons, where to find it
 ### Status icons: three states plus "off"
@@ -78,7 +78,7 @@ Why this and not the alternatives:
 - Chosen by the child; turns off Wi-Fi, Bluetooth, mobile data and the mobile radio (no calls or texts in or out). Emergency calls remain possible in Android's own flight mode on most devices; verify on this phone before shipping.
 - It **ends automatically at the next mode change**, so a phone left in flight mode never misses the start of school or a parent's mode. A boost or override also ends it.
 - Before it starts, the phone sends a last report saying "Flight mode, since 21:04" so HA shows it instead of just "offline". HA can warn if it lasts more than a set time (later).
-- No check-in windows during flight mode. That is the one case the child can go fully dark; the auto-end and the HA note are the safeguards. (Decision below.)
+- Check-in windows still run during flight mode (see decisions): they try and, finding no signal, go back to sleep. Flight mode never hides the child from HA's last-seen time.
 - The child's intent for each radio is kept, so leaving flight mode restores them.
 
 ## How it is done (to prove first with the phone on adb)
@@ -111,7 +111,8 @@ reachable for calls when only data is off. Also confirm what Android does to Wi-
 4. Go live for Wi-Fi and Bluetooth, then data if the spike allowed it.
 5. HA toggle and report.
 
-## Decisions for the owner
-- Does a radio the child switched off still come up for a location window? (Recommended: yes in modes that report location.)
-- Flight mode: allow no check-ins at all, relying on auto-end at the next mode change and an HA note? (Recommended: yes.)
-- Suggested defaults: Day off, School on, Night on. Right?
+## Decisions (owner, 2026-11-09)
+- A radio the child switched off **does** still come up for a location window in modes that report location.
+- Flight mode does **not** suppress check-ins, since that would hand the child a way to disable tracking. The window still tries (Wi-Fi first, then data); in real flight mode it simply gets no signal and goes back to sleep. Note Android lets Wi-Fi be switched on inside flight mode, so a saved network may still connect; that is acceptable. The auto-end at the next mode change and the "flight mode since" report stay.
+- **Day mode may use radio sleep too**: the saving applies whenever the phone is locked and nothing is playing, in any mode. Default is on in every mode (parents can switch a mode off).
+- **Live tracking (loc_every 0) switches sleep off for that mode.** There is no separate "track now" request today: HA's only wake-up is the "sync now" nudge (a push through the Companion app), which cannot reach a phone whose data and Wi-Fi are off, so it is delivered at the next window. If a parent-triggered live tracking request is added later it needs the same rule: it waits for the next window (so it must be allowed to wait, with HA showing "waiting for check-in 14:30"), and once the phone is reached it holds the radios on for the length of the live session.
