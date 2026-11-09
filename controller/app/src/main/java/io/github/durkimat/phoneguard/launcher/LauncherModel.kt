@@ -1486,6 +1486,8 @@ data class HomeInfo(
     val softRight: String,
     /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
     val wifi: Int = -1,
+    /** Bluetooth: -1 off or not shown, 0 on but nothing connected (drawn faint), 1 a device is connected. */
+    val bt: Int = -1,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

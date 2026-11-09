@@ -148,6 +148,18 @@ class NokiaSkin : LauncherSkin {
                 c.drawCircle(cx * u, (by - 1f) * u, 2.6f * u, fill)
                 stroke.color = ink; fill.color = ink
             }
+            // Bluetooth: the rune, solid when a device is connected and faint when it is on with nothing connected
+            if (i.bt >= 0) {
+                val col = if (i.bt == 0) (ink and 0x00FFFFFF) or (0x55 shl 24) else ink
+                stroke.color = col; stroke.strokeWidth = 2.5f * u
+                val cx = 188f; val cy = 22f
+                val rune = android.graphics.Path().apply {
+                    moveTo((cx - 8) * u, (cy - 7) * u); lineTo((cx + 8) * u, (cy + 7) * u); lineTo(cx * u, (cy + 13) * u)
+                    lineTo(cx * u, (cy - 13) * u); lineTo((cx + 8) * u, (cy - 7) * u); lineTo((cx - 8) * u, (cy + 7) * u)
+                }
+                c.drawPath(rune, stroke)
+                stroke.color = ink
+            }
             // a small torch while the LED is on (drawn only because the screen is on and showing our screens)
             if (io.github.durkimat.phoneguard.keys.Torch.on) {
                 stroke.strokeWidth = 2.5f * u

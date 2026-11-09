@@ -169,8 +169,23 @@ object LauncherData {
             softLeft = "Menu",
             softRight = "Contacts",
             wifi = wifiState(c),
+            bt = bluetoothState(c),
         )
     }
+
+    /** Bluetooth for the status line: not shown when it is off or the mode is locked down; faint when on with nothing connected. */
+    internal fun bluetoothState(c: Context): Int = try {
+        if (Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.kiosk) -1
+        else {
+            val a = c.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter
+            when {
+                a == null || !a.isEnabled -> -1
+                a.getProfileConnectionState(android.bluetooth.BluetoothProfile.A2DP) == android.bluetooth.BluetoothProfile.STATE_CONNECTED ||
+                    a.getProfileConnectionState(android.bluetooth.BluetoothProfile.HEADSET) == android.bluetooth.BluetoothProfile.STATE_CONNECTED -> 1
+                else -> 0
+            }
+        }
+    } catch (_: Exception) { -1 }
 
     /** Shown in every mode but the locked-down one (School), greyed out while there is no Wi-Fi connection. */
     internal fun wifiState(c: Context): Int = try {

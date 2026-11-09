@@ -33,11 +33,26 @@ object BluetoothControl {
         if (ok) "" else "Android refused: use Android settings"
     } catch (e: Exception) { Log.log(c, "bluetooth switch: ${e.javaClass.simpleName}"); "Could not switch" }
 
-    private fun connected(c: Context): Set<String> = try {
-        val m = c.applicationContext.getSystemService(BluetoothManager::class.java)
-        (listOf(android.bluetooth.BluetoothProfile.A2DP, android.bluetooth.BluetoothProfile.HEADSET, android.bluetooth.BluetoothProfile.GATT)
-            .flatMap { m.getConnectedDevices(it) }).map { it.address }.toSet()
-    } catch (_: Exception) { emptySet() }
+    /** Devices connected right now, asked of the audio and headset profiles (Android only answers that through a profile connection, one at a time). */
+    private fun connected(c: Context): Set<String> {
+        val a = adapter(c) ?: return emptySet()
+        val out = mutableSetOf<String>()
+        for (profile in listOf(android.bluetooth.BluetoothProfile.A2DP, android.bluetooth.BluetoothProfile.HEADSET)) {
+            val latch = java.util.concurrent.CountDownLatch(1)
+            try {
+                a.getProfileProxy(c.applicationContext, object : android.bluetooth.BluetoothProfile.ServiceListener {
+                    override fun onServiceConnected(p: Int, proxy: android.bluetooth.BluetoothProfile) {
+                        try { out += proxy.connectedDevices.map { it.address } } catch (_: Exception) { }
+                        try { a.closeProfileProxy(p, proxy) } catch (_: Exception) { }
+                        latch.countDown()
+                    }
+                    override fun onServiceDisconnected(p: Int) { latch.countDown() }
+                }, profile)
+                latch.await(2, java.util.concurrent.TimeUnit.SECONDS)
+            } catch (_: Exception) { }
+        }
+        return out
+    }
 
     /** Paired devices first (connected ones on top), then what the current search has found. */
     fun list(c: Context): List<BtDev> = try {
