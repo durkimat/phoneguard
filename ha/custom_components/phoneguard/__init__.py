@@ -37,7 +37,6 @@ class Manager:
         self.qr: dict[str, dict] = {}  # transient: the pairing QR shown on the card
         self._last_nudge: dict[str, float] = {}
         self.sp_pending = SP.Pending()  # Spotify sign-ins in progress
-        self.izzy: list[dict] | None = None  # the IzzyOnDroid index, once loaded
 
     # ---- persistence and published state ----------------------------------------------------
 
@@ -201,80 +200,6 @@ async def ws_spotify_start(hass: HomeAssistant, connection: websocket_api.Active
     connection.send_result(msg["id"], {"url": url, "redirect": redirect})
 
 
-async def _izzy(hass: HomeAssistant, mgr: "Manager") -> list[dict]:
-    """The IzzyOnDroid index (loaded once a day, kept in memory and in a file)."""
-    if mgr.izzy is None:
-        path = hass.config.path("phoneguard_cache", "izzy.json")
-        mgr.izzy = await ST.load_index(async_get_clientsession(hass), path)
-    return mgr.izzy
-
-
-@websocket_api.websocket_command({vol.Required("type"): "phoneguard/store_search", vol.Required("q"): vol.All(cv.string, vol.Length(min=2, max=60))})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_store_search(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Search the official downloads, F-Droid and IzzyOnDroid together; each result says where it comes from."""
-    mgr: Manager = hass.data[DOMAIN]
-    results: list[dict] = [{"pkg": o["pkg"], "name": o["name"], "summary": o["summary"], "source": "official"} for o in ST.official_matches(msg["q"])]
-    errors = []
-    try:
-        results += [dict(r, source="fdroid") for r in await ST.search(async_get_clientsession(hass), msg["q"])]
-    except Exception as err:
-        errors.append(f"F-Droid ({type(err).__name__})")
-    try:
-        results += [{"pkg": e["pkg"], "name": e["name"], "summary": e["summary"], "source": "izzy"} for e in ST.search_entries(await _izzy(hass, mgr), msg["q"])]
-    except Exception as err:
-        errors.append(f"IzzyOnDroid ({type(err).__name__})")
-    seen: set[str] = set()
-    merged = []
-    for r in results:  # the same app from two places: keep the first (official, then F-Droid, then IzzyOnDroid)
-        if r["pkg"] not in seen:
-            seen.add(r["pkg"]); merged.append(r)
-    if not merged and errors:
-        connection.send_error(msg["id"], "store_error", "The stores could not be reached: " + ", ".join(errors))
-        return
-    connection.send_result(msg["id"], {"results": merged[:30], "errors": errors})
-
-
-@websocket_api.websocket_command({vol.Required("type"): "phoneguard/store_install", vol.Required("child"): cv.slug, vol.Required("pkg"): cv.string, vol.Required("name"): cv.string, vol.Optional("source", default="fdroid"): vol.In(["fdroid", "izzy", "official"])})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_store_install(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    """Work out where the file is and its checksum, and queue the install for the phone."""
-    mgr: Manager = hass.data[DOMAIN]
-    session = async_get_clientsession(hass)
-    pkg = msg["pkg"]
-    try:
-        if msg["child"] not in mgr.hub.data["children"] or not ST.valid_pkg(pkg):
-            raise ValueError("unknown phone or app")
-        if msg["source"] == "official":
-            o = next((x for x in ST.OFFICIAL if x["pkg"] == pkg), None)
-            if o is None:
-                raise ValueError("that is not on the official list")
-            version, url, sha, size = await ST.resolve_official(session, o)
-        elif msg["source"] == "izzy":
-            e = next((x for x in await _izzy(hass, mgr) if x["pkg"] == pkg), None)
-            if e is None:
-                raise ValueError("IzzyOnDroid has no such app")
-            version, url, sha, size = e["version"], ST.IZZY_REPO + e["apk"], e["sha256"], e["size"]
-        else:
-            got = await ST.info(session, pkg)
-            if not got:
-                raise ValueError("the store has no such app")
-            version, vc = got
-            url = ST.apk_url(pkg, vc)
-            sha, size = await ST.hash_url(session, url)
-        mgr.hub.queue_app(msg["child"], "install", pkg, msg["name"], url, sha, size)
-        mgr.changed(msg["child"])
-    except ValueError as err:
-        connection.send_error(msg["id"], "cannot_queue", str(err))
-        return
-    except Exception as err:
-        connection.send_error(msg["id"], "store_error", f"Could not prepare that app ({type(err).__name__})")
-        return
-    connection.send_result(msg["id"], {"version": version or "latest", "size": size})
-
-
 CHILD = vol.Schema({vol.Required("child"): cv.string}, extra=vol.ALLOW_EXTRA)
 
 
@@ -436,15 +361,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await admin(call)
         cid = child_of(call); mgr.hub.set_spotify(cid, None); mgr.changed(cid)
 
-    async def remove_app(call: ServiceCall) -> None:
-        await admin(call)
-        cid = child_of(call)
-        try:
-            mgr.hub.queue_app(cid, "remove", call.data["package"], call.data.get("name", ""))
-        except ValueError as err:
-            raise HomeAssistantError(f"Not queued: {err}") from err
-        mgr.changed(cid)
-
     async def cancel_job(call: ServiceCall) -> None:
         await admin(call)
         cid = child_of(call); mgr.hub.cancel_app(cid, call.data["id"]); mgr.changed(cid)
@@ -480,13 +396,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from homeassistant.helpers.event import async_call_later
     entry.async_on_unload(async_track_time_interval(hass, check_updates, timedelta(hours=6)))
     async_call_later(hass, 60, check_updates)
-    hass.services.async_register(DOMAIN, "remove_app", remove_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Optional("name"): cv.string}))
     hass.services.async_register(DOMAIN, "cancel_job", cancel_job, vol.Schema({vol.Required("child"): cv.slug, vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "update_phone", update_phone, vol.Schema({vol.Required("child"): cv.slug}))
     hass.services.async_register(DOMAIN, "check_updates", check_updates, vol.Schema({}))
     hass.http.register_view(SpotifyCallback())
-    websocket_api.async_register_command(hass, ws_store_search)
-    websocket_api.async_register_command(hass, ws_store_install)
     websocket_api.async_register_command(hass, ws_spotify_start)
     reg = hass.services.async_register
     reg(DOMAIN, "spotify_signout", spotify_signout, vol.Schema({vol.Required("child"): cv.slug}))
@@ -523,7 +436,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all", "remove_app", "cancel_job", "update_phone", "check_updates"):
+                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all", "cancel_job", "update_phone", "check_updates"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True
