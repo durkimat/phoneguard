@@ -235,7 +235,7 @@ class HomeBadgeTest {
         m.wifiOn = true
         m.wifiNets = listOf(WifiNet("Home", 3, true, true, 4, true, true, "[WPA2-PSK]"), WifiNet("Shed", 5, true, true, -1, false, false, ""), WifiNet("Cafe", -1, false, true, 2, false, true, "[WPA2-PSK]"), WifiNet("Open", -1, false, false, 1, false, true, "[ESS]"))
         m.onKey(Key.DIGIT, 6); assertEquals(Screen.WIFI, m.screen)
-        assertEquals(listOf("Wi-Fi: On", "> Home", "  Shed (not here)", "  Cafe *", "  Open"), m.rows)
+        assertEquals(listOf("Wi-Fi: On", "> Home", "* Shed", "  Cafe", "  Open"), m.rows)
         assertEquals(Action.WifiToggle, m.onKey(Key.OK)) // the first row switches Wi-Fi
         m.onKey(Key.DIGIT, 2); assertEquals(Screen.WIFINET, m.screen); assertEquals(listOf("Change password", "Forget"), m.rows) // the connected network
         assertEquals(Action.WifiForget(3), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.WIFI, m.screen)
@@ -252,7 +252,7 @@ class HomeBadgeTest {
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.btOn = true
         m.btDevs = listOf(BtDev("A", "AYIMA", true, false), BtDev("B", "Speaker", false, false))
         assertEquals(Action.BtLoad, m.onKey(Key.DIGIT, 7)); assertEquals(Screen.BT, m.screen)
-        assertEquals(listOf("Bluetooth: On", "Search for devices", "  AYIMA (paired)", "  Speaker"), m.rows)
+        assertEquals(listOf("Bluetooth: On", "Search for devices", "* AYIMA", "  Speaker"), m.rows)
         assertEquals(Action.BtToggle, m.onKey(Key.DIGIT, 1)); assertEquals(Action.BtSearch, m.onKey(Key.DIGIT, 2))
         m.onKey(Key.DIGIT, 3); assertEquals(listOf("Connect", "Forget"), m.rows)
         assertEquals(Action.BtConnect("A", true), m.onKey(Key.DIGIT, 1)); assertEquals(Screen.BT, m.screen)
