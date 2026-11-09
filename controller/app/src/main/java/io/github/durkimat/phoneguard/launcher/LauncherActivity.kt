@@ -139,7 +139,33 @@ class LauncherActivity : Activity() {
     private val waChanged: () -> Unit = { runOnUiThread { refresh() } }
 
     private val torchChanged: () -> Unit = { refresh() }
-    private val musicTick = Runnable { if (model.screen == Screen.MUSIC) refresh() }
+    /**
+     * Once a second on the Music screen: only the player is looked at (off the main thread) and the screen is redrawn with the
+     * home information from the last full refresh. A full refresh queries the call log, messages and contacts, which made the
+     * scrolling titles stick every second.
+     */
+    @Volatile private var lastInfo: HomeInfo? = null
+    @Volatile private var musicBusy = false
+    private val musicTick = Runnable {
+        if (model.screen != Screen.MUSIC) return@Runnable
+        if (!musicBusy) {
+            musicBusy = true
+            Thread {
+                try {
+                    val now = nowPlaying()
+                    runOnUiThread {
+                        if (model.screen == Screen.MUSIC) {
+                            model.music = now
+                            model.sleepLabel = io.github.durkimat.phoneguard.music.SleepTimer.label()
+                            lastInfo?.let { skin.render(model, it) }
+                        }
+                    }
+                } finally { musicBusy = false }
+            }.start()
+        }
+        ui.postDelayed(this.musicTickRef(), 1000)
+    }
+    private fun musicTickRef(): Runnable = musicTick
     private val sp = io.github.durkimat.phoneguard.music.Spotify
     @Volatile private var spPlayer: io.github.durkimat.phoneguard.music.SpPlayer? = null
     private var spPolledAt = 0L
@@ -236,6 +262,7 @@ class LauncherActivity : Activity() {
         }
         val info = LauncherData.info(this)
         model.badges = info.badges
+        lastInfo = info
         skin.render(model, info)
     }
 

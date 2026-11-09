@@ -302,20 +302,25 @@ class NokiaSkin : LauncherSkin {
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
-        /** A line that fits is drawn plainly; a longer one pauses, scrolls to its end, pauses and starts again. */
+        /**
+         * A line that fits is drawn plainly. A longer one rests at its start, then scrolls left as a loop: a gap follows the end
+         * and the start comes back in behind it, so when the scroll stops the line is exactly where it began (no jump).
+         */
         private fun marquee(c: Canvas, s: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean = false) {
             val w = measureBold(s, size)
             if (w <= room) { text(c, s, x, y, size, u, bold = bold); return }
-            val travel = w - room + 16f
-            val speed = 50f // pixels a second
-            val lead = 1500L; val tail = 1000L
-            val cycle = lead + (travel / speed * 1000).toLong() + tail
-            val t = System.currentTimeMillis() % cycle
-            val off = if (t < lead) 0f else minOf(travel, (t - lead) / 1000f * speed)
+            val gap = 70f
+            val travel = w + gap
+            val speed = 55f // pixels a second
+            val rest = 1800L
+            val scrollMs = (travel / speed * 1000).toLong()
+            val t = System.currentTimeMillis() % (rest + scrollMs)
+            val off = if (t < rest) 0f else (t - rest) / 1000f * speed
             c.save(); c.clipRect(x * u, (y - size * 1.1f) * u, (x + room) * u, (y + size * 0.4f) * u)
             text(c, s, x - off, y, size, u, bold = bold)
+            text(c, s, x - off + travel, y, size, u, bold = bold)
             c.restore()
-            postInvalidateDelayed(90)
+            postInvalidateDelayed(60)
         }
 
         private fun noteScreen(c: Canvas, m: LauncherModel, u: Float) {
