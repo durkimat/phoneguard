@@ -321,7 +321,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun musicScreen(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val mu = m.music
             if (!mu.active) {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
@@ -355,26 +355,34 @@ class NokiaSkin : LauncherSkin {
          * A line that fits is drawn plainly. A longer one rests at its start, then scrolls left as a loop: a gap follows the end
          * and the start comes back in behind it, so when the scroll stops the line is exactly where it began (no jump).
          */
-        private fun marquee(c: Canvas, s: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean = false) {
+        private fun marquee(c: Canvas, s0: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean = false, color: Int = ink, center: Boolean = false) {
+            var s = s0
+            if (measureBold(s, size) > room * 3) s = ellipsize(s, room * 3, size) // never longer than three screens
             val w = measureBold(s, size)
-            if (w <= room) { text(c, s, x, y, size, u, bold = bold); return }
-            val gap = 70f
-            val travel = w + gap
-            val speed = 55f // pixels a second
-            val rest = 1800L
-            val scrollMs = (travel / speed * 1000).toLong()
-            val t = System.currentTimeMillis() % (rest + scrollMs)
-            val off = if (t < rest) 0f else (t - rest) / 1000f * speed
+            if (w <= room) { if (center) text(c, s, x + room / 2, y, size, u, bold = bold, align = Paint.Align.CENTER, color = color) else text(c, s, x, y, size, u, bold = bold, color = color); return }
+            val travel = w - room
+            val speed = 90f // pixels a second
+            val rest = 1500L
+            val moveMs = (travel / speed * 1000).toLong()
+            val t = System.currentTimeMillis() % (2 * (rest + moveMs))
+            val off = when {
+                t < rest -> 0f
+                t < rest + moveMs -> (t - rest) / 1000f * speed
+                t < 2 * rest + moveMs -> travel
+                else -> travel - (t - 2 * rest - moveMs) / 1000f * speed
+            }.coerceIn(0f, travel)
             c.save(); c.clipRect(x * u, (y - size * 1.1f) * u, (x + room) * u, (y + size * 0.4f) * u)
-            text(c, s, x - off, y, size, u, bold = bold)
-            text(c, s, x - off + travel, y, size, u, bold = bold)
+            text(c, s, x - off, y, size, u, bold = bold, color = color)
             c.restore()
             postInvalidateDelayed(60)
         }
 
+        /** The title bar's text: centred when it fits, otherwise it scrolls forwards and back. */
+        private fun titleText(c: Canvas, s: String, u: Float) = marquee(c, s, 20f, 85f, 30f, 440f, u, bold = true, color = lcd, center = true)
+
         private fun noteScreen(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val n = m.currentNote
             if (n == null) text(c, "Gone", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             else {
@@ -388,7 +396,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun batteryScreen(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val b = m.battery
             if (b == null) text(c, "Reading...", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             else {
@@ -410,7 +418,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun weatherScreen(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val w = m.weather
             if (w == null) { text(c, "No weather yet", 240f, 300f, 30f, u, align = Paint.Align.CENTER) }
             else {
@@ -446,7 +454,7 @@ class NokiaSkin : LauncherSkin {
         private fun menu(c: Canvas, m: LauncherModel, u: Float) {
             // title bar
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val rowH = 62f
             val visible = LIST_VISIBLE
             val first = m.listFirst(visible)
@@ -454,10 +462,11 @@ class NokiaSkin : LauncherSkin {
                 val idx = first + n
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
-                val label = ellipsize((if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   ") + row, 440f, 32f)
+                val prefix = if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
+                val label = ellipsize(prefix + row, 440f, 32f)
                 if (idx == m.selected) {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
-                    text(c, label, 20f, top + 42f, 32f, u, bold = true, color = lcd)
+                    marquee(c, prefix + row, 20f, top + 42f, 32f, 440f, u, bold = true, color = lcd)
                 } else text(c, label, 20f, top + 42f, 32f, u)
             }
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
@@ -506,7 +515,7 @@ class NokiaSkin : LauncherSkin {
             val convo = m.openConvo ?: return
             val msg = m.shownMsg ?: return
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val lines = wrap(msg.body)
             val whenText = SimpleDateFormat(if (sameDay(msg.date)) "HH:mm" else "d MMM HH:mm", Locale.UK).format(Date(msg.date))
             val pos = "${m.selected + 1}/${convo.msgs.size}"
@@ -600,7 +609,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun calc(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             text(c, m.calc.pending, 464f, 160f, 30f, u, align = Paint.Align.RIGHT)
             val big = m.calc.display
             var size = 84f
@@ -618,7 +627,7 @@ class NokiaSkin : LauncherSkin {
         private fun snake(c: Canvas, m: LauncherModel, u: Float) {
             val g = m.snake
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             val cell = 20f; val left = (480f - g.cols * cell) / 2; val top = 110f
             stroke.strokeWidth = 2 * u
             c.drawRect((left - 3) * u, (top - 3) * u, (left + g.cols * cell + 3) * u, (top + g.rows * cell + 3) * u, stroke)
@@ -644,7 +653,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun gameTitle(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
         }
 
         /** A filled box with a message in the theme's light colour. */
@@ -786,7 +795,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun waPair(c: Canvas, m: LauncherModel, u: Float) {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            text(c, m.title, 240f, 85f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            titleText(c, m.title, u)
             when {
                 m.waLinked -> {
                     text(c, "Linked", 240f, 220f, 52f, u, bold = true, align = Paint.Align.CENTER)
