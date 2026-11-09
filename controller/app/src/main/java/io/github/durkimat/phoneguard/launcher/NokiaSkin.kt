@@ -364,7 +364,7 @@ class NokiaSkin : LauncherSkin {
             val sp = io.github.durkimat.phoneguard.music.Spectrum
             if (live) sp.use(context) else sp.stop() // not playing here: let go and show empty bars
             val n = sp.BARS; val left = 24f; val barW = 23f; val gap = 4f
-            val bottom = 362f; val blocks = 7; val blockH = 5f; val pitch = 7f
+            val bottom = 364f; val blocks = 9; val blockH = 5f; val pitch = 7f
             for (i in 0 until n) {
                 val x = left + i * (barW + gap)
                 val lit = (sp.level[i] * blocks).toInt()

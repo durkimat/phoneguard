@@ -967,3 +967,5 @@ Questions to put to them together:
 - Music: the play/pause symbol no longer flips back and forth after a press (the expected state is held 5 s while Spotify catches up). With the spectrum on, a slim progress bar sits between the elapsed and total times.
 
 - Spectrum v6: fixed scale (-56 to -8 dB) instead of following the loudest band, so quiet music looks quiet. Logs the loudest band every 5 s ("spectrum: loudest band") to diagnose bars that carry on after a song ends.
+
+- Spectrum v7: captured as played (the default normalised scaling made quiet music look loud), scale -52 to -10 dB, 1 dB treble lift per bar, 9 blocks tall, faster fall. Calibrated from logged levels (loud bass about -18 dB, mids -30, treble -40).
