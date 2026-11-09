@@ -55,3 +55,19 @@ through Android's package installer (no prompts on the keypad), and may replace 
 - Is "PowerEngine apk" the Phone Guard APK (what this assumes), or is there a separate Android app in the PowerEngine project?
 - Should an update ever be automatic, or always a parent's press?
 - Which phone is the test phone for new builds?
+
+## Which store? (review, 2026-11-09)
+Checked by searching F-Droid for the apps a family wants: it has none of the mainstream ones. WhatsApp, Spotify, YouTube, Signal, Google Maps, Snapchat and the like are not there (searches return add-ons, unofficial clients and look-alikes). It is right for small tools, notes, clocks, maps (OsmAnd, Organic Maps), a browser (Fennec, Brave via its own site), podcast players, keyboards and simple games.
+
+| Source | What it has | Automatable from HA? | Notes |
+|---|---|---|---|
+| F-Droid | about 4,000 open-source apps | yes (search and index, with checksums) | clean, safe, but no mainstream apps |
+| IzzyOnDroid | about 1,200 more, some free closed-source apps | yes (same format as F-Droid, 16 MB index) | a good second source |
+| Official vendor downloads | WhatsApp (whatsapp.com APK), Signal (latest.json with SHA-256), Telegram, Firefox, Brave and others publish their own APKs | yes, from a short curated list | the safe way to get the mainstream apps that publish APKs |
+| Add by link | anything with a direct https APK address | yes (HA fetches it once to learn its checksum) | for the parent's own choices |
+| Google Play (through Aurora Store) | everything, including Spotify | no (it logs in to Google as a guest through an unofficial route and needs its own screens) | keep Aurora installed as the fallback for Play-only apps; it is a touch app, so only in modes with touch |
+| APKMirror, APKPure and similar | re-hosts of Play apps | not reliably | third-party copies; not recommended |
+
+Decision: the Apps and store section searches F-Droid and IzzyOnDroid together (results say which store), has an "Official downloads" list for
+the mainstream apps that publish APKs, and a "Install from a link" box. Aurora stays on the phone for what the others cannot supply. A child
+could be given the same screen in HA to ask for an app; the request goes to a parent to approve (later).
