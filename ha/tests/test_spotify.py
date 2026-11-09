@@ -182,13 +182,21 @@ def test_only_a_phone_guard_update_can_be_queued_and_it_clears_on_the_result():
     h.device_of = lambda cid: ("d", {"state": {"version": "0.1.0"}, "apps": []})
     assert h.update_for("ellie") is None
     h.set_latest({"version": "0.2.0", "notes": "n", "url": "https://x/a.apk", "size": 9, "sha256": "b" * 64})
+    assert h.update_for("ellie")["enabled"] is False
+    with pytest.raises(ValueError):
+        h.queue_update("ellie")  # switched off by default: nothing can be queued by accident
+    with pytest.raises(ValueError):
+        h.queue_update("ellie", {"url": "https://x/a.apk", "sha256": "b" * 64})
+    h.set_options({"updates_enabled": True})
+    assert h.update_for("ellie")["enabled"] is True
+    h.set_latest({"version": "0.2.0", "notes": "n", "url": "https://x/a.apk", "size": 9, "sha256": "b" * 64})
     assert h.update_for("ellie")["available"] is True
     cmd = h.queue_update("ellie")
     assert cmd["kind"] == "update" and cmd["pkg"] == "io.github.durkimat.phoneguard"
     assert S.build_config(ch, 1_794_000_000_000)["appCommands"][0]["id"] == cmd["id"]
     with pytest.raises(ValueError):
         h.queue_update("ellie")  # already waiting
-    for kind, pkg in (("install", "com.example.app"), ("remove", "com.example.app"), ("update", "com.example.app")):
+    for kind, pkg in (("install", "com.example.app"), ("update", "com.example.app"), ("remove", "io.github.durkimat.phoneguard"), ("remove", "not a package")):
         with pytest.raises(ValueError):
             h.queue_app("ellie", kind, pkg, "x", "https://x/a.apk", "b" * 64)
     h._merge_app_results(ch, [[cmd["id"], "done", "installing the new version", 1_794_000_000_100], ["unknown", "done", "", 1]])
@@ -197,3 +205,16 @@ def test_only_a_phone_guard_update_can_be_queued_and_it_clears_on_the_result():
     assert h.update_for("ellie")["available"] is False
     with pytest.raises(ValueError):
         h.queue_update("ellie")
+
+
+def test_an_app_can_be_queued_for_removal_and_new_clears_once_it_is_in_a_mode():
+    h, ch = _child_hub()
+    h.device_of = lambda cid: ("d", {"state": {"version": "0.1.0"}, "pending": False, "sas": None, "last_seen": 1, "model": "", "cfgh": "", "apps": [{"pkg": "com.a.one", "label": "One"}, {"pkg": "com.b.two", "label": "Two"}]})
+    ch["known"] = []  # nothing has been seen by the parent yet
+    assert h.view("ellie")["pending_apps"] == ["com.a.one", "com.b.two"]
+    h.set_mode_all("ellie", "day", True)  # both are ticked in Day: they are no longer new
+    assert h.view("ellie")["pending_apps"] == []
+    cmd = h.queue_app("ellie", "remove", "com.b.two", "Two")
+    assert S.build_config(ch, 1_794_000_000_000)["appCommands"][0] == {"id": cmd["id"], "kind": "remove", "pkg": "com.b.two", "name": "Two", "url": "", "sha256": "", "size": 0}
+    with pytest.raises(ValueError):
+        h.queue_app("ellie", "remove", "com.b.two", "Two")  # already waiting

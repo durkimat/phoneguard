@@ -1,8 +1,8 @@
-/* Phone Guard card v0.26.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.28.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.26.0";
+const PG_VERSION = "0.28.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -293,7 +293,7 @@ class PhoneGuardCard extends HTMLElement {
       const i = part.indexOf("</h3>");
       const title = part.slice(0, i), body = part.slice(i + 5);
       const open = title in saved ? saved[title] : OPEN.includes(title);
-      const note = title === "Modes and apps" && d.pending_apps && d.pending_apps.length ? `<span class="note">${d.pending_apps.length} new</span>` : (title === "Phone Guard updates" && d.update && d.update.available ? `<span class="note">update</span>` : "");
+      const note = title === "Modes and apps" && d.pending_apps && d.pending_apps.length ? `<span class="note">${d.pending_apps.length} new</span>` : (title === "Updates and removals" && d.update && d.update.available && d.update.enabled ? `<span class="note">update</span>` : "");
       out += `<details class="sec" data-sec="${this._esc(title)}" ${open ? "open" : ""}><summary>${title}${note}</summary>${body}</details>`;
     }
     return out;
@@ -388,16 +388,16 @@ class PhoneGuardCard extends HTMLElement {
       <span class="sub">${d.override ? `Held in <b>${this._esc((d.modes[d.override] || { name: d.override }).name)}</b> until you choose Auto.` : `Following the timetable: <b>${this._esc((d.modes[d.mode_now] || { name: d.mode_now }).name)}</b> now.`}</span>
       <span class="row"><button data-act="boost" data-mode="${bm}" data-min="10" title="Each press adds 10 minutes">${d.boost ? `Boost ${this._esc(bname)}: ${left} min left, +10` : `Boost ${this._esc(bname)} +10 min`}</button>${d.boost ? `<button data-act="cancel_boost" class="danger" title="End the boost now">✕</button>` : ""}</span></div>`;
     h += `<div class="scroll"><table class="mx"><tr class="modes"><th class="name"><button data-act="override" data-mode="auto" class="mbtn ${d.override ? "" : "live"}">Auto</button></th>${ids.map((m) =>
-      `<th><button data-act="override" data-mode="${m}" class="mbtn ${d.mode_now === m ? "live" : ""} ${d.override === m ? "held" : ""}" title="Hold the phone in ${this._esc(d.modes[m].name)}">${this._esc(d.modes[m].name)}</button></th>`).join("")}<th>Main menu</th><th>Hide notes</th></tr>
-      <tr class="opt"><td>Select all</td>${ids.map((m) => `<td><input type="checkbox" data-all="${m}" title="Allow every app in ${this._esc(d.modes[m].name)}"></td>`).join("")}<td></td><td></td></tr>
-      <tr class="opt"><td>Allow new apps automatically</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="auto_new" data-mode="${m}" ${d.modes[m].auto_new ? "checked" : ""} title="Off: a newly installed app stays hidden here until you tick it"></td>`).join("")}<td></td><td></td></tr>`;
+      `<th><button data-act="override" data-mode="${m}" class="mbtn ${d.mode_now === m ? "live" : ""} ${d.override === m ? "held" : ""}" title="Hold the phone in ${this._esc(d.modes[m].name)}">${this._esc(d.modes[m].name)}</button></th>`).join("")}<th>Main menu</th><th>Hide notes</th><th>Remove</th></tr>
+      <tr class="opt"><td>Select all</td>${ids.map((m) => `<td><input type="checkbox" data-all="${m}" title="Allow every app in ${this._esc(d.modes[m].name)}"></td>`).join("")}<td></td><td></td><td></td></tr>
+      <tr class="opt"><td>Allow new apps automatically</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="auto_new" data-mode="${m}" ${d.modes[m].auto_new ? "checked" : ""} title="Off: a newly installed app stays hidden here until you tick it"></td>`).join("")}<td></td><td></td><td></td></tr>`;
     for (const a of d.apps) {
       const isNew = pend.includes(a.pkg);
       h += `<tr class="${isNew ? "pend" : ""}"><td class="name">${this._esc(a.label)}${isNew ? ` <button class="newtag" data-act="dismiss" data-pkg="${this._esc(a.pkg)}" title="Mark as seen">NEW ✓</button>` : ""}<small>${this._esc(a.pkg)}</small></td>` +
         ids.map((m) => `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${(d.modes[m].allow || []).includes(a.pkg) ? "checked" : ""}></td>`).join("") +
-        `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td><td><input type="checkbox" data-nh="${this._esc(a.pkg)}" ${(d.notes_hide || []).includes(a.pkg) ? "checked" : ""}></td></tr>`;
+        `<td><input type="checkbox" data-pin="${this._esc(a.pkg)}" ${pinned.includes(a.pkg) ? "checked" : ""}></td><td><input type="checkbox" data-nh="${this._esc(a.pkg)}" ${(d.notes_hide || []).includes(a.pkg) ? "checked" : ""}></td><td><button class="small" data-act="app_remove" data-pkg="${this._esc(a.pkg)}" data-name="${this._esc(a.label)}" title="Uninstall ${this._esc(a.label)} from the phone">✕</button></td></tr>`;
     }
-    return h + `</table></div><div class="sub" style="margin-top:6px">A tick means the app is visible in that mode. Phone, messages, contacts and Settings are always available. Main menu: ticked apps sit in the Nokia main menu, the others are under "Android Apps". Hide notes: clear that app's notifications as they arrive. The Clock hides its alarms, so leave it ticked in any mode where an alarm must ring.</div>`;
+    return h + `</table></div><div class="sub" style="margin-top:6px">A tick means the app is visible in that mode. The cross uninstalls an app from the phone (the phone, messages and settings are never offered). Phone, messages, contacts and Settings are always available. Main menu: ticked apps sit in the Nokia main menu, the others are under "Android Apps". Hide notes: clear that app's notifications as they arrive. The Clock hides its alarms, so leave it ticked in any mode where an alarm must ring.</div>`;
   }
 
   // everything else that differs between modes, in the same columns
@@ -435,15 +435,17 @@ class PhoneGuardCard extends HTMLElement {
   // Updates: the only app HA installs for the phone is Phone Guard itself. People install their own apps with Aurora; the table above decides who sees them.
   _updatesHtml(d) {
     if (!d.device) return "";
-    let h = `<h3>Phone Guard updates</h3>`;
+    let h = `<h3>Updates and removals</h3>`;
     const u = d.update;
     const waiting = d.app_commands || [];
     h += `<div class="sub">On this phone: <b>${this._esc((d.device.state || {}).version || "?")}</b>${u && u.version ? ` · newest release: <b>${this._esc(u.version)}</b>` : " · no release found yet"}</div>`;
-    if (u && u.available) h += `<div class="new" style="margin:8px 0"><b>Phone Guard ${this._esc(u.version)} is available</b>
+    const on = !!(u ? u.enabled : (d.options || {}).updates_enabled);
+    h += `<label class="sub" style="display:block;margin:6px 0"><input type="checkbox" data-upd-enable ${on ? "checked" : ""}> Allow updates from here <span class="mut">(off until phones run the release build; updating a phone with a different build fails harmlessly)</span></label>`;
+    if (u && u.available) h += `<div class="new" style="margin:8px 0;${on ? "" : "opacity:.45"}"><b>Phone Guard ${this._esc(u.version)} is available</b>
       ${u.notes ? `<div class="sub" style="white-space:pre-wrap;margin-top:4px">${this._esc(u.notes.slice(0, 300))}</div>` : ""}
-      <div class="row" style="margin-top:6px"><button class="primary" data-act="update_phone" ${u.ready && !waiting.some((c) => c.kind === "update") ? "" : "disabled"}>Update this phone</button>
-      <span class="sub">${u.ready ? "The phone updates itself when it next checks in, on Wi-Fi." : "This release has no checksum yet."}</span></div></div>`;
-    if (waiting.length) h += `<div class="sub" style="margin:6px 0">Waiting for the phone: ${waiting.map((c) => `${this._esc(c.name)} <button class="small" data-act="job_cancel" data-id="${this._esc(c.id)}">cancel</button>`).join(" · ")}</div>`;
+      <div class="row" style="margin-top:6px"><button class="primary" data-act="update_phone" ${on && u.ready && !waiting.some((c) => c.kind === "update") ? "" : "disabled"}>Update this phone</button>
+      <span class="sub">${!on ? "Switched off above." : u.ready ? "The phone updates itself when it next checks in, on Wi-Fi." : "This release has no checksum yet."}</span></div></div>`;
+    if (waiting.length) h += `<div class="sub" style="margin:6px 0">Waiting for the phone: ${waiting.map((c) => `${c.kind === "remove" ? "remove " : ""}${this._esc(c.name)} <button class="small" data-act="job_cancel" data-id="${this._esc(c.id)}">cancel</button>`).join(" · ")}</div>`;
     if ((d.app_log || []).length) h += `<div class="sub" style="margin-top:6px">${d.app_log.slice(0, 3).map(([t, nm, kind, res, why]) => `${this._fmtTime(t)} ${this._esc(nm)}: ${res === "done" ? "done" : "failed (" + this._esc(why) + ")"}`).join("<br>")}</div>`;
     return h + `<div class="sub" style="margin-top:8px">Other apps: install them with Aurora on the phone; a new app starts hidden and appears in "Modes and apps" above for you to tick.</div>`;
   }
@@ -773,6 +775,7 @@ class PhoneGuardCard extends HTMLElement {
       this._ui.sec[el.dataset.sec] = el.open;
       try { localStorage.setItem("phoneguard-card:sections", JSON.stringify(this._ui.sec)); } catch (e) { /* private window */ }
     }));
+    r.querySelectorAll("input[data-upd-enable]").forEach((i) => i.addEventListener("change", () => this._hass.callService("phoneguard", "set_options", { updates_enabled: i.checked })));
     r.querySelectorAll("input[data-dry]").forEach((i) => i.addEventListener("change", () => this._svc("set_child", { config: { idle_dry_run: i.checked } })));
     r.querySelectorAll("input[data-all]").forEach((i) => {
       const d = this._d, m = i.dataset.all, apps = d.apps || [];
@@ -896,6 +899,10 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "confirm") return this._svc("confirm_pairing", { sas: ui.sas }).then(() => { ui.sas = ""; });
     if (a === "forget") return this._svc("forget");
     if (a === "update_phone") return this._svc("update_phone", {});
+    if (a === "app_remove") {
+      if (!window.confirm("Uninstall " + b.dataset.name + " from the phone? Its data on the phone goes too.")) return;
+      return this._svc("remove_app", { package: b.dataset.pkg, name: b.dataset.name });
+    }
     if (a === "job_cancel") return this._svc("cancel_job", { id: b.dataset.id });
     if (a === "keep_add" || a === "keep_del") {
       const cur = new Set(d.keep_running || []);
