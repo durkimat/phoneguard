@@ -79,7 +79,10 @@ object BluetoothControl {
 
     private fun device(c: Context, address: String): BluetoothDevice? = try { adapter(c)?.getRemoteDevice(address) } catch (_: Exception) { null }
 
-    fun pair(c: Context, address: String): Boolean = try { adapter(c)?.cancelDiscovery(); device(c, address)?.createBond() == true } catch (e: Exception) { Log.log(c, "bluetooth pair: ${e.javaClass.simpleName}"); false }
+    /** When our screen last asked to pair (the pairing panel is more ready to recognise Android's dialog soon after). */
+    @Volatile var pairAskedAt = 0L
+
+    fun pair(c: Context, address: String): Boolean = try { pairAskedAt = System.currentTimeMillis(); adapter(c)?.cancelDiscovery(); device(c, address)?.createBond() == true } catch (e: Exception) { Log.log(c, "bluetooth pair: ${e.javaClass.simpleName}"); false }
 
     /** Forget a paired device (a hidden call; reported if Android refuses). */
     fun forget(c: Context, address: String): Boolean {
