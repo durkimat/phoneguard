@@ -239,7 +239,9 @@ object WhatsApp {
         val p = policy(app)
         if (!linked(app) || (p != "30" && p != "60") || io.github.durkimat.phoneguard.launcher.LauncherData.useRealWhatsApp(app)) return
         if (!polling.compareAndSet(false, true)) return
+        io.github.durkimat.phoneguard.net.RadioManager.begin(app, "whatsapp check")
         try {
+            io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000)
             val wasOn = isConnected()
             if (!wasOn) { connect(app); for (i in 1..40) { if (isConnected()) break; Thread.sleep(500) } }
             if (isConnected()) Thread.sleep(if (wasOn) 0 else SETTLE_MS) // queued messages arrive straight after connecting
@@ -249,6 +251,7 @@ object WhatsApp {
             val plugged = (bat?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
             Log.log(app, "whatsapp: checked (${if (wasOn) "already connected" else "connected briefly"}) battery=$pct% ${if (plugged) "charging" else "on battery"}")
         } finally {
+            io.github.durkimat.phoneguard.net.RadioManager.end(app, "whatsapp check")
             polling.set(false)
             schedule(app, if (p == "60") 60 else 30)
         }

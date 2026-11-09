@@ -13,7 +13,7 @@ data class Lockdown(val launcher: String, val touch: Boolean, val shade: Boolean
 }
 
 /** Everything the enforcer needs for one moment. Equal values mean no visible change. */
-data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open", val waApp: String = "auto", val camera: Boolean = true, val location: String = "off", val locEvery: Int = 30, val notes: String = "show", val idleMin: Int = 10, val radio: String = "any")
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open", val waApp: String = "auto", val camera: Boolean = true, val location: String = "off", val locEvery: Int = 30, val notes: String = "show", val idleMin: Int = 10, val radio: String = "any", val radiosSleep: Boolean = true)
 
 object Engine {
     const val EMERGENCY = "emergency"
@@ -58,6 +58,7 @@ object Engine {
         var locEvery = s.locEvery
         var notes = s.notes
         var radio = s.radio
+        var radiosSleep = s.radiosSleep
         if (boost != null && now < boost.until) {
             val b = modeDef(cfg, boost.mode)
             all = all || b.allowAll
@@ -70,6 +71,7 @@ object Engine {
             camera = camera || b.camera
             if (b.notes == "show") notes = "show"
             radio = moreRadio(radio, b.radio)
+            radiosSleep = radiosSleep && b.radiosSleep // a boost that keeps radios on wins
             // the more capable position setting wins; between two that report, the more frequent (0 is live)
             if (locRank(b.location) > locRank(location)) { location = b.location; locEvery = b.locEvery }
             else if (locRank(b.location) == locRank(location) && location != "off" && b.locEvery < locEvery) locEvery = b.locEvery
@@ -78,7 +80,7 @@ object Engine {
                 touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
             )
         }
-        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa, waApp, camera, location, locEvery, notes, s.idleMin, radio)
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa, waApp, camera, location, locEvery, notes, s.idleMin, radio, radiosSleep)
     }
 
     /** The more open of two radio settings (a boost never takes radio away). */

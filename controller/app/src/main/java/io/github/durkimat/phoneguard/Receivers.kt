@@ -32,6 +32,7 @@ class AlarmReceiver : BroadcastReceiver() {
             val pending = goAsync()
             Thread { try { if (!c.getSystemService(android.os.PowerManager::class.java).isInteractive) IdleReaper.sweep(c) } finally { pending.finish() } }.start()
         }
+        else if (i.getStringExtra("kind") == "radio") io.github.durkimat.phoneguard.net.RadioManager.evaluate(c, "alarm")
         else Controller.evaluate(c, "alarm")
     }
 }

@@ -405,3 +405,12 @@ def test_radio_station_list_is_tidied_and_must_be_https(hub):
     assert len(hub.data["children"]["her"]["radio_stations"]) == 2  # a bad list changes nothing
     hub.update_child("her", {"radio_stations": []})
     assert "radioStations" not in S.build_config(hub.data["children"]["her"], hub.now())  # empty: back to the phone's built-in list
+
+
+def test_radios_sleep_defaults_on_everywhere_and_can_be_switched_off(hub):
+    ch = hub.data["children"]["her"]
+    assert all(m["radiosSleep"] is True for m in S.build_config(ch, hub.now())["modes"].values())
+    modes = json.loads(json.dumps(ch["modes"])); modes["day"]["radios_sleep"] = False
+    hub.update_child("her", {"modes": modes})
+    cfg = S.build_config(hub.data["children"]["her"], hub.now())
+    assert cfg["modes"]["day"]["radiosSleep"] is False and cfg["modes"]["school"]["radiosSleep"] is True
