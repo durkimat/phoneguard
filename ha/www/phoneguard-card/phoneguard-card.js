@@ -1,8 +1,8 @@
-/* Phone Guard card v0.16.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.17.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.16.0";
+const PG_VERSION = "0.17.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -166,6 +166,15 @@ class PhoneGuardCard extends HTMLElement {
       tr.opt td { font-size: 12px; color: var(--secondary-text-color); }
       tr.opt td:first-child { font-size: 13px; }
       input[type=checkbox] { width: 22px; height: 22px; }
+      details.sec { border-top: 1px solid var(--divider-color, #ddd); margin-top: 14px; }
+      details.sec > summary { cursor: pointer; list-style: none; margin: 10px 0 6px; font-size: 13px; font-weight: 600; text-transform: uppercase;
+        letter-spacing: .04em; color: var(--secondary-text-color); display: flex; align-items: center; gap: 6px; user-select: none; }
+      details.sec > summary::-webkit-details-marker { display: none; }
+      details.sec > summary::before { content: "\\25B8"; display: inline-block; width: 1em; transition: transform .15s; }
+      details.sec[open] > summary::before { transform: rotate(90deg); }
+      details.sec > summary .note { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; background: var(--warning-color, #e67e22); color: #fff; border-radius: 999px; padding: 1px 9px; font-size: 12px; }
+      tr.pend td { background: color-mix(in srgb, var(--warning-color, #e67e22) 18%, transparent); }
+      tr.pend td.name::after { content: "NEW"; margin-left: 8px; font-size: 11px; font-weight: 700; color: var(--warning-color, #e67e22); }
       .new { background: color-mix(in srgb, var(--warning-color, #e67e22) 14%, transparent); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
       .qr svg { width: 240px; max-width: 100%; height: auto; background: #fff; padding: 8px; border-radius: 8px; }
       .code { font-family: monospace; font-size: 12px; word-break: break-all; }
@@ -257,8 +266,25 @@ class PhoneGuardCard extends HTMLElement {
       ${dev && !dev.pending ? `<button data-act="release" class="danger">Release phone…</button>` : ""}
       <button data-act="remove" class="danger">Remove this device…</button></div>
       <div class="sub mut" style="margin-top:6px">${this._esc((dev && dev.model) || "")} · Phone Guard card ${PG_VERSION}</div>`;
-    wrap(html);
+    wrap(this._sections(html, d));
     this._wire();
+  }
+
+  // Every heading becomes a fold-away section, so the page is not all open at once. What is open is remembered in this browser.
+  _sections(html, d) {
+    const OPEN = ["Boost", "Mode", "New apps waiting", "Pair a phone", "Confirm the phone"];
+    let saved = this._ui.sec;
+    if (!saved) { try { saved = JSON.parse(localStorage.getItem("phoneguard-card:sections") || "{}"); } catch (e) { saved = {}; } this._ui.sec = saved; }
+    const parts = html.split("<h3>");
+    let out = parts[0];
+    for (const part of parts.slice(1)) {
+      const i = part.indexOf("</h3>");
+      const title = part.slice(0, i), body = part.slice(i + 5);
+      const open = title in saved ? saved[title] : OPEN.includes(title);
+      const note = title === "Modes and apps" && d.pending_apps && d.pending_apps.length ? `<span class="note">${d.pending_apps.length} new</span>` : "";
+      out += `<details class="sec" data-sec="${this._esc(title)}" ${open ? "open" : ""}><summary>${title}${note}</summary>${body}</details>`;
+    }
+    return out;
   }
 
   _avatar(pic, name, size) {
@@ -394,7 +420,7 @@ class PhoneGuardCard extends HTMLElement {
       <tr class="opt"><td>Notifications</td>${ids.map((m) => `<td><select data-mode-opt="notes" data-mode="${m}">${[["show", "Listed"], ["off", "Cleared"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].notes || "show") === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr>
       <tr class="opt"><td>Locked to allowed apps</td>${ids.map((m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`).join("")}</tr>`;
     for (const a of d.apps) {
-      h += `<tr><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
+      h += `<tr class="${(d.pending_apps || []).includes(a.pkg) ? "pend" : ""}"><td class="name">${this._esc(a.label)}<small>${this._esc(a.pkg)}</small></td>` +
         ids.map((m) => {
           const on = d.modes[m].allowAll || (d.modes[m].allow || []).includes(a.pkg);
           return `<td><input type="checkbox" data-app="${this._esc(a.pkg)}" data-mode="${m}" ${on ? "checked" : ""} ${d.modes[m].allowAll ? "disabled" : ""}></td>`;
@@ -699,6 +725,10 @@ class PhoneGuardCard extends HTMLElement {
     r.querySelectorAll("input[data-app]").forEach((i) =>
       i.addEventListener("change", () => this._svc("set_app_mode", { package: i.dataset.app, mode: i.dataset.mode, allowed: i.checked })));
     r.querySelectorAll("input[data-mode-opt], select[data-mode-opt]").forEach((i) => i.addEventListener("change", () => this._modeOpt(i)));
+    r.querySelectorAll("details.sec").forEach((el) => el.addEventListener("toggle", () => {
+      this._ui.sec[el.dataset.sec] = el.open;
+      try { localStorage.setItem("phoneguard-card:sections", JSON.stringify(this._ui.sec)); } catch (e) { /* private window */ }
+    }));
     r.querySelectorAll("input[data-cp]").forEach((i) => i.addEventListener("change", () => { this._ui.copyParts[i.dataset.cp] = i.checked; }));
     r.querySelectorAll("select[data-f=newPhone]").forEach((i) => i.addEventListener("change", () => { this._ui.newPerson = ""; this._render(); }));
     r.querySelectorAll("select[data-f=newPerson], select[data-f=copyTo]").forEach((i) => i.addEventListener("change", () => this._render()));
