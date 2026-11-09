@@ -57,7 +57,25 @@ object Radio {
         val mode = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(c), Store.boost(c), io.github.durkimat.phoneguard.Clock.now()).radio
         if (mode == "off") return emptyList()
         val base = Store.config(c)?.radioStations?.takeIf { it.isNotEmpty() } ?: (builtIn ?: loadBuiltIn(c).also { builtIn = it })
-        return if (mode == "any") base + RadioFavs.all(c).filter { f -> base.none { it.url == f.url } } else base
+        if (mode != "any") return base
+        return arrange(base, RadioFavs.slots(c)).let { list -> list + RadioFavs.all(c).filter { f -> list.none { it.url == f.url } } }
+    }
+
+    /**
+     * The list with the child's own presets in place. A station set as preset N takes row N: if it was already elsewhere in the list the
+     * two swap places, and if it came from outside the list the station it displaces moves to the end. Nothing is ever lost.
+     */
+    fun arrange(base: List<RadioStation>, slots: Map<Int, RadioStation>): List<RadioStation> {
+        val list = base.toMutableList(); val displaced = mutableListOf<RadioStation>()
+        for ((n, st) in slots.toSortedMap()) {
+            val at = n - 1
+            if (at >= list.size) { if (list.none { it.url == st.url }) list.add(st); continue }
+            val old = list[at]; if (old.url == st.url) continue
+            val from = list.indexOfFirst { it.url == st.url }
+            if (from >= 0) list[from] = old else displaced.add(old)
+            list[at] = st
+        }
+        return list + displaced.filter { d -> list.none { it.url == d.url } }
     }
 
     private fun loadBuiltIn(c: Context): List<RadioStation> = try {
@@ -71,6 +89,9 @@ object Radio {
         val s = list.getOrNull(index) ?: return
         start(c, index, s.name, s.url)
     }
+
+    /** The playing station's place in the list has changed (a preset was set): follow it. */
+    fun reindex(c: Context) { val s = state; if (s.url.isNotEmpty()) set(s.copy(index = stations(c).indexOfFirst { it.url == s.url })) }
 
     /** Start any station by name and address (a station found by browsing or searching). */
     fun playUrl(c: Context, name: String, url: String) = start(c, stations(c).indexOfFirst { it.url == url }, name, url)

@@ -135,6 +135,8 @@ sealed class Action {
     data class SpPlay(val uri: String) : Action()
     /** Play radio preset n (0 is the first). */
     object DataToggle : Action()
+    /** Hold a digit on radio Now playing: the playing station becomes that preset (1 to 9). */
+    data class RadioStore(val slot: Int) : Action()
     data class RadioPlay(val index: Int) : Action()
     data class RadioPlayUrl(val name: String, val url: String) : Action()
     data class RadioLoad(val kind: String, val arg: String) : Action()
@@ -1183,7 +1185,6 @@ class LauncherModel(
             key == Key.SOFT_RIGHT -> { if (nowFromHome) { nowFromHome = false; musicFromHome = false; goHome() } else { screen = Screen.MUSICMENU; selected = 0 }; Action.Redraw }
             d == 0 -> { screen = Screen.SOURCES; selected = 0; Action.Redraw } // switch between Spotify and radio
             d == 7 && !radio -> Action.SpectrumToggle
-            key == Key.STAR && radio -> Action.RadioFavCurrent
             key == Key.STAR && spSignedIn && !radio -> Action.SpShuffle
             key == Key.POUND && spSignedIn && !radio -> Action.SpRepeat
             key == Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
