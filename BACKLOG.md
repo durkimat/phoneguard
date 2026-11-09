@@ -949,3 +949,5 @@ Questions to put to them together:
 - WhatsApp read sync, both ways: opening a chat in our app now sends read receipts and a mark-chat-read patch (wabridge `MarkRead`, `WhatsApp.readChat`), so the main phone clears its unread count. Needs owner test.
 
 - Over-long text now scrolls forwards then back (NokiaSkin.marquee): title bars on every screen, the selected list row, and the Music fields. Anything over 3 screen widths is cut with "...". Unselected rows still just end in "...". Needs owner check on the phone.
+
+- Music: spectrum analyser (Spectrum.kt, Visualizer on the output mix, 16 bars with held peaks) can replace the progress bar. Swap with key 7, a touch on the bar, or Music menu "Bar shows". Choice kept per phone. Only live when playing on this phone (audio elsewhere is silent here). Needs owner test; if Visualizer is refused the log says "spectrum: not available".
