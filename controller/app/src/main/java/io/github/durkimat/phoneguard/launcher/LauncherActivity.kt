@@ -343,10 +343,20 @@ class LauncherActivity : Activity() {
             else if (ev.action == KeyEvent.ACTION_UP) { ui.removeCallbacks(seekStep); if (!seekFired) perform(if (dir > 0) Action.MusicNext else Action.MusicPrevious); seekFired = false }
             return true
         }
-        if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(model.onKey(k.first, k.second))
+        if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
+            val before = model.screen
+            val a = model.onKey(k.first, k.second)
+            // moving the highlight up or down in a list changes nothing that needs reading again (contacts, messages, apps, music...): redraw at once from what is held
+            val info = lastInfo
+            if (a == Action.Redraw && (k.first == Key.UP || k.first == Key.DOWN) && model.screen == before && before in moveOnly && info != null) skin.render(model, info)
+            else perform(a)
+        }
         else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
         return true // consume the key up as well so Back never leaves the launcher
     }
+
+    /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
+    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET)
 
     private var seekDir = 0
     private var seekFired = false

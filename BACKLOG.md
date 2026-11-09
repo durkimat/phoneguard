@@ -989,3 +989,6 @@ Options found: (1) the stock MediaTek FM app from the original Qin firmware or a
 
 ### Internet radio as a music source (owner, 2026-11-09, instead of FM)
 Research notes below; options and recommendation were given to the owner in chat. Flight mode was dropped the same day (no supported route; workaround rejected).
+
+### Menu sluggishness (2026-11-09)
+Cause: every Up/Down press ran the full `refresh()` (about 230 ms on this phone: contacts, SMS, call log, app list, WhatsApp, music state, all on the main thread). Fixed for list screens by redrawing from the held state (`moveOnly` set in LauncherActivity). Still slow and worth fixing: opening a screen, digit shortcuts and soft keys still call the full `refresh()`; it should load on a background thread and only the data a screen needs.
