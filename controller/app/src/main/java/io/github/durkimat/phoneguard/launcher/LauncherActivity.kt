@@ -35,10 +35,10 @@ class LauncherActivity : Activity() {
     private val skin = NokiaSkin().also { s -> s.onTap = { x, y -> perform(model.tap(x, y)) } }
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
-    private val tick = object : Runnable { override fun run() { refresh(); ui.postDelayed(this, 20_000) } }
+    private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
 
     private val changes = object : BroadcastReceiver() {
-        override fun onReceive(c: Context, i: Intent) { refresh() }
+        override fun onReceive(c: Context, i: Intent) { invalidate(D.INFO or (if (i.action == Intent.ACTION_TIME_TICK || i.action?.startsWith("android.intent.action.PACKAGE") == true) D.APPS else 0)) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,6 +50,11 @@ class LauncherActivity : Activity() {
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         WhatsApp.onChange(waChanged)
+        try {
+            contentResolver.registerContentObserver(android.provider.Telephony.Sms.CONTENT_URI, true, sms)
+            contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, callLog)
+            contentResolver.registerContentObserver(android.provider.ContactsContract.Contacts.CONTENT_URI, true, contactsObs)
+        } catch (e: Exception) { Log.log(this, "launcher observers: ${e.javaClass.simpleName}") }
         io.github.durkimat.phoneguard.keys.Torch.onChange(torchChanged)
         io.github.durkimat.phoneguard.notes.Notes.onChange(notesChanged)
         model.predictiveOn = prefs().getBoolean("predictive", true)
@@ -90,6 +95,7 @@ class LauncherActivity : Activity() {
         remoteVolume = { up -> remoteVolumeStep(up) }
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { model.goHome(); cameBack = false }
+        dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
         if (leftKeyPending) { leftKeyPending = false; perform(model.onKey(Key.SOFT_LEFT, -1)) }
@@ -138,9 +144,9 @@ class LauncherActivity : Activity() {
 
     private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
-    private val waChanged: () -> Unit = { runOnUiThread { refresh() } }
+    private val waChanged: () -> Unit = { invalidate(D.WA or D.INFO) }
 
-    private val torchChanged: () -> Unit = { refresh() }
+    private val torchChanged: () -> Unit = { ui.post { redraw() } }
     /**
      * Once a second on the Music screen: only the player is looked at (off the main thread) and the screen is redrawn with the
      * home information from the last full refresh. A full refresh queries the call log, messages and contacts, which made the
@@ -246,17 +252,17 @@ class LauncherActivity : Activity() {
     }
     /** The Wi-Fi symbol follows the connection as it comes and goes. */
     private val netWatch = object : android.net.ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: android.net.Network) { runOnUiThread { refresh() } }
-        override fun onLost(network: android.net.Network) { runOnUiThread { refresh() } }
+        override fun onAvailable(network: android.net.Network) { invalidate(D.INFO) }
+        override fun onLost(network: android.net.Network) { invalidate(D.INFO) }
     }
-    private val notesChanged: () -> Unit = { runOnUiThread { refresh() } }
+    private val notesChanged: () -> Unit = { invalidate(D.INFO) }
 
-    override fun onDestroy() { WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
+    override fun onDestroy() { try { contentResolver.unregisterContentObserver(sms); contentResolver.unregisterContentObserver(callLog); contentResolver.unregisterContentObserver(contactsObs) } catch (_: Exception) { }; loader.shutdown(); WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
 
     private val gameStep = object : Runnable {
         override fun run() {
             gameScheduled = false
-            if (model.gameTick() == Action.Redraw) { saveBest(); refresh() }
+            if (model.gameTick() == Action.Redraw) { saveBest(); redraw() }
         }
     }
     private var gameScheduled = false
@@ -274,54 +280,134 @@ class LauncherActivity : Activity() {
         if (model.pairsBest > 0 && (p.getInt("pairs_best", 0) == 0 || model.pairsBest < p.getInt("pairs_best", 0))) p.edit().putInt("pairs_best", model.pairsBest).apply()
     }
 
-    private val hideNotice = Runnable { model.clearNotice(); refresh() }
+    private val hideNotice = Runnable { model.clearNotice(); redraw() }
 
-    private fun refresh() {
-        // a notice ("Message sent") goes by itself after a moment
+    /*
+     * Data for the screens is read once and kept: reading contacts, messages, the call log, WhatsApp and the app list took a quarter of a
+     * second on the main thread, and every key press and every timer did it again. Now each group is read on a background thread, and
+     * only when it has changed (a content observer, WhatsApp, a package or the clock says so). Redrawing never reads anything.
+     */
+    private object D { const val INFO = 1; const val CONTACTS = 2; const val CALLS = 4; const val CONVOS = 8; const val WA = 16; const val APPS = 32; const val SCREEN = 64; const val ALL = 127 }
+    private val dirty = java.util.concurrent.atomic.AtomicInteger(D.ALL)
+    private val loader = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "launcher-data").apply { priority = Thread.NORM_PRIORITY - 1 } }
+    @Volatile private var loading = false
+    private var loadedScreen: Screen? = null
+    private val reloadSoon = Runnable { load() }
+
+    /** Something changed: read these groups again soon (a burst of changes becomes one read). Safe from any thread. */
+    private fun invalidate(bits: Int) {
+        dirty.getAndUpdate { it or bits }
+        if (inFront) { ui.removeCallbacks(reloadSoon); ui.postDelayed(reloadSoon, 150) }
+    }
+
+    /** Draws the screen from what is held. Reads nothing. */
+    private fun redraw() {
         ui.removeCallbacks(hideNotice)
         scheduleGame()
         if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
-        model.weather = WeatherStore.current(this)
-        model.androidSettings = LauncherData.touchAllowed(this)
-        model.notes = io.github.durkimat.phoneguard.notes.Notes.all()
-        model.spConfigured = io.github.durkimat.phoneguard.music.Spotify.configured(this)
-        model.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this)
-        if (model.screen == Screen.MUSIC) {
-            model.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this)
-            model.music = nowPlaying()
-            model.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)
-            ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000)
-        }
-        if (model.screen == Screen.RUNNING) model.running = io.github.durkimat.phoneguard.IdleReaper.running(this)
-        if (model.screen == Screen.BATTERY) model.battery = LauncherData.batteryInfo(this)
-        WeatherStore.refreshIfDue(this) { runOnUiThread { refresh() } }
-        val all = LauncherData.items(this)
-        val pinned = Store.config(this)?.pinned ?: emptyList()
-        model.apps = LauncherData.otherApps(all, pinned)
-        model.logItems = LauncherData.logsAndSettings(all)
-        model.setItems(LauncherData.menu(all, pinned, androidApps = LauncherData.touchAllowed(this)))
-        if (model.screen == Screen.HOME || model.screen == Screen.MENU || model.contacts.isEmpty()) model.contacts = LauncherData.contacts(this)
-        if (model.screen != Screen.CALLLOG) model.calls = LauncherData.calls(this, model.contacts)
-        // not while reading or writing, so a message arriving cannot shift what is on the screen
-        if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
-        // WhatsApp is offered unless the mode switches it off; "linked" says whether an account is attached
-        model.sleepLabel = io.github.durkimat.phoneguard.music.SleepTimer.label()
-        model.spectrum = prefs().getBoolean("spectrum", false)
-        model.waLinked = WhatsApp.linked(this)
-        model.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
-        model.waCode = WhatsApp.pairCode
-        if (model.screen == Screen.WAPAIR && model.waLinked) { model.waCode = null }
-        if (model.waLinked) {
-            model.waStatus = WhatsApp.status
-            model.waUnread = WhatsApp.store(this).unreadTotal()
-            if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.waConvos = WhatsApp.convos(this, model.contacts)
-        }
-        val info = LauncherData.info(this)
-        model.badges = info.badges
-        model.wifiShown = info.wifi >= 0
-        lastInfo = info
-        skin.render(model, info)
+        lastInfo?.let { skin.render(model, it) }
     }
+
+    /** Draws now, and reads again whatever has changed (in the background). */
+    private fun refresh() {
+        redraw()
+        if (model.screen != loadedScreen) dirty.getAndUpdate { it or D.SCREEN }
+        if (model.screen == Screen.MUSIC) { ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000) }
+        load()
+    }
+
+    private class Loaded {
+        var info: HomeInfo? = null; var weather: WeatherData? = null; var androidSettings = false; var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
+        var spConfigured = false; var spSignedIn = false; var sleepLabel: String? = null; var spectrum = false
+        var waLinked = false; var waEnabled = false; var waCode: String? = null
+        var contacts: List<Contact>? = null; var calls: List<CallEntry>? = null; var convos: List<Convo>? = null
+        var waStatus: String? = null; var waUnread = 0; var waConvos: List<Convo>? = null
+        var all: List<MenuItem>? = null; var pinned: List<String> = emptyList()
+        var music: io.github.durkimat.phoneguard.music.MusicInfo? = null; var musicApp = false
+        var running: List<RunningApp>? = null; var battery: BatteryInfo? = null
+    }
+
+    private fun load() {
+        if (loading) return
+        var bits = dirty.getAndSet(0)
+        if (bits == 0) return
+        if (bits and D.CONTACTS != 0) bits = bits or D.CALLS or D.CONVOS or D.WA // names come from the contacts
+        loading = true
+        val screen = model.screen
+        loadedScreen = screen
+        val known = model.contacts
+        val bitsNow = bits
+        loader.execute {
+            val r = Loaded()
+            try {
+                if (bitsNow and D.INFO != 0) {
+                    r.weather = WeatherStore.current(this)
+                    r.androidSettings = LauncherData.touchAllowed(this)
+                    r.notes = io.github.durkimat.phoneguard.notes.Notes.all()
+                    r.spConfigured = io.github.durkimat.phoneguard.music.Spotify.configured(this)
+                    r.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this)
+                    r.sleepLabel = io.github.durkimat.phoneguard.music.SleepTimer.label()
+                    r.spectrum = prefs().getBoolean("spectrum", false)
+                    r.waLinked = WhatsApp.linked(this)
+                    r.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
+                    r.waCode = WhatsApp.pairCode
+                    r.info = LauncherData.info(this)
+                    WeatherStore.refreshIfDue(this) { ui.post { invalidate(D.INFO) } }
+                }
+                if (bitsNow and D.APPS != 0) { r.all = LauncherData.items(this); r.pinned = Store.config(this)?.pinned ?: emptyList() }
+                if (bitsNow and D.CONTACTS != 0) r.contacts = LauncherData.contacts(this)
+                val people = r.contacts ?: known
+                if (bitsNow and D.CALLS != 0) r.calls = LauncherData.calls(this, people)
+                if (bitsNow and D.CONVOS != 0) r.convos = LauncherData.convos(this, people)
+                if (bitsNow and D.WA != 0 && WhatsApp.linked(this)) {
+                    r.waStatus = WhatsApp.status; r.waUnread = WhatsApp.store(this).unreadTotal(); r.waConvos = WhatsApp.convos(this, people)
+                }
+                if (bitsNow and D.SCREEN != 0) when (screen) {
+                    Screen.MUSIC -> { r.music = nowPlaying(); r.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this); r.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this) }
+                    Screen.RUNNING -> r.running = io.github.durkimat.phoneguard.IdleReaper.running(this)
+                    Screen.BATTERY -> r.battery = LauncherData.batteryInfo(this)
+                    else -> {}
+                }
+            } catch (e: Exception) { Log.log(this, "launcher data: ${e.javaClass.simpleName}") }
+            ui.post { apply(r, bitsNow, screen); loading = false; if (dirty.get() != 0) load() }
+        }
+    }
+
+    /** Takes what the background read found into the model (main thread) and draws. */
+    private fun apply(r: Loaded, bits: Int, screen: Screen) {
+        val reading = model.screen == Screen.THREAD || model.screen == Screen.WRITE // not while reading or writing, so a message arriving cannot shift what is on the screen
+        r.info?.let {
+            model.weather = r.weather; model.androidSettings = r.androidSettings; model.notes = r.notes
+            model.spConfigured = r.spConfigured; if (screen != Screen.MUSIC) model.spSignedIn = r.spSignedIn
+            model.sleepLabel = r.sleepLabel ?: ""; model.spectrum = r.spectrum
+            model.waLinked = r.waLinked; model.waEnabled = r.waEnabled
+            model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
+            model.badges = it.badges; model.wifiShown = it.wifi >= 0
+            lastInfo = it
+        }
+        r.all?.let { all ->
+            model.apps = LauncherData.otherApps(all, r.pinned)
+            model.logItems = LauncherData.logsAndSettings(all)
+            model.setItems(LauncherData.menu(all, r.pinned, androidApps = model.androidSettings))
+        }
+        r.contacts?.let { model.contacts = it }
+        r.calls?.let { if (model.screen != Screen.CALLLOG) model.calls = it else dirty.getAndUpdate { d -> d or D.CALLS } }
+        r.convos?.let { if (!reading) model.convos = it else dirty.getAndUpdate { d -> d or D.CONVOS } }
+        if (bits and D.WA != 0) {
+            if (r.waLinked || model.waLinked) { r.waStatus?.let { model.waStatus = it }; model.waUnread = r.waUnread }
+            r.waConvos?.let { if (!reading) model.waConvos = it else dirty.getAndUpdate { d -> d or D.WA } }
+        }
+        if (model.screen == screen) {
+            r.music?.let { model.music = it; model.musicApp = r.musicApp; model.spSignedIn = r.spSignedIn }
+            r.running?.let { model.running = it }
+            r.battery?.let { model.battery = it }
+        }
+        redraw()
+    }
+
+    private val sms = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CONVOS or D.INFO) } }
+    private val callLog = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CALLS or D.INFO) } }
+    private val contactsObs = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CONTACTS or D.INFO) } }
 
     private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)
 
@@ -356,7 +442,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
-    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET)
+    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES)
 
     private var seekDir = 0
     private var seekFired = false
@@ -385,23 +471,23 @@ class LauncherActivity : Activity() {
             Action.Redraw -> { saveBest(); refresh() }
             is Action.PairWa -> Thread {
                 val r = WhatsApp.pair(this, a.number)
-                ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); refresh() }
+                ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); invalidate(D.WA or D.INFO); refresh() }
             }.start()
             is Action.SaveNameStyle -> { prefs().edit().putString("wa_names", a.id).apply(); refresh() }
             Action.ResyncWa -> Thread {
                 val r = WhatsApp.resync(this)
-                ui.post { model.notify(if (r.startsWith("error")) "Re-sync failed: " + r.removePrefix("error: ").take(28) else "Re-synced"); refresh() }
+                ui.post { model.notify(if (r.startsWith("error")) "Re-sync failed: " + r.removePrefix("error: ").take(28) else "Re-synced"); invalidate(D.WA or D.INFO); refresh() }
             }.start()
             Action.UnlinkWa -> Thread {
                 val r = WhatsApp.logout(this)
-                ui.post { model.notify(if (r.startsWith("error")) "Could not unlink: " + r.removePrefix("error: ").take(30) else "Unlinked"); refresh() }
+                ui.post { model.notify(if (r.startsWith("error")) "Could not unlink: " + r.removePrefix("error: ").take(30) else "Unlinked"); invalidate(D.WA or D.INFO); refresh() }
             }.start()
-            Action.WaOpen -> { WhatsApp.touch(this); refresh() }
-            is Action.WaRead -> { WhatsApp.readChat(this, a.chat); WhatsApp.store(this).markRead(a.chat); refresh() }
+            Action.WaOpen -> { WhatsApp.touch(this); invalidate(D.WA or D.INFO); refresh() }
+            is Action.WaRead -> { WhatsApp.readChat(this, a.chat); WhatsApp.store(this).markRead(a.chat); invalidate(D.WA or D.INFO); refresh() }
             is Action.SendWa -> Thread {
                 val r = WhatsApp.sendNow(this, a.chat, a.body)
                 if (r == "sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
-                ui.post { if (r != "sent") model.notify("Not sent: $r"); refresh() }
+                ui.post { if (r != "sent") model.notify("Not sent: $r"); invalidate(D.WA or D.INFO); refresh() }
             }.start()
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
@@ -425,12 +511,12 @@ class LauncherActivity : Activity() {
             Action.MusicPrevious -> spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
             is Action.MusicVolume -> {
                 // on another device the volume is Spotify's for that device; on this phone it is the phone's music volume
-                if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { refresh() } }.start()
+                if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { invalidate(D.SCREEN); refresh() } }.start()
                 else { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); model.music = model.music.copy(volumePct = io.github.durkimat.phoneguard.music.MusicController.volumePct(this)); lastInfo?.let { skin.render(model, it) } } // a light redraw: the full refresh reloads messages and calls and made the analyser stutter
             }
             is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
-            Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
-            Action.SpRepeat -> Thread { sp.repeat(this, when (model.music.repeat) { "off" -> "context"; "context" -> "track"; else -> "off" }); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
+            Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 500) }.start()
+            Action.SpRepeat -> Thread { sp.repeat(this, when (model.music.repeat) { "off" -> "context"; "context" -> "track"; else -> "off" }); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 500) }.start()
             Action.WifiLoad -> { netNotice(""); startNetTick() }
             Action.WifiToggle -> Thread { val on = !model.wifiOn; io.github.durkimat.phoneguard.net.WifiControl.setEnabled(this, on); Thread.sleep(1200); loadNet() }.start()
             is Action.WifiConnect -> Thread { val ok = io.github.durkimat.phoneguard.net.WifiControl.connect(this, a.id); netNotice(if (ok) "Connecting..." else "Could not connect"); Thread.sleep(2500); loadNet() }.start()
@@ -446,11 +532,11 @@ class LauncherActivity : Activity() {
                 netNotice(why ?: (if (a.connect) "Connected" else "Disconnected")); loadNet()
             }.start()
             is Action.BtForget -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.forget(this, a.address); netNotice(if (ok) "Forgotten" else "Android refused"); Thread.sleep(500); loadNet() }.start()
-            is Action.KillApp -> Thread { io.github.durkimat.phoneguard.IdleReaper.stop(this, a.pkg); ui.postDelayed({ refresh() }, 300) }.start()
+            is Action.KillApp -> Thread { io.github.durkimat.phoneguard.IdleReaper.stop(this, a.pkg); ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 300) }.start()
             Action.SpectrumToggle -> { val on = !model.spectrum; model.spectrum = on; prefs().edit().putBoolean("spectrum", on).apply(); refresh() }
             Action.SleepStep -> { io.github.durkimat.phoneguard.music.SleepTimer.step(this); refresh() }
             Action.SpSignIn -> start(sp.signInIntent(this))
-            Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); refresh() }
+            Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); invalidate(D.INFO); refresh() }
             is Action.SpLoad -> Thread {
                 if (a.kind == "playlists") { val l = sp.playlists(this); ui.post { model.spPlaylists = l ?: emptyList(); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
                 else {
@@ -460,8 +546,8 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
-            is Action.SpPlay -> Thread { playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ refresh() }, 800) }.start()
-            is Action.SpTransfer -> Thread { sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ refresh() }, 800) }.start()
+            is Action.SpPlay -> Thread { playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpTransfer -> Thread { sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)
@@ -471,7 +557,7 @@ class LauncherActivity : Activity() {
             is Action.Send -> {
                 val r = LauncherData.sendSms(this, a.to, a.body)
                 if (r == "Message sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
-                model.notify(r); refresh()
+                model.notify(r); invalidate(D.CONVOS or D.INFO); refresh()
             }
             Action.ForgetWords -> { io.github.durkimat.phoneguard.whatsapp.LearnedStore.forget(this); model.notify("Forgotten"); refresh() }
             Action.CallKey -> { model.startDial(""); refresh() } // the green key anywhere in our screens: our dial pad, never the stock dialler
@@ -489,8 +575,8 @@ class LauncherActivity : Activity() {
     }
 
     private fun spOrLocal(api: () -> Unit, local: () -> Unit) {
-        if (sp.signedIn(this) && spPlayer != null) Thread { api(); spPolledAt = 0; ui.postDelayed({ refresh() }, 600) }.start()
-        else { local(); ui.postDelayed({ refresh() }, 500) }
+        if (sp.signedIn(this) && spPlayer != null) Thread { api(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 600) }.start()
+        else { local(); ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 500) }
     }
 
     /** Start a playlist, album or song on the chosen device: the one picked in "Play on" if it is still there, else this phone, else wherever it is playing. */
