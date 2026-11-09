@@ -53,8 +53,8 @@ object Spectrum {
     }
 
     // Fixed scale, so a quiet song looks quiet and a loud one fills the bars (following the loudest band made everything look like rock)
-    private const val BOTTOM_DB = -56f
-    private const val TOP_DB = -8f
+    private const val BOTTOM_DB = -50f
+    private const val TOP_DB = 10f
     private var lastLog = 0L
     private var ctx: Context? = null
     /** The 8-bit waveform's own rounding noise is about -60 dB; anything under this is silence, whatever the lift would make of it. */
@@ -91,12 +91,12 @@ object Spectrum {
             for (k in from..to) top = max(top, re[k] * re[k] + im[k] * im[k])
             val amp = Math.sqrt(top) / (n / 4.0) // 1.0 is a full-scale sine
             val raw = (20 * Math.log10(amp + 1e-6)).toFloat()
-            db[b] = if (raw < GATE_DB) -200f else raw + b * 1.5f
+            db[b] = if (raw < GATE_DB) -200f else raw + b * 0.6f
         }
         val loud = db.max().coerceAtLeast(-100f)
-        if (now - lastLog > 5000) { lastLog = now; ctx?.let { Log.log(it, "spectrum: loudest band ${"%.0f".format(loud)} dB (bars scale ${BOTTOM_DB.toInt()} to ${TOP_DB.toInt()})") } }
+        if (now - lastLog > 5000) { lastLog = now; ctx?.let { Log.log(it, "spectrum: loudest band ${"%.0f".format(loud)} dB bands " + db.joinToString(" ") { "%.0f".format(it) }) } }
         for (b in 0 until BARS) {
-            val v = Math.pow(((db[b] - BOTTOM_DB) / (TOP_DB - BOTTOM_DB)).coerceIn(0f, 1f).toDouble(), 1.6).toFloat() // a curve, so middling levels sit low and real peaks stand out
+            val v = Math.pow(((db[b] - BOTTOM_DB) / (TOP_DB - BOTTOM_DB)).coerceIn(0f, 1f).toDouble(), 1.8).toFloat() // a curve, so middling levels sit low and real peaks stand out
             level[b] = if (v > level[b]) v else max(v, level[b] - 0.12f)
             if (level[b] >= peak[b]) { peak[b] = level[b]; peakAge[b] = now }
             else if (now - peakAge[b] > 450) peak[b] = max(level[b], peak[b] - 0.04f)
