@@ -212,6 +212,8 @@ class LauncherActivity : Activity() {
     }
 
     /** What the Now playing screen shows: Spotify's view of the account when signed in (it knows where playback is), else the music app's own session. */
+    private val ctxNames = java.util.concurrent.ConcurrentHashMap<String, String>()
+
     private fun nowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo {
         val local = io.github.durkimat.phoneguard.music.MusicController.info(this)
         if (!sp.signedIn(this)) return local
@@ -222,7 +224,11 @@ class LauncherActivity : Activity() {
         }
         val p = spPlayer ?: return local
         val mine = thisPhone(io.github.durkimat.phoneguard.music.SpDevice(p.deviceId, p.deviceName, p.deviceType, true, p.volume))
-        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", p.title, p.artist, p.album, p.playing, p.position(now), p.durationMs, if (mine) local.volumePct else p.volume, p.deviceName, mine, p.shuffle, p.repeat)
+        val kind = p.context.split(":").getOrNull(1).orEmpty()
+        val name = ctxNames[p.context]
+        if (p.context.isNotEmpty() && name == null && ctxNames.putIfAbsent(p.context, "") == null) Thread { ctxNames[p.context] = sp.contextName(this, p.context) }.start()
+        val from = if (!name.isNullOrEmpty() && kind in setOf("playlist", "artist")) kind.replaceFirstChar { it.uppercase() } + ": " + name else ""
+        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", p.title, p.artist, p.album, p.playing, p.position(now), p.durationMs, if (mine) local.volumePct else p.volume, p.deviceName, mine, p.shuffle, p.repeat, from)
     }
     /** The Wi-Fi symbol follows the connection as it comes and goes. */
     private val netWatch = object : android.net.ConnectivityManager.NetworkCallback() {
@@ -356,7 +362,11 @@ class LauncherActivity : Activity() {
             }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
-            Action.MusicPlayPause -> spOrLocal({ if (model.music.playing) sp.pause(this) else sp.resume(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
+            Action.MusicPlayPause -> {
+                val was = model.music.playing
+                model.music = model.music.copy(playing = !was); lastInfo?.let { skin.render(model, it) } // show it at once; the player confirms in a moment
+                spOrLocal({ if (was) sp.pause(this) else sp.resume(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
+            }
             Action.MusicNext -> spOrLocal({ sp.next(this) }, { io.github.durkimat.phoneguard.music.MusicController.next(this) })
             Action.MusicPrevious -> spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
             is Action.MusicVolume -> {

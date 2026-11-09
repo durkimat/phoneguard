@@ -149,6 +149,9 @@ def build_config(child: dict, now_ms: int, options: dict | None = None) -> dict:
         cfg["spotifyClientId"] = options["spotify_client_id"]
     if child.get("spotify_refresh"):  # signed in from HA: the phone takes this refresh token (it holds no password and no client secret)
         cfg["spotifyRefresh"] = child["spotify_refresh"]
+    cmds = [c for c in child.get("commands", []) if isinstance(c, dict)]
+    if cmds:  # installs, updates and removals waiting for the phone to do (each leaves this list once the phone reports back)
+        cfg["appCommands"] = [{k: c.get(k, "") for k in ("id", "kind", "pkg", "name", "url", "sha256")} | {"size": int(c.get("size", 0))} for c in cmds]
     if child.get("idle_dry_run"):
         cfg["idleDryRun"] = True
     cfg["keepRunning"] = sorted(str(x) for x in child.get("keep_running", DEFAULT_KEEP_RUNNING))

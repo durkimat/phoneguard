@@ -3,6 +3,7 @@ unit-testable. The integration wraps it: it persists `data`, registers the webho
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import time
 from typing import Any, Callable
@@ -192,6 +193,71 @@ class Hub:
             if found and found[1].get("apps"):
                 self.apply_app_policy(ch, {a["pkg"] for a in found[1]["apps"]})
 
+    # ---- installing, removing and updating apps (jobs the phone does and reports back)
+
+    APP_KINDS = ("install", "remove", "update")
+
+    def queue_app(self, cid: str, kind: str, pkg: str, name: str, url: str = "", sha256: str = "", size: int = 0) -> dict:
+        from . import store as ST
+        if kind not in self.APP_KINDS:
+            raise ValueError("unknown job")
+        if not ST.valid_pkg(pkg):
+            raise ValueError("that is not an app name")
+        if kind != "remove":
+            if not url.startswith("https://"):
+                raise ValueError("the download address must be https")
+            if not re.fullmatch(r"[0-9a-f]{64}", sha256 or ""):
+                raise ValueError("the checksum is missing")
+        ch = self.data["children"][cid]
+        cmds = ch.setdefault("commands", [])
+        if any(c["kind"] == kind and c["pkg"] == pkg for c in cmds):
+            raise ValueError("that is already waiting for the phone")
+        cmd = {"id": secrets.token_hex(6), "kind": kind, "pkg": pkg, "name": name[:60] or pkg, "url": url, "sha256": sha256, "size": int(size), "at": self.now()}
+        cmds.append(cmd)
+        return cmd
+
+    def cancel_app(self, cid: str, cmd_id: str) -> None:
+        ch = self.data["children"][cid]
+        ch["commands"] = [c for c in ch.get("commands", []) if c["id"] != cmd_id]
+
+    def _merge_app_results(self, ch: dict, results: Any) -> None:
+        """The phone reports each finished job as [id, "done" or "failed", detail, time]."""
+        if not isinstance(results, list):
+            return
+        log = ch.setdefault("app_log", [])
+        for r in results:
+            if not (isinstance(r, list) and len(r) >= 4 and isinstance(r[0], str) and r[1] in ("done", "failed")):
+                continue
+            cmd = next((c for c in ch.get("commands", []) if c["id"] == r[0]), None)
+            if cmd is None:
+                continue
+            log.append([int(r[3]), cmd["name"], cmd["kind"], r[1], str(r[2])[:120]])
+            ch["commands"] = [c for c in ch["commands"] if c["id"] != r[0]]
+        del log[:-40]
+
+    def set_latest(self, latest: dict | None) -> None:
+        """The newest Phone Guard release GitHub has (None when there is none)."""
+        if latest:
+            self.data["latest"] = latest
+        else:
+            self.data.pop("latest", None)
+
+    def update_for(self, cid: str) -> dict | None:
+        from . import store as ST
+        latest = self.data.get("latest")
+        found = self.device_of(cid)
+        if not latest or not found:
+            return None
+        have = str((found[1].get("state") or {}).get("version", ""))
+        return {"version": latest["version"], "notes": latest.get("notes", ""), "installed": have, "available": ST.is_newer(latest["version"], have), "ready": bool(latest.get("sha256"))}
+
+    def queue_update(self, cid: str) -> dict:
+        u = self.update_for(cid)
+        latest = self.data.get("latest")
+        if not u or not u["available"] or not latest or not latest.get("sha256"):
+            raise ValueError("there is no update ready for that phone")
+        return self.queue_app(cid, "update", "io.github.durkimat.phoneguard", "Phone Guard " + latest["version"], latest["url"], latest["sha256"], latest.get("size", 0))
+
     def set_mode_all(self, cid: str, mode: str, allowed: bool) -> None:
         """The select-all tick at the top of a mode's column: every app the phone has reported, or none."""
         found = self.device_of(cid)
@@ -345,6 +411,7 @@ class Hub:
         self._merge_usage(dev, payload.get("usage"))
         dev["power"] = PW.merge(dev.get("power", []), payload.get("power"), now)
         dev["reaped"] = PW.merge_reaped(dev.get("reaped", []), payload.get("reaped"))
+        self._merge_app_results(self.data["children"][dev["child"]], payload.get("appResults"))
         self._merge_fix(dev, payload.get("loc"))
         if isinstance(payload.get("labels"), dict):
             dev.setdefault("labels", {}).update({k: v for k, v in payload["labels"].items() if isinstance(k, str) and isinstance(v, str)})
@@ -433,6 +500,9 @@ class Hub:
             "notes_hide": list(ch.get("notes_hide") or []),
             "keep_running": list(ch.get("keep_running", S.DEFAULT_KEEP_RUNNING)),
             "idle_dry_run": bool(ch.get("idle_dry_run", False)),
+            "app_commands": [{"id": c["id"], "kind": c["kind"], "pkg": c["pkg"], "name": c["name"]} for c in ch.get("commands", [])],
+            "app_log": [e for e in reversed(ch.get("app_log", []))][:8],
+            "update": self.update_for(cid),
             "location": ch.get("location"),
             "spotify": {"signed_in": bool(ch.get("spotify_refresh")), "name": ch.get("spotify_name", "")},
         }

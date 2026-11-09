@@ -17,7 +17,7 @@ if [ ! -f "$KS" ]; then
   chmod 600 "$KS"
 fi
 
-./gradlew --offline -q testDebugUnitTest assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease 2>&1 | grep -vE "^WARNING" || true
+./gradlew --offline -q ${PG_VERSION:+-PpgVersion=$PG_VERSION} testDebugUnitTest assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease 2>&1 | grep -vE "^WARNING" || true
 IN=app/build/outputs/apk/release/app-release-unsigned.apk
 OUT=app/build/outputs/apk/release/phoneguard-release.apk
 [ -f "$IN" ] || { echo "release build failed"; exit 1; }

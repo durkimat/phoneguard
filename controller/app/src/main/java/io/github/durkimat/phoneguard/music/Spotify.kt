@@ -22,6 +22,8 @@ data class SpPlayer(
     val deviceId: String, val deviceName: String, val deviceType: String, val volume: Int, val playing: Boolean,
     val title: String, val artist: String, val album: String, val positionMs: Long, val durationMs: Long, val at: Long,
     val shuffle: Boolean, val repeat: String,
+    /** What it is playing from, as a Spotify address (a playlist, album or artist), or empty. */
+    val context: String = "",
 ) {
     /** Where the track is now: the last report plus the time since, while it is playing. */
     fun position(now: Long): Long = if (playing && durationMs > 0) (positionMs + (now - at)).coerceIn(0, durationMs) else positionMs
@@ -147,8 +149,17 @@ object Spotify {
             d.optString("id"), d.optString("name"), d.optString("type"), d.optInt("volume_percent", 0), j.optBoolean("is_playing"),
             item?.optString("name").orEmpty(), (0 until (artists?.length() ?: 0)).joinToString(", ") { artists!!.getJSONObject(it).optString("name") },
             item?.optJSONObject("album")?.optString("name").orEmpty(), j.optLong("progress_ms"), item?.optLong("duration_ms") ?: 0L, System.currentTimeMillis(),
-            j.optBoolean("shuffle_state"), j.optString("repeat_state", "off"),
+            j.optBoolean("shuffle_state"), j.optString("repeat_state", "off"), j.optJSONObject("context")?.optString("uri").orEmpty(),
         )
+    }
+
+    /** The name of a playlist, album or artist from its address ("" when unknown). */
+    fun contextName(c: Context, uri: String): String {
+        val parts = uri.split(":")
+        if (parts.size != 3) return ""
+        val path = when (parts[1]) { "playlist" -> "/playlists/${parts[2]}?fields=name"; "album" -> "/albums/${parts[2]}"; "artist" -> "/artists/${parts[2]}"; else -> return "" }
+        val (code, text) = call(c, "GET", path)
+        return if (code == 200) try { JSONObject(text).optString("name") } catch (_: Exception) { "" } else ""
     }
 
     fun devices(c: Context): List<SpDevice>? {
