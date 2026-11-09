@@ -384,7 +384,8 @@ class LauncherActivity : Activity() {
         if (target == null) {
             // This phone is not on the list until Spotify is running here, and Spotify cannot be started invisibly (it refuses
             // other apps' service connections). Open it, bring our screens back after a second, then wait for the phone to appear.
-            ui.post { model.notify("Starting Spotify..."); refresh() }
+            val covered = io.github.durkimat.phoneguard.keys.F2Service.cover(true)
+            if (covered) Thread.sleep(250) else ui.post { model.notify("Starting Spotify..."); refresh() }
             launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
             Thread.sleep(1200)
             ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
@@ -395,6 +396,7 @@ class LauncherActivity : Activity() {
                 target = list.firstOrNull { thisPhone(it) }
                 if (target != null) break
             }
+            io.github.durkimat.phoneguard.keys.F2Service.cover(false)
             Log.log(this, "spotify cold start: " + (if (target != null) "phone listed after ${waited / 1000}s" else "phone did not appear"))
             if (target == null) target = list.firstOrNull { it.active }
         }
