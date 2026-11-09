@@ -63,6 +63,8 @@ type Listener interface {
 	// OnRead: this account read the chat on another device (the main phone, say), up to ts (unix seconds). The app should
 	// clear its unread marks for that chat's messages up to then. chat is as in Message.
 	OnRead(chat string, ts int64)
+	// OnLog: a short diagnostic line (which read-related events arrived), with numbers masked. Only for the phone's own log.
+	OnLog(line string)
 }
 
 type Bridge struct {
@@ -318,7 +320,10 @@ func (b *Bridge) onEvent(evt interface{}) {
 		b.deliver(v, false)
 	case *events.HistorySync:
 		b.onHistory(v)
+	case *events.AppStateSyncComplete:
+		b.l.OnLog("app state synced: " + string(v.Name))
 	case *events.MarkChatAsRead:
+		b.l.OnLog("chat marked " + map[bool]string{true: "read", false: "unread"}[v.Action != nil && v.Action.GetRead()] + " elsewhere: " + masked(v.JID))
 		// the main phone marked a whole chat read (or unread: only "read" is acted on)
 		if v.Action != nil && v.Action.GetRead() {
 			b.onReadElsewhere(v.JID, v.Timestamp)
@@ -326,9 +331,23 @@ func (b *Bridge) onEvent(evt interface{}) {
 	case *events.Receipt:
 		// our own account read messages on another device (a "read-self" notice, or a read receipt that is from us)
 		if v.Type == types.ReceiptTypeReadSelf || (v.Type == types.ReceiptTypeRead && v.IsFromMe) {
+			b.l.OnLog("read notice of ours (" + string(v.Type) + "): " + masked(v.Chat))
 			b.onReadElsewhere(v.Chat, v.Timestamp)
 		}
 	}
+}
+
+// masked shows a chat for the phone's own diagnostic log without its number: group or person, and the last three digits.
+func masked(j types.JID) string {
+	kind := "person"
+	if j.Server == types.GroupServer {
+		kind = "group"
+	}
+	u := j.User
+	if len(u) > 3 {
+		u = "..." + u[len(u)-3:]
+	}
+	return kind + " " + u
 }
 
 // onReadElsewhere tells the app a chat was read on another device, by the app's name for the chat.

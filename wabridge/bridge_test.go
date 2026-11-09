@@ -33,6 +33,8 @@ func (r *rec) OnCall(chat, chatName string, ts int64, rejected bool) {
 	r.msgs = append(r.msgs, "call:"+chat)
 }
 
+func (r *rec) OnLog(string) {}
+
 func (r *rec) OnRead(chat string, ts int64) {
 	r.msgs = append(r.msgs, fmt.Sprintf("read:%s@%d", chat, ts))
 }
@@ -252,6 +254,7 @@ func (s *senderRec) OnStatus(string)                                       {}
 func (s *senderRec) OnPairCode(string)                                     {}
 func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (s *senderRec) OnRead(chat string, ts int64)                          {}
+func (s *senderRec) OnLog(line string)                                     {}
 func (s *senderRec) OnMessage(m *Message) {
 	*s.out = m.Sender
 }
@@ -316,6 +319,7 @@ func (f *fullRec) OnStatus(string)                                       {}
 func (f *fullRec) OnPairCode(string)                                     {}
 func (f *fullRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (f *fullRec) OnRead(chat string, ts int64)                          {}
+func (f *fullRec) OnLog(line string)                                     {}
 func (f *fullRec) OnMessage(m *Message)                                  { f.got = append(f.got, m) }
 
 func TestMessagesCarryTheirIdAndTheSendersNumber(t *testing.T) {
