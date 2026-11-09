@@ -239,4 +239,13 @@ class EngineTest {
         assertEquals(listOf(RadioStation("A", "https://a/s")), c.radioStations)
         assertNull(Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"}},"segments":[]}""").radioStations) // none: the phone uses its built-in list
     }
+
+    @Test fun settingARadioPresetNeverLosesAStation() {
+        val a = RadioStation("A", "https://a"); val b = RadioStation("B", "https://b"); val c = RadioStation("C", "https://c"); val x = RadioStation("X", "https://x")
+        val base = listOf(a, b, c)
+        assertEquals(listOf(c, b, a), io.github.durkimat.phoneguard.music.Radio.arrange(base, mapOf(1 to c))) // already in the list: they swap
+        assertEquals(listOf(x, b, c, a), io.github.durkimat.phoneguard.music.Radio.arrange(base, mapOf(1 to x))) // from outside: the old one goes to the end
+        assertEquals(listOf(a, b, c, x), io.github.durkimat.phoneguard.music.Radio.arrange(base, mapOf(5 to x))) // beyond the end: appended
+        assertEquals(base, io.github.durkimat.phoneguard.music.Radio.arrange(base, emptyMap()))
+    }
 }

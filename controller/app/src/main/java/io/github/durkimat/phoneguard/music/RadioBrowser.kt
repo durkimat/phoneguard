@@ -75,6 +75,19 @@ object RadioFavs {
         (0 until a.length()).map { RadioStation(a.getJSONObject(it).getString("name"), a.getJSONObject(it).getString("url")) }
     } catch (e: Exception) { Log.log(c, "radio favourites: ${e.javaClass.simpleName}"); emptyList() }
 
+    /** Presets 1 to 9 the child has set for themselves (hold a digit on Now playing): they replace the list's station in that place. */
+    fun slots(c: Context): Map<Int, RadioStation> = try {
+        val o = JSONObject(prefs(c).getString("slots", "{}"))
+        o.keys().asSequence().mapNotNull { k -> k.toIntOrNull()?.takeIf { it in 1..9 }?.let { n -> n to RadioStation(o.getJSONObject(k).getString("name"), o.getJSONObject(k).getString("url")) } }.toMap()
+    } catch (e: Exception) { Log.log(c, "radio presets: ${e.javaClass.simpleName}"); emptyMap() }
+
+    fun setSlot(c: Context, n: Int, name: String, url: String) {
+        if (n !in 1..9) return
+        val o = JSONObject(prefs(c).getString("slots", "{}"))
+        o.put(n.toString(), JSONObject().put("name", name.take(40)).put("url", url))
+        prefs(c).edit().putString("slots", o.toString()).apply()
+    }
+
     fun has(c: Context, url: String) = all(c).any { it.url == url }
 
     /** Adds the station, or removes it if it was there. Returns true when it was added. */

@@ -379,8 +379,9 @@ class NokiaSkin : LauncherSkin {
                 if (radio) { text(c, "< prev", 20f, 464f, 26f, u); text(c, "next >", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
                 else { text(c, "4 prev", 20f, 464f, 26f, u); text(c, "6 next", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
                 if (radio) {
-                    text(c, "1-9 presets   0 source", 240f, 520f, 24f, u, align = Paint.Align.CENTER)
-                    if (m.sleepLabel.isNotEmpty()) text(c, "sleep in " + m.sleepLabel, 240f, 556f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 514f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "0 source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 } else if (m.spSignedIn || m.radioMode != "off") {
                     if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 520f, 24f, u, align = Paint.Align.CENTER)
                     text(c, "0 source" + (if (m.sleepLabel.isNotEmpty()) "   sleep in " + m.sleepLabel else ""), 240f, 556f, 24f, u, align = Paint.Align.CENTER)
