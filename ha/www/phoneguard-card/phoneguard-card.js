@@ -1,8 +1,8 @@
-/* Phone Guard card v0.25.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.26.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.25.0";
+const PG_VERSION = "0.26.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -492,9 +492,13 @@ class PhoneGuardCard extends HTMLElement {
     h += `<div class="row" style="margin-top:8px"><span>${sp.signed_in ? `Signed in${sp.name ? " as " + this._esc(sp.name) : ""}` : "Not signed in"}</span>
       <button data-act="sp_signin">${sp.signed_in ? "Sign in again" : "Sign in with Spotify"}</button>${sp.signed_in ? `<button data-act="sp_signout">Sign out</button>` : ""}</div>`;
     if (link && link.error) h += `<div class="sub" style="color:var(--error-color,#c00)">${this._esc(link.error)}</div>`;
-    else if (link) h += `<div class="sub"><a href="${this._esc(link.url)}" target="_blank" rel="noopener">Continue to Spotify</a> (opens in a new tab; sign in with the account the phone should use).
+    if (link && link.manual) h += `<div class="sub"><b>1.</b> Add this address under Redirect URIs in the Spotify app's settings (once): <code>${this._esc(link.redirect)}</code><br>
+      <b>2.</b> <a href="${this._esc(link.url)}" target="_blank" rel="noopener">Continue to Spotify</a>, sign in with the account the phone should use and approve.<br>
+      <b>3.</b> Your browser then shows a "can't connect" page. That is expected: copy the whole address from its address bar and paste it here.</div>
+      <div class="row" style="margin-top:6px"><input data-sp-paste type="text" size="40" placeholder="http://127.0.0.1:8888/callback?code=…"><button data-act="sp_finish">Finish sign-in</button></div>`;
+    else if (link && !link.error) h += `<div class="sub"><a href="${this._esc(link.url)}" target="_blank" rel="noopener">Continue to Spotify</a> (opens in a new tab; sign in with the account the phone should use).
       The first time, add this address under Redirect URIs in the Spotify app's settings: <code>${this._esc(link.redirect)}</code></div>`;
-    else h += `<div class="sub">The phone picks up the sign-in by itself a minute or two afterwards. Needs the https address of Home Assistant.</div>`;
+    else h += `<div class="sub">The phone picks up the sign-in by itself a minute or two afterwards. Works from the local address too.</div>`;
     return h;
   }
 
@@ -826,8 +830,14 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "sp_signin") {
       ui.spLink = null;
       return this._hass.connection.sendMessagePromise({ type: "phoneguard/spotify_start", child: d.child, origin: window.location.origin })
-        .then((r) => { ui.spLink = { child: d.child, url: r.url, redirect: r.redirect }; this._render(); })
+        .then((r) => { ui.spLink = { child: d.child, url: r.url, redirect: r.redirect, manual: !!r.manual }; this._render(); })
         .catch((err) => { ui.spLink = { child: d.child, error: (err && err.message) || String(err) }; this._render(); });
+    }
+    if (a === "sp_finish") {
+      const text = ((this.shadowRoot.querySelector("[data-sp-paste]") || {}).value || "").trim();
+      return this._hass.connection.sendMessagePromise({ type: "phoneguard/spotify_finish", child: d.child, text })
+        .then(() => { ui.spLink = null; this._render(); })
+        .catch((err) => { ui.spLink = Object.assign({}, ui.spLink, { error: (err && err.message) || String(err) }); this._render(); });
     }
     if (a === "sp_signout") { ui.spLink = null; return this._svc("spotify_signout", {}); }
     if (a === "wx_home") { const h = this._hass.config; return this._svc("set_child", { config: { location: { lat: h.latitude, lon: h.longitude } } }); }
