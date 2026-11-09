@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, SOURCES, RADIOBROWSE, RADIORES }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, SOURCES, RADIOBROWSE, RADIORES, CONNECTIONS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -134,6 +134,7 @@ sealed class Action {
     data class SpSearch(val query: String) : Action()
     data class SpPlay(val uri: String) : Action()
     /** Play radio preset n (0 is the first). */
+    object DataToggle : Action()
     data class RadioPlay(val index: Int) : Action()
     data class RadioPlayUrl(val name: String, val url: String) : Action()
     data class RadioLoad(val kind: String, val arg: String) : Action()
@@ -209,7 +210,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Wi-Fi", "Bluetooth") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -368,6 +369,7 @@ class LauncherModel(
         Screen.RADIO -> "Radio"
         Screen.SOURCES -> "Source"
         Screen.RADIOBROWSE -> "Browse"
+        Screen.CONNECTIONS -> "Connections"
         Screen.RADIORES -> radioResTitle
         Screen.LOGSET -> "Logs & Settings"
         Screen.RUNNING -> "Running Apps"
@@ -405,7 +407,7 @@ class LauncherModel(
         Screen.BATTERY -> "" to "Back"
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOURCES -> "Select" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
-        Screen.RADIOBROWSE -> "Select" to "Back"
+        Screen.RADIOBROWSE, Screen.CONNECTIONS -> "Select" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
@@ -438,6 +440,7 @@ class LauncherModel(
         Screen.MUSICMENU -> musicMenuRows
         Screen.RADIO -> radioRows
         Screen.RADIOBROWSE -> radioBrowseRows
+        Screen.CONNECTIONS -> connectionRows
         Screen.RADIORES -> if (radioRes.isEmpty()) listOf(radioStatus.ifEmpty { "Nothing found" }) else radioRes.map { it.name }
         Screen.SOURCES -> sourceRows
         Screen.LOGSET -> logItems.map { it.label }
@@ -481,7 +484,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -500,6 +503,7 @@ class LauncherModel(
         Screen.MUSICMENU -> musicMenuKey(key)
         Screen.RADIO -> radioKey(key)
         Screen.RADIOBROWSE -> radioBrowseKey(key)
+        Screen.CONNECTIONS -> connectionsKey(key)
         Screen.RADIORES -> radioResKey(key)
         Screen.SOURCES -> sourcesKey(key)
         Screen.LOGSET -> logSetKey(key)
@@ -962,8 +966,7 @@ class LauncherModel(
                 "WhatsApp" -> { screen = Screen.WASET; selected = 0 }
                 "Android settings" -> out = Action.Launch("com.android.settings")
                 "Battery" -> { screen = Screen.BATTERY; selected = 0 }
-                "Wi-Fi" -> { screen = Screen.WIFI; selected = 0; out = Action.WifiLoad }
-                "Bluetooth" -> { screen = Screen.BT; selected = 0; out = Action.BtLoad }
+                "Connections" -> { screen = Screen.CONNECTIONS; selected = 0 }
             }
             out
         }
@@ -1016,7 +1019,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -1050,6 +1053,8 @@ class LauncherModel(
         if (screen in noTouch) return Action.None // the games stay keypad classics
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
         if (y < 46f && x in 105f..175f && screen != Screen.WIFI && wifiShown) { screen = Screen.WIFI; selected = 0; return Action.WifiLoad } // the Wi-Fi symbol in the status line
+        if (y < 46f && x in 176f..215f && screen != Screen.BT && btShown) { screen = Screen.BT; selected = 0; return Action.BtLoad } // the Bluetooth symbol
+        if (y < 46f && x < 105f && screen != Screen.CONNECTIONS && (dataShown || wifiShown)) { screen = Screen.CONNECTIONS; selected = 0; return Action.Redraw } // the signal and data symbols
         if (screen == Screen.MUSIC && music.active) { // touch: the big play/pause, and the previous and next words either side of it
             if (y in 300f..362f) return Action.SpectrumToggle // touch the bar to swap progress and spectrum
             if (y in 410f..500f && x in 180f..300f) return Action.MusicPlayPause
@@ -1301,6 +1306,24 @@ class LauncherModel(
     var wifiNets: List<WifiNet> = emptyList()
     var wifiSel: WifiNet? = null
     var wifiShown = true
+    var btShown = true
+    var dataShown = false
+    /** Wi-Fi, Bluetooth and mobile data as the status line shows them: 0 on, not connected; 1 connected; 2 switched off; -1 not available here. */
+    var connWifi = 0; var connBt = 0; var connData = -1
+
+    private val connectionRows: List<String> get() = listOf("Wi-Fi: " + (if (connWifi == 2) "Off" else "On"), "Bluetooth: " + (if (connBt == 2) "Off" else "On")) + (if (dataShown) listOf("Mobile data: " + (if (connData == 2) "Off" else "On")) else emptyList())
+
+    private fun connectionsKey(key: Key): Action = move(key, connectionRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
+            0 -> { screen = Screen.WIFI; selected = 0; Action.WifiLoad }
+            1 -> { screen = Screen.BT; selected = 0; Action.BtLoad }
+            2 -> if (dataShown) Action.DataToggle else Action.None
+            else -> Action.None
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Connections").coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
     var btOn = false
     var btDevs: List<BtDev> = emptyList()
     var btSel: BtDev? = null
@@ -1326,7 +1349,7 @@ class LauncherModel(
 
     private fun wifiKey(key: Key): Action = move(key, rows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) Action.WifiToggle else wifiNets.getOrNull(selected - 1)?.let { wifiSel = it; screen = Screen.WIFINET; selected = 0; Action.Redraw } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Wi-Fi").coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONNECTIONS; selected = 0; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1353,7 +1376,7 @@ class LauncherModel(
             selected == 1 -> Action.BtSearch
             else -> btDevs.getOrNull(selected - 2)?.let { btSel = it; screen = Screen.BTDEV; selected = 0; Action.Redraw } ?: Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Bluetooth").coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONNECTIONS; selected = 1; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1599,8 +1622,10 @@ data class HomeInfo(
     val softRight: String,
     /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
     val wifi: Int = -1,
-    /** Bluetooth: -1 off or not shown, 0 on but nothing connected (drawn faint), 1 a device is connected. */
+    /** Bluetooth: -1 not shown, 0 on but nothing connected (drawn faint), 1 a device is connected, 2 switched off (faint with a slash). */
     val bt: Int = -1,
+    /** Mobile data: -1 not shown (no SIM, or the mode hides it), 0 on but not in use, 1 in use, 2 switched off. Wi-Fi above takes 2 for switched off too. */
+    val data: Int = -1,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

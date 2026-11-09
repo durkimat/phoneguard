@@ -1,4 +1,4 @@
-# Radios per mode (design v2, nothing built yet)
+# Radios per mode (design v2; Wi-Fi, Bluetooth and the Connections screen built 2026-11-09)
 
 Piece 9 of [power-and-memory.md](power-and-memory.md). This replaces the first draft after the owner's simplification: one switch per mode, no
 separate "check in" setting, the child's own choices respected, and the child gets a mobile data control (flight mode was considered and dropped).
@@ -121,3 +121,12 @@ Consequences for the design:
 - **Flight mode is dropped** (owner, 2026-11-09): no supported route, and driving Android's Settings screen was judged a hack not worth having. The child keeps the individual switches: Wi-Fi, Bluetooth and mobile data.
 - Mobile data work waits for a SIM phone. Build everything else so a missing or failing data switch just hides the data icon and row (the data route reports `unsupported` on no SIM).
 - The phone's radios were returned to how they were found (Wi-Fi off, Bluetooth off, airplane off, mobile_data 0).
+
+## Built (2026-11-09)
+- `core/RadioPolicy.kt` (pure, 8 tests) decides; `net/RadioManager.kt` gathers the inputs and applies the answer. HA: one switch per mode, `radios_sleep`, default on in every mode (card row "Radios sleep when locked"). The delay reuses `screen_off_min`; live location (every 0 minutes) stops the mode sleeping. The existing dry-run switch (`idle_dry_run`) makes it log only.
+- Windows: the HA sync (poll and nudge), the position report and the WhatsApp check each open a window (`RadioManager.begin/end`); the radios come up, the job waits for a network (up to 20 s), and 5 s after the last job ends they rest again (90 s at most).
+- The child's choice (intent) is remembered per radio; the first time the manager runs it copies how the radios are, so nothing the child had off is switched on. A change we did not make is taken as the child's choice.
+- Keeps on: charging, a call, music (Radio or `isMusicActive`), a hold from a job, the first minute after the process starts.
+- Connections screen replaces Wi-Fi and Bluetooth in Settings (Wi-Fi, Bluetooth, Mobile data when there is a SIM); status line shows each radio solid (connected), faint (on, no connection) or faint with a slash (off), and a new data symbol on SIM phones. Taps on the symbols open Connections or Bluetooth.
+- Verified on the test phone (no SIM, unplugged by `dumpsys battery unplug`): the radios rest after the grace period; a nudge opened a window, Wi-Fi came up, the sync succeeded in 11 s and Wi-Fi rested 5 s after; a sync with the radio asleep failed with an unknown host (so the rest is real); a Bluetooth change from outside was kept as the child's choice.
+- Not verified: restore at unlock (the phone was locked), the new symbols and Connections screen on the phone itself, mobile data (needs a SIM phone), hotspot as a keep-on reason (not implemented), "Radios rest while locked" footer (not implemented), a diary of radio on-time in PowerLog (only log lines so far), Bluetooth audio held only while playing (music rule covers it).

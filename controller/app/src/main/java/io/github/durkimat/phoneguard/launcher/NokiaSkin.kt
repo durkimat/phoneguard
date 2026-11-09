@@ -138,19 +138,34 @@ class NokiaSkin : LauncherSkin {
             c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
             c.drawRect((bx + 5) * u, 15 * u, (bx + 5 + 42f * i.batteryPct / 100f) * u, 31 * u, fill)
             text(c, (if (i.charging) "+" else "") + i.batteryPct + "%", bx - 8, 33f, 24f, u, align = Paint.Align.RIGHT)
-            // Wi-Fi: a dot and three arcs, solid when connected and faint when not (not drawn where the mode hides it)
+            // Wi-Fi: a dot and three arcs, solid when connected, faint when on with no connection, faint with a slash when switched off (not drawn where the mode hides it)
             if (i.wifi >= 0) {
-                val faint = i.wifi == 0
+                val faint = i.wifi != 1
                 val col = if (faint) (ink and 0x00FFFFFF) or (0x55 shl 24) else ink
                 stroke.color = col; fill.color = col; stroke.strokeWidth = 2.5f * u
                 val cx = 138f; val by = 33f
                 for (r in listOf(9f, 16f, 23f)) c.drawArc(RectF((cx - r) * u, (by - r) * u, (cx + r) * u, (by + r) * u), -135f, 90f, false, stroke)
                 c.drawCircle(cx * u, (by - 1f) * u, 2.6f * u, fill)
                 stroke.color = ink; fill.color = ink
+                if (i.wifi == 2) slash(c, cx, u)
             }
-            // Bluetooth: the rune, solid when a device is connected and faint when it is on with nothing connected
+            // mobile data (a phone with a SIM): an up and a down arrow, solid when it is the connection in use, faint when idle, slashed when off
+            if (i.data >= 0) {
+                val col = if (i.data == 1) ink else (ink and 0x00FFFFFF) or (0x55 shl 24)
+                stroke.color = col; fill.color = col; stroke.strokeWidth = 2.5f * u
+                val cx = 88f
+                for ((dx, dir) in listOf(-6f to -1, 6f to 1)) { // up on the left, down on the right
+                    val x = cx + dx; val tip = if (dir < 0) 12f else 34f; val tail = if (dir < 0) 34f else 12f
+                    c.drawLine(x * u, tail * u, x * u, tip * u, stroke)
+                    val head = android.graphics.Path().apply { moveTo(x * u, tip * u); lineTo((x - 5) * u, (tip - 6f * dir) * u); lineTo((x + 5) * u, (tip - 6f * dir) * u); close() }
+                    c.drawPath(head, fill)
+                }
+                stroke.color = ink; fill.color = ink
+                if (i.data == 2) slash(c, cx, u)
+            }
+            // Bluetooth: the rune, solid when a device is connected, faint when on with nothing connected, faint with a slash when off
             if (i.bt >= 0) {
-                val col = if (i.bt == 0) (ink and 0x00FFFFFF) or (0x55 shl 24) else ink
+                val col = if (i.bt == 1) ink else (ink and 0x00FFFFFF) or (0x55 shl 24)
                 stroke.color = col; stroke.strokeWidth = 2.5f * u
                 val cx = 188f; val cy = 22f
                 val rune = android.graphics.Path().apply {
@@ -159,6 +174,7 @@ class NokiaSkin : LauncherSkin {
                 }
                 c.drawPath(rune, stroke)
                 stroke.color = ink
+                if (i.bt == 2) slash(c, cx, u)
             }
             // a small torch while the LED is on (drawn only because the screen is on and showing our screens)
             if (io.github.durkimat.phoneguard.keys.Torch.on) {
@@ -169,6 +185,12 @@ class NokiaSkin : LauncherSkin {
             }
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
+        }
+
+        /** The diagonal that marks a switched-off radio, in full ink over its faint symbol. */
+        private fun slash(c: Canvas, cx: Float, u: Float) {
+            stroke.color = ink; stroke.strokeWidth = 3f * u
+            c.drawLine((cx - 15) * u, 37f * u, (cx + 15) * u, 8f * u, stroke)
         }
 
         // The two labels are the D-pad's Left and Right: a small arrow shows which way to press.

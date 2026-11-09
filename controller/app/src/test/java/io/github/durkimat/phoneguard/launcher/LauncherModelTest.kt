@@ -87,7 +87,7 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK)
         m.onKey(Key.UP) // wraps to the last entry, Settings
         assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Wi-Fi", "Bluetooth", "Battery"), m.rows)
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery"), m.rows)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
         assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
     }
@@ -112,7 +112,7 @@ class LauncherModelTest {
 
     @Test fun fontIsChosenFromSettingsLikeTheTheme() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Wi-Fi", "Bluetooth", "Battery"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *", "Sans-serif", "Pixel VT323", "Pixelify"), m.rows)
         m.onKey(Key.DOWN)
@@ -545,8 +545,8 @@ class LauncherModelTest {
         val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
         m.waEnabled = true; m.waLinked = true
         m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Wi-Fi", "Bluetooth", "WhatsApp", "Battery"), m.rows)
-        m.onKey(Key.DIGIT, 8); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Connections", "WhatsApp", "Battery"), m.rows)
+        m.onKey(Key.DIGIT, 7); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
         assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
         assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.SETTINGS, m.screen)
     }
@@ -582,7 +582,7 @@ class LauncherModelTest {
         // choose another style: Settings > WhatsApp > Names in lists
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT) // back to the menu
         m.onKey(Key.UP); m.onKey(Key.OK) // Settings
-        m.onKey(Key.DIGIT, 8); assertEquals(Screen.WASET, m.screen)
+        m.onKey(Key.DIGIT, 7); assertEquals(Screen.WASET, m.screen)
         m.onKey(Key.DIGIT, 2); assertEquals(Screen.WANAMES, m.screen)
         assertEquals(listOf("First+last initials *", "All initials", "First name, 5 letters", "Full name"), m.rows)
         assertEquals(Action.SaveNameStyle("first5"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WASET, m.screen)

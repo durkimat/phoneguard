@@ -48,7 +48,12 @@ object RadioManager {
 
     // ---- what the child wants ------------------------------------------------------------------
 
-    fun intent(c: Context): RadioIntent = prefs(c).let { RadioIntent(it.getBoolean("wifi", true), it.getBoolean("bt", true), it.getBoolean("data", true)) }
+    /** What the child wants. The first time we look, it is simply how the radios are now (so nothing the child had switched off is switched on). */
+    fun intent(c: Context): RadioIntent {
+        val p = prefs(c)
+        if (!p.contains("seeded")) p.edit().putBoolean("wifi", WifiControl.enabled(c)).putBoolean("bt", BluetoothControl.enabled(c)).putBoolean("data", dataOn(c)).putBoolean("seeded", true).apply()
+        return RadioIntent(p.getBoolean("wifi", true), p.getBoolean("bt", true), p.getBoolean("data", true))
+    }
 
     private fun saveIntent(c: Context, radio: String, on: Boolean) { prefs(c).edit().putBoolean(radio, on).apply() }
 
@@ -140,9 +145,10 @@ object RadioManager {
         val want = RadioPolicy.decide(i)
         val dry = Store.config(c)?.idleDryRun == true
         val wifi = WifiControl.enabled(c); val bt = BluetoothControl.enabled(c); val data = dataOn(c)
+        val dataNow = if (i.dataSupported) data else want.data // without a SIM data is not ours to change, so it never counts as a difference
         val line = "radios: wifi ${if (wifi) "on" else "off"}->${if (want.wifi) "on" else "off"} bt ${if (bt) "on" else "off"}->${if (want.bt) "on" else "off"} data ${if (data) "on" else "off"}->${if (want.data) "on" else "off"}" +
             " ($why; sleeping=${RadioPolicy.sleeping(i)} window=${i.windowOpen} hold=${i.hold} inUse=${i.inUse}${if (dry) ", dry run" else ""})"
-        if (wifi != want.wifi || bt != want.bt || data != want.data) { Log.log(c, line); lastLine = line }
+        if (wifi != want.wifi || bt != want.bt || dataNow != want.data) { if (line != lastLine) Log.log(c, line); lastLine = line }
         if (!dry) {
             if (wifi != want.wifi) apply(c, "wifi", want.wifi, why)
             if (bt != want.bt) apply(c, "bt", want.bt, why)

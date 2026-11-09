@@ -170,6 +170,7 @@ object LauncherData {
             softRight = "Contacts",
             wifi = wifiState(c),
             bt = bluetoothState(c),
+            data = dataState(c),
         )
     }
 
@@ -179,7 +180,8 @@ object LauncherData {
         else {
             val a = c.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter
             when {
-                a == null || !a.isEnabled -> -1
+                a == null -> -1
+                !a.isEnabled -> 2
                 a.getProfileConnectionState(android.bluetooth.BluetoothProfile.A2DP) == android.bluetooth.BluetoothProfile.STATE_CONNECTED ||
                     a.getProfileConnectionState(android.bluetooth.BluetoothProfile.HEADSET) == android.bluetooth.BluetoothProfile.STATE_CONNECTED -> 1
                 else -> 0
@@ -187,12 +189,20 @@ object LauncherData {
         }
     } catch (_: Exception) { -1 }
 
+    /** Mobile data for the status line: only on a phone with a SIM, and not in the locked-down mode; 2 when switched off, 1 when it is the connection in use. */
+    internal fun dataState(c: Context): Int = try {
+        if (Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.kiosk || !io.github.durkimat.phoneguard.net.RadioManager.dataSupported(c)) -1
+        else if (android.provider.Settings.Global.getInt(c.contentResolver, "mobile_data", 1) != 1) 2
+        else { val cm = c.getSystemService(android.net.ConnectivityManager::class.java); if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true) 1 else 0 }
+    } catch (_: Exception) { -1 }
+
     /** Shown in every mode but the locked-down one (School), greyed out while there is no Wi-Fi connection. */
     internal fun wifiState(c: Context): Int = try {
         if (Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.kiosk) -1
         else {
             val cm = c.getSystemService(android.net.ConnectivityManager::class.java)
-            if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true) 1 else 0
+            if (!io.github.durkimat.phoneguard.net.WifiControl.enabled(c)) 2
+            else if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true) 1 else 0
         }
     } catch (_: Exception) { 0 }
 
