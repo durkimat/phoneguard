@@ -64,6 +64,8 @@ object WhatsApp {
     @Synchronized fun open(c: Context): Bridge? {
         bridge?.let { return it }
         val app = c.applicationContext
+        // the bridge is built for arm64 only: an x86 emulator cannot run it (its translation layer lacks instructions the Go runtime uses), so WhatsApp is simply absent there
+        if (android.os.Build.SUPPORTED_ABIS.firstOrNull() != "arm64-v8a") { Log.log(app, "whatsapp: not available on ${android.os.Build.SUPPORTED_ABIS.firstOrNull()}"); return null }
         return try {
             val dir = File(app.filesDir, "wa").apply { mkdirs() }
             val st = store(app)

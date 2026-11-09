@@ -1012,3 +1012,6 @@ Presets 1 to 9 are the first rows of the Radio list. In "Any station" mode a dig
 
 ### Bug (owner, 2026-11-09): switching radio to Spotify left Now playing stuck on radio, no controls — fixed, not yet tested on the phone
 Cause: Now playing showed the radio whenever a station was chosen, even stopped, so Spotify playing was hidden and the controls went to the radio. Fix: `nowPlayingRaw` shows the radio only while it plays; otherwise Spotify/the local app if that is playing; a paused station only when nothing else plays. Starting Spotify from our screens (play, transfer) now releases the station (`Radio.release`). To check on the phone: play a station, start a playlist from Source > Spotify playlists, and start Spotify from the Spotify app or another device with a station paused.
+
+### Run Phone Guard as a normal app on the owner's own phone (idea, 2026-11-09)
+Without device owner the app already enforces nothing, so it is safe to install. Needed: a LAUNCHER entry for the Nokia screens (today only a HOME role), a way to leave (Back is swallowed), a first-run permissions step (device owner normally pre-grants 44), and an on-screen keypad for a touch phone (the same piece the Pixel plan needs). WhatsApp bridge works on a real arm64 phone. Not started.
