@@ -393,7 +393,8 @@ class LauncherActivity : Activity() {
             model.waLinked = r.waLinked; model.waEnabled = r.waEnabled
             model.radioNames = r.radioNames; model.radioMode = r.radioMode
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
-            model.badges = it.badges; model.wifiShown = it.wifi >= 0
+            model.badges = it.badges; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
+            model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data
             lastInfo = it
         }
         r.all?.let { all ->
@@ -455,7 +456,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
-    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES)
+    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private var seekDir = 0
     private var seekFired = false
@@ -545,6 +546,7 @@ class LauncherActivity : Activity() {
             is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
             Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 500) }.start()
             Action.SpRepeat -> Thread { sp.repeat(this, when (model.music.repeat) { "off" -> "context"; "context" -> "track"; else -> "off" }); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 500) }.start()
+            Action.DataToggle -> Thread { io.github.durkimat.phoneguard.net.RadioManager.userSet(this, "data", model.connData == 2); ui.postDelayed({ invalidate(D.INFO) }, 800) }.start()
             Action.WifiLoad -> { netNotice(""); startNetTick() }
             Action.WifiToggle -> Thread { val on = !model.wifiOn; io.github.durkimat.phoneguard.net.WifiControl.setEnabled(this, on); Thread.sleep(1200); loadNet() }.start()
             is Action.WifiConnect -> Thread { val ok = io.github.durkimat.phoneguard.net.WifiControl.connect(this, a.id); netNotice(if (ok) "Connecting..." else "Could not connect"); Thread.sleep(2500); loadNet() }.start()
