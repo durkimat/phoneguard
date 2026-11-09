@@ -13,7 +13,7 @@ data class Lockdown(val launcher: String, val touch: Boolean, val shade: Boolean
 }
 
 /** Everything the enforcer needs for one moment. Equal values mean no visible change. */
-data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open", val waApp: String = "auto", val camera: Boolean = true, val location: String = "off", val locEvery: Int = 30, val notes: String = "show")
+data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean, val lockdown: Lockdown = Lockdown.OPEN, val sound: String = "normal", val inbound: Boolean = true, val wa: String = "open", val waApp: String = "auto", val camera: Boolean = true, val location: String = "off", val locEvery: Int = 30, val notes: String = "show", val idleMin: Int = 10)
 
 object Engine {
     const val EMERGENCY = "emergency"
@@ -76,7 +76,7 @@ object Engine {
                 touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
             )
         }
-        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa, waApp, camera, location, locEvery, notes)
+        return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa, waApp, camera, location, locEvery, notes, s.idleMin)
     }
 
     /** The more open of two "WhatsApp app" settings (a boost never takes the real app away). */

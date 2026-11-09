@@ -18,6 +18,13 @@ import android.provider.Settings
  */
 class GuardService : Service() {
     private val main = Handler(Looper.getMainLooper())
+    /** Every few minutes: close apps nobody has used for the mode's idle time (see IdleReaper). */
+    private val reap = object : Runnable {
+        override fun run() {
+            Thread { IdleReaper.run(this@GuardService) }.start()
+            main.postDelayed(this, IdleReaper.EVERY_MS)
+        }
+    }
     private val evalSoon = Runnable { Controller.evaluate(this, "package change"); Link.runAsync(this, "package change") }
 
     private val packages = object : BroadcastReceiver() {
@@ -81,6 +88,7 @@ class GuardService : Service() {
         }, Context.RECEIVER_EXPORTED)
         registerReceiver(unlocked, IntentFilter(Intent.ACTION_USER_PRESENT), Context.RECEIVER_EXPORTED)
         PowerLog.sample(this, "service", force = true)
+        main.postDelayed(reap, IdleReaper.EVERY_MS)
         Log.log(this, "service started")
     }
 
@@ -90,6 +98,7 @@ class GuardService : Service() {
     }
 
     override fun onDestroy() {
+        main.removeCallbacks(reap)
         unregisterReceiver(packages)
         unregisterReceiver(sound)
         unregisterReceiver(powerEvents)
