@@ -28,7 +28,7 @@ Android always has background noise, so network traffic is not a good test. Use 
 - Charging. (The saving is pointless and this keeps updates and fast syncs working overnight.)
 - A call in progress, or ringing.
 - Media playing: an active media session in the PLAYING state, or `AudioManager.isMusicActive()` (Spotify here, or anything else).
-- Bluetooth audio connected (keeps Bluetooth, and the Wi-Fi/data a streaming app needs).
+- Audio actually playing to a Bluetooth device, or a call routed to one. A device that is merely connected (an Alexa, a car, a watch) does not hold anything: Bluetooth is switched off like the rest and the device reconnects after unlock. Test: `AudioManager.isMusicActive()` or an active call while A2DP/HEADSET is connected, so playing music is already covered by the media rule and this adds the call-over-headset case.
 - Hotspot or tethering on.
 - Our own downloads or app updates running; the first minute after boot; the phone being set up or released.
 - A grace period of `screen_off_min` after the screen goes off, so the last sync or a message being sent can finish.
