@@ -161,6 +161,7 @@ object LauncherData {
                 Badge(BadgeKind.WHATSAPP, if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
                 Badge(BadgeKind.MISSED, missedCalls(c)),
                 Badge(BadgeKind.NOTES, io.github.durkimat.phoneguard.notes.Notes.count()),
+                Badge(BadgeKind.MUSIC, if (musicShown(c) && musicPlaying(c)) 1 else 0),
             ).filter { it.count > 0 }.let { debugBadges ?: it },
             batteryPct = if (level >= 0) level * 100 / scale else 0,
             charging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL,
@@ -179,6 +180,9 @@ object LauncherData {
             if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true) 1 else 0
         }
     } catch (_: Exception) { 0 }
+
+    /** Music is playing on this phone (a media session that is playing). */
+    private fun musicPlaying(c: Context): Boolean = try { io.github.durkimat.phoneguard.music.MusicController.info(c).playing } catch (_: Exception) { false }
 
     private fun missedCalls(c: Context): Int = try {
         c.contentResolver.query(

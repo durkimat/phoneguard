@@ -228,6 +228,14 @@ class HomeBadgeTest {
         none.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CONTACTS, none.screen)
     }
 
+    @Test fun aMusicSymbolOnTheHomeScreenOpensNowPlaying() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
+        m.badges = listOf(Badge(BadgeKind.MUSIC, 1))
+        assertEquals(Action.Redraw, m.tap(m.badgeX(0, 1), 500f)); assertEquals(Screen.MUSIC, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // back goes home, not to the main menu
+    }
+
     @Test fun nothingPlayingOffersPlaylistsNotTheSpotifyApp() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1)

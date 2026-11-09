@@ -36,6 +36,8 @@ class NokiaSkin : LauncherSkin {
         private val typefaces = HashMap<String, Typeface>()
         private var sizeScale = 1f
         private var downY = 0f
+        private var downX = 0f
+        private var lastX = 0f
         private var lastY = 0f
         private var dragged = false
 
@@ -60,9 +62,17 @@ class NokiaSkin : LauncherSkin {
             setOnTouchListener { v, ev ->
                 val k = v.width / 480f
                 when (ev.action) {
-                    android.view.MotionEvent.ACTION_DOWN -> { downY = ev.y / k; lastY = downY; dragged = false }
+                    android.view.MotionEvent.ACTION_DOWN -> { downY = ev.y / k; lastY = downY; downX = ev.x / k; lastX = downX; dragged = false }
                     android.view.MotionEvent.ACTION_MOVE -> {
                         val y = ev.y / k
+                        val x = ev.x / k
+                        val inBadgeRow = model?.screen == Screen.HOME && downY in 455f..570f && (model?.badgeOverflow() ?: 0f) > 0f
+                        if (inBadgeRow) {
+                            // the symbol row is wider than the screen: a finger slides it left and right
+                            if (Math.abs(x - downX) > 14f) dragged = true
+                            if (dragged) { if (model?.dragBadges(lastX - x) == true) invalidate(); lastX = x }
+                            return@setOnTouchListener true
+                        }
                         // a swipe up shows later rows: every 62 design pixels of travel is one row
                         if (Math.abs(y - downY) > 14f) dragged = true
                         if (dragged) {
@@ -174,8 +184,21 @@ class NokiaSkin : LauncherSkin {
         /** New texts, new WhatsApp messages and missed calls as small outline symbols with a count, centred in a row. */
         private fun badges(c: Canvas, i: HomeInfo, u: Float) {
             val m = model ?: return
+            val over = m.badgeOverflow()
+            if (over > 0f) {
+                // too many symbols for the width: they drift gently left and back, pausing at each end, unless a finger has just moved them
+                val now = System.currentTimeMillis()
+                if (now - m.badgeDragAt > 5000L) {
+                    val speed = 30f; val rest = 1500L; val travelMs = (over / speed * 1000).toLong()
+                    val t = now % (2 * (travelMs + rest))
+                    m.badgeOffset = when { t < rest -> 0f; t < rest + travelMs -> (t - rest) / 1000f * speed; t < 2 * rest + travelMs -> over; else -> over - (t - 2 * rest - travelMs) / 1000f * speed }.coerceIn(0f, over)
+                }
+                postInvalidateDelayed(60)
+                c.save(); c.clipRect(0f, 455f * u, width.toFloat(), 570f * u)
+            }
             i.badges.forEachIndexed { n, b ->
                 val cx = m.badgeX(n, i.badges.size)
+                if (b.kind == BadgeKind.MUSIC) { badgeIcon(c, b.kind, cx, 512f, u); return@forEachIndexed } // a symbol only, no count
                 val label = if (b.count > 99) "99+" else b.count.toString()
                 p.textSize = 36f * sizeScale * u; p.isFakeBoldText = true
                 val tw = p.measureText(label) / u
@@ -183,6 +206,7 @@ class NokiaSkin : LauncherSkin {
                 badgeIcon(c, b.kind, left + 22f, 512f, u)
                 text(c, label, left + 54f, 526f, 36f, u, bold = true)
             }
+            if (over > 0f) c.restore()
         }
 
         private fun badgeIcon(c: Canvas, kind: BadgeKind, cx: Float, cy: Float, u: Float) {
@@ -201,6 +225,17 @@ class NokiaSkin : LauncherSkin {
                     c.drawPath(tail, stroke)
                     stroke.strokeWidth = 4 * u
                     c.drawArc(RectF((cx - 9) * u, (cy - 9) * u, (cx + 9) * u, (cy + 9) * u), 200f, 140f, false, stroke)
+                    stroke.strokeWidth = 3 * u
+                }
+                BadgeKind.MUSIC -> { // a pair of beamed quavers: music is playing
+                    fill.color = ink
+                    c.save(); c.rotate(-20f, (cx - 11) * u, (cy + 12) * u); c.drawOval(RectF((cx - 21) * u, (cy + 6) * u, (cx - 3) * u, (cy + 18) * u), fill); c.restore()
+                    c.save(); c.rotate(-20f, (cx + 11) * u, (cy + 8) * u); c.drawOval(RectF((cx + 3) * u, (cy + 2) * u, (cx + 21) * u, (cy + 14) * u), fill); c.restore()
+                    stroke.strokeWidth = 3.5f * u
+                    c.drawLine((cx - 4) * u, (cy + 11) * u, (cx - 4) * u, (cy - 16) * u, stroke)
+                    c.drawLine((cx + 20) * u, (cy + 7) * u, (cx + 20) * u, (cy - 20) * u, stroke)
+                    stroke.strokeWidth = 7 * u
+                    c.drawLine((cx - 4) * u, (cy - 15) * u, (cx + 20) * u, (cy - 19) * u, stroke)
                     stroke.strokeWidth = 3 * u
                 }
                 BadgeKind.NOTES -> { // a bell

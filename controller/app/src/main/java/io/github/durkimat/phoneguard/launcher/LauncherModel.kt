@@ -1003,7 +1003,24 @@ class LauncherModel(
     }
 
     /** The centre of badge [i] of [n] on the home screen's 480 wide grid. */
-    fun badgeX(i: Int, n: Int): Float = 240f + (i - (n - 1) / 2f) * 130f
+    fun badgeX(i: Int, n: Int): Float =
+        if (n * 130f <= 460f) 240f + (i - (n - 1) / 2f) * 130f // they fit: centred
+        else 20f + 65f + i * 130f - badgeOffset // too many to fit: the row starts at the left and is scrolled by [badgeOffset]
+
+    /** How far the symbol row is scrolled left when it is wider than the screen (design pixels), and when a finger last moved it. */
+    var badgeOffset = 0f
+    var badgeDragAt = 0L
+
+    /** How much wider than the screen the row is right now (0 when it fits). */
+    fun badgeOverflow(): Float = (badges.size * 130f - 460f).coerceAtLeast(0f)
+
+    /** A finger drags the row; true when it moved. */
+    fun dragBadges(dx: Float): Boolean {
+        val old = badgeOffset
+        badgeOffset = (badgeOffset + dx).coerceIn(0f, badgeOverflow())
+        badgeDragAt = System.currentTimeMillis()
+        return badgeOffset != old
+    }
     private fun badgeAt(x: Float): Int = badges.indices.minByOrNull { Math.abs(badgeX(it, badges.size) - x) } ?: 0
 
     /** Jump straight to what a home-screen symbol stands for: the text inbox, the WhatsApp chats or the call log. */
@@ -1012,6 +1029,7 @@ class LauncherModel(
         BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
         BadgeKind.NOTES -> { notesFrom = Screen.HOME; screen = Screen.NOTES; selected = 0; Action.Redraw }
+        BadgeKind.MUSIC -> { musicFromHome = true; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
@@ -1329,7 +1347,7 @@ class LauncherModel(
     }
 }
 
-enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES }
+enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES, MUSIC }
 data class Badge(val kind: BadgeKind, val count: Int)
 
 /** The battery page: level, charging, a rough time left, today's screen time and the apps that used it most. */
