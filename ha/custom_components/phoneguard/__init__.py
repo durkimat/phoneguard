@@ -270,6 +270,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         mgr.hub.set_app_mode(cid, call.data["package"], call.data["mode"], call.data["allowed"])
         mgr.changed(cid)
 
+    async def set_mode_all(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call)
+        if call.data["mode"] not in mgr.hub.data["children"][cid]["modes"]:
+            raise HomeAssistantError(f"Unknown mode {call.data['mode']!r}")
+        mgr.hub.set_mode_all(cid, call.data["mode"], call.data["allowed"]); mgr.changed(cid)
+
     async def approve_app(call: ServiceCall) -> None:
         await admin(call)
         cid = child_of(call); mgr.hub.approve_app(cid, call.data["package"], list(call.data["modes"])); mgr.changed(cid)
@@ -362,6 +369,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "cancel_boost", cancel_boost, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "set_holiday", set_holiday, vol.Schema({vol.Required("child"): cv.slug, vol.Optional("from"): cv.string, vol.Optional("until"): cv.string}))
     reg(DOMAIN, "set_app_mode", set_app_mode, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Required("mode"): cv.string, vol.Required("allowed"): cv.boolean}))
+    reg(DOMAIN, "set_mode_all", set_mode_all, vol.Schema({vol.Required("child"): cv.slug, vol.Required("mode"): cv.string, vol.Required("allowed"): cv.boolean}))
     reg(DOMAIN, "approve_app", approve_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Required("modes"): [cv.string]}))
     reg(DOMAIN, "dismiss_app", dismiss_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string}))
     reg(DOMAIN, "set_child", set_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("config"): dict}))
@@ -388,7 +396,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout"):
+                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True
