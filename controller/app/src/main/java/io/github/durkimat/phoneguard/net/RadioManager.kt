@@ -40,6 +40,8 @@ object RadioManager {
     @Volatile private var windowStart = 0L
     @Volatile private var windowUntil = 0L
     @Volatile private var screenOffAt = 0L
+    /** The last moment the phone was seen unlocked and in use; the rest period counts from the later of this and the screen going off, so a delayed screen-off broadcast cannot restart it. */
+    @Volatile private var lastUseAt = 0L
     private val holds = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val cmdAt = java.util.concurrent.ConcurrentHashMap<String, Pair<Boolean, Long>>()
     private val bootAt = SystemClock.elapsedRealtime()
@@ -65,8 +67,11 @@ object RadioManager {
 
     /** Android told us a radio changed state; if we did not just do it ourselves, it was the child (in Android's settings): that is the new intent. */
     fun onExternalState(c: Context, radio: String, on: Boolean) {
+        // only a person using the phone can have done it: while it is locked or just started, a change is ours or the system's
+        val pm = c.getSystemService(PowerManager::class.java); val kg = c.getSystemService(KeyguardManager::class.java)
+        if (!pm.isInteractive || kg.isKeyguardLocked || SystemClock.elapsedRealtime() - bootAt < 60_000L) return
         val mine = cmdAt[radio]
-        if (mine != null && mine.first == on && System.currentTimeMillis() - mine.second < 15_000) return
+        if (mine != null && System.currentTimeMillis() - mine.second < 20_000) return // within a moment of our own change, either way
         if (intent(c).let { if (radio == "wifi") it.wifi else if (radio == "bt") it.bt else it.data } != on) {
             saveIntent(c, radio, on); Log.log(c, "radios: $radio switched ${if (on) "on" else "off"} by the child")
         }
@@ -76,7 +81,7 @@ object RadioManager {
 
     fun onScreenOff(c: Context) { screenOffAt = System.currentTimeMillis(); evaluate(c, "screen off") }
     fun onScreenOn(c: Context) { evaluate(c, "screen on") }
-    fun onUnlock(c: Context) { screenOffAt = 0; evaluate(c, "unlock") }
+    fun onUnlock(c: Context) { screenOffAt = 0; lastUseAt = System.currentTimeMillis(); evaluate(c, "unlock") }
 
     /** Keep the radios on for this long because something needs them (a download, an update). */
     fun holdFor(c: Context, key: String, ms: Long) { holds[key] = System.currentTimeMillis() + ms; evaluate(c, "hold $key") }
@@ -125,7 +130,9 @@ object RadioManager {
         val grace = maxOf(1, Engine.modeDef(cfg, eff.modeId).screenOffMin) * 60_000L
         val cm = c.getSystemService(ConnectivityManager::class.java)
         val wifiConnected = try { cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true } catch (_: Exception) { false }
-        val off = if (inUse) 0L else if (screenOffAt == 0L) grace else now - screenOffAt
+        if (inUse) lastUseAt = now
+        val since = maxOf(screenOffAt, lastUseAt)
+        val off = if (inUse) 0L else if (since == 0L) grace else now - since
         return RadioInputs(
             sleepEnabled = eff.radiosSleep && !live, inUse = inUse, offForMs = off, graceMs = grace, hold = hold,
             windowOpen = now < windowUntil, windowAgeMs = now - windowStart, wifiConnected = wifiConnected,
@@ -176,8 +183,8 @@ object RadioManager {
         am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, now + maxOf(after, 1_000L), pi)
     }
 
-    /** What to show for a diary or a test: the last change and why. */
-    fun lastChange(): String = lastLine
+    /** What the decision sees right now, for a test (debug builds). */
+    fun describe(c: Context): String { val i = inputs(c, System.currentTimeMillis()); return "$i => ${RadioPolicy.decide(i)} sleeping=${RadioPolicy.sleeping(i)}" }
 
     /** Registered once by the guard service: Android's own radio changes and the things that may start or stop a hold. */
     val stateReceiver = object : BroadcastReceiver() {
