@@ -60,6 +60,9 @@ type Listener interface {
 	// OnCall: someone is calling on WhatsApp (chat as above). rejected says the bridge has already declined it.
 	// Voice itself is not carried by this library: calls are only noticed, and declined or left to ring out.
 	OnCall(chat string, chatName string, ts int64, rejected bool)
+	// OnRead: this account read the chat on another device (the main phone, say), up to ts (unix seconds). The app should
+	// clear its unread marks for that chat's messages up to then. chat is as in Message.
+	OnRead(chat string, ts int64)
 }
 
 type Bridge struct {
@@ -315,7 +318,37 @@ func (b *Bridge) onEvent(evt interface{}) {
 		b.deliver(v, false)
 	case *events.HistorySync:
 		b.onHistory(v)
+	case *events.MarkChatAsRead:
+		// the main phone marked a whole chat read (or unread: only "read" is acted on)
+		if v.Action != nil && v.Action.GetRead() {
+			b.onReadElsewhere(v.JID, v.Timestamp)
+		}
+	case *events.Receipt:
+		// our own account read messages on another device (a "read-self" notice, or a read receipt that is from us)
+		if v.Type == types.ReceiptTypeReadSelf || (v.Type == types.ReceiptTypeRead && v.IsFromMe) {
+			b.onReadElsewhere(v.Chat, v.Timestamp)
+		}
 	}
+}
+
+// onReadElsewhere tells the app a chat was read on another device, by the app's name for the chat.
+func (b *Bridge) onReadElsewhere(chat types.JID, at time.Time) {
+	if chat.IsEmpty() || chat.Server == types.BroadcastServer || chat.Server == types.NewsletterServer {
+		return
+	}
+	var key string
+	if chat.Server == types.GroupServer {
+		key = "g" + chat.User
+	} else {
+		key = b.phoneOf(chat, types.JID{}, types.JID{}, false)
+	}
+	if key == "" {
+		return
+	}
+	if at.IsZero() {
+		at = time.Now()
+	}
+	b.l.OnRead(key, at.Unix())
 }
 
 // textOf turns a message into what the Nokia screen shows: plain text as it is, anything else as a marker such as
