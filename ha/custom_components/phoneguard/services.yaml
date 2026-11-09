@@ -117,3 +117,27 @@ set_mode_all:
     child: {required: true, selector: {text: {}}}
     mode: {required: true, example: day, selector: {text: {}}}
     allowed: {required: true, selector: {boolean: {}}}
+
+remove_app:
+  name: Remove an app
+  description: Ask the phone to remove an app (never a protected one).
+  fields:
+    child: {required: true, selector: {text: {}}}
+    package: {required: true, selector: {text: {}}}
+    name: {selector: {text: {}}}
+
+cancel_job:
+  name: Cancel an install, removal or update that is waiting
+  fields:
+    child: {required: true, selector: {text: {}}}
+    id: {required: true, selector: {text: {}}}
+
+update_phone:
+  name: Update Phone Guard on a phone
+  description: Queue the newest Phone Guard release for this phone.
+  fields:
+    child: {required: true, selector: {text: {}}}
+
+check_updates:
+  name: Check for a Phone Guard update
+  description: Look at GitHub for the newest Phone Guard release now.

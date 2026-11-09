@@ -327,10 +327,12 @@ class NokiaSkin : LauncherSkin {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
                 text(c, if (m.spSignedIn) "OK picks a playlist" else "Sign in to Spotify in the Music menu", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
             } else {
-                if (mu.device.isNotEmpty()) text(c, ellipsize("on " + mu.device + if (mu.thisPhone) " (here)" else "", 440f, 24f), 20f, 134f, 24f, u)
+                if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
                 marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)
                 marquee(c, mu.artist, 20f, 240f, 32f, 440f, u)
-                if (mu.album.isNotEmpty()) marquee(c, mu.album, 20f, 284f, 26f, 440f, u)
+                // where it is playing from (a playlist), else the album unless that only repeats the song or artist
+                val sub = if (mu.from.isNotEmpty()) mu.from else if (mu.album.isNotEmpty() && !mu.album.equals(mu.title, true) && !mu.album.equals(mu.artist, true)) mu.album else ""
+                if (sub.isNotEmpty()) marquee(c, sub, 20f, 284f, 26f, 440f, u)
                 // progress
                 stroke.strokeWidth = 3 * u
                 c.drawRect(20 * u, 332 * u, 460 * u, 356 * u, stroke)

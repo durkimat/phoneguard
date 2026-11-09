@@ -160,3 +160,49 @@ def test_screen_off_minutes_and_report_only_reach_the_phone_and_are_validated():
         h.update_child("ellie", {"idle_dry_run": "yes"})
     with pytest.raises(ValueError):
         h.update_child("ellie", {"modes": {**ch["modes"], "day": {**ch["modes"]["day"], "screen_off_min": 5000}}})
+
+
+# ---- store, app jobs and updates
+
+def test_store_parsing_and_versions():
+    from phoneguard import store as ST
+    found = ST.parse_search({"apps": [{"name": "Calc", "summary": "Adds up", "url": "https://f-droid.org/en/packages/com.example.calc"}, {"name": "Bad", "url": "https://f-droid.org/en/packages/no spaces"}]})
+    assert found == [{"pkg": "com.example.calc", "name": "Calc", "summary": "Adds up"}]
+    assert ST.parse_info({"suggestedVersionCode": 33, "packages": [{"versionName": "3.1.2", "versionCode": 33}, {"versionName": "3.1.1", "versionCode": 32}]}) == ("3.1.2", 33)
+    assert ST.apk_url("com.example.calc", 33) == "https://f-droid.org/repo/com.example.calc_33.apk"
+    assert ST.is_newer("0.10.0", "0.9.5") and ST.is_newer("v1.0", "0.9.9") and not ST.is_newer("0.1.0", "0.1.0")
+    rel = ST.parse_release({"tag_name": "v0.2.0", "body": "notes", "assets": [{"name": "phoneguard-0.2.0.apk", "browser_download_url": "https://x/a.apk", "size": 5}, {"name": "phoneguard-0.2.0.apk.sha256", "browser_download_url": "https://x/a.sha256"}]})
+    assert rel["version"] == "0.2.0" and rel["url"] == "https://x/a.apk" and rel["sha256_url"] == "https://x/a.sha256"
+    assert ST.parse_sha256_text("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  a.apk") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+
+def test_app_jobs_queue_reach_the_phone_and_clear_on_results():
+    h, ch = _child_hub()
+    sha = "a" * 64
+    cmd = h.queue_app("ellie", "install", "com.example.calc", "Calc", "https://f-droid.org/repo/com.example.calc_33.apk", sha, 1234)
+    assert S.build_config(ch, 1_794_000_000_000)["appCommands"][0]["pkg"] == "com.example.calc"
+    for bad in (("install", "bad pkg", "x", "https://x", sha), ("install", "com.a.b", "x", "http://x", sha), ("install", "com.a.b", "x", "https://x", "nope"), ("nuke", "com.a.b", "x", "https://x", sha)):
+        with pytest.raises(ValueError):
+            h.queue_app("ellie", bad[0], bad[1], bad[2], bad[3], bad[4])
+    with pytest.raises(ValueError):
+        h.queue_app("ellie", "install", "com.example.calc", "Calc", "https://x", sha)  # already waiting
+    h.queue_app("ellie", "remove", "com.example.old", "Old")
+    h._merge_app_results(ch, [[cmd["id"], "done", "installed Calc", 1_794_000_000_100], ["unknown", "done", "", 1]])
+    assert [c["pkg"] for c in ch["commands"]] == ["com.example.old"]
+    assert ch["app_log"][-1][1:4] == ["Calc", "install", "done"]
+    v = h.view("ellie")
+    assert v["app_commands"][0]["kind"] == "remove" and v["app_log"][0][3] == "done"
+
+
+def test_update_is_offered_only_when_newer_and_ready():
+    h, ch = _child_hub()
+    h.device_of = lambda cid: ("d", {"state": {"version": "0.1.0"}, "apps": []})
+    assert h.update_for("ellie") is None
+    h.set_latest({"version": "0.2.0", "notes": "n", "url": "https://x/a.apk", "size": 9, "sha256": "b" * 64})
+    assert h.update_for("ellie")["available"] is True
+    cmd = h.queue_update("ellie")
+    assert cmd["kind"] == "update" and cmd["pkg"] == "io.github.durkimat.phoneguard"
+    h.set_latest({"version": "0.1.0", "url": "https://x/a.apk", "sha256": "b" * 64})
+    assert h.update_for("ellie")["available"] is False
+    with pytest.raises(ValueError):
+        h.queue_update("ellie")

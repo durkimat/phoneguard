@@ -1027,6 +1027,12 @@ class LauncherModel(
         if (screen in noTouch) return Action.None // the games stay keypad classics
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
         if (y < 46f && x in 105f..175f && screen != Screen.WIFI && wifiShown) { screen = Screen.WIFI; selected = 0; return Action.WifiLoad } // the Wi-Fi symbol in the status line
+        if (screen == Screen.MUSIC && music.active) { // touch: the big play/pause, and the previous and next words either side of it
+            if (y in 410f..500f && x in 180f..300f) return Action.MusicPlayPause
+            if (y in 430f..490f && x < 150f) return Action.MusicPrevious
+            if (y in 430f..490f && x > 330f) return Action.MusicNext
+            return Action.None
+        }
         if (screen == Screen.HOME) {
             if (y in 345f..440f) return openWeather()
             if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])

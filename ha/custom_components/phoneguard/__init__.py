@@ -19,8 +19,9 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, NUDGE_ACTION, NUDGE_PACKAGE, STORAGE_KEY, STORAGE_VERSION
+from .const import DOMAIN, GITHUB_REPO, NUDGE_ACTION, NUDGE_PACKAGE, STORAGE_KEY, STORAGE_VERSION
 from . import spotify as SP
+from . import store as ST
 from .hub import Hub
 
 _LOGGER = logging.getLogger(__name__)
@@ -199,6 +200,46 @@ async def ws_spotify_start(hass: HomeAssistant, connection: websocket_api.Active
     connection.send_result(msg["id"], {"url": url, "redirect": redirect})
 
 
+@websocket_api.websocket_command({vol.Required("type"): "phoneguard/store_search", vol.Required("q"): vol.All(cv.string, vol.Length(min=2, max=60))})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_store_search(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Search the open-source store (F-Droid) for apps."""
+    try:
+        results = await ST.search(async_get_clientsession(hass), msg["q"])
+    except Exception as err:
+        connection.send_error(msg["id"], "store_error", f"The store could not be reached ({type(err).__name__})")
+        return
+    connection.send_result(msg["id"], {"results": results})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "phoneguard/store_install", vol.Required("child"): cv.slug, vol.Required("pkg"): cv.string, vol.Required("name"): cv.string})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_store_install(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Look up the app, learn its checksum, and queue the install for the phone."""
+    mgr: Manager = hass.data[DOMAIN]
+    session = async_get_clientsession(hass)
+    try:
+        if msg["child"] not in mgr.hub.data["children"] or not ST.valid_pkg(msg["pkg"]):
+            raise ValueError("unknown phone or app")
+        got = await ST.info(session, msg["pkg"])
+        if not got:
+            raise ValueError("the store has no such app")
+        name, vc = got
+        url = ST.apk_url(msg["pkg"], vc)
+        sha, size = await ST.hash_url(session, url)
+        mgr.hub.queue_app(msg["child"], "install", msg["pkg"], msg["name"], url, sha, size)
+        mgr.changed(msg["child"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "cannot_queue", str(err))
+        return
+    except Exception as err:
+        connection.send_error(msg["id"], "store_error", f"Could not prepare that app ({type(err).__name__})")
+        return
+    connection.send_result(msg["id"], {"version": name, "size": size})
+
+
 CHILD = vol.Schema({vol.Required("child"): cv.string}, extra=vol.ALLOW_EXTRA)
 
 
@@ -360,7 +401,57 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await admin(call)
         cid = child_of(call); mgr.hub.set_spotify(cid, None); mgr.changed(cid)
 
+    async def remove_app(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call)
+        try:
+            mgr.hub.queue_app(cid, "remove", call.data["package"], call.data.get("name", ""))
+        except ValueError as err:
+            raise HomeAssistantError(f"Not queued: {err}") from err
+        mgr.changed(cid)
+
+    async def cancel_job(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call); mgr.hub.cancel_app(cid, call.data["id"]); mgr.changed(cid)
+
+    async def update_phone(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call)
+        try:
+            mgr.hub.queue_update(cid)
+        except ValueError as err:
+            raise HomeAssistantError(f"Not queued: {err}") from err
+        mgr.changed(cid)
+
+    async def check_updates(_call: ServiceCall | None = None) -> None:
+        """Look at the newest Phone Guard release on GitHub (what HACS does); the card shows an Update button when it is newer than the phone."""
+        session = async_get_clientsession(hass)
+        try:
+            async with session.get(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest", timeout=20, headers={"Accept": "application/vnd.github+json"}) as resp:
+                if resp.status == 404:
+                    mgr.hub.set_latest(None); mgr.publish(); return
+                data = await resp.json(content_type=None)
+            rel = ST.parse_release(data)
+            if rel and rel["sha256_url"]:
+                async with session.get(rel["sha256_url"], timeout=20) as resp:
+                    rel["sha256"] = ST.parse_sha256_text(await resp.text())
+            if rel:
+                rel.pop("sha256_url", None); rel.setdefault("sha256", "")
+            mgr.hub.set_latest(rel)
+            mgr.save(); mgr.publish()
+        except Exception as err:
+            _LOGGER.info("Could not check for a Phone Guard update: %s", type(err).__name__)
+
+    from homeassistant.helpers.event import async_call_later
+    entry.async_on_unload(async_track_time_interval(hass, check_updates, timedelta(hours=6)))
+    async_call_later(hass, 60, check_updates)
+    hass.services.async_register(DOMAIN, "remove_app", remove_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Optional("name"): cv.string}))
+    hass.services.async_register(DOMAIN, "cancel_job", cancel_job, vol.Schema({vol.Required("child"): cv.slug, vol.Required("id"): cv.string}))
+    hass.services.async_register(DOMAIN, "update_phone", update_phone, vol.Schema({vol.Required("child"): cv.slug}))
+    hass.services.async_register(DOMAIN, "check_updates", check_updates, vol.Schema({}))
     hass.http.register_view(SpotifyCallback())
+    websocket_api.async_register_command(hass, ws_store_search)
+    websocket_api.async_register_command(hass, ws_store_install)
     websocket_api.async_register_command(hass, ws_spotify_start)
     reg = hass.services.async_register
     reg(DOMAIN, "spotify_signout", spotify_signout, vol.Schema({vol.Required("child"): cv.slug}))
@@ -397,7 +488,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all"):
+                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all", "remove_app", "cancel_job", "update_phone", "check_updates"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True

@@ -93,7 +93,7 @@ object Link {
             val reply = JSONObject(post(url, env.toString()))
             reply.optString("error").takeIf { it.isNotEmpty() }?.let { throw IllegalStateException("HA said: $it") }
             val rp = verifyReply(reply, did, n, haPk) ?: throw IllegalStateException("reply not trusted")
-            apply(c, rp, reply.optLong("t")).also { PowerLog.commit(c); IdleReaper.commit(c); LocationReporter.commit(c) }
+            apply(c, rp, reply.optLong("t")).also { PowerLog.commit(c); IdleReaper.commit(c); AppInstaller.commit(c); LocationReporter.commit(c) }
         } catch (e: Exception) {
             val f = rec(c).optInt("failures", 0) + 1
             val rr = rec(c).put("failures", f).put("lastResult", "FAILED ${e.javaClass.simpleName}: ${e.message}")
@@ -128,6 +128,7 @@ object Link {
             if (cmds.getJSONObject(i).optString("type") == "release") { release(c); return "RELEASED by parent" }
         }
         Controller.evaluate(c, "sync")
+        AppInstaller.processSoon(c)
         return what
     }
 
@@ -162,7 +163,7 @@ object Link {
         state.put("usageAllowed", Usage.allowed(c)).put("canOverlay", TouchBlocker.canDraw(c)).put("canSilence", SoundEnforcer.canSilence(c))
             .put("lockdown", JSONObject().put("launcher", eff.lockdown.launcher).put("touch", eff.lockdown.touch)
                 .put("shade", eff.lockdown.shade).put("kiosk", eff.lockdown.kiosk).put("touchBlocked", TouchBlocker.isOn()).put("locked", Kiosk.locked(c)))
-        val out = JSONObject().put("kind", "sync").put("cfgh", cfgh).put("state", state).put("apps", apps).put("power", PowerLog.pending(c)).put("reaped", IdleReaper.pending(c)).put("loc", LocationReporter.pending(c))
+        val out = JSONObject().put("kind", "sync").put("cfgh", cfgh).put("state", state).put("apps", apps).put("power", PowerLog.pending(c)).put("reaped", IdleReaper.pending(c)).put("appResults", AppInstaller.pending(c)).put("loc", LocationReporter.pending(c))
         try {
             Usage.recent(c)?.let { usage ->
                 out.put("usage", usage)

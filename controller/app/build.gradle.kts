@@ -11,8 +11,11 @@ android {
         applicationId = "io.github.durkimat.phoneguard"
         minSdk = 30
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // the release script passes -PpgVersion=0.2.0; the code is that number as major*10000 + minor*100 + patch, so every release is higher
+        val pgVersion = (project.findProperty("pgVersion") as String?) ?: "0.1.0"
+        val parts = pgVersion.split(".").map { it.toIntOrNull() ?: 0 } + listOf(0, 0, 0)
+        versionCode = maxOf(1, parts[0] * 10000 + parts[1] * 100 + parts[2])
+        versionName = pgVersion
         ndk { abiFilters += "arm64-v8a" } // the WhatsApp bridge is built for arm64 only (the J36 is arm64)
     }
 

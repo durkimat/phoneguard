@@ -260,6 +260,16 @@ class HomeBadgeTest {
         m.onKey(Key.DIGIT, 4); assertEquals(listOf("Pair"), m.rows); assertEquals(Action.BtPair("B"), m.onKey(Key.OK))
     }
 
+    @Test fun touchOnNowPlayingPressesPlayPauseAndTheTrackWords() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1); assertEquals(Screen.MUSIC, m.screen)
+        assertEquals(Action.None, m.tap(240f, 450f)) // nothing playing: nothing to touch
+        m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", "Song", "Band", "Album", true, 1000, 200_000, 40)
+        assertEquals(Action.MusicPlayPause, m.tap(240f, 450f))
+        assertEquals(Action.MusicPrevious, m.tap(60f, 460f)); assertEquals(Action.MusicNext, m.tap(420f, 460f))
+        assertEquals(Action.None, m.tap(240f, 200f))
+    }
+
     @Test fun aMusicSymbolOnTheHomeScreenOpensNowPlaying() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
         m.badges = listOf(Badge(BadgeKind.MUSIC, 1))

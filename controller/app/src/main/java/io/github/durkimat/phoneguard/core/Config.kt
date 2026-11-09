@@ -89,6 +89,8 @@ data class Config(
     val keepRunning: Set<String>? = null,
     /** Report what the power saver would close without closing anything. */
     val idleDryRun: Boolean = false,
+    /** Installs, updates and removals a parent asked for in HA, each once (the id says which have been done). */
+    val appCommands: List<AppCmd> = emptyList(),
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -159,6 +161,12 @@ data class Config(
                 spotifyClientId = o.optString("spotifyClientId", ""),
                 spotifyRefresh = o.optString("spotifyRefresh", ""),
                 idleDryRun = o.optBoolean("idleDryRun", false),
+                appCommands = (o.optJSONArray("appCommands") ?: JSONArray()).let { a ->
+                    (0 until a.length()).mapNotNull { i ->
+                        val x = a.optJSONObject(i) ?: return@mapNotNull null
+                        AppCmd(x.optString("id"), x.optString("kind"), x.optString("pkg"), x.optString("name"), x.optString("url"), x.optString("sha256"), x.optLong("size", 0))
+                    }
+                },
                 keepRunning = if (o.has("keepRunning")) strings(o.optJSONArray("keepRunning")) else null,
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
@@ -173,6 +181,9 @@ data class Config(
         }
     }
 }
+
+/** One job from HA for the app installer: install (or update) an app from a download address, or remove one. */
+data class AppCmd(val id: String, val kind: String, val pkg: String, val name: String, val url: String, val sha256: String, val size: Long)
 
 /** Extra time with a chosen mode. Applied as a union with the scheduled mode, so it never reduces access. */
 data class Boost(val mode: String, val until: Long)
