@@ -259,7 +259,7 @@ class PhoneGuardCard extends HTMLElement {
       html += this._matrixHtml(d) + this._modeSettingsHtml(d) + this._powerHtml(d) + this._holidayHtml(d);
     }
     html += this._timetableHtml(d);
-    if (dev && !dev.pending) html += this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d) + this._updatesHtml(d);
+    if (dev && !dev.pending) html += this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._radioHtml(d) + this._usageHtml(d) + this._batteryHtml(d) + this._updatesHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -621,6 +621,15 @@ class PhoneGuardCard extends HTMLElement {
       <div class="sub">Messages stay on the phone. Home Assistant never sees them.</div>`;
   }
 
+  // the radio presets (numbers 1 to 9 on the phone are the first nine); empty means the phone's built-in UK list
+  _radioHtml(d) {
+    const lines = (d.radio_stations || []).map((x) => x.name + " | " + x.url).join("\n");
+    return `<h3>Radio stations</h3>
+      <div class="sub">One station per line: a name, a bar, then an https stream address (Name | https://...). The first nine are the phone's number keys. Leave empty to use the built-in list of UK stations. Where a mode allows any station the child can also add their own after these.</div>
+      <textarea data-radio="list" rows="6" style="width:100%;box-sizing:border-box" placeholder="Heart | https://media-ice.musicradio.com/HeartUKMP3">${this._esc(lines)}</textarea>
+      <div class="row" style="margin-top:6px"><button class="primary" data-act="radio_save">Save radio stations</button></div>`;
+  }
+
   _restrictionsHtml(d) {
     const R = PhoneGuardCard.RESTRICTIONS;
     const on = new Set(d.restrictions == null ? R.filter((r) => r[3]).map((r) => r[0]) : d.restrictions);
@@ -926,6 +935,10 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "wa_save") {
       const get = (k) => this._root.querySelector(`[data-wa="${k}"]`);
       return this._svc("set_child", { config: { whatsapp: { all: get("all").checked, allowed: get("allowed").value.split("\n"), perMinute: Number(get("perMinute").value) || 5, perDay: Number(get("perDay").value) || 200 } } });
+    }
+    if (a === "radio_save") {
+      const list = this._root.querySelector('[data-radio="list"]').value.split("\n").map((l) => l.trim()).filter(Boolean).map((l) => { const i = l.indexOf("|"); return i < 0 ? { name: l, url: "" } : { name: l.slice(0, i).trim(), url: l.slice(i + 1).trim() }; });
+      return this._svc("set_child", { config: { radio_stations: list } });
     }
     if (a === "rs_default") return this._svc("set_child", { config: { restrictions: null } });
     if (a === "release" && confirm("Release this phone? It stops being managed and everything is unhidden on its next sync.")) return this._svc("release");
