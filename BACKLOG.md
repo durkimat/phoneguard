@@ -990,5 +990,8 @@ Options found: (1) the stock MediaTek FM app from the original Qin firmware or a
 ### Internet radio as a music source (owner, 2026-11-09, instead of FM)
 Research notes below; options and recommendation were given to the owner in chat. Flight mode was dropped the same day (no supported route; workaround rejected).
 
-### Menu sluggishness (2026-11-09)
-Cause: every Up/Down press ran the full `refresh()` (about 230 ms on this phone: contacts, SMS, call log, app list, WhatsApp, music state, all on the main thread). Fixed for list screens by redrawing from the held state (`moveOnly` set in LauncherActivity). Still slow and worth fixing: opening a screen, digit shortcuts and soft keys still call the full `refresh()`; it should load on a background thread and only the data a screen needs.
+### Menu sluggishness (2026-11-09) - fixed
+Cause: every key press and timer ran a full `refresh()` (230 to 600 ms on the main thread: WhatsApp conversations about 200 ms, status info about 90 ms, the app list, contacts, call log and messages 15 to 75 ms each).
+Fix (LauncherActivity): data is now held and read on a background thread in groups (INFO, CONTACTS, CALLS, CONVOS, WA, APPS, SCREEN), only when a group has changed. Changes are flagged by content observers (SMS, call log, contacts), WhatsApp and notes listeners, package and time broadcasts, network changes, and explicit calls after our own actions. `redraw()` reads nothing; `refresh()` redraws then reads whatever is flagged. Nothing is read while the launcher is in the background (observers only set flags). The 20 s timer is now a 60 s INFO flag.
+Measured: 10 down-presses gave 12 frames, 0 janky, median 7 ms. A new missed call shows its badge within about a second without polling.
+To keep it this way: new data a screen needs goes in a group with an invalidation source; never read data inside `redraw()`, `dispatchKeyEvent` or `skin.render`.
