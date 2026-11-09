@@ -1195,8 +1195,9 @@ class LauncherModel(
     var btSel: BtDev? = null
     var netStatus = ""
 
-    private fun wifiLabel(n: WifiNet) = (if (n.connected) "> " else "  ") + n.ssid + (if (n.saved && !n.connected) (if (n.inRange) " (saved)" else " (not here)") else if (!n.saved && n.secured) " *" else "")
-    private fun btLabel(d: BtDev) = (if (d.connected) "> " else "  ") + d.name + (if (d.bonded && !d.connected) " (paired)" else "")
+    /** ">" connected, "*" saved (or paired), a blank otherwise: the marker comes first so a long name cannot push it off the screen. */
+    private fun wifiLabel(n: WifiNet) = (if (n.connected) "> " else if (n.saved) "* " else "  ") + n.ssid
+    private fun btLabel(d: BtDev) = (if (d.connected) "> " else if (d.bonded) "* " else "  ") + d.name
 
     private val wifiNetRows: List<String> get() {
         val n = wifiSel ?: return emptyList()

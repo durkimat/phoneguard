@@ -29,8 +29,9 @@ class ScreenCover(private val svc: AccessibilityService) {
     /** Lines of text in the middle, and labels for the two keys under the screen (left, right). */
     fun showPanel(lines: List<String>, left: String, right: String, maxMs: Long = 20_000) {
         ui.post {
-            view?.let { try { wm.removeView(it) } catch (_: Exception) { } }; view = null
-            run {
+            val existing = view as? Cover
+            if (existing != null) existing.set(lines, left, right) // change the words in place: taking the panel down and putting another up can show a frame of what is underneath
+            else {
                 val v = Cover(svc, lines, left, right)
                 val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -45,8 +46,9 @@ class ScreenCover(private val svc: AccessibilityService) {
         ui.post { ui.removeCallbacks(away); view?.let { try { wm.removeView(it) } catch (_: Exception) { } }; view = null }
     }
 
-    private class Cover(private val c: Context, private val lines: List<String>, private val left: String, private val right: String) : View(c) {
+    private class Cover(private val c: Context, private var lines: List<String>, private var left: String, private var right: String) : View(c) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        fun set(l: List<String>, a: String, b: String) { lines = l; left = a; right = b; invalidate() }
         override fun onDraw(cv: Canvas) {
             val prefs = c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
             val t = Themes.byId(prefs.getString("theme", Themes.DEFAULT))
