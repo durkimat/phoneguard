@@ -969,3 +969,5 @@ Questions to put to them together:
 - Spectrum v6: fixed scale (-56 to -8 dB) instead of following the loudest band, so quiet music looks quiet. Logs the loudest band every 5 s ("spectrum: loudest band") to diagnose bars that carry on after a song ends.
 
 - Spectrum v7: captured as played (the default normalised scaling made quiet music look loud), scale -52 to -10 dB, 1 dB treble lift per bar, 9 blocks tall, faster fall. Calibrated from logged levels (loud bass about -18 dB, mids -30, treble -40).
+
+- Now playing: tap left/right (or 4/6) skips the track on key release; hold for 0.5 s and it winds 10 s a second (30 s after five steps) until released (Spotify seek or the media session's seekTo). Volume keys there now redraw lightly instead of a full refresh. Built, not yet installed or tested.

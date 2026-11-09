@@ -218,7 +218,11 @@ class LauncherActivity : Activity() {
     private var playHold: Pair<Boolean, Long>? = null
 
     private fun nowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo {
-        val m = nowPlayingRaw()
+        var m = nowPlayingRaw()
+        seekHold?.let { (to, at) ->
+            val now = System.currentTimeMillis()
+            if (now - at < 3000) m = m.copy(positionMs = (to + (if (m.playing) now - at else 0L)).coerceAtMost(if (m.durationMs > 0) m.durationMs else Long.MAX_VALUE)) else seekHold = null
+        }
         val h = playHold ?: return m
         if (System.currentTimeMillis() > h.second || m.playing == h.first) { if (m.playing == h.first) playHold = null; return m }
         return m.copy(playing = h.first)
@@ -332,10 +336,38 @@ class LauncherActivity : Activity() {
             return true
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
+        // Now playing: a tap on left or right (or 4 and 6) skips the track when the key comes up; holding it winds back or forward instead
+        if (model.screen == Screen.MUSIC && model.music.active && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
+            val dir = if (k.first == Key.RIGHT || k.second == 6) 1 else -1
+            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) { seekDir = dir; seekFired = false; seekSteps = 0; ui.removeCallbacks(seekStep); ui.postDelayed(seekStep, 500) }
+            else if (ev.action == KeyEvent.ACTION_UP) { ui.removeCallbacks(seekStep); if (!seekFired) perform(if (dir > 0) Action.MusicNext else Action.MusicPrevious); seekFired = false }
+            return true
+        }
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(model.onKey(k.first, k.second))
         else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
         return true // consume the key up as well so Back never leaves the launcher
     }
+
+    private var seekDir = 0
+    private var seekFired = false
+    private var seekSteps = 0
+    /** While left or right is held on Now playing: every second the song moves 10 s (30 s after five steps) until the key is let go. */
+    private val seekStep: Runnable = object : Runnable {
+        override fun run() {
+            if (model.screen != Screen.MUSIC || !model.music.active) return
+            seekFired = true; seekSteps++
+            val m = model.music
+            val step = if (seekSteps > 5) 30_000L else 10_000L
+            val limit = if (m.durationMs > 0) m.durationMs - 1000 else Long.MAX_VALUE
+            val target = (m.positionMs + seekDir * step).coerceIn(0L, limit.coerceAtLeast(0))
+            seekHold = target to System.currentTimeMillis()
+            model.music = m.copy(positionMs = target); lastInfo?.let { skin.render(model, it) }
+            spOrLocal({ sp.seek(this@LauncherActivity, target) }, { io.github.durkimat.phoneguard.music.MusicController.seekTo(this@LauncherActivity, target) })
+            ui.postDelayed(this, 1000)
+        }
+    }
+    /** Where the last wind went and when: for a few seconds the position is taken from here, because Spotify still reports the old place for a moment. */
+    private var seekHold: Pair<Long, Long>? = null
 
     private fun perform(a: Action) {
         when (a) {
@@ -384,7 +416,7 @@ class LauncherActivity : Activity() {
             is Action.MusicVolume -> {
                 // on another device the volume is Spotify's for that device; on this phone it is the phone's music volume
                 if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { refresh() } }.start()
-                else { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); refresh() }
+                else { io.github.durkimat.phoneguard.music.MusicController.volume(this, a.up); model.music = model.music.copy(volumePct = io.github.durkimat.phoneguard.music.MusicController.volumePct(this)); lastInfo?.let { skin.render(model, it) } } // a light redraw: the full refresh reloads messages and calls and made the analyser stutter
             }
             is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
             Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
