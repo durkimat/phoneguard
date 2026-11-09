@@ -128,6 +128,16 @@ class NokiaSkin : LauncherSkin {
             c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
             c.drawRect((bx + 5) * u, 15 * u, (bx + 5 + 42f * i.batteryPct / 100f) * u, 31 * u, fill)
             text(c, (if (i.charging) "+" else "") + i.batteryPct + "%", bx - 8, 33f, 24f, u, align = Paint.Align.RIGHT)
+            // Wi-Fi: a dot and three arcs, solid when connected and faint when not (not drawn where the mode hides it)
+            if (i.wifi >= 0) {
+                val faint = i.wifi == 0
+                val col = if (faint) (ink and 0x00FFFFFF) or (0x55 shl 24) else ink
+                stroke.color = col; fill.color = col; stroke.strokeWidth = 2.5f * u
+                val cx = 138f; val by = 33f
+                for (r in listOf(9f, 16f, 23f)) c.drawArc(RectF((cx - r) * u, (by - r) * u, (cx + r) * u, (by + r) * u), -135f, 90f, false, stroke)
+                c.drawCircle(cx * u, (by - 1f) * u, 2.6f * u, fill)
+                stroke.color = ink; fill.color = ink
+            }
             // a small torch while the LED is on (drawn only because the screen is on and showing our screens)
             if (io.github.durkimat.phoneguard.keys.Torch.on) {
                 stroke.strokeWidth = 2.5f * u

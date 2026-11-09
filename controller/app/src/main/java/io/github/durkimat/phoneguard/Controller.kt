@@ -20,19 +20,29 @@ object Controller {
 
     private val HM = SimpleDateFormat("EEE HH:mm", Locale.UK)
 
-    @Synchronized
     fun evaluate(c: Context, reason: String) {
+        val asked = System.nanoTime()
+        synchronized(this) {
+            val waited = (System.nanoTime() - asked) / 1_000_000
+            if (waited > 500) Log.log(c.applicationContext, "EVAL $reason waited ${waited}ms for another evaluation")
+            evaluateNow(c, reason)
+        }
+    }
+
+    private fun evaluateNow(c: Context, reason: String) {
         val app = c.applicationContext
+        val t0 = System.nanoTime(); var last = t0; val laps = StringBuilder()
+        fun lap(what: String) { val n = System.nanoTime(); if (n - last > 150_000_000L) laps.append(" $what=${(n - last) / 1_000_000}ms"); last = n }
         if (!Dpm.isOwner(app)) {
-            Log.log(app, "EVAL $reason: not device owner, nothing enforced")
+            lap("rest"); if (System.nanoTime() - t0 > 1_000_000_000L) Log.log(app, "EVAL slow (${(System.nanoTime() - t0) / 1_000_000}ms):$laps")
+        Log.log(app, "EVAL $reason: not device owner, nothing enforced")
             Store.summary(app, "Not device owner")
             Notifier.status(app, "Not set up as device owner")
             return
         }
-        Enforcer.grantOwnPermissions(app)
-        Enforcer.ensureSideButton(app)
-        Enforcer.ensureNoteListener(app)
-        PowerLog.sample(app, "eval")
+        Enforcer.grantOwnPermissions(app); lap("grant")
+        Enforcer.ensureSideButton(app); Enforcer.ensureNoteListener(app); lap("services")
+        PowerLog.sample(app, "eval"); lap("power")
         val now = Clock.now()
         val cfg = Store.config(app)
         var boost = Store.boost(app)
@@ -40,20 +50,22 @@ object Controller {
 
         val eff = Engine.effective(cfg, boost, now)
         val res = Enforcer.applyApps(app, cfg, eff.allowed, hideStockHome = false) // not hidden: Android binds its recents and gesture service inside the stock launcher at every start, and hiding it made that crash at boot
-        Enforcer.applyRestrictions(app, cfg)
-        Enforcer.protectProcesses(app)
-        Enforcer.setGray(app, eff.gray)
-        LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app))
-        LocationLock.set(app, off = eff.location == "off")
-        LocationReporter.apply(app, eff.location, eff.locEvery)
+        lap("apps")
+        Enforcer.applyRestrictions(app, cfg); lap("restrict")
+        Enforcer.protectProcesses(app); lap("protect")
+        Enforcer.setGray(app, eff.gray); lap("gray")
+        LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app)); lap("lockdown")
+        LocationLock.set(app, off = eff.location == "off"); lap("loclock")
+        LocationReporter.apply(app, eff.location, eff.locEvery); lap("locrep")
         // notifications: on or off for this mode, and the apps HA hides; run the current ones through the rules again when that changed
         val hide = cfg?.notesHide ?: emptySet()
         if (io.github.durkimat.phoneguard.notes.Notes.enabled != (eff.notes == "show") || io.github.durkimat.phoneguard.notes.Notes.extraHidden != hide) {
             io.github.durkimat.phoneguard.notes.Notes.enabled = eff.notes == "show"; io.github.durkimat.phoneguard.notes.Notes.extraHidden = hide
             io.github.durkimat.phoneguard.notes.NoteService.instance?.reapply()
         }
-        val soundNote = SoundEnforcer.apply(app, eff.sound)
+        val soundNote = SoundEnforcer.apply(app, eff.sound); lap("sound")
         try { io.github.durkimat.phoneguard.whatsapp.WhatsApp.apply(app, cfg, eff) } catch (e: Throwable) { Log.log(app, "whatsapp apply failed: ${e.javaClass.simpleName}") }
+        lap("whatsapp")
 
         // Warning before a change that removes apps, and the next alarm.
         val change = Engine.nextChange(cfg, boost, now)

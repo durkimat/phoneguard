@@ -850,3 +850,8 @@ Questions to put to them together:
 - Removed the unused PHONEMENU screen and its code. 176 unit tests pass.
 - Not yet seen on the phone: it was locked after an adb End-key test (the End/power key locks it, and I cannot unlock a secure lock). Check the Music screen, the marquee and the home screen label tomorrow.
 - Lesson: do not send KEYCODE_ENDCALL over adb on this phone, it sleeps and locks it (hang-up is the power key).
+
+## Wi-Fi symbol and start-up delay (2026-11-09)
+- Wi-Fi symbol (dot and three arcs) in the status line on every Nokia screen: solid when connected to Wi-Fi, faint when not; not drawn in the locked-down mode (School, i.e. kiosk). Follows the connection through a network callback while the launcher is in front.
+- Found overnight: the phone could not join Wi-Fi (NETWORK_SELECTION_DISABLED_BY_WRONG_PASSWORD from 03:05; the router's password or security changed). Spotify and HA sync then looked "signed out" but only had no network; the Spotify sign-in was intact. Idea: show "No Wi-Fi" more loudly, and warn in the HA card when the phone has not checked in for a while.
+- After each install the app's first start takes ~5 s on the main thread and Android sometimes shows "Phone Guard isn't responding" (input focus timed out). Probably cold code after an install, but the same could make a slow boot. Added timing: Controller logs "EVAL slow (...)" with the stages that took over 150 ms, and "waited Nms for another evaluation" if the evaluation lock was busy. Read these at the next boot (adb shell logcat -d -s PhoneGuard).
