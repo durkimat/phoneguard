@@ -892,3 +892,13 @@ Questions to put to them together:
 - HA: new per-mode setting "Close apps when the screen is off for" (screen_off_min, default 5; Never/2/5/10/30), child switch idle_dry_run, and the phone's ledger kept per device (last 300) with a 24 h summary in the Power and memory section (closed count by reason, most-closed apps, the latest few). Card v0.22.0, 36 HA tests.
 - Music screen with nothing playing no longer offers to open Spotify: OK (or the left key, labelled Playlists) opens the playlist list when signed in; otherwise the hint says to sign in from the Music menu. The Spotify app is only ever opened by us behind the cover panel.
 - Not yet seen working: the screen-off sweep itself (it needs the phone to sleep, which locks it; test when the owner can unlock), and reaped entries reaching HA after a long idle period.
+
+## Music symbol on the home screen, scrolling symbol row (2026-11-09)
+- A pair of beamed quavers joins the home-screen symbol row (texts, WhatsApp, missed calls, notifications) while music is playing on this phone (a playing media session; not in School). Tapping it (touch modes) goes straight to Now playing; Back from the Music menu then returns to the home screen. The row refreshes when the player's notification changes and on the minute tick.
+- Owner's rule for a wide row: if the symbols are ever wider than the screen the row starts at the left, drifts gently left and back (pausing at each end), and a finger can drag it; a drag pauses the drift for 5 s. Checked with 5 symbols on the phone. Owner expects this row may become a running-app selector later.
+- Debug-only broadcast io.github.durkimat.phoneguard.DEBUG_BADGES --ei n 5 shows test symbols (n 0 clears).
+
+## Owner's idea, to plan: Wi-Fi and Bluetooth screens in the Nokia menus (keypad driven, no Android Settings)
+- Wi-Fi: on/off, saved networks (connect, forget), nearby networks, join with a password typed on the keypad. A device owner may add and enable networks through the Wi-Fi manager.
+- Bluetooth: on/off, paired devices (connect/disconnect, forget), pair a new device. Pairing may still raise Android's own small confirmation dialog; headset profile connection may need hidden APIs.
+- Both also useful for School/Night (parent could lock them per mode).

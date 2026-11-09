@@ -69,6 +69,14 @@ class F2Service : AccessibilityService() {
                 }
             }
             registerReceiver(lister, android.content.IntentFilter("io.github.durkimat.phoneguard.DEBUG_RUNNING"), android.content.Context.RECEIVER_EXPORTED)
+            val badger = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context?, i: Intent?) {
+                    val n = i?.getIntExtra("n", 0) ?: 0
+                    val kinds = listOf(io.github.durkimat.phoneguard.launcher.BadgeKind.SMS, io.github.durkimat.phoneguard.launcher.BadgeKind.WHATSAPP, io.github.durkimat.phoneguard.launcher.BadgeKind.MISSED, io.github.durkimat.phoneguard.launcher.BadgeKind.NOTES, io.github.durkimat.phoneguard.launcher.BadgeKind.MUSIC)
+                    LauncherData.debugBadges = if (n <= 0) null else kinds.take(n).map { io.github.durkimat.phoneguard.launcher.Badge(it, 3) }
+                }
+            }
+            registerReceiver(badger, android.content.IntentFilter("io.github.durkimat.phoneguard.DEBUG_BADGES"), android.content.Context.RECEIVER_EXPORTED)
             registerReceiver(stopper, android.content.IntentFilter("io.github.durkimat.phoneguard.DEBUG_STOP"), android.content.Context.RECEIVER_EXPORTED)
         }
     }
