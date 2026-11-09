@@ -947,3 +947,5 @@ Questions to put to them together:
 - WhatsApp read status diagnostics (2026-11-09): the bridge now logs (masked, on the phone only) 'app state synced', 'chat marked read/unread elsewhere' and 'read notice of ours', and the app logs 'read elsewhere ... stars cleared / nothing to clear', to see what WhatsApp actually sends. Stale stars from before the feature will not clear by themselves: WhatsApp only sends the signal when the read happens.
 
 - WhatsApp read sync, both ways: opening a chat in our app now sends read receipts and a mark-chat-read patch (wabridge `MarkRead`, `WhatsApp.readChat`), so the main phone clears its unread count. Needs owner test.
+
+- Over-long text now scrolls forwards then back (NokiaSkin.marquee): title bars on every screen, the selected list row, and the Music fields. Anything over 3 screen widths is cut with "...". Unselected rows still just end in "...". Needs owner check on the phone.
