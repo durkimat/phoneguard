@@ -327,7 +327,7 @@ class HomeBadgeTest {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
         m.radioNames = listOf("BBC Radio 1", "Heart", "Classic FM")
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2) // Music menu, Radio
-        assertEquals(Screen.RADIO, m.screen); assertEquals(listOf("BBC Radio 1", "Heart", "Classic FM"), m.rows)
+        assertEquals(Screen.RADIO, m.screen); assertEquals(listOf("BBC Radio 1", "Heart", "Classic FM", "Find station", "Browse stations"), m.rows)
         assertEquals(Action.RadioPlay(1), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.MUSIC, m.screen)
         m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", "Heart", "", "", true, 5_000, 0, 40, source = "radio")
         // on radio the digits are presets, the d-pad does the rest
@@ -342,5 +342,34 @@ class HomeBadgeTest {
     @Test fun radioOffHidesTheRadioRows() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.radioMode = "off"
         m.onKey(Key.SOFT_RIGHT); assertTrue("Radio" !in m.rows)
+    }
+
+    @Test fun radioBrowseAndFind() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.radioNames = listOf("BBC Radio 1", "Heart")
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(Screen.RADIO, m.screen)
+        // Browse: popular, genres, countries
+        m.onKey(Key.DOWN); m.onKey(Key.DOWN); m.onKey(Key.DOWN); m.onKey(Key.OK) // "Browse stations"
+        assertEquals(Screen.RADIOBROWSE, m.screen); assertEquals(listOf("Popular in the UK", "Genres", "Countries"), m.rows)
+        assertEquals(Action.RadioLoad("top", "GB"), m.onKey(Key.OK)); assertEquals(Screen.RADIORES, m.screen); assertEquals(listOf("Loading..."), m.rows)
+        m.radioRes = listOf(io.github.durkimat.phoneguard.music.RadioItem("Jazz FM", "MP3 128k GB", "https://j/s"), io.github.durkimat.phoneguard.music.RadioItem("Smooth", "AAC 48k GB", "https://s/s"))
+        assertEquals(listOf("Jazz FM", "Smooth"), m.rows)
+        assertEquals(Action.RadioFav("Jazz FM", "https://j/s"), m.onKey(Key.STAR))
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIOBROWSE, m.screen) // Back goes to the browse list
+        m.onKey(Key.DOWN); m.onKey(Key.OK); assertEquals(Screen.RADIOBROWSE, m.screen); assertTrue("Pop" in m.rows) // genres
+        assertEquals(Action.RadioLoad("tag", "pop"), m.onKey(Key.OK))
+        m.radioRes = listOf(io.github.durkimat.phoneguard.music.RadioItem("Pop FM", "", "https://p/s"))
+        assertEquals(Action.RadioPlayUrl("Pop FM", "https://p/s"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
+        // Find: type a name
+        m.onKey(Key.DIGIT, 0); m.onKey(Key.OK); assertEquals(Screen.RADIO, m.screen)
+        m.onKey(Key.DOWN); m.onKey(Key.DOWN); m.onKey(Key.OK) // "Find station"
+        assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
+        m.onKey(Key.DIGIT, 4); m.onKey(Key.DIGIT, 3)
+        assertTrue(m.onKey(Key.OK) is Action.RadioSearch); assertEquals(Screen.RADIORES, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIO, m.screen) // Back from a search returns to the station list
+    }
+
+    @Test fun onlyAnyModeOffersFindAndBrowse() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.radioNames = listOf("A"); m.radioMode = "presets"
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(listOf("A"), m.rows)
     }
 }
