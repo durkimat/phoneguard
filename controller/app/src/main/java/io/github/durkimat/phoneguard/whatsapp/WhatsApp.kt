@@ -197,7 +197,7 @@ object WhatsApp {
     fun apply(c: Context, cfg: Config?, eff: Effective) {
         if (!linked(c)) { cancelAlarm(c); return }
         // the real WhatsApp is in use: only one client should be on the phone, so ours stands down completely
-        if (Engine.useRealWhatsApp(eff.waApp, io.github.durkimat.phoneguard.Enforcer.launcherPackages(c).contains(io.github.durkimat.phoneguard.launcher.LauncherData.WHATSAPP))) {
+        if (Engine.useRealWhatsApp(eff.waApp, io.github.durkimat.phoneguard.Enforcer.launcherPackages(c).contains(io.github.durkimat.phoneguard.launcher.LauncherData.WHATSAPP), true)) {
             cancelAlarm(c); main.removeCallbacks(idleOff); bridge?.disconnect(); return
         }
         cfg?.whatsapp?.let { w ->

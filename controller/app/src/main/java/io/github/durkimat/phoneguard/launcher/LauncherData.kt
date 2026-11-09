@@ -38,7 +38,7 @@ object LauncherData {
     /** True when the real WhatsApp app is what the menus use in the mode in force (see [Engine.useRealWhatsApp]). */
     fun useRealWhatsApp(c: Context): Boolean {
         val eff = Engine.effective(Store.config(c), Store.boost(c), Clock.now())
-        return Engine.useRealWhatsApp(eff.waApp, Enforcer.launcherPackages(c).contains(WHATSAPP))
+        return Engine.useRealWhatsApp(eff.waApp, Enforcer.launcherPackages(c).contains(WHATSAPP), io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c))
     }
 
     /** Every app the menu can start, in menu order. The kiosk lock allows exactly these. */
