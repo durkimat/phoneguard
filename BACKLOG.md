@@ -959,3 +959,5 @@ Questions to put to them together:
 - Spectrum v3: the FFT is now computed here from the raw waveform (Hann window, float) because the Visualizer's own 8-bit FFT clips on bass (low bars moved regardless of the music). Scale floor stops silence being amplified; range 34 dB.
 
 - Bluetooth: "Connected" was shown as soon as Android accepted the request. Now the phone checks the profiles for up to 12 s and says "Not connected (in use?)" if the device never joined (e.g. another phone holds the speaker).
+
+- Spectrum v4: each bar shows its strongest bin rather than the band average, plus a 1.6 power curve, to separate the middle bars for vocals and simple accompaniment.
