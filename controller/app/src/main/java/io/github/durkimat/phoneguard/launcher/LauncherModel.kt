@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -74,6 +74,12 @@ data class MenuItem(val pkg: String, val label: String)
 /** An app that looks to be running in the background, with a short state ("playing", "paused", "busy" or minutes since use). */
 data class RunningApp(val pkg: String, val label: String, val state: String)
 
+/** A Wi-Fi network, saved (id >= 0) and/or in range; level 0 to 4 when in range, -1 when not. */
+data class WifiNet(val ssid: String, val id: Int, val saved: Boolean, val secured: Boolean, val level: Int, val connected: Boolean, val inRange: Boolean, val caps: String)
+
+/** A Bluetooth device: paired or just found, and whether it is connected now. */
+data class BtDev(val address: String, val name: String, val bonded: Boolean, val connected: Boolean, val kind: Int = 0)
+
 sealed class Action {
     /** Nothing to do, or the key is not ours. */
     object None : Action()
@@ -132,6 +138,18 @@ sealed class Action {
     object SpRepeat : Action()
     /** Stop a running app (the Running Apps screen). */
     data class KillApp(val pkg: String) : Action()
+    /** Wi-Fi and Bluetooth (the activity does the work and refreshes the lists). */
+    object WifiLoad : Action()
+    object WifiToggle : Action()
+    data class WifiConnect(val id: Int) : Action()
+    data class WifiForget(val id: Int) : Action()
+    data class WifiJoin(val ssid: String, val password: String, val caps: String, val id: Int) : Action()
+    object BtLoad : Action()
+    object BtSearch : Action()
+    object BtToggle : Action()
+    data class BtPair(val address: String) : Action()
+    data class BtConnect(val address: String, val connect: Boolean) : Action()
+    data class BtForget(val address: String) : Action()
     /** Step the sleep timer: off, 15, 30, 60 minutes. */
     object SleepStep : Action()
     /** Play a test tone: 0 loudspeaker, 1 call speaker, 2 earpiece. */
@@ -182,7 +200,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Wi-Fi", "Bluetooth") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -292,7 +310,8 @@ class LauncherModel(
     private var compStart = 0
     private var compLen = 0
     private val modes: List<String> get() =
-        if (predictor != null && predictiveOn) listOf("T9 Abc", "T9 abc", "T9 ABC", "Abc", "abc", "ABC", "123") else listOf("Abc", "abc", "ABC", "123")
+        if (writeWifi != null) listOf("abc", "ABC", "123") // a password is typed exactly: no word prediction, no capital after a full stop
+        else if (predictor != null && predictiveOn) listOf("T9 Abc", "T9 abc", "T9 ABC", "Abc", "abc", "ABC", "123") else listOf("Abc", "abc", "ABC", "123")
     /** The characters being typed as a word, which the skin underlines until the word is accepted. */
     val composingRange: IntRange? get() = if (seq.isEmpty()) null else compStart until (compStart + compLen)
     private val t9: Boolean get() = modeName.startsWith("T9")
@@ -339,6 +358,10 @@ class LauncherModel(
         Screen.MUSIC -> "Now playing"
         Screen.LOGSET -> "Logs & Settings"
         Screen.RUNNING -> "Running Apps"
+        Screen.WIFI -> "Wi-Fi"
+        Screen.WIFINET -> wifiSel?.ssid ?: "Wi-Fi"
+        Screen.BT -> "Bluetooth"
+        Screen.BTDEV -> btSel?.name ?: "Bluetooth"
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> "Playlists"
@@ -369,6 +392,7 @@ class LauncherModel(
         Screen.BATTERY -> "" to "Back"
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
+        Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else if (spSignedIn) "Playlists" else "") to "Back"
         Screen.NOTES -> "Open" to "Back"
@@ -399,6 +423,10 @@ class LauncherModel(
         Screen.MUSICMENU -> musicMenuRows
         Screen.LOGSET -> logItems.map { it.label }
         Screen.RUNNING -> if (running.isEmpty()) listOf("Nothing running") else running.map { it.label + " (" + it.state + ")" }
+        Screen.WIFI -> listOf("Wi-Fi: " + (if (wifiOn) "On" else "Off")) + (if (!wifiOn) emptyList() else if (wifiNets.isEmpty()) listOf("Searching...") else wifiNets.map { wifiLabel(it) })
+        Screen.WIFINET -> wifiNetRows
+        Screen.BT -> listOf("Bluetooth: " + (if (btOn) "On" else "Off")) + (if (!btOn) emptyList() else listOf("Search for devices") + btDevs.map { btLabel(it) })
+        Screen.BTDEV -> btDevRows
         Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
         Screen.SEARCHRES -> spResults.map { it.label }
@@ -434,7 +462,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -453,6 +481,10 @@ class LauncherModel(
         Screen.MUSICMENU -> musicMenuKey(key)
         Screen.LOGSET -> logSetKey(key)
         Screen.RUNNING -> runningKey(key)
+        Screen.WIFI -> wifiKey(key)
+        Screen.WIFINET -> wifiNetKey(key)
+        Screen.BT -> btKey(key)
+        Screen.BTDEV -> btDevKey(key)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
         Screen.NOTES -> notesKey(key)
@@ -699,7 +731,7 @@ class LauncherModel(
 
     private fun startWrite(to: String, back: Screen, label: String = "", wa: Boolean = false): Action {
         writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1; commit()
-        writeWa = wa; writeLabel = label; writeSearch = false
+        writeWa = wa; writeLabel = label; writeSearch = false; writeWifi = null
         writeField = if (to.isEmpty()) 0 else 1
         screen = Screen.WRITE
         return Action.Redraw
@@ -732,7 +764,7 @@ class LauncherModel(
         Key.UP -> { commit(); writeField = 0; Action.Redraw }
         Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
         Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
-        Key.OK, Key.SOFT_LEFT -> { commit(); if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
+        Key.OK, Key.SOFT_LEFT -> { commit(); if (writeWifi != null) { val n = writeWifi!!; screen = Screen.WIFI; selected = 0; writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = if (writeWa) Action.SendWa(writeTo, writeText.trim()) else Action.Send(writeTo, writeText.trim())
             screen = Screen.MESSAGES; selected = 0; notice = "Message sent"
             a
@@ -800,6 +832,8 @@ class LauncherModel(
 
     private fun startsSentence(before: String) = before.isEmpty() || before.endsWith(". ") || before.endsWith("! ") || before.endsWith("? ") || before.endsWith("\n")
 
+    private val PW_SYMBOLS = "!@#\$%^&*()-_=+.,?:;/'\"[]{}\\|<>~`"
+
     private val tapChars = mapOf(
         0 to " 0", 1 to ".,?!'-@1", 2 to "abc2", 3 to "def3", 4 to "ghi4", 5 to "jkl5", 6 to "mno6", 7 to "pqrs7", 8 to "tuv8", 9 to "wxyz9",
         10 to ".,?!'-@:/()&",
@@ -809,7 +843,7 @@ class LauncherModel(
     private fun typeKey(d: Int, now: Long) {
         if (writeText.length >= 480) return
         if (modeName == "123" && d <= 9) { insert(d.toString()); lastDigit = -1; return }
-        val set = tapChars[d] ?: return
+        val set = (if (writeWifi != null && d == 10) PW_SYMBOLS else if (writeWifi != null && d == 1) "1.-_@" else tapChars[d]) ?: return
         if (d == lastDigit && now - lastAt <= 1000 && cursor > 0) {
             tapIdx = (tapIdx + 1) % set.length
             val ch = style(set[tapIdx], writeText.substring(0, cursor - 1))
@@ -905,6 +939,8 @@ class LauncherModel(
                 "WhatsApp" -> { screen = Screen.WASET; selected = 0 }
                 "Android settings" -> out = Action.Launch("com.android.settings")
                 "Battery" -> { screen = Screen.BATTERY; selected = 0 }
+                "Wi-Fi" -> { screen = Screen.WIFI; selected = 0; out = Action.WifiLoad }
+                "Bluetooth" -> { screen = Screen.BT; selected = 0; out = Action.BtLoad }
             }
             out
         }
@@ -956,7 +992,7 @@ class LauncherModel(
     }
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
-    private val rowScreens = setOf(Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
+    private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
         Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
@@ -990,6 +1026,7 @@ class LauncherModel(
     fun tap(x: Float, y: Float): Action {
         if (screen in noTouch) return Action.None // the games stay keypad classics
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
+        if (y < 46f && x in 105f..175f && screen != Screen.WIFI && wifiShown) { screen = Screen.WIFI; selected = 0; return Action.WifiLoad } // the Wi-Fi symbol in the status line
         if (screen == Screen.HOME) {
             if (y in 345f..440f) return openWeather()
             if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
@@ -1061,6 +1098,8 @@ class LauncherModel(
     var spIsThisPhone: (io.github.durkimat.phoneguard.music.SpDevice) -> Boolean = { false }
     /** True while the text entry is a Spotify search rather than a message. */
     var writeSearch = false
+    /** Set while the text screen is asking for the password of this Wi-Fi network. */
+    var writeWifi: WifiNet? = null
         private set
 
     /** The notifications, newest first (the activity fills this in). */
@@ -1143,6 +1182,84 @@ class LauncherModel(
         pkg in CAMERA_APPS && items.any { it.pkg == CAMERA_PKG } -> Action.OpenCamera
         pkg == "com.whatsapp" && waEnabled -> { screen = Screen.WHATSAPP; selected = 0; threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
         else -> Action.Launch(pkg)
+    }
+
+    // ---- Wi-Fi and Bluetooth (the activity fills the lists in while these screens are open)
+
+    var wifiOn = false
+    var wifiNets: List<WifiNet> = emptyList()
+    var wifiSel: WifiNet? = null
+    var wifiShown = true
+    var btOn = false
+    var btDevs: List<BtDev> = emptyList()
+    var btSel: BtDev? = null
+    var netStatus = ""
+
+    private fun wifiLabel(n: WifiNet) = (if (n.connected) "> " else "  ") + n.ssid + (if (n.saved && !n.connected) (if (n.inRange) " (saved)" else " (not here)") else if (!n.saved && n.secured) " *" else "")
+    private fun btLabel(d: BtDev) = (if (d.connected) "> " else "  ") + d.name + (if (d.bonded && !d.connected) " (paired)" else "")
+
+    private val wifiNetRows: List<String> get() {
+        val n = wifiSel ?: return emptyList()
+        return buildList {
+            if (n.connected) { /* already connected */ } else if (n.saved) add("Connect") else if (!n.secured) add("Join") else add("Join with password")
+            if (n.saved && n.secured) add("Change password")
+            if (n.saved) add("Forget")
+        }
+    }
+
+    private val btDevRows: List<String> get() {
+        val d = btSel ?: return emptyList()
+        return if (!d.bonded) listOf("Pair") else listOf(if (d.connected) "Disconnect" else "Connect", "Forget")
+    }
+
+    private fun wifiKey(key: Key): Action = move(key, rows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) Action.WifiToggle else wifiNets.getOrNull(selected - 1)?.let { wifiSel = it; screen = Screen.WIFINET; selected = 0; Action.Redraw } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Wi-Fi").coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun wifiNetKey(key: Key): Action = move(key, wifiNetRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+            val n = wifiSel
+            when (wifiNetRows.getOrNull(selected)) {
+                "Connect" -> { screen = Screen.WIFI; selected = 0; if (n != null) Action.WifiConnect(n.id) else Action.Redraw }
+                "Join" -> { screen = Screen.WIFI; selected = 0; if (n != null) Action.WifiJoin(n.ssid, "", n.caps, n.id) else Action.Redraw }
+                "Join with password", "Change password" -> if (n != null) { startWrite("", Screen.WIFINET, n.ssid); writeField = 1; writeWifi = n; writeMode = 0; Action.Redraw } else Action.None
+                "Forget" -> { screen = Screen.WIFI; selected = 0; if (n != null) Action.WifiForget(n.id) else Action.Redraw }
+                else -> Action.None
+            }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WIFI; selected = 0; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun btKey(key: Key): Action = move(key, rows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
+            selected == 0 -> Action.BtToggle
+            selected == 1 -> Action.BtSearch
+            else -> btDevs.getOrNull(selected - 2)?.let { btSel = it; screen = Screen.BTDEV; selected = 0; Action.Redraw } ?: Action.None
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Bluetooth").coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun btDevKey(key: Key): Action = move(key, btDevRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+            val d = btSel
+            when (btDevRows.getOrNull(selected)) {
+                "Pair" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtPair(d.address) else Action.Redraw }
+                "Connect" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtConnect(d.address, true) else Action.Redraw }
+                "Disconnect" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtConnect(d.address, false) else Action.Redraw }
+                "Forget" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtForget(d.address) else Action.Redraw }
+                else -> Action.None
+            }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.BT; selected = 0; Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
     }
 
     private fun logSetKey(key: Key): Action = move(key, logItems.size) ?: when (key) {
