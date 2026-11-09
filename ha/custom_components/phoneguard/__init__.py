@@ -393,6 +393,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await admin(call)
         cid = child_of(call); mgr.hub.set_spotify(cid, None); mgr.changed(cid)
 
+    async def remove_app(call: ServiceCall) -> None:
+        await admin(call)
+        cid = child_of(call)
+        try:
+            mgr.hub.queue_app(cid, "remove", call.data["package"], call.data.get("name", ""))
+        except ValueError as err:
+            raise HomeAssistantError(f"Not queued: {err}") from err
+        mgr.changed(cid)
+
     async def cancel_job(call: ServiceCall) -> None:
         await admin(call)
         cid = child_of(call); mgr.hub.cancel_app(cid, call.data["id"]); mgr.changed(cid)
@@ -428,6 +437,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from homeassistant.helpers.event import async_call_later
     entry.async_on_unload(async_track_time_interval(hass, check_updates, timedelta(hours=6)))
     async_call_later(hass, 60, check_updates)
+    hass.services.async_register(DOMAIN, "remove_app", remove_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Optional("name"): cv.string}))
     hass.services.async_register(DOMAIN, "cancel_job", cancel_job, vol.Schema({vol.Required("child"): cv.slug, vol.Required("id"): cv.string}))
     hass.services.async_register(DOMAIN, "update_phone", update_phone, vol.Schema({vol.Required("child"): cv.slug, vol.Inclusive("url", "own"): cv.string, vol.Inclusive("sha256", "own"): cv.string, vol.Optional("version"): cv.string, vol.Optional("size"): int}))
     hass.services.async_register(DOMAIN, "check_updates", check_updates, vol.Schema({}))
@@ -446,7 +456,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     reg(DOMAIN, "approve_app", approve_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string, vol.Required("modes"): [cv.string]}))
     reg(DOMAIN, "dismiss_app", dismiss_app, vol.Schema({vol.Required("child"): cv.slug, vol.Required("package"): cv.string}))
     reg(DOMAIN, "set_child", set_child, vol.Schema({vol.Required("child"): cv.slug, vol.Required("config"): dict}))
-    reg(DOMAIN, "set_options", set_options, vol.Schema({vol.Optional("spotify_client_id"): vol.Any(None, cv.string)}))
+    reg(DOMAIN, "set_options", set_options, vol.Schema({vol.Optional("spotify_client_id"): vol.Any(None, cv.string), vol.Optional("updates_enabled"): cv.boolean}))
     reg(DOMAIN, "nudge", nudge, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "release", release, vol.Schema({vol.Required("child"): cv.slug}))
     reg(DOMAIN, "set_override", set_override, vol.Schema({vol.Required("child"): cv.slug, vol.Required("mode"): cv.string}))
@@ -469,7 +479,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     mgr: Manager = hass.data.pop(DOMAIN)
     webhook.async_unregister(hass, mgr.webhook_id)
     for svc in ("create_pairing", "confirm_pairing", "boost", "cancel_boost", "set_holiday", "set_app_mode",
-                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all", "cancel_job", "update_phone", "check_updates"):
+                "approve_app", "dismiss_app", "set_child", "set_options", "nudge", "release", "forget", "remove_child", "copy_settings", "rename_child", "set_override", "spotify_signout", "set_mode_all", "remove_app", "cancel_job", "update_phone", "check_updates"):
         hass.services.async_remove(DOMAIN, svc)
     await mgr.store.async_save(mgr.hub.data)
     return True

@@ -20,10 +20,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Updates Phone Guard itself when a parent presses "Update this phone" in HA (jobs come in the settings). As device owner it installs
- * silently. It waits for Wi-Fi, enough battery and storage; downloads over https; checks the SHA-256 HA sent; and installs through the
+ * Two jobs for a parent, sent in the settings from HA: updating Phone Guard itself ("Update this phone") and removing an app the parent does
+ * not want ("Remove" on the app's row). As device owner it does both silently. It waits for Wi-Fi, enough battery and storage; downloads over https; checks the SHA-256 HA sent; and installs through the
  * package installer (Android itself refuses an update signed by a different key). Each job is done once and its result goes back to
- * HA with the next sync. It does nothing for any other app: people install their own apps with Aurora and HA only decides who sees them.
+ * HA with the next sync. Other apps are never installed from here: people install their own apps with Aurora and HA only decides who sees them.
+ * Protected apps (phone, messages, settings, Home Assistant and Phone Guard itself) can never be removed.
  */
 object AppInstaller {
     private const val MAX_BYTES = 400L * 1024 * 1024
@@ -76,12 +77,18 @@ object AppInstaller {
             if (cmd.id.isEmpty() || p.getString("r_${cmd.id}", null) != null) continue // done already
             val wait = whyWait(c, cmd)
             if (wait != null) { Log.log(c, "app job ${cmd.id} waits: $wait"); continue }
-            if (cmd.kind == "update" && cmd.pkg == c.packageName) install(c, cmd) else record(c, cmd.id, "failed", "only Phone Guard itself can be updated this way")
+            when {
+                cmd.kind == "update" && cmd.pkg == c.packageName -> install(c, cmd)
+                cmd.kind == "remove" && (cmd.pkg in Protected.all(c, cfg) || cmd.pkg == c.packageName) -> record(c, cmd.id, "failed", "protected app")
+                cmd.kind == "remove" -> remove(c, cmd)
+                else -> record(c, cmd.id, "failed", "not a job this phone does")
+            }
         }
     }
 
     /** Why a job should wait for later (null when it can go now). */
     private fun whyWait(c: Context, cmd: AppCmd): String? {
+        if (cmd.kind == "remove") return null
         val cm = c.getSystemService(android.net.ConnectivityManager::class.java)
         if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) != true) return "no Wi-Fi"
         val bat = c.registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -140,6 +147,23 @@ object AppInstaller {
             if (r?.status == PackageInstaller.STATUS_SUCCESS) record(c, cmd.id, "done", "installed ${cmd.name}") else record(c, cmd.id, "failed", r?.message ?: "install failed")
         } catch (e: Exception) { record(c, cmd.id, "failed", "install: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
         finally { waiting.remove(cmd.id); apk.delete() }
+    }
+
+    private fun remove(c: Context, cmd: AppCmd) {
+        try {
+            // an app we hid (a new one starts hidden) looks uninstalled to a plain lookup, so ask for uninstalled packages too and show it again first
+            val ai = try { c.packageManager.getApplicationInfo(cmd.pkg, android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES) } catch (_: Exception) { null }
+            if (ai == null || (ai.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) == 0) { record(c, cmd.id, "done", "was not installed"); return }
+            val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+            if (dpm.isApplicationHidden(admin, cmd.pkg)) dpm.setApplicationHidden(admin, cmd.pkg, false)
+            Store.setHidden(c, Store.hidden(c) - cmd.pkg)
+            val latch = CountDownLatch(1); waiting[cmd.id] = latch
+            c.packageManager.packageInstaller.uninstall(cmd.pkg, sender(c, cmd.id))
+            if (!latch.await(60, TimeUnit.SECONDS)) { record(c, cmd.id, "failed", "no answer from Android"); return }
+            val r = results.remove(cmd.id)
+            if (r?.status == PackageInstaller.STATUS_SUCCESS) record(c, cmd.id, "done", "removed ${cmd.name}") else record(c, cmd.id, "failed", r?.message ?: "remove failed")
+        } catch (e: Exception) { record(c, cmd.id, "failed", "remove: ${e.javaClass.simpleName}") }
+        finally { waiting.remove(cmd.id) }
     }
 
     /** Android's answer to a session commit or an uninstall. */

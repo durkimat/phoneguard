@@ -37,7 +37,7 @@ class Hub:
             self.data["children"][cid] = ch
         return ch
 
-    OPTION_KEYS = ("spotify_client_id",)
+    OPTION_KEYS = ("spotify_client_id", "updates_enabled")
 
     def set_options(self, patch: dict) -> None:
         """Settings shared by every phone (today: the Spotify app's Client ID, which is public, never a secret)."""
@@ -49,6 +49,9 @@ class Hub:
                 v = (v or "").strip().lower()
                 if v and not (len(v) == 32 and all(ch in "0123456789abcdef" for ch in v)):
                     raise ValueError("a Spotify Client ID is 32 letters and digits (0 to 9 and a to f)")
+            if k == "updates_enabled":
+                if not isinstance(v, bool):
+                    raise ValueError("updates_enabled must be true or false")
             if v:
                 opts[k] = v
             else:
@@ -198,13 +201,19 @@ class Hub:
     OWN_PACKAGE = "io.github.durkimat.phoneguard"
 
     def queue_app(self, cid: str, kind: str, pkg: str, name: str, url: str = "", sha256: str = "", size: int = 0) -> dict:
-        """Queue a job for the phone. The only job there is: updating Phone Guard itself (people install their own apps with Aurora)."""
-        if kind != "update" or pkg != self.OWN_PACKAGE:
-            raise ValueError("only Phone Guard itself can be updated from here")
-        if not url.startswith("https://"):
-            raise ValueError("the download address must be https")
-        if not re.fullmatch(r"[0-9a-f]{64}", sha256 or ""):
-            raise ValueError("the checksum is missing")
+        """Queue a job for the phone: updating Phone Guard itself, or removing an app the parent does not want (people install their own apps with Aurora)."""
+        from . import store as ST
+        if kind == "remove":
+            if not ST.valid_pkg(pkg) or pkg == self.OWN_PACKAGE:
+                raise ValueError("that app cannot be removed from here")
+            url = sha256 = ""
+        elif kind == "update" and pkg == self.OWN_PACKAGE:
+            if not url.startswith("https://"):
+                raise ValueError("the download address must be https")
+            if not re.fullmatch(r"[0-9a-f]{64}", sha256 or ""):
+                raise ValueError("the checksum is missing")
+        else:
+            raise ValueError("only Phone Guard can be updated, and other apps removed, from here")
         ch = self.data["children"][cid]
         cmds = ch.setdefault("commands", [])
         if any(c["kind"] == kind and c["pkg"] == pkg for c in cmds):
@@ -246,10 +255,14 @@ class Hub:
         if not latest or not found:
             return None
         have = str((found[1].get("state") or {}).get("version", ""))
-        return {"version": latest["version"], "notes": latest.get("notes", ""), "installed": have, "available": ST.is_newer(latest["version"], have), "ready": bool(latest.get("sha256"))}
+        return {"version": latest["version"], "notes": latest.get("notes", ""), "installed": have, "available": ST.is_newer(latest["version"], have), "ready": bool(latest.get("sha256")),
+                "enabled": bool((self.data.get("options") or {}).get("updates_enabled"))}
 
     def queue_update(self, cid: str, override: dict | None = None) -> dict:
-        """Queue the newest release for a phone. A parent may give an address and checksum of their own (to try a build that is not on GitHub)."""
+        """Queue the newest release for a phone. A parent may give an address and checksum of their own (to try a build that is not on GitHub).
+        Updates from here are off until a parent switches them on (so nobody presses it by accident before phones run the release build)."""
+        if not (self.data.get("options") or {}).get("updates_enabled"):
+            raise ValueError("updates from Home Assistant are switched off (the switch is in the Updates and removals section)")
         if override:
             return self.queue_app(cid, "update", self.OWN_PACKAGE, "Phone Guard " + str(override.get("version", "test build")), override["url"], override["sha256"], int(override.get("size", 0)))
         u = self.update_for(cid)
@@ -523,5 +536,7 @@ class Hub:
             out["fix"] = dev.get("fix")
             out["labels"] = dev.get("labels", {})
             out["apps"] = sorted(dev["apps"], key=lambda a: a.get("label", a["pkg"]).lower())
-            out["pending_apps"] = [a["pkg"] for a in dev["apps"] if a["pkg"] not in known]
+            allowed_anywhere = {p for m in ch["modes"].values() for p in m.get("allow", [])}
+            # "new" until the parent has seen it: ticking it in any mode (here or earlier) counts as seen
+            out["pending_apps"] = [a["pkg"] for a in dev["apps"] if a["pkg"] not in known and a["pkg"] not in allowed_anywhere]
         return out
