@@ -355,14 +355,23 @@ class LauncherActivity : Activity() {
         var list = sp.devices(this) ?: emptyList()
         var target = list.firstOrNull { it.id == pickedId } ?: list.firstOrNull { thisPhone(it) }
         if (target == null) {
-            // this phone is not on the list until Spotify has been running here: wake it in the background, then look again
+            // This phone is not on the list until Spotify is running here, and Spotify cannot be started invisibly (it refuses
+            // other apps' service connections). Open it, bring our screens back after a second, then wait for the phone to appear.
+            ui.post { model.notify("Starting Spotify..."); refresh() }
             launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)
-            Thread.sleep(3500)
+            Thread.sleep(1200)
             ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) }
-            Thread.sleep(1000)
-            list = sp.devices(this) ?: emptyList()
-            target = list.firstOrNull { thisPhone(it) } ?: list.firstOrNull { it.active }
+            var waited = 0
+            while (waited < 9000) {
+                Thread.sleep(1000); waited += 1000
+                list = sp.devices(this) ?: emptyList()
+                target = list.firstOrNull { thisPhone(it) }
+                if (target != null) break
+            }
+            Log.log(this, "spotify cold start: " + (if (target != null) "phone listed after ${waited / 1000}s" else "phone did not appear"))
+            if (target == null) target = list.firstOrNull { it.active }
         }
+        Log.log(this, "spotify play: devices=[" + list.joinToString { it.name + "/" + it.type + (if (it.active) "*" else "") } + "] target=" + (target?.name ?: "none"))
         sp.play(this, uri, target?.id)
     }
 

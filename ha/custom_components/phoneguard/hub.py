@@ -173,6 +173,13 @@ class Hub:
         m["allow"] = sorted(s)
         self.dismiss_app(cid, pkg)  # touching an app's ticks is the parent's decision about it: no longer new
 
+    def migrate_apps(self) -> None:
+        """At start-up: bring every phone's modes to the explicit-list form from the apps it last reported."""
+        for cid, ch in self.data["children"].items():
+            found = self.device_of(cid)
+            if found and found[1].get("apps"):
+                self.apply_app_policy(ch, {a["pkg"] for a in found[1]["apps"]})
+
     def set_mode_all(self, cid: str, mode: str, allowed: bool) -> None:
         """The select-all tick at the top of a mode's column: every app the phone has reported, or none."""
         found = self.device_of(cid)
