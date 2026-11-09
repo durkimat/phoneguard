@@ -104,6 +104,7 @@ class LauncherActivity : Activity() {
         inFront = false
         try { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = null
+        if (model.screen in netScreens) Thread { io.github.durkimat.phoneguard.LocationLock.giveBack(this) }.start() // leaving the app: the lent location switch goes back
         ui.removeCallbacks(tick)
         try { unregisterReceiver(changes) } catch (_: Exception) { }
         super.onPause()
@@ -146,6 +147,38 @@ class LauncherActivity : Activity() {
      */
     @Volatile private var lastInfo: HomeInfo? = null
     @Volatile private var musicBusy = false
+    /** Wi-Fi and Bluetooth lists: looked at every few seconds while one of those screens is open, then redrawn without a full refresh. */
+    private val netScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
+    @Volatile private var netBusy = false
+    private val netTick = object : Runnable {
+        override fun run() {
+            if (model.screen !in netScreens) { io.github.durkimat.phoneguard.net.BluetoothControl.stopSearch(this@LauncherActivity); Thread { io.github.durkimat.phoneguard.LocationLock.giveBack(this@LauncherActivity) }.start(); return }
+            if (!netBusy) Thread { loadNet() }.start()
+            ui.postDelayed(this, 3500)
+        }
+    }
+    private fun startNetTick() { ui.removeCallbacks(netTick); ui.post(netTick) }
+
+    private fun loadNet() {
+        netBusy = true
+        try {
+            val wifi = model.screen == Screen.WIFI || model.screen == Screen.WIFINET
+            if (wifi) {
+                val c = io.github.durkimat.phoneguard.net.WifiControl
+                io.github.durkimat.phoneguard.LocationLock.borrow(this)
+                c.scan(this)
+                val on = c.enabled(this); val nets = if (on) c.list(this) else emptyList()
+                ui.post { model.wifiOn = on; model.wifiNets = nets; model.wifiSel = model.wifiSel?.let { s -> nets.firstOrNull { it.ssid == s.ssid } ?: s }; lastInfo?.let { skin.render(model, it) } }
+            } else {
+                val c = io.github.durkimat.phoneguard.net.BluetoothControl
+                val on = c.enabled(this); val devs = if (on) c.list(this) else emptyList()
+                ui.post { model.btOn = on; model.btDevs = devs; model.btSel = model.btSel?.let { s -> devs.firstOrNull { it.address == s.address } ?: s }; lastInfo?.let { skin.render(model, it) } }
+            }
+        } finally { netBusy = false }
+    }
+
+    private fun netNotice(m: String) { ui.post { if (m.isNotEmpty()) { model.notify(m); ui.removeCallbacks(hideNotice); ui.postDelayed(hideNotice, 1_500) }; lastInfo?.let { skin.render(model, it) } } }
+
     private val musicTick = Runnable {
         if (model.screen != Screen.MUSIC) return@Runnable
         if (!musicBusy) {
@@ -263,6 +296,7 @@ class LauncherActivity : Activity() {
         }
         val info = LauncherData.info(this)
         model.badges = info.badges
+        model.wifiShown = info.wifi >= 0
         lastInfo = info
         skin.render(model, info)
     }
@@ -332,6 +366,17 @@ class LauncherActivity : Activity() {
             is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
             Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
             Action.SpRepeat -> Thread { sp.repeat(this, when (model.music.repeat) { "off" -> "context"; "context" -> "track"; else -> "off" }); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
+            Action.WifiLoad -> { netNotice(""); startNetTick() }
+            Action.WifiToggle -> Thread { val on = !model.wifiOn; io.github.durkimat.phoneguard.net.WifiControl.setEnabled(this, on); Thread.sleep(1200); loadNet() }.start()
+            is Action.WifiConnect -> Thread { val ok = io.github.durkimat.phoneguard.net.WifiControl.connect(this, a.id); netNotice(if (ok) "Connecting..." else "Could not connect"); Thread.sleep(2500); loadNet() }.start()
+            is Action.WifiForget -> Thread { val ok = io.github.durkimat.phoneguard.net.WifiControl.forget(this, a.id); netNotice(if (ok) "Forgotten" else "Could not forget"); Thread.sleep(500); loadNet() }.start()
+            is Action.WifiJoin -> Thread { val ok = io.github.durkimat.phoneguard.net.WifiControl.join(this, a.ssid, a.password, a.caps, a.id); netNotice(if (ok) "Joining..." else "Could not join"); Thread.sleep(3000); loadNet() }.start()
+            Action.BtLoad -> { netNotice(""); startNetTick() }
+            Action.BtSearch -> Thread { io.github.durkimat.phoneguard.net.BluetoothControl.search(this); netNotice("Searching..."); loadNet() }.start()
+            Action.BtToggle -> Thread { val m = io.github.durkimat.phoneguard.net.BluetoothControl.setEnabled(this, !model.btOn); if (m.isNotEmpty()) netNotice(m); Thread.sleep(1500); loadNet() }.start()
+            is Action.BtPair -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.pair(this, a.address); netNotice(if (ok) "Pairing..." else "Could not pair"); Thread.sleep(3000); loadNet() }.start()
+            is Action.BtConnect -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.setConnected(this, a.address, a.connect); netNotice(if (ok) (if (a.connect) "Connected" else "Disconnected") else "Android refused"); loadNet() }.start()
+            is Action.BtForget -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.forget(this, a.address); netNotice(if (ok) "Forgotten" else "Android refused"); Thread.sleep(500); loadNet() }.start()
             is Action.KillApp -> Thread { io.github.durkimat.phoneguard.IdleReaper.stop(this, a.pkg); ui.postDelayed({ refresh() }, 300) }.start()
             Action.SleepStep -> { io.github.durkimat.phoneguard.music.SleepTimer.step(this); refresh() }
             Action.SpSignIn -> start(sp.signInIntent(this))

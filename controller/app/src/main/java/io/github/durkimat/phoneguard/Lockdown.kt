@@ -144,6 +144,24 @@ object LocationLock {
             }
         } catch (e: Exception) { Log.log(c, "location lock: ${e.javaClass.simpleName} ${e.message}") }
     }
+
+    /** Android's Wi-Fi scan only works with the location switch on. While the Wi-Fi screen is open the switch is lent on, then put back by [giveBack]. */
+    fun borrow(c: Context) {
+        try {
+            val lm = c.getSystemService(android.location.LocationManager::class.java)
+            if (!lm.isLocationEnabled) { Dpm.dpm(c).setLocationEnabled(Dpm.admin(c), true); prefs(c).edit().putBoolean("lent", true).apply() }
+        } catch (e: Exception) { Log.log(c, "location lend: ${e.javaClass.simpleName}") }
+    }
+
+    fun giveBack(c: Context) {
+        try {
+            val p = prefs(c)
+            if (!p.getBoolean("lent", false)) return
+            p.edit().remove("lent").apply()
+            val eff = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(c), Store.boost(c), Clock.now())
+            if (eff.location == "off") Dpm.dpm(c).setLocationEnabled(Dpm.admin(c), false)
+        } catch (e: Exception) { Log.log(c, "location give back: ${e.javaClass.simpleName}") }
+    }
 }
 
 /**

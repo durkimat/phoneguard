@@ -549,9 +549,9 @@ class NokiaSkin : LauncherSkin {
             // the To field takes the title bar's place, inverted while it has focus
             if (m.writeField == 0) {
                 c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-                text(c, (if (m.writeSearch) "Search_" else "To: " + m.writeLabel.ifBlank { m.writeTo } + "_"), 16f, 85f, 30f, u, bold = true, color = lcd)
+                text(c, (if (m.writeSearch) "Search_" else if (m.writeWifi != null) "Password_" else "To: " + m.writeLabel.ifBlank { m.writeTo } + "_"), 16f, 85f, 30f, u, bold = true, color = lcd)
             } else {
-                text(c, if (m.writeSearch) "Search" else "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
+                text(c, if (m.writeSearch) "Search" else if (m.writeWifi != null) "Password: " + m.writeWifi!!.ssid else "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
                 stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
             }
             val body = m.writeText

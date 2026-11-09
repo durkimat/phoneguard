@@ -902,3 +902,10 @@ Questions to put to them together:
 - Wi-Fi: on/off, saved networks (connect, forget), nearby networks, join with a password typed on the keypad. A device owner may add and enable networks through the Wi-Fi manager.
 - Bluetooth: on/off, paired devices (connect/disconnect, forget), pair a new device. Pairing may still raise Android's own small confirmation dialog; headset profile connection may need hidden APIs.
 - Both also useful for School/Night (parent could lock them per mode).
+
+## Wi-Fi and Bluetooth in the Nokia menus (2026-11-09)
+- Settings now has Wi-Fi and Bluetooth (also the Wi-Fi symbol in the status line opens Wi-Fi on touch).
+- Wi-Fi: on/off row, then saved and nearby networks (">" connected, "(saved)", "(not here)", "*" for secured and unsaved). OK on a network: Connect / Join (open) / Join with password / Change password / Forget. The password is typed on the keypad on the text screen (abc, ABC, 123 only; * has a long symbol set; no word prediction). Needs the location switch: Android refuses the scan list with "Location mode is disabled" otherwise, so the Wi-Fi screen lends location on while it is open and LocationLock.giveBack puts it back when the screen is left (checked: location_mode returned to 0). The password is never logged.
+- Bluetooth: on/off works from our screen (device owner), device search lists what it finds, paired devices with Connect/Disconnect/Forget, Pair for new ones. Connect, disconnect and forget use hidden calls and may be refused (message "Android refused"); to be tested with the owner's AYIMA once it is in pairing mode.
+- Not tested by me: joining a network with a password (a password is not something I may type; the owner types it on the keypad as the real test of the entry), forgetting a network (it would drop the phone off Wi-Fi), pairing.
+- Idea: let a parent lock Wi-Fi and Bluetooth per mode (School).
