@@ -111,3 +111,22 @@ def test_start_up_migration_uses_the_apps_the_phone_last_reported():
     h.device_of = lambda cid: ("d", {"apps": [{"pkg": "a"}, {"pkg": "b"}]})
     h.migrate_apps()
     assert ch["modes"]["day"]["allow"] == ["a", "b"] and ch["modes"]["day"]["allowAll"] is False
+
+
+def test_idle_minutes_reach_the_phone_and_are_validated():
+    h, ch = _child_hub()
+    cfg = S.build_config(ch, 1_794_000_000_000)
+    assert cfg["modes"]["day"]["idleMin"] == 10 and cfg["modes"]["school"]["idleMin"] == 10
+    h.update_child("ellie", {"modes": {**ch["modes"], "day": {**ch["modes"]["day"], "idle_min": 30}}})
+    assert S.build_config(ch, 1_794_000_000_000)["modes"]["day"]["idleMin"] == 30
+    with pytest.raises(ValueError):
+        h.update_child("ellie", {"modes": {**ch["modes"], "day": {**ch["modes"]["day"], "idle_min": -5}}})
+
+
+def test_keep_running_list_defaults_and_reaches_the_phone():
+    h, ch = _child_hub()
+    cfg = S.build_config(ch, 1_794_000_000_000)
+    assert "com.whatsapp" in cfg["keepRunning"] and "com.android.deskclock" in cfg["keepRunning"]
+    h.update_child("ellie", {"keep_running": ["com.whatsapp"]})
+    assert S.build_config(ch, 1_794_000_000_000)["keepRunning"] == ["com.whatsapp"]
+    assert h.view("ellie")["keep_running"] == ["com.whatsapp"]

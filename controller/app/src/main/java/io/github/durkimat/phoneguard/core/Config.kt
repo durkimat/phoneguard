@@ -34,6 +34,8 @@ data class ModeDef(
     val locEvery: Int = 30,
     /** Notifications: "show" lists them on the Nokia screens, "off" clears them as they arrive. */
     val notes: String = "show",
+    /** Minutes an app may sit unused before it is closed in the background (0 = never). Music that is playing is never closed. */
+    val idleMin: Int = 10,
 )
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
@@ -81,6 +83,8 @@ data class Config(
     val spotifyClientId: String = "",
     /** The Spotify refresh token HA holds for this phone after a sign-in done in HA; empty when signed out there. */
     val spotifyRefresh: String = "",
+    /** Apps the parent says must keep running in the background: never closed by the idle saver. */
+    val keepRunning: Set<String>? = null,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -112,6 +116,7 @@ data class Config(
                     location = m.optString("location", "off"),
                     locEvery = m.optInt("locEvery", 30),
                     notes = m.optString("notes", "show"),
+                    idleMin = m.optInt("idleMin", 10),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
@@ -148,6 +153,7 @@ data class Config(
                 notesHide = strings(o.optJSONArray("notesHide")),
                 spotifyClientId = o.optString("spotifyClientId", ""),
                 spotifyRefresh = o.optString("spotifyRefresh", ""),
+                keepRunning = if (o.has("keepRunning")) strings(o.optJSONArray("keepRunning")) else null,
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

@@ -65,8 +65,8 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide"}
-        before = {k: ch.get(k) for k in allowed}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running"}
+        before = {k: ch[k] for k in allowed if k in ch}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
                 v = dict(v)
@@ -94,6 +94,8 @@ class Hub:
             self._validate(ch)
         except Exception:
             ch.update(before)  # a bad change must never be kept, let alone reach the phone
+            for k in allowed - before.keys():
+                ch.pop(k, None)
             raise
 
     def _validate(self, ch: dict) -> None:
@@ -113,6 +115,8 @@ class Hub:
                 raise ValueError(f"mode {mid!r} has an unknown location setting {m['location']!r}")
             if not isinstance(m.get("loc_every", 30), int) or isinstance(m.get("loc_every", 30), bool) or not 0 <= m.get("loc_every", 30) <= 1440:
                 raise ValueError(f"mode {mid!r} needs location minutes between 0 (live) and 1440")
+            if not isinstance(m.get("idle_min", 10), int) or isinstance(m.get("idle_min", 10), bool) or not 0 <= m.get("idle_min", 10) <= 1440:
+                raise ValueError(f"mode {mid!r} needs idle minutes between 0 (never) and 1440")
             if m.get("sound", "normal") not in S.SOUNDS:
                 raise ValueError(f"mode {mid!r} has an unknown sound setting {m['sound']!r}")
         w = S.whatsapp_with_defaults(ch)
@@ -120,6 +124,8 @@ class Hub:
             raise ValueError("the WhatsApp allowed list must be a list of numbers and group names")
         if not (1 <= int(w["perMinute"]) <= 60) or not (1 <= int(w["perDay"]) <= 2000):
             raise ValueError("WhatsApp send limits must be 1 to 60 a minute and 1 to 2000 a day")
+        if "keep_running" in ch and not (isinstance(ch["keep_running"], list) and all(isinstance(x, str) for x in ch["keep_running"])):
+            raise ValueError("the keep-running list must be a list of app names")
         if ch["base"] not in ch["modes"]:
             raise ValueError(f"base mode {ch['base']!r} does not exist")
         if ch.get("override") is not None and ch["override"] not in ch["modes"]:
@@ -418,6 +424,7 @@ class Hub:
             "options": dict(self.data.get("options") or {}),
             "pinned": list(ch.get("pinned") or []),
             "notes_hide": list(ch.get("notes_hide") or []),
+            "keep_running": list(ch.get("keep_running", S.DEFAULT_KEEP_RUNNING)),
             "location": ch.get("location"),
             "spotify": {"signed_in": bool(ch.get("spotify_refresh")), "name": ch.get("spotify_name", "")},
         }
