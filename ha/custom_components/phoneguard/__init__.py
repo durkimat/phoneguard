@@ -207,6 +207,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = await store.async_load() or {}
     mgr = Manager(hass, store, data)
     hass.data[DOMAIN] = mgr
+    mgr.hub.migrate_apps()
     mgr.save()
     hass.async_create_task(mgr.drop_cloudhook())
     webhook.async_register(hass, DOMAIN, "Phone Guard", mgr.webhook_id, mgr.handle_webhook, local_only=False, allowed_methods=["POST"])

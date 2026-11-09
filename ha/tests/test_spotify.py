@@ -104,3 +104,10 @@ def test_select_all_ticks_and_unticks_every_reported_app_in_one_mode():
     h.set_mode_all("ellie", "school", False)
     assert ch["modes"]["school"]["allow"] == []
     assert ch["modes"]["night"]["allow"] == ["com.android.deskclock"]  # other modes untouched
+
+
+def test_start_up_migration_uses_the_apps_the_phone_last_reported():
+    h, ch = _child_hub()
+    h.device_of = lambda cid: ("d", {"apps": [{"pkg": "a"}, {"pkg": "b"}]})
+    h.migrate_apps()
+    assert ch["modes"]["day"]["allow"] == ["a", "b"] and ch["modes"]["day"]["allowAll"] is False
