@@ -235,13 +235,23 @@ class LauncherActivity : Activity() {
         return m.copy(playing = h.first)
     }
 
+    /**
+     * Which source Now playing shows: the radio while it plays here; otherwise Spotify (or another music app) if that is playing; and
+     * only when nothing else is playing, a station that was paused, so its play key brings it back.
+     */
     private fun nowPlayingRaw(): io.github.durkimat.phoneguard.music.MusicInfo {
-        if (io.github.durkimat.phoneguard.music.Radio.active) {
+        val radio: io.github.durkimat.phoneguard.music.MusicInfo? = if (io.github.durkimat.phoneguard.music.Radio.active) {
             val st = io.github.durkimat.phoneguard.music.Radio.state
             val connecting = st.buffering && !st.playing
-            return io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
+            io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
                 if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting)
-        }
+        } else null
+        if (radio != null && radio.playing) return radio
+        val other = spotifyOrLocal()
+        return if (radio != null && !(other.active && other.playing)) radio else other
+    }
+
+    private fun spotifyOrLocal(): io.github.durkimat.phoneguard.music.MusicInfo {
         val local = io.github.durkimat.phoneguard.music.MusicController.info(this)
         if (!sp.signedIn(this)) return local
         val now = System.currentTimeMillis()
@@ -594,8 +604,8 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
-            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.Radio.stop(this); playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
-            is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.stop(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)
