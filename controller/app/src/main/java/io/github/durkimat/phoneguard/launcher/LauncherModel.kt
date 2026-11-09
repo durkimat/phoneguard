@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -56,6 +56,8 @@ const val CAMERA_PKG = "pg:camera"
 const val LOGSET_PKG = "pg:logset"
 const val MUSIC_PKG = "pg:music"
 const val NOTES_PKG = "pg:notes"
+const val RUNNING_PKG = "pg:running"
+val CAMERA_APPS = setOf("org.lineageos.aperture", "com.android.camera2", "org.lineageos.snap", "com.android.camera")
 const val WEATHER_PKG = "pg:weather"
 /** Rows that fit between the title bar and the soft keys. */
 const val LIST_VISIBLE = 7
@@ -68,6 +70,9 @@ const val CALLLOG_PKG = "pg:calllog"
 enum class Key { UP, DOWN, LEFT, RIGHT, OK, SOFT_LEFT, SOFT_RIGHT, CALL, END, STAR, POUND, DIGIT }
 
 data class MenuItem(val pkg: String, val label: String)
+
+/** An app that looks to be running in the background, with a short state ("playing", "paused", "busy" or minutes since use). */
+data class RunningApp(val pkg: String, val label: String, val state: String)
 
 sealed class Action {
     /** Nothing to do, or the key is not ours. */
@@ -126,6 +131,8 @@ sealed class Action {
     data class SpTransfer(val id: String, val name: String) : Action()
     object SpShuffle : Action()
     object SpRepeat : Action()
+    /** Stop a running app (the Running Apps screen). */
+    data class KillApp(val pkg: String) : Action()
     /** Step the sleep timer: off, 15, 30, 60 minutes. */
     object SleepStep : Action()
     /** Play a test tone: 0 loudspeaker, 1 call speaker, 2 earpiece. */
@@ -332,6 +339,7 @@ class LauncherModel(
         Screen.BATTERY -> "Battery"
         Screen.MUSIC -> "Now playing"
         Screen.LOGSET -> "Logs & Settings"
+        Screen.RUNNING -> "Running Apps"
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> "Playlists"
@@ -361,6 +369,7 @@ class LauncherModel(
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
+        Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
         Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else "Open") to "Back"
         Screen.NOTES -> "Open" to "Back"
@@ -390,6 +399,7 @@ class LauncherModel(
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.MUSICMENU -> musicMenuRows
         Screen.LOGSET -> logItems.map { it.label }
+        Screen.RUNNING -> if (running.isEmpty()) listOf("Nothing running") else running.map { it.label + " (" + it.state + ")" }
         Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
         Screen.SEARCHRES -> spResults.map { it.label }
@@ -425,7 +435,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -443,6 +453,7 @@ class LauncherModel(
         Screen.MUSIC -> musicKey(key, digit)
         Screen.MUSICMENU -> musicMenuKey(key)
         Screen.LOGSET -> logSetKey(key)
+        Screen.RUNNING -> runningKey(key)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
         Screen.NOTES -> notesKey(key)
@@ -875,6 +886,7 @@ class LauncherModel(
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == MUSIC_PKG -> { musicFromHome = false; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+        item.pkg == RUNNING_PKG -> { screen = Screen.RUNNING; selected = 0; Action.Redraw }
         item.pkg == NOTES_PKG -> { notesFrom = if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
         item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
         item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
@@ -1089,6 +1101,31 @@ class LauncherModel(
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Sound test").coerceAtLeast(0); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
+    }
+
+    /** The apps that look to be running, set by the activity while the Running Apps screen is open. */
+    var running: List<RunningApp> = emptyList()
+
+    /**
+     * Left key stops the highlighted app; OK switches to it. Where the phone has its own screens for an app (Music for Spotify, the
+     * dial pad for the Phone, Messages, Contacts, the Camera, our WhatsApp) OK goes to those, not to the real app.
+     */
+    private fun runningKey(key: Key): Action = move(key, maxOf(running.size, 1)) ?: when (key) {
+        Key.SOFT_LEFT, Key.LEFT -> running.getOrNull(selected)?.let { Action.KillApp(it.pkg) } ?: Action.None
+        Key.OK -> running.getOrNull(selected)?.let { switchTo(it.pkg) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == RUNNING_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun switchTo(pkg: String): Action = when {
+        pkg == io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG && items.any { it.pkg == MUSIC_PKG } -> { screen = Screen.MUSIC; Action.Redraw }
+        pkg == dialerApp -> openPhoneMenu(Screen.HOME)
+        pkg == messagesApp -> openMessages()
+        pkg == contactsApp -> openContacts(Screen.HOME)
+        pkg in CAMERA_APPS && items.any { it.pkg == CAMERA_PKG } -> Action.OpenCamera
+        pkg == "com.whatsapp" && waEnabled -> { screen = Screen.WHATSAPP; selected = 0; threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
+        else -> Action.Launch(pkg)
     }
 
     private fun logSetKey(key: Key): Action = move(key, logItems.size) ?: when (key) {

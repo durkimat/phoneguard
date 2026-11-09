@@ -1,8 +1,8 @@
-/* Phone Guard card v0.20.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.21.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.20.0";
+const PG_VERSION = "0.21.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -180,6 +180,10 @@ class PhoneGuardCard extends HTMLElement {
       .mbtn.live { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: var(--primary-color); }
       .mbtn.held::after { content: " \\1F4CC"; font-size: 11px; }
       .newtag { border: 0; background: var(--warning-color, #e67e22); color: #fff; border-radius: 999px; font-size: 10px; font-weight: 700; padding: 1px 7px; margin-left: 6px; cursor: pointer; }
+      .chips { display:flex; flex-wrap:wrap; gap:6px; }
+      .pchip { display:inline-flex; align-items:center; gap:4px; background: var(--secondary-background-color, #eee); border-radius:999px; padding:3px 4px 3px 12px; font-size:13px; }
+      .pchip button { border:0; background:transparent; cursor:pointer; color: var(--secondary-text-color); font-size:14px; line-height:1; padding:2px 7px; border-radius:50%; }
+      .pchip button:hover { background: var(--divider-color, #ddd); }
       tr.pend td { background: color-mix(in srgb, var(--warning-color, #e67e22) 18%, transparent); }
       .new { background: color-mix(in srgb, var(--warning-color, #e67e22) 14%, transparent); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
       .qr svg { width: 240px; max-width: 100%; height: auto; background: #fff; padding: 8px; border-radius: 8px; }
@@ -428,18 +432,22 @@ class PhoneGuardCard extends HTMLElement {
       <div class="sub">Shows a small weather symbol, the temperature and any rain coming in the next few hours on the home screen, and a Weather entry in the menu. Data by Open-Meteo.com. The place is rounded to about 100 metres.</div>`;
   }
 
-  // Power and memory: close apps nobody is using, with a list of the ones that must always be allowed to run in the background
+  // Power and memory: automatic. The only thing to decide is which apps must never be closed, and how soon an idle one is.
   _powerHtml(d) {
     const ids = Object.keys(d.modes);
     if (!d.apps.length) return "";
     const keep = d.keep_running || [];
-    let h = `<h3>Power and memory</h3><div class="sub" style="margin-bottom:8px">Closes apps nobody has used for a while, so they stop using battery and memory. Android starts one again whenever something needs it.</div>
+    const label = (pkg) => ((d.apps.find((a) => a.pkg === pkg) || {}).label) || (d.labels || {})[pkg] || pkg;
+    const addable = d.apps.filter((a) => !keep.includes(a.pkg));
+    let h = `<h3>Power and memory</h3><div class="sub" style="margin-bottom:8px">Apps nobody has used for a while are closed automatically, to save battery and memory. Android starts one again when something needs it.</div>
       <div class="scroll"><table class="mx"><tr><th class="name"></th>${ids.map((m) => `<th>${this._esc(d.modes[m].name)}</th>`).join("")}</tr>
       <tr class="opt"><td class="name">Close unused apps after</td>${ids.map((m) => `<td><select data-mode-opt="idle_min" data-mode="${m}">${[[0, "Never"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].idle_min ?? 10) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`).join("")}</tr></table></div>
-      <div class="sub" style="margin:10px 0 4px"><b>Keep running</b>: ticked apps are never closed, because they must be ready to ring, deliver or sync in the background.</div>
-      <table class="mx"><tr><th class="name">App</th><th>Keep running</th></tr>`;
-    for (const a of d.apps) h += `<tr><td class="name">${this._esc(a.label)}</td><td><input type="checkbox" data-keep="${this._esc(a.pkg)}" ${keep.includes(a.pkg) ? "checked" : ""}></td></tr>`;
-    return h + `</table><div class="sub" style="margin-top:6px">Never closed whatever the list says: the phone, messages, contacts and settings; an app that is playing or buffering music; an app with an ongoing notification such as a download, navigation or recording. A paused music app (Spotify) is closed after the time above, and starts again in a few seconds when you play from the phone's Music menu. The list of what was closed is in the phone's log.</div>`;
+      <div class="sub" style="margin:12px 0 6px"><b>Protected apps</b>: never closed, because they must keep running in the background.</div>
+      <div class="chips">${keep.length ? keep.map((p) => `<span class="pchip">${this._esc(label(p))}<button data-act="keep_del" data-pkg="${this._esc(p)}" title="Remove from the protected list">✕</button></span>`).join("") : `<span class="sub">None</span>`}</div>
+      <div class="row" style="margin-top:8px"><select data-keep-add ${addable.length ? "" : "disabled"}><option value="">Add an app…</option>${addable.map((a) => `<option value="${this._esc(a.pkg)}">${this._esc(a.label)}</option>`).join("")}</select>
+      <button data-act="keep_add" ${addable.length ? "" : "disabled"}>Add</button></div>
+      <div class="sub" style="margin-top:8px">Always protected without being listed: the phone, messages, contacts, settings, an app playing music, and an app with an ongoing notification such as a download or navigation. The phone's Logs &amp; Settings menu has a Running Apps screen to close one by hand.</div>`;
+    return h;
   }
 
   // Spotify: the developer app's Client ID (public by design, entered once for every phone, never the client secret) and
@@ -731,11 +739,6 @@ class PhoneGuardCard extends HTMLElement {
       this._ui.sec[el.dataset.sec] = el.open;
       try { localStorage.setItem("phoneguard-card:sections", JSON.stringify(this._ui.sec)); } catch (e) { /* private window */ }
     }));
-    r.querySelectorAll("input[data-keep]").forEach((i) => i.addEventListener("change", () => {
-      const cur = new Set(this._d.keep_running || []);
-      if (i.checked) cur.add(i.dataset.keep); else cur.delete(i.dataset.keep);
-      this._svc("set_child", { config: { keep_running: [...cur].sort() } });
-    }));
     r.querySelectorAll("input[data-all]").forEach((i) => {
       const d = this._d, m = i.dataset.all, apps = d.apps || [];
       const n = apps.filter((a) => (d.modes[m].allow || []).includes(a.pkg)).length;
@@ -850,6 +853,12 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "pair") return this._svc("create_pairing", { name: d.name });
     if (a === "confirm") return this._svc("confirm_pairing", { sas: ui.sas }).then(() => { ui.sas = ""; });
     if (a === "forget") return this._svc("forget");
+    if (a === "keep_add" || a === "keep_del") {
+      const cur = new Set(d.keep_running || []);
+      if (a === "keep_del") cur.delete(b.dataset.pkg);
+      else { const v = (this.shadowRoot.querySelector("[data-keep-add]") || {}).value; if (!v) return; cur.add(v); }
+      return this._svc("set_child", { config: { keep_running: [...cur].sort() } });
+    }
     if (a === "boost") return this._svc("boost", { mode: b.dataset.mode, minutes: Number(b.dataset.min) });
     if (a === "cancel_boost") return this._svc("cancel_boost");
     if (a === "override") return this._svc("set_override", { mode: b.dataset.mode });
