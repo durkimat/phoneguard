@@ -214,7 +214,17 @@ class LauncherActivity : Activity() {
     /** What the Now playing screen shows: Spotify's view of the account when signed in (it knows where playback is), else the music app's own session. */
     private val ctxNames = java.util.concurrent.ConcurrentHashMap<String, String>()
 
+    /** After play or pause the state we expect, held for a few seconds: Spotify still reports the old state for a moment and the symbol would flip back and forth. */
+    private var playHold: Pair<Boolean, Long>? = null
+
     private fun nowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo {
+        val m = nowPlayingRaw()
+        val h = playHold ?: return m
+        if (System.currentTimeMillis() > h.second || m.playing == h.first) { if (m.playing == h.first) playHold = null; return m }
+        return m.copy(playing = h.first)
+    }
+
+    private fun nowPlayingRaw(): io.github.durkimat.phoneguard.music.MusicInfo {
         val local = io.github.durkimat.phoneguard.music.MusicController.info(this)
         if (!sp.signedIn(this)) return local
         val now = System.currentTimeMillis()
@@ -365,6 +375,7 @@ class LauncherActivity : Activity() {
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
             Action.MusicPlayPause -> {
                 val was = model.music.playing
+                playHold = !was to System.currentTimeMillis() + 5000
                 model.music = model.music.copy(playing = !was); lastInfo?.let { skin.render(model, it) } // show it at once; the player confirms in a moment
                 spOrLocal({ if (was) sp.pause(this) else sp.resume(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
             }
