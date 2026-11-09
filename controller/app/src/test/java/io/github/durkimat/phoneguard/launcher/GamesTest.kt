@@ -185,7 +185,7 @@ class HomeBadgeTest {
     @Test fun musicScreenIsARemoteForTheMusicApp() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
-        assertEquals(Screen.MUSICMENU, m.screen); assertEquals(listOf("Now playing", "Sleep timer: off", "Sign in to Spotify"), m.rows)
+        assertEquals(Screen.MUSICMENU, m.screen); assertEquals(listOf("Now playing", "Sleep timer: off", "Bar shows: progress", "Sign in to Spotify"), m.rows)
         m.onKey(Key.OK); assertEquals(Screen.MUSIC, m.screen)
         assertEquals(Action.None, m.onKey(Key.OK)) // nothing playing, no music app: nothing to do
         m.musicApp = true; assertEquals(Action.None, m.onKey(Key.OK)) // never opens the Spotify app itself
@@ -297,7 +297,7 @@ class HomeBadgeTest {
     @Test fun signedInMusicMenuOffersPlaylistsSearchAndDevices() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
-        assertEquals(listOf("Now playing", "Sleep timer: off", "Playlists", "Search", "Play on...", "Sign out of Spotify"), m.rows)
+        assertEquals(listOf("Now playing", "Sleep timer: off", "Bar shows: progress", "Playlists", "Search", "Play on...", "Sign out of Spotify"), m.rows)
         assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.PLAYLISTS, m.screen)
         m.spPlaylists = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:playlist:1", "Chill", "10 tracks"))
         assertEquals(Action.SpPlay("spotify:playlist:1"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)

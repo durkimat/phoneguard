@@ -292,6 +292,7 @@ class LauncherActivity : Activity() {
         if (model.screen != Screen.THREAD && model.screen != Screen.WRITE) model.convos = LauncherData.convos(this, model.contacts)
         // WhatsApp is offered unless the mode switches it off; "linked" says whether an account is attached
         model.sleepLabel = io.github.durkimat.phoneguard.music.SleepTimer.label()
+        model.spectrum = prefs().getBoolean("spectrum", false)
         model.waLinked = WhatsApp.linked(this)
         model.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
         model.waCode = WhatsApp.pairCode
@@ -389,6 +390,7 @@ class LauncherActivity : Activity() {
             is Action.BtConnect -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.setConnected(this, a.address, a.connect); netNotice(if (ok) (if (a.connect) "Connected" else "Disconnected") else "Android refused"); loadNet() }.start()
             is Action.BtForget -> Thread { val ok = io.github.durkimat.phoneguard.net.BluetoothControl.forget(this, a.address); netNotice(if (ok) "Forgotten" else "Android refused"); Thread.sleep(500); loadNet() }.start()
             is Action.KillApp -> Thread { io.github.durkimat.phoneguard.IdleReaper.stop(this, a.pkg); ui.postDelayed({ refresh() }, 300) }.start()
+            Action.SpectrumToggle -> { val on = !model.spectrum; model.spectrum = on; prefs().edit().putBoolean("spectrum", on).apply(); refresh() }
             Action.SleepStep -> { io.github.durkimat.phoneguard.music.SleepTimer.step(this); refresh() }
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); refresh() }

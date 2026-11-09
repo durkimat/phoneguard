@@ -334,9 +334,12 @@ class NokiaSkin : LauncherSkin {
                 val sub = if (mu.from.isNotEmpty()) mu.from else if (mu.album.isNotEmpty() && !mu.album.equals(mu.title, true) && !mu.album.equals(mu.artist, true)) mu.album else ""
                 if (sub.isNotEmpty()) marquee(c, sub, 20f, 284f, 26f, 440f, u)
                 // progress
-                stroke.strokeWidth = 3 * u
-                c.drawRect(20 * u, 332 * u, 460 * u, 356 * u, stroke)
-                if (mu.durationMs > 0) c.drawRect(24 * u, 336 * u, (24 + 432f * mu.positionMs / mu.durationMs) * u, 352 * u, fill)
+                if (m.spectrum) spectrum(c, mu.playing && mu.thisPhone, u)
+                else {
+                    stroke.strokeWidth = 3 * u
+                    c.drawRect(20 * u, 332 * u, 460 * u, 356 * u, stroke)
+                    if (mu.durationMs > 0) c.drawRect(24 * u, 336 * u, (24 + 432f * mu.positionMs / mu.durationMs) * u, 352 * u, fill)
+                }
                 text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.positionMs), 20f, 392f, 26f, u)
                 if (mu.durationMs > 0) text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.durationMs), 460f, 392f, 26f, u, align = Paint.Align.RIGHT)
                 // the state: a large play triangle or two pause bars, between the previous and next hints
@@ -349,6 +352,26 @@ class NokiaSkin : LauncherSkin {
                 }
             }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** Classic spectrum analyser in the progress bar's place: bouncing bars built of small blocks, each with a held peak block above it. */
+        private fun spectrum(c: Canvas, live: Boolean, u: Float) {
+            val sp = io.github.durkimat.phoneguard.music.Spectrum
+            if (live) sp.use(context)
+            val n = sp.BARS; val left = 24f; val barW = 23f; val gap = 4f
+            val bottom = 362f; val blocks = 7; val blockH = 5f; val pitch = 7f
+            for (i in 0 until n) {
+                val x = left + i * (barW + gap)
+                val lit = (sp.level[i] * blocks).toInt()
+                for (b in 0 until blocks) {
+                    val y = bottom - (b + 1) * pitch
+                    if (b < lit) c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill)
+                    else stroke.also { it.strokeWidth = 1 * u }.let { if (b == 0) c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, it) }
+                }
+                val pk = (sp.peak[i] * blocks).toInt().coerceIn(0, blocks - 1)
+                if (pk >= lit && sp.peak[i] > 0.05f) { val y = bottom - (pk + 1) * pitch; c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill) }
+            }
+            if (live) postInvalidateDelayed(70)
         }
 
         /**

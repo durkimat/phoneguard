@@ -152,6 +152,7 @@ sealed class Action {
     data class BtForget(val address: String) : Action()
     /** Step the sleep timer: off, 15, 30, 60 minutes. */
     object SleepStep : Action()
+    object SpectrumToggle : Action()
     /** Play a test tone: 0 loudspeaker, 1 call speaker, 2 earpiece. */
     data class SoundTest(val route: Int) : Action()
     /** Open the app a notification came from, and clear it. */
@@ -1028,6 +1029,7 @@ class LauncherModel(
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
         if (y < 46f && x in 105f..175f && screen != Screen.WIFI && wifiShown) { screen = Screen.WIFI; selected = 0; return Action.WifiLoad } // the Wi-Fi symbol in the status line
         if (screen == Screen.MUSIC && music.active) { // touch: the big play/pause, and the previous and next words either side of it
+            if (y in 300f..362f) return Action.SpectrumToggle // touch the bar to swap progress and spectrum
             if (y in 410f..500f && x in 180f..300f) return Action.MusicPlayPause
             if (y in 430f..490f && x < 150f) return Action.MusicPrevious
             if (y in 430f..490f && x > 330f) return Action.MusicNext
@@ -1094,6 +1096,8 @@ class LauncherModel(
     var spSignedIn = false
     /** What is left of the sleep timer ("20 min"), or empty when it is off; set by the activity. */
     var sleepLabel = ""
+    /** Now playing shows the spectrum analyser in place of the progress bar (a per-phone choice, kept by the activity). */
+    var spectrum = false
     /** False until HA has sent a Spotify Client ID. */
     var spConfigured = true
     var spPlaylists: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
@@ -1145,6 +1149,7 @@ class LauncherModel(
             key == Key.DOWN || d == 8 -> Action.MusicVolume(false)
             key == Key.SOFT_RIGHT -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
             d == 0 && spSignedIn -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
+            d == 7 -> Action.SpectrumToggle
             key == Key.STAR && spSignedIn -> Action.SpShuffle
             key == Key.POUND && spSignedIn -> Action.SpRepeat
             key == Key.END -> { goHome(); Action.Redraw }
@@ -1152,7 +1157,7 @@ class LauncherModel(
         }
     }
 
-    private val musicMenuRows: List<String> get() = listOf("Now playing", "Sleep timer: " + sleepLabel.ifEmpty { "off" }) + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
+    private val musicMenuRows: List<String> get() = listOf("Now playing", "Sleep timer: " + sleepLabel.ifEmpty { "off" }, "Bar shows: " + (if (spectrum) "spectrum" else "progress")) + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
 
     // the Phone entry and the green key open the dial pad (see the dialler notes in the backlog)
     private fun openPhoneMenu(from: Screen): Action { dialNumber = ""; dialFrom = from; screen = Screen.DIAL; return Action.Redraw }
@@ -1280,6 +1285,7 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (musicMenuRows.getOrNull(selected)) {
             "Now playing" -> { screen = Screen.MUSIC; Action.Redraw }
             "Sleep timer: ${sleepLabel.ifEmpty { "off" }}" -> Action.SleepStep
+            "Bar shows: " + (if (spectrum) "spectrum" else "progress") -> Action.SpectrumToggle
             "Playlists" -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }
             "Search" -> startSearch()
             "Play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
