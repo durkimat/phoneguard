@@ -28,7 +28,7 @@ object Spectrum {
     }
 
     @Synchronized fun use(c: Context) {
-        lastUse = System.currentTimeMillis()
+        lastUse = System.currentTimeMillis(); ctx = c.applicationContext
         if (vis != null || failed) return
         try {
             val v = Visualizer(0)
@@ -52,11 +52,13 @@ object Spectrum {
         for (i in 0 until BARS) { level[i] = 0f; peak[i] = 0f }
     }
 
-    private var ref = -40f // loudest recent band in dB below full scale; the display follows it but never below this, so silence stays empty
-    private const val REF_FLOOR = -45f
+    // Fixed scale, so a quiet song looks quiet and a loud one fills the bars (following the loudest band made everything look like rock)
+    private const val BOTTOM_DB = -56f
+    private const val TOP_DB = -8f
+    private var lastLog = 0L
+    private var ctx: Context? = null
     /** The 8-bit waveform's own rounding noise is about -60 dB; anything under this is silence, whatever the lift would make of it. */
     private const val GATE_DB = -54f
-    private const val DYNAMIC_DB = 34f
     private const val LOW_HZ = 50.0
     private const val HIGH_HZ = 16000.0
     private val window = DoubleArray(1024) { 0.5 - 0.5 * Math.cos(2 * Math.PI * it / 1023) }
@@ -92,9 +94,9 @@ object Spectrum {
             db[b] = if (raw < GATE_DB) -200f else raw + b * 1.5f
         }
         val loud = db.max().coerceAtLeast(-100f)
-        ref = max(REF_FLOOR, if (loud > ref) loud else ref - 0.3f)
+        if (now - lastLog > 5000) { lastLog = now; ctx?.let { Log.log(it, "spectrum: loudest band ${"%.0f".format(loud)} dB (bars scale ${BOTTOM_DB.toInt()} to ${TOP_DB.toInt()})") } }
         for (b in 0 until BARS) {
-            val v = Math.pow(((db[b] - (ref - DYNAMIC_DB)) / DYNAMIC_DB).coerceIn(0f, 1f).toDouble(), 1.6).toFloat() // a curve, so middling levels sit low and real peaks stand out
+            val v = Math.pow(((db[b] - BOTTOM_DB) / (TOP_DB - BOTTOM_DB)).coerceIn(0f, 1f).toDouble(), 1.6).toFloat() // a curve, so middling levels sit low and real peaks stand out
             level[b] = if (v > level[b]) v else max(v, level[b] - 0.12f)
             if (level[b] >= peak[b]) { peak[b] = level[b]; peakAge[b] = now }
             else if (now - peakAge[b] > 450) peak[b] = max(level[b], peak[b] - 0.04f)
