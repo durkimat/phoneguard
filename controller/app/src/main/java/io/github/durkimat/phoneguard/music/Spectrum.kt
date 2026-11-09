@@ -54,6 +54,8 @@ object Spectrum {
 
     private var ref = -40f // loudest recent band in dB below full scale; the display follows it but never below this, so silence stays empty
     private const val REF_FLOOR = -45f
+    /** The 8-bit waveform's own rounding noise is about -60 dB; anything under this is silence, whatever the lift would make of it. */
+    private const val GATE_DB = -54f
     private const val DYNAMIC_DB = 34f
     private const val LOW_HZ = 50.0
     private const val HIGH_HZ = 16000.0
@@ -86,9 +88,10 @@ object Spectrum {
             var top = 0.0
             for (k in from..to) top = max(top, re[k] * re[k] + im[k] * im[k])
             val amp = Math.sqrt(top) / (n / 4.0) // 1.0 is a full-scale sine
-            db[b] = (20 * Math.log10(amp + 1e-6)).toFloat() + b * 1.5f
+            val raw = (20 * Math.log10(amp + 1e-6)).toFloat()
+            db[b] = if (raw < GATE_DB) -200f else raw + b * 1.5f
         }
-        val loud = db.max()
+        val loud = db.max().coerceAtLeast(-100f)
         ref = max(REF_FLOOR, if (loud > ref) loud else ref - 0.3f)
         for (b in 0 until BARS) {
             val v = Math.pow(((db[b] - (ref - DYNAMIC_DB)) / DYNAMIC_DB).coerceIn(0f, 1f).toDouble(), 1.6).toFloat() // a curve, so middling levels sit low and real peaks stand out

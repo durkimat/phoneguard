@@ -961,3 +961,5 @@ Questions to put to them together:
 - Bluetooth: "Connected" was shown as soon as Android accepted the request. Now the phone checks the profiles for up to 12 s and says "Not connected (in use?)" if the device never joined (e.g. another phone holds the speaker).
 
 - Spectrum v4: each bar shows its strongest bin rather than the band average, plus a 1.6 power curve, to separate the middle bars for vocals and simple accompaniment.
+
+- Spectrum v5: silence gate at -54 dB (the 8-bit waveform's rounding noise was being lifted into moving bars after a song ended), and bars are cleared as soon as nothing is playing on this phone.
