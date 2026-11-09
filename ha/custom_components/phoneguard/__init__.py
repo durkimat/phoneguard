@@ -369,7 +369,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await admin(call)
         cid = child_of(call)
         try:
-            mgr.hub.queue_update(cid)
+            mgr.hub.queue_update(cid, {k: call.data[k] for k in ("url", "sha256", "version", "size") if k in call.data} if "url" in call.data else None)
         except ValueError as err:
             raise HomeAssistantError(f"Not queued: {err}") from err
         mgr.changed(cid)
@@ -397,7 +397,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(async_track_time_interval(hass, check_updates, timedelta(hours=6)))
     async_call_later(hass, 60, check_updates)
     hass.services.async_register(DOMAIN, "cancel_job", cancel_job, vol.Schema({vol.Required("child"): cv.slug, vol.Required("id"): cv.string}))
-    hass.services.async_register(DOMAIN, "update_phone", update_phone, vol.Schema({vol.Required("child"): cv.slug}))
+    hass.services.async_register(DOMAIN, "update_phone", update_phone, vol.Schema({vol.Required("child"): cv.slug, vol.Inclusive("url", "own"): cv.string, vol.Inclusive("sha256", "own"): cv.string, vol.Optional("version"): cv.string, vol.Optional("size"): int}))
     hass.services.async_register(DOMAIN, "check_updates", check_updates, vol.Schema({}))
     hass.http.register_view(SpotifyCallback())
     websocket_api.async_register_command(hass, ws_spotify_start)

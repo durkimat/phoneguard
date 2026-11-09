@@ -248,7 +248,10 @@ class Hub:
         have = str((found[1].get("state") or {}).get("version", ""))
         return {"version": latest["version"], "notes": latest.get("notes", ""), "installed": have, "available": ST.is_newer(latest["version"], have), "ready": bool(latest.get("sha256"))}
 
-    def queue_update(self, cid: str) -> dict:
+    def queue_update(self, cid: str, override: dict | None = None) -> dict:
+        """Queue the newest release for a phone. A parent may give an address and checksum of their own (to try a build that is not on GitHub)."""
+        if override:
+            return self.queue_app(cid, "update", self.OWN_PACKAGE, "Phone Guard " + str(override.get("version", "test build")), override["url"], override["sha256"], int(override.get("size", 0)))
         u = self.update_for(cid)
         latest = self.data.get("latest")
         if not u or not u["available"] or not latest or not latest.get("sha256"):
