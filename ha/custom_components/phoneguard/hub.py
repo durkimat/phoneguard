@@ -69,7 +69,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations"}
         before = {k: ch[k] for k in allowed if k in ch}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
@@ -81,6 +81,17 @@ class Hub:
                         if x and x not in seen:
                             seen.append(x)
                     v["allowed"] = seen
+            if k == "radio_stations":  # the parent's radio presets: a name and an https address each (Android blocks plain http), no repeats
+                clean, seen_urls = [], set()
+                for x in (v or []):
+                    name = str(x.get("name", "")).strip()[:40] if isinstance(x, dict) else ""
+                    url = str(x.get("url", "")).strip() if isinstance(x, dict) else ""
+                    if not name or not url.startswith("https://"):
+                        raise ValueError(f"radio station {name or url!r} needs a name and an https:// address")
+                    if url not in seen_urls:
+                        seen_urls.add(url)
+                        clean.append({"name": name, "url": url})
+                v = clean
             if k == "location" and v is not None:  # two numbers on the map, rounded so the phone never holds an exact address
                 try:
                     v = {"lat": round(float(v["lat"]), 3), "lon": round(float(v["lon"]), 3)}
@@ -510,6 +521,7 @@ class Hub:
             "device": None, "apps": [], "pending_apps": [], "usage": {}, "labels": {},
             "restrictions": ch.get("restrictions"),
             "whatsapp": S.whatsapp_with_defaults(ch),
+            "radio_stations": list(ch.get("radio_stations") or []),
             "options": dict(self.data.get("options") or {}),
             "pinned": list(ch.get("pinned") or []),
             "notes_hide": list(ch.get("notes_hide") or []),

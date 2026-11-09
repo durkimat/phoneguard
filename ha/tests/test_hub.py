@@ -394,3 +394,14 @@ def test_radio_setting_defaults_validation_and_station_list(hub):
     ch = hub.data["children"]["her"]
     ch["radio_stations"] = [{"name": "Test FM", "url": "https://example.com/s"}, {"name": "Plain", "url": "http://example.com/s"}, {"name": "", "url": "https://x"}]
     assert S.build_config(ch, hub.now())["radioStations"] == [{"name": "Test FM", "url": "https://example.com/s"}]
+
+
+def test_radio_station_list_is_tidied_and_must_be_https(hub):
+    hub.update_child("her", {"radio_stations": [{"name": " Heart ", "url": "https://a/heart"}, {"name": "Dup", "url": "https://a/heart"}, {"name": "Jazz", "url": "https://j/s"}]})
+    assert hub.data["children"]["her"]["radio_stations"] == [{"name": "Heart", "url": "https://a/heart"}, {"name": "Jazz", "url": "https://j/s"}]
+    assert hub.view("her")["radio_stations"][0]["name"] == "Heart"
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"radio_stations": [{"name": "Plain", "url": "http://x/s"}]})
+    assert len(hub.data["children"]["her"]["radio_stations"]) == 2  # a bad list changes nothing
+    hub.update_child("her", {"radio_stations": []})
+    assert "radioStations" not in S.build_config(hub.data["children"]["her"], hub.now())  # empty: back to the phone's built-in list
