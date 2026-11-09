@@ -50,9 +50,6 @@ class DebugReceiver : BroadcastReceiver() {
             }
             Thread.sleep(3000)
             out.append(" after=${android.provider.Settings.Global.getInt(c.contentResolver, "airplane_mode_on", -1)} wifi=${io.github.durkimat.phoneguard.net.WifiControl.enabled(c)} bt=${io.github.durkimat.phoneguard.net.BluetoothControl.enabled(c)}"); out.toString() }
-        "radio-airui" -> { val latch = java.util.concurrent.CountDownLatch(1); var res = "service not running"
-            if (io.github.durkimat.phoneguard.keys.F2Service.setAirplane(a == "on") { res = it; latch.countDown() }) latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
-            "ui=$res setting=${android.provider.Settings.Global.getInt(c.contentResolver, "airplane_mode_on", -1)} wifi=${io.github.durkimat.phoneguard.net.WifiControl.enabled(c)} bt=${io.github.durkimat.phoneguard.net.BluetoothControl.enabled(c)}" }
         "ping" -> "pong"
         "camera" -> { c.startActivity(android.content.Intent(c, io.github.durkimat.phoneguard.camera.CameraActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); "camera $a" }
         "lockwp" -> { // paint the lock wallpaper for a theme id and forget the cache so it really repaints

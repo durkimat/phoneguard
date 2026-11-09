@@ -16,9 +16,11 @@ an entry when a supported route appears.
 | 8 | **WhatsApp through an unofficial bridge** (whatsmeow, linked as a device) | WhatsApp has no consumer API | Messages stop until the bridge is updated; account risk is the owner's to accept | `whatsapp/`, `wabridge/` |
 | 9 | **Screen cover / touch-blocker overlays** (accessibility overlay and an overlay window) to hide Android's UI during work we drive, and to ignore touches on touch phones | A device owner cannot hide system dialogs or filter touch directly | A dialog or a flicker is visible; Back and the home key still work | `keys/ScreenCover.kt`, `launcher/` |
 | 10 | **Radios from the app**: `WifiManager.setWifiEnabled` (deprecated; works for a device owner on Android 14) | Supported route removed for apps | Radio does not switch; sleep is skipped and logged | `net/WifiControl.kt` |
-| 11 | **Flight mode by driving Android's Settings screen** (planned; owner approved 2026-11-09 as the only route) | Writing `airplane_mode_on` works but the broadcast that makes radios obey is refused, and `setAirplaneMode` is refused. Writing the setting alone is unreliable (Bluetooth follows, Wi-Fi does not) | Row says "Couldn't switch"; nothing is left half-switched. Spike status: the Settings page opens but the "Aeroplane mode" row is not in the accessibility tree yet (the `uiautomator` dump shows it; the service's tree does not) | `keys/F2Service.kt` (`driveAirplane`, debug command `radio-airui`) |
-| 12 | **Mobile data by `Settings.Global mobile_data` / `setDataEnabled`** (planned) | No supported route; needs a phone with a SIM to prove it | Data icon and row hidden; no sleep for data | spike only |
+| 11 | **Mobile data by `Settings.Global mobile_data` / `setDataEnabled`** (planned) | No supported route; needs a phone with a SIM to prove it | Data icon and row hidden; no sleep for data | spike only |
 
 ## Ideas that would remove several of these
-- A **ROM that grants the platform privileges we need** (DumberOS or LineageOS built with Phone Guard as a privileged system app): removes 1, 2, 3, 9, 11, 12 and would make an FM radio possible. The cost is that it is device-specific, so it is a per-device decision, not a default.
+- A **ROM that grants the platform privileges we need** (DumberOS or LineageOS built with Phone Guard as a privileged system app): removes 1, 2, 3, 9, 11 and would make an FM radio possible. The cost is that it is device-specific, so it is a per-device decision, not a default.
 - **Android 13+ supported APIs** to watch: they keep adding device-owner policies; check each release for ones that replace a row above.
+
+## Considered and dropped
+- **Flight mode by driving Android's Settings screen** (2026-11-09): no supported route (the broadcast that makes radios obey is refused). The owner chose not to add another hack; the child has the individual radio switches instead.
