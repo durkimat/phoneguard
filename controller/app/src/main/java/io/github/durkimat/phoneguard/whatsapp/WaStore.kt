@@ -101,6 +101,21 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         return out
     }
 
+    /** What WhatsApp needs to hear when the chat is read here: the ids and senders of the incoming messages still unread, and the newest message. */
+    class ReadInfo(val ids: String, val senders: String, val lastId: String, val lastSender: String, val lastFromMe: Boolean, val lastTs: Long)
+
+    @Synchronized fun readInfo(chat: String): ReadInfo? {
+        val db = readableDatabase
+        val ids = StringBuilder(); val senders = StringBuilder()
+        db.rawQuery("SELECT mid, COALESCE(sender_id,'') FROM msg WHERE chat=? AND mine=0 AND unread=1 AND mid<>'' ORDER BY ts", arrayOf(chat)).use { c ->
+            while (c.moveToNext()) { ids.append(c.getString(0)).append('\n'); senders.append(c.getString(1)).append('\n') }
+        }
+        db.rawQuery("SELECT COALESCE(mid,''), COALESCE(sender_id,''), mine, ts FROM msg WHERE chat=? ORDER BY ts DESC, id DESC LIMIT 1", arrayOf(chat)).use { c ->
+            if (!c.moveToFirst()) return null
+            return ReadInfo(ids.toString(), senders.toString(), c.getString(0), c.getString(1), c.getInt(2) == 1, c.getLong(3))
+        }
+    }
+
     /** Messages in the chat up to [ts] (unix seconds) were read elsewhere: clear their unread marks. True when something changed. */
     @Synchronized fun markReadUpTo(chat: String, ts: Long): Boolean {
         val db = writableDatabase

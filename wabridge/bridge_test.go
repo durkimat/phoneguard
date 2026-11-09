@@ -380,3 +380,17 @@ func TestReadOnAnotherDeviceClearsTheChat(t *testing.T) {
 		}
 	}
 }
+
+func TestReadNoticesAreGroupedBySender(t *testing.T) {
+	order, g := bySender("a\nb\n\nc", "111\n222\n333\n111")
+	if len(order) != 2 || order[0] != "111" || order[1] != "222" { // the blank id is skipped
+		t.Fatalf("order %v", order)
+	}
+	if len(g["111"]) != 2 || g["111"][0] != "a" || g["111"][1] != "c" || len(g["222"]) != 1 {
+		t.Fatalf("groups %v", g)
+	}
+	order, g = bySender("x\ny", "")
+	if len(order) != 1 || order[0] != "" || len(g[""]) != 2 { // a one-to-one chat has no senders
+		t.Fatalf("dm %v %v", order, g)
+	}
+}

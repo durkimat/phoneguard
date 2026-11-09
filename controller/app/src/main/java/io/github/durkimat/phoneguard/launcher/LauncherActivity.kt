@@ -344,7 +344,7 @@ class LauncherActivity : Activity() {
                 ui.post { model.notify(if (r.startsWith("error")) "Could not unlink: " + r.removePrefix("error: ").take(30) else "Unlinked"); refresh() }
             }.start()
             Action.WaOpen -> { WhatsApp.touch(this); refresh() }
-            is Action.WaRead -> { WhatsApp.store(this).markRead(a.chat); refresh() }
+            is Action.WaRead -> { WhatsApp.readChat(this, a.chat); WhatsApp.store(this).markRead(a.chat); refresh() }
             is Action.SendWa -> Thread {
                 val r = WhatsApp.sendNow(this, a.chat, a.body)
                 if (r == "sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
