@@ -357,7 +357,7 @@ class NokiaSkin : LauncherSkin {
         /** Classic spectrum analyser in the progress bar's place: bouncing bars built of small blocks, each with a held peak block above it. */
         private fun spectrum(c: Canvas, live: Boolean, u: Float) {
             val sp = io.github.durkimat.phoneguard.music.Spectrum
-            if (live) sp.use(context)
+            if (live) sp.use(context) else sp.stop() // not playing here: let go and show empty bars
             val n = sp.BARS; val left = 24f; val barW = 23f; val gap = 4f
             val bottom = 362f; val blocks = 7; val blockH = 5f; val pitch = 7f
             for (i in 0 until n) {
