@@ -1,8 +1,8 @@
-/* Phone Guard card v0.28.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.29.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.28.0";
+const PG_VERSION = "0.29.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -419,7 +419,7 @@ class PhoneGuardCard extends HTMLElement {
     h += row("Location every", (m) => `<td><select data-mode-opt="loc_every" data-mode="${m}" ${(d.modes[m].location || "off") === "off" ? "disabled" : ""}>${[[0, "Live"], [1, "1 min"], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].loc_every ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`);
     h += row("Notifications", (m) => sel("notes", m, [["show", "Listed"], ["off", "Cleared"]], "show"));
     h += row("Locked to allowed apps", (m) => `<td><input type="checkbox" data-mode-opt="kiosk" data-mode="${m}" ${d.modes[m].kiosk ? "checked" : ""}></td>`);
-    return h + `</table></div><div class="sub" style="margin-top:6px">Grey screen turns the display black and white. Sound: Silent is total silence with no exceptions. Incoming calls: untick and the phone hangs up on every call in that mode. WhatsApp checks (our screens only): Off means no WhatsApp in that mode; When opened connects only while WhatsApp is open; the others check briefly in the background. WhatsApp app: Auto uses the real WhatsApp when it is installed and allowed in that mode, otherwise our screens. A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>`;
+    return h + `</table></div><div class="sub" style="margin-top:6px">Grey screen turns the display black and white. Sound: Silent is total silence with no exceptions. Incoming calls: untick and the phone hangs up on every call in that mode. WhatsApp checks (our screens only): Off means no WhatsApp in that mode; When opened connects only while WhatsApp is open; the others check briefly in the background. WhatsApp app: Auto uses our screens once WhatsApp is linked on the phone, and the real app (if it is installed and allowed in that mode) until then; "Our screens" always uses ours and hides the real app; "Real app" always uses the real one. A Nokia home screen with touch off, no shade and locked apps gives the classic keypad-phone look.</div>`;
   }
 
   // the weather on the Nokia home screen comes from Open-Meteo for a place chosen here; the phone never asks for its own location

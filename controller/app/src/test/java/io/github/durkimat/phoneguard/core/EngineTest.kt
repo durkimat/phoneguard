@@ -212,6 +212,8 @@ class EngineTest {
         assertTrue(Engine.useRealWhatsApp("auto", true)); assertTrue(Engine.useRealWhatsApp("full", true))
         assertFalse(Engine.useRealWhatsApp("simple", true)) // our screens, even though the real app is installed
         assertFalse(Engine.useRealWhatsApp("auto", false)); assertFalse(Engine.useRealWhatsApp("full", false)) // not installed or not visible: ours
+        assertFalse(Engine.useRealWhatsApp("auto", true, ourLinked = true)) // Auto keeps our screens once ours is linked
+        assertTrue(Engine.useRealWhatsApp("full", true, ourLinked = true)) // Real app is the real app whatever
     }
 
     @Test fun aBoostOnlyEverOpensTheRealWhatsAppUp() {

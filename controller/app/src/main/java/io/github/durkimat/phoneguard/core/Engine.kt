@@ -89,7 +89,8 @@ object Engine {
      * Whether the real WhatsApp app is used instead of our simple screens: when the mode says "full" or "auto" and the real
      * app is installed and visible in this mode. If it is not there, our screens are used whatever was asked.
      */
-    fun useRealWhatsApp(waApp: String, realAvailable: Boolean): Boolean = realAvailable && waApp != "simple"
+    fun useRealWhatsApp(waApp: String, realAvailable: Boolean, ourLinked: Boolean = false): Boolean =
+        realAvailable && waApp != "simple" && (waApp == "full" || !ourLinked) // Auto keeps our screens once ours is linked; Real app always uses the real one
 
     /** The more frequent of two WhatsApp check settings (a boost never makes it check less). */
     fun moreOften(a: String, b: String): String {
