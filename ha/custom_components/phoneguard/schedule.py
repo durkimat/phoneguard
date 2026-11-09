@@ -11,7 +11,7 @@ WINDOW_DAYS = 14
 
 
 # What a mode does when the parent has not chosen: School is locked down like a classic Nokia, the rest is open.
-LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes", "idle_min")
+LOCKDOWN_KEYS = ("launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes", "idle_min", "screen_off_min")
 # notifications per mode: listed on the Nokia screens (show) or cleared as they arrive (off)
 NOTE_MODES = ("show", "off")
 # position reporting per mode: off (also switches the phone's location off), low accuracy (network) or GPS; minutes between reports, 0 is live
@@ -28,9 +28,9 @@ DEFAULT_KEEP_RUNNING = ["com.android.deskclock", "com.dumbermini.davx", "com.wha
 
 def lockdown_defaults(mode_id: str) -> dict:
     if mode_id == "school":
-        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple", "camera": True, "location": "off", "loc_every": 30, "notes": "off", "idle_min": 10}
+        return {"launcher": "nokia", "touch": False, "shade": False, "kiosk": True, "sound": "silent", "inbound": False, "wa": "open", "wa_app": "simple", "camera": True, "location": "off", "loc_every": 30, "notes": "off", "idle_min": 10, "screen_off_min": 5}
     # the Nokia screens are the home screen in every mode; only School also turns touch off and locks the phone to its apps
-    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto", "camera": True, "location": "off", "loc_every": 30, "notes": "show", "idle_min": 10}
+    return {"launcher": "nokia", "touch": True, "shade": True, "kiosk": False, "sound": "normal", "inbound": True, "wa": "30", "wa_app": "auto", "camera": True, "location": "off", "loc_every": 30, "notes": "show", "idle_min": 10, "screen_off_min": 5}
 
 
 def mode_with_defaults(mode_id: str, mode: dict) -> dict:
@@ -126,7 +126,8 @@ def build_config(child: dict, now_ms: int, options: dict | None = None) -> dict:
                       "camera": bool(m["camera"]),
                       "location": m["location"] if m["location"] in LOC_MODES else "off", "locEvery": max(0, int(m["loc_every"])),
                       "notes": m["notes"] if m["notes"] in NOTE_MODES else "show",
-                      "idleMin": max(0, min(int(m["idle_min"]), 1440))}
+                      "idleMin": max(0, min(int(m["idle_min"]), 1440)),
+                      "screenOffMin": max(0, min(int(m["screen_off_min"]), 1440))}
     cfg = {
         "base": child.get("base", "day"),
         "modes": modes,
@@ -148,6 +149,8 @@ def build_config(child: dict, now_ms: int, options: dict | None = None) -> dict:
         cfg["spotifyClientId"] = options["spotify_client_id"]
     if child.get("spotify_refresh"):  # signed in from HA: the phone takes this refresh token (it holds no password and no client secret)
         cfg["spotifyRefresh"] = child["spotify_refresh"]
+    if child.get("idle_dry_run"):
+        cfg["idleDryRun"] = True
     cfg["keepRunning"] = sorted(str(x) for x in child.get("keep_running", DEFAULT_KEEP_RUNNING))
     cfg["notesHide"] = sorted(str(x) for x in child.get("notes_hide", []))
     cfg["pinned"] = [str(x) for x in child.get("pinned", [])]

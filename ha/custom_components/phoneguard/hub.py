@@ -65,7 +65,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run"}
         before = {k: ch[k] for k in allowed if k in ch}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
@@ -115,6 +115,8 @@ class Hub:
                 raise ValueError(f"mode {mid!r} has an unknown location setting {m['location']!r}")
             if not isinstance(m.get("loc_every", 30), int) or isinstance(m.get("loc_every", 30), bool) or not 0 <= m.get("loc_every", 30) <= 1440:
                 raise ValueError(f"mode {mid!r} needs location minutes between 0 (live) and 1440")
+            if not isinstance(m.get("screen_off_min", 5), int) or isinstance(m.get("screen_off_min", 5), bool) or not 0 <= m.get("screen_off_min", 5) <= 1440:
+                raise ValueError(f"mode {mid!r} needs screen-off minutes between 0 (never) and 1440")
             if not isinstance(m.get("idle_min", 10), int) or isinstance(m.get("idle_min", 10), bool) or not 0 <= m.get("idle_min", 10) <= 1440:
                 raise ValueError(f"mode {mid!r} needs idle minutes between 0 (never) and 1440")
             if m.get("sound", "normal") not in S.SOUNDS:
@@ -124,6 +126,10 @@ class Hub:
             raise ValueError("the WhatsApp allowed list must be a list of numbers and group names")
         if not (1 <= int(w["perMinute"]) <= 60) or not (1 <= int(w["perDay"]) <= 2000):
             raise ValueError("WhatsApp send limits must be 1 to 60 a minute and 1 to 2000 a day")
+        if "idle_dry_run" in ch and not isinstance(ch["idle_dry_run"], bool):
+            raise ValueError("idle_dry_run must be true or false")
+        if not isinstance(ch.get("idle_dry_run", False), bool):
+            raise ValueError("idle_dry_run must be true or false")
         if "keep_running" in ch and not (isinstance(ch["keep_running"], list) and all(isinstance(x, str) for x in ch["keep_running"])):
             raise ValueError("the keep-running list must be a list of app names")
         if ch["base"] not in ch["modes"]:
@@ -338,6 +344,7 @@ class Hub:
         dev["cfgh"] = payload.get("cfgh", "")
         self._merge_usage(dev, payload.get("usage"))
         dev["power"] = PW.merge(dev.get("power", []), payload.get("power"), now)
+        dev["reaped"] = PW.merge_reaped(dev.get("reaped", []), payload.get("reaped"))
         self._merge_fix(dev, payload.get("loc"))
         if isinstance(payload.get("labels"), dict):
             dev.setdefault("labels", {}).update({k: v for k, v in payload["labels"].items() if isinstance(k, str) and isinstance(v, str)})
@@ -425,6 +432,7 @@ class Hub:
             "pinned": list(ch.get("pinned") or []),
             "notes_hide": list(ch.get("notes_hide") or []),
             "keep_running": list(ch.get("keep_running", S.DEFAULT_KEEP_RUNNING)),
+            "idle_dry_run": bool(ch.get("idle_dry_run", False)),
             "location": ch.get("location"),
             "spotify": {"signed_in": bool(ch.get("spotify_refresh")), "name": ch.get("spotify_name", "")},
         }
@@ -441,6 +449,7 @@ class Hub:
             }
             out["usage"] = dev.get("usage", {})
             out["power"] = PW.summarize(dev.get("power", []), now)
+            out["reaped"] = PW.summarize_reaped(dev.get("reaped", []), now)
             out["fix"] = dev.get("fix")
             out["labels"] = dev.get("labels", {})
             out["apps"] = sorted(dev["apps"], key=lambda a: a.get("label", a["pkg"]).lower())

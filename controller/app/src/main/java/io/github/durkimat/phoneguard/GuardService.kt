@@ -59,8 +59,26 @@ class GuardService : Service() {
     }
 
     private val powerEvents = object : BroadcastReceiver() {
-        override fun onReceive(c: Context, i: Intent) { PowerLog.sample(c, (i.action ?: "?").substringAfterLast('.').lowercase(), force = true) }
+        override fun onReceive(c: Context, i: Intent) {
+            PowerLog.sample(c, (i.action ?: "?").substringAfterLast('.').lowercase(), force = true)
+            if (i.action == Intent.ACTION_SCREEN_OFF) scheduleSweep(c) else if (i.action == Intent.ACTION_SCREEN_ON) cancelSweep(c)
+        }
     }
+
+    /** When the screen goes off, an alarm for the mode's screen-off time wakes the clean-up (cancelled if the screen comes back on first). */
+    private fun sweepIntent(c: Context) = android.app.PendingIntent.getBroadcast(c, 7, Intent(c, AlarmReceiver::class.java).putExtra("kind", "sweep"),
+        android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+
+    private fun scheduleSweep(c: Context) {
+        try {
+            val cfg = Store.config(c)
+            val eff = io.github.durkimat.phoneguard.core.Engine.effective(cfg, Store.boost(c), Clock.now())
+            val min = io.github.durkimat.phoneguard.core.Engine.modeDef(cfg, eff.modeId).screenOffMin
+            if (min > 0) c.getSystemService(android.app.AlarmManager::class.java).setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + min * 60_000L, sweepIntent(c))
+        } catch (e: Exception) { Log.log(c, "screen-off timer: ${e.javaClass.simpleName}") }
+    }
+
+    private fun cancelSweep(c: Context) { try { c.getSystemService(android.app.AlarmManager::class.java).cancel(sweepIntent(c)) } catch (_: Exception) { } }
 
     override fun onCreate() {
         super.onCreate()

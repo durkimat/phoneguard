@@ -130,3 +130,33 @@ def test_keep_running_list_defaults_and_reaches_the_phone():
     h.update_child("ellie", {"keep_running": ["com.whatsapp"]})
     assert S.build_config(ch, 1_794_000_000_000)["keepRunning"] == ["com.whatsapp"]
     assert h.view("ellie")["keep_running"] == ["com.whatsapp"]
+
+
+# ---- power saver report, screen-off clean-up and report-only switch
+
+def test_reaped_entries_merge_without_repeats_and_summarise_the_last_day():
+    from phoneguard import power as PW
+    now = 1_794_000_000_000
+    mins = 60_000
+    new = [[now - 5 * mins, "a", "Spotify", "idle", 0], [now - 3 * mins, "b", "Browser", "screen off", 0], [now - 30 * 3_600_000, "c", "Old", "idle", 0],
+           ["bad"], [now - 2 * mins, "a", "Spotify", "idle", 1]]
+    store = PW.merge_reaped([], new)
+    assert [e[1] for e in store] == ["c", "a", "b", "a"]
+    assert PW.merge_reaped(store, new) == store  # nothing is added twice
+    s = PW.summarize_reaped(store, now)
+    assert s["closed"] == 2 and s["would"] == 1 and s["by_reason"] == {"idle": 1, "screen off": 1}
+    assert s["top"][0][1] == 1 and s["latest"][0][1] == "Spotify" and s["latest"][0][3] == 1
+
+
+def test_screen_off_minutes_and_report_only_reach_the_phone_and_are_validated():
+    h, ch = _child_hub()
+    cfg = S.build_config(ch, 1_794_000_000_000)
+    assert cfg["modes"]["day"]["screenOffMin"] == 5 and "idleDryRun" not in cfg
+    h.update_child("ellie", {"idle_dry_run": True, "modes": {**ch["modes"], "day": {**ch["modes"]["day"], "screen_off_min": 2}}})
+    cfg = S.build_config(ch, 1_794_000_000_000)
+    assert cfg["modes"]["day"]["screenOffMin"] == 2 and cfg["idleDryRun"] is True
+    assert h.view("ellie")["idle_dry_run"] is True
+    with pytest.raises(ValueError):
+        h.update_child("ellie", {"idle_dry_run": "yes"})
+    with pytest.raises(ValueError):
+        h.update_child("ellie", {"modes": {**ch["modes"], "day": {**ch["modes"]["day"], "screen_off_min": 5000}}})

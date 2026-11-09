@@ -188,7 +188,7 @@ class HomeBadgeTest {
         assertEquals(Screen.MUSICMENU, m.screen); assertEquals(listOf("Now playing", "Sleep timer: off", "Sign in to Spotify"), m.rows)
         m.onKey(Key.OK); assertEquals(Screen.MUSIC, m.screen)
         assertEquals(Action.None, m.onKey(Key.OK)) // nothing playing, no music app: nothing to do
-        m.musicApp = true; assertEquals(Action.MusicOpenApp, m.onKey(Key.OK))
+        m.musicApp = true; assertEquals(Action.None, m.onKey(Key.OK)) // never opens the Spotify app itself
         m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", "Song", "Band", "Album", true, 30_000, 200_000, 40)
         assertEquals("Pause", m.softKeys.first)
         assertEquals(Action.MusicPlayPause, m.onKey(Key.OK)); assertEquals(Action.MusicPlayPause, m.onKey(Key.DIGIT, 5)); assertEquals(Action.MusicPlayPause, m.onKey(Key.SOFT_LEFT))
@@ -228,9 +228,16 @@ class HomeBadgeTest {
         none.onKey(Key.SOFT_RIGHT); assertEquals(Screen.CONTACTS, none.screen)
     }
 
+    @Test fun nothingPlayingOffersPlaylistsNotTheSpotifyApp() {
+        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1)
+        assertEquals(Screen.MUSIC, m.screen); assertEquals("Playlists" to "Back", m.softKeys)
+        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.OK)); assertEquals(Screen.PLAYLISTS, m.screen)
+    }
+
     @Test fun repeatAndSleepTimerKeys() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1); m.onKey(Key.OK) // Now playing
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1) // Now playing
         assertEquals(Screen.MUSIC, m.screen)
         assertEquals(Action.SpRepeat, m.onKey(Key.POUND)); assertEquals(Action.SpShuffle, m.onKey(Key.STAR))
         m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 2))

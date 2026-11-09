@@ -79,3 +79,40 @@ def summarize(samples: list, now_ms: int, hours: int = 24) -> dict:
     step = max(1, len(recent) // 240)
     out["chart"] = [[s[T], s[LEVEL], s[PLUG], s[SCREEN], s[MODE]] for s in recent[::step]]
     return out
+
+
+# ---- what the phone's power saver closed: [time ms, package, app name, reason, 1 if it only would have]
+
+REAPED_KEEP = 300
+
+
+def merge_reaped(old: list, new: object) -> list:
+    """Append the phone's new entries (de-duplicated by time and package), newest last, capped."""
+    seen = {(e[0], e[1]) for e in old}
+    out = list(old)
+    if isinstance(new, list):
+        for e in new:
+            if (isinstance(e, list) and len(e) >= 5 and isinstance(e[0], int) and isinstance(e[1], str) and isinstance(e[2], str)
+                    and isinstance(e[3], str) and (e[0], e[1]) not in seen):
+                out.append([e[0], e[1][:80], e[2][:60], e[3][:20], 1 if e[4] else 0])
+                seen.add((e[0], e[1]))
+    out.sort(key=lambda e: e[0])
+    return out[-REAPED_KEEP:]
+
+
+def summarize_reaped(entries: list, now_ms: int, hours: int = 24) -> dict:
+    """The last day: how many apps were closed (or only reported, in a dry run), why, which most, and the latest few."""
+    recent = [e for e in entries if e[0] >= now_ms - hours * 3_600_000]
+    real = [e for e in recent if not e[4]]
+    would = [e for e in recent if e[4]]
+    by_reason: dict[str, int] = {}
+    for e in real:
+        by_reason[e[3]] = by_reason.get(e[3], 0) + 1
+    names: dict[str, int] = {}
+    for e in (real or would):
+        names[e[2]] = names.get(e[2], 0) + 1
+    return {
+        "closed": len(real), "would": len(would), "by_reason": by_reason,
+        "top": sorted(names.items(), key=lambda kv: (-kv[1], kv[0]))[:6],
+        "latest": [[e[0], e[2], e[3], e[4]] for e in recent[-8:]][::-1],
+    }

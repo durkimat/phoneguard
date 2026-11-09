@@ -278,7 +278,7 @@ class NokiaSkin : LauncherSkin {
             val mu = m.music
             if (!mu.active) {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
-                text(c, if (m.musicApp) "OK opens Spotify" else "Install a music app", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
+                text(c, if (m.spSignedIn) "OK picks a playlist" else "Sign in to Spotify in the Music menu", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
             } else {
                 if (mu.device.isNotEmpty()) text(c, ellipsize("on " + mu.device + if (mu.thisPhone) " (here)" else "", 440f, 24f), 20f, 134f, 24f, u)
                 marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)

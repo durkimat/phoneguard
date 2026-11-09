@@ -27,6 +27,11 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         if (i.getStringExtra("kind") == "sync") Link.runAsync(c, "poll", goAsync())
         else if (i.getStringExtra("kind") == "loc") LocationReporter.onAlarm(c, goAsync())
+        else if (i.getStringExtra("kind") == "sweep") {
+            // only if the screen is still off when the timer fires
+            val pending = goAsync()
+            Thread { try { if (!c.getSystemService(android.os.PowerManager::class.java).isInteractive) IdleReaper.sweep(c) } finally { pending.finish() } }.start()
+        }
         else Controller.evaluate(c, "alarm")
     }
 }
