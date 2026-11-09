@@ -116,3 +116,18 @@ reachable for calls when only data is off. Also confirm what Android does to Wi-
 - Flight mode does **not** suppress check-ins, since that would hand the child a way to disable tracking. The window still tries (Wi-Fi first, then data); in real flight mode it simply gets no signal and goes back to sleep. Note Android lets Wi-Fi be switched on inside flight mode, so a saved network may still connect; that is acceptable. The auto-end at the next mode change and the "flight mode since" report stay.
 - **Day mode may use radio sleep too**: the saving applies whenever the phone is locked and nothing is playing, in any mode. Default is on in every mode (parents can switch a mode off).
 - **Live tracking (loc_every 0) switches sleep off for that mode.** There is no separate "track now" request today: HA's only wake-up is the "sync now" nudge (a push through the Companion app), which cannot reach a phone whose data and Wi-Fi are off, so it is delivered at the next window. If a parent-triggered live tracking request is added later it needs the same rule: it waits for the next window (so it must be allowed to wait, with HA showing "waiting for check-in 14:30"), and once the phone is reached it holds the radios on for the length of the live session.
+
+## Spike results (2026-11-09, test phone: DumberOS, Android 14, no SIM, our app is device owner)
+Run from our own app through the debug-build command channel (`DBG radio-wifi|radio-bt|radio-data|radio-air`).
+| Switch | Result |
+|---|---|
+| Wi-Fi on/off | Works. Settles in 0.25 to 0.5 s. |
+| Bluetooth on/off | Works through `enable()/disable()` with no refusal. Settles in 0.5 to 0.8 s. |
+| Mobile data | `Settings.Global mobile_data` can be written and holds (`putInt` true, reads back). `TelephonyManager.setDataEnabled` is accepted without error. **Not provable here:** there is no SIM, so `isDataEnabled` stays false whatever we do and we cannot see traffic stop. Needs a phone with a SIM before we rely on it. |
+| Real flight mode | **Not available.** The setting can be written, but the broadcast that makes the radios obey is refused (`SecurityException`), and `ConnectivityManager.setAirplaneMode` is refused too. Writing the setting alone is unreliable: Bluetooth followed it (off, and back on when cleared) but Wi-Fi ignored it. Do not use it. |
+
+Consequences for the design:
+- Wi-Fi and Bluetooth sleep can go ahead as specified.
+- Our **Flight mode** is therefore built from the parts that work: Wi-Fi, Bluetooth and mobile data all off, held off by our own state until it ends. It does **not** switch the voice and SMS radio off, so calls and texts still arrive. Say so in the row text ("Flight mode: data, Wi-Fi, Bluetooth off") rather than copying Android's name and meaning. The icon (aeroplane in place of bars) should become "no data" semantics: keep the signal bars, show the aeroplane beside them. Decision for the owner: is that acceptable, given a parent can still ring the child and the child still hears incoming calls?
+- Mobile data work waits for a SIM phone. Build everything else so a missing or failing data switch just hides the data icon and row (the data route reports `unsupported` on no SIM).
+- The phone's radios were returned to how they were found (Wi-Fi off, Bluetooth off, airplane off, mobile_data 0).
