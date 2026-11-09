@@ -455,7 +455,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
-    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES)
+    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES)
 
     private var seekDir = 0
     private var seekFired = false
@@ -514,6 +514,20 @@ class LauncherActivity : Activity() {
             }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
+            is Action.RadioLoad -> Thread {
+                val rb = io.github.durkimat.phoneguard.music.RadioBrowser
+                val l = when (a.kind) { "top" -> rb.top(a.arg); "tag" -> rb.byTag(a.arg); else -> rb.byCountry(a.arg) }
+                ui.post { model.radioRes = l ?: emptyList(); model.radioStatus = if (l == null) "Could not load" else "Nothing found"; refresh() }
+            }.start()
+            is Action.RadioSearch -> Thread {
+                val l = io.github.durkimat.phoneguard.music.RadioBrowser.search(a.query)
+                ui.post { model.radioRes = l ?: emptyList(); model.radioStatus = if (l == null) "Could not search" else "Nothing found"; refresh() }
+            }.start()
+            is Action.RadioPlayUrl -> { io.github.durkimat.phoneguard.music.Radio.playUrl(this, a.name, a.url); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
+            is Action.RadioFav -> { val added = io.github.durkimat.phoneguard.music.RadioFavs.toggle(this, a.name, a.url); model.notify(if (added) "Added to presets" else "Removed from presets"); invalidate(D.INFO); refresh() }
+            Action.RadioFavCurrent -> io.github.durkimat.phoneguard.music.Radio.state.let { st ->
+                if (st.url.isNotEmpty()) { val added = io.github.durkimat.phoneguard.music.RadioFavs.toggle(this, st.station, st.url); model.notify(if (added) "Added to presets" else "Removed from presets"); invalidate(D.INFO or D.SCREEN); refresh() }
+            }
             is Action.RadioPlay -> { io.github.durkimat.phoneguard.music.Radio.play(this, a.index); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
             Action.MusicPlayPause -> if (model.music.source == "radio") { val on = io.github.durkimat.phoneguard.music.Radio.playing; model.music = model.music.copy(playing = !on, buffering = false); redraw(); io.github.durkimat.phoneguard.music.Radio.toggle(this) } else {
                 val was = model.music.playing

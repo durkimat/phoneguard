@@ -53,8 +53,12 @@ object Radio {
     @Volatile private var builtIn: List<RadioStation>? = null
 
     /** The stations in preset order: the parent's list, else the built-in one. */
-    fun stations(c: Context): List<RadioStation> =
-        Store.config(c)?.radioStations?.takeIf { it.isNotEmpty() } ?: (builtIn ?: loadBuiltIn(c).also { builtIn = it })
+    fun stations(c: Context): List<RadioStation> {
+        val mode = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(c), Store.boost(c), io.github.durkimat.phoneguard.Clock.now()).radio
+        if (mode == "off") return emptyList()
+        val base = Store.config(c)?.radioStations?.takeIf { it.isNotEmpty() } ?: (builtIn ?: loadBuiltIn(c).also { builtIn = it })
+        return if (mode == "any") base + RadioFavs.all(c).filter { f -> base.none { it.url == f.url } } else base
+    }
 
     private fun loadBuiltIn(c: Context): List<RadioStation> = try {
         val a = JSONArray(c.assets.open("radio/stations.json").bufferedReader().use { it.readText() })
@@ -69,7 +73,7 @@ object Radio {
     }
 
     /** Start any station by name and address (a station found by browsing or searching). */
-    fun playUrl(c: Context, name: String, url: String) = start(c, -1, name, url)
+    fun playUrl(c: Context, name: String, url: String) = start(c, stations(c).indexOfFirst { it.url == url }, name, url)
 
     private fun start(c: Context, index: Int, name: String, url: String) {
         val app = c.applicationContext
