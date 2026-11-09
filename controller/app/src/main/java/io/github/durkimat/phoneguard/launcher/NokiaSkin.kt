@@ -341,6 +341,11 @@ class NokiaSkin : LauncherSkin {
                     if (mu.durationMs > 0) c.drawRect(24 * u, 336 * u, (24 + 432f * mu.positionMs / mu.durationMs) * u, 352 * u, fill)
                 }
                 text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.positionMs), 20f, 392f, 26f, u)
+                if (m.spectrum && mu.durationMs > 0) { // the spectrum took the bar's place, so a slim progress bar sits between the two times
+                    stroke.strokeWidth = 2 * u
+                    c.drawRect(100 * u, 376 * u, 380 * u, 390 * u, stroke)
+                    c.drawRect(103 * u, 379 * u, (103 + 274f * mu.positionMs / mu.durationMs) * u, 387 * u, fill)
+                }
                 if (mu.durationMs > 0) text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.durationMs), 460f, 392f, 26f, u, align = Paint.Align.RIGHT)
                 // the state: a large play triangle or two pause bars, between the previous and next hints
                 if (mu.playing) { c.drawRect(216 * u, 424 * u, 234 * u, 484 * u, fill); c.drawRect(246 * u, 424 * u, 264 * u, 484 * u, fill) }

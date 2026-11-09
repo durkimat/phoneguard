@@ -963,3 +963,5 @@ Questions to put to them together:
 - Spectrum v4: each bar shows its strongest bin rather than the band average, plus a 1.6 power curve, to separate the middle bars for vocals and simple accompaniment.
 
 - Spectrum v5: silence gate at -54 dB (the 8-bit waveform's rounding noise was being lifted into moving bars after a song ended), and bars are cleared as soon as nothing is playing on this phone.
+
+- Music: the play/pause symbol no longer flips back and forth after a press (the expected state is held 5 s while Spotify catches up). With the spectrum on, a slim progress bar sits between the elapsed and total times.
