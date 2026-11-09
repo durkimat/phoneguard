@@ -382,7 +382,7 @@ class NokiaSkin : LauncherSkin {
             text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER)
             text(c, i.date, 240f, 332f, 36f, u, align = Paint.Align.CENTER)
             badges(c, i, u)
-            softKeys(c, i.softLeft, i.softRight, u)
+            softKeys(c, i.softLeft, model?.softKeys?.second ?: i.softRight, u) // the model knows whether the right key is Music or Contacts
         }
 
         private fun menu(c: Canvas, m: LauncherModel, u: Float) {
