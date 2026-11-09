@@ -86,6 +86,7 @@ class LauncherActivity : Activity() {
     override fun onResume() {
         super.onResume()
         inFront = true
+        try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { model.goHome(); cameBack = false }
@@ -101,6 +102,7 @@ class LauncherActivity : Activity() {
 
     override fun onPause() {
         inFront = false
+        try { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = null
         ui.removeCallbacks(tick)
         try { unregisterReceiver(changes) } catch (_: Exception) { }
@@ -161,6 +163,11 @@ class LauncherActivity : Activity() {
         val p = spPlayer ?: return local
         val mine = thisPhone(io.github.durkimat.phoneguard.music.SpDevice(p.deviceId, p.deviceName, p.deviceType, true, p.volume))
         return io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", p.title, p.artist, p.album, p.playing, p.position(now), p.durationMs, if (mine) local.volumePct else p.volume, p.deviceName, mine, p.shuffle, p.repeat)
+    }
+    /** The Wi-Fi symbol follows the connection as it comes and goes. */
+    private val netWatch = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) { runOnUiThread { refresh() } }
+        override fun onLost(network: android.net.Network) { runOnUiThread { refresh() } }
     }
     private val notesChanged: () -> Unit = { runOnUiThread { refresh() } }
 

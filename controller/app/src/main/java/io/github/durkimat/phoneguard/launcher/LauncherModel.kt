@@ -1312,6 +1312,8 @@ data class HomeInfo(
     val signalBars: Int,
     val softLeft: String,
     val softRight: String,
+    /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
+    val wifi: Int = -1,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

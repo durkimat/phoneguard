@@ -167,8 +167,18 @@ object LauncherData {
             signalBars = signal(c),
             softLeft = "Menu",
             softRight = "Contacts",
+            wifi = wifiState(c),
         )
     }
+
+    /** Shown in every mode but the locked-down one (School), greyed out while there is no Wi-Fi connection. */
+    internal fun wifiState(c: Context): Int = try {
+        if (Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.kiosk) -1
+        else {
+            val cm = c.getSystemService(android.net.ConnectivityManager::class.java)
+            if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true) 1 else 0
+        }
+    } catch (_: Exception) { 0 }
 
     private fun missedCalls(c: Context): Int = try {
         c.contentResolver.query(
