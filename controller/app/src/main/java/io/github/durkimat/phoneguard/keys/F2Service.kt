@@ -25,6 +25,15 @@ class F2Service : AccessibilityService() {
 
     companion object {
         @Volatile private var instance: F2Service? = null
+        /**
+         * Flight mode through Android's own Settings screen (an app may not set it directly): opens the airplane page behind a panel,
+         * presses its switch if it is not already in the wanted state, then goes home. Reports a short result when done.
+         */
+        fun setAirplane(on: Boolean, done: (String) -> Unit): Boolean {
+            val s = instance ?: return false
+            s.main.post { s.driveAirplane(on, done) }
+            return true
+        }
         /** Cover the whole screen with the theme panel (false removes it). Returns false when the service is not running, so the caller shows nothing special. */
         fun cover(on: Boolean, message: String = "Starting Spotify..."): Boolean {
             val s = instance ?: return false
@@ -101,6 +110,50 @@ class F2Service : AccessibilityService() {
         }
     }
     override fun onInterrupt() {}
+
+    private fun airplaneOn(): Boolean = android.provider.Settings.Global.getInt(contentResolver, "airplane_mode_on", 0) == 1
+
+    private fun driveAirplane(on: Boolean, done: (String) -> Unit) {
+        if (airplaneOn() == on) { done("already"); return }
+        cover.showPanel(listOf(if (on) "Flight mode on..." else "Flight mode off..."), "", "", 20_000)
+        try { startActivity(Intent("android.settings.AIRPLANE_MODE_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (e: Exception) { cover.hide(); done("cannot open Settings: ${e.javaClass.simpleName}"); return }
+        var tries = 0
+        fun attempt() {
+            tries++
+            val row = try { rootInActiveWindow?.let { findRow(it) } } catch (_: Exception) { null }
+            if (row == null) {
+                if (tries == 8) {
+                    val dump = StringBuilder()
+                    fun w(n: android.view.accessibility.AccessibilityNodeInfo, d: Int) { if (dump.length < 1500) { dump.append("${"-".repeat(d)}${n.className?.toString()?.substringAfterLast('.')}|${n.viewIdResourceName?.substringAfterLast('/')}|${n.text}|${n.contentDescription}; ") }; for (i in 0 until n.childCount) n.getChild(i)?.let { w(it, d + 1) } }
+                    rootInActiveWindow?.let { w(it, 0) }
+                    Log.log(this, "airplane: row not found: $dump")
+                }
+                if (tries < 8) main.postDelayed({ attempt() }, 500) else { cover.hide(); done("no airplane row found") }
+                return
+            }
+            // the row (not its switch, which Android hides from accessibility) is what takes the press
+            if (airplaneOn() != on) row.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+            main.postDelayed({
+                val ok = airplaneOn() == on
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                main.postDelayed({ cover.hide(); done(if (ok) "ok" else "switch pressed but setting is ${airplaneOn()}") }, 400)
+            }, 2500)
+        }
+        main.postDelayed({ attempt() }, 900)
+    }
+
+    /** The clickable row titled "Airplane mode" or "Aeroplane mode" (or flight mode) on Android's network page. */
+    private fun findRow(n: android.view.accessibility.AccessibilityNodeInfo): android.view.accessibility.AccessibilityNodeInfo? {
+        val t = n.text?.toString()?.lowercase().orEmpty()
+        if (n.viewIdResourceName == "android:id/title" && (t.contains("plane") || t.contains("flight"))) {
+            var p: android.view.accessibility.AccessibilityNodeInfo? = n
+            while (p != null && !p.isClickable) p = p.parent
+            return p
+        }
+        for (i in 0 until n.childCount) n.getChild(i)?.let { c -> findRow(c)?.let { return it } }
+        return null
+    }
 
     /** Debug builds only: lets a test show the volume bar without a physical key (injected keys never reach this service). */
     override fun onServiceConnected() {
