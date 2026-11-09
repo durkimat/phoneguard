@@ -971,3 +971,6 @@ Questions to put to them together:
 - Spectrum v7: captured as played (the default normalised scaling made quiet music look loud), scale -52 to -10 dB, 1 dB treble lift per bar, 9 blocks tall, faster fall. Calibrated from logged levels (loud bass about -18 dB, mids -30, treble -40).
 
 - Now playing: tap left/right (or 4/6) skips the track on key release; hold for 0.5 s and it winds 10 s a second (30 s after five steps) until released (Spotify seek or the media session's seekTo). Volume keys there now redraw lightly instead of a full refresh. Built, not yet installed or tested.
+
+- Radios per mode: designed in docs/radios-per-mode.md (On / Saver / Off per radio per mode, check-in windows, keep-on list, spike first for the switches and a two-night baseline). Not built.
+- Other devices (Pixel 3 etc.): input layer (on-screen keypad, touch only in the bottom area, tall-screen scaling), role-based discovery instead of package-name lists, a Doctor self-test, QR provisioning, then bring-up on a Pixel 3 (stock Android 12 first, LineageOS if sensor-permission grants block us). Goal: other similar families.

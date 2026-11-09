@@ -23,7 +23,7 @@ Everything is a per-mode setting in HA's "Power and memory" section, so School, 
 | 6 | Screen timeout and brightness cap | Per mode: how soon the screen goes off, and a ceiling on brightness. Device owner may set both. | to build |
 | 7 | Per-app idle time | Override for one app (Spotify 10 min, the browser 5 min, a game 3 min). | later |
 | 8 | Background sync windows | Auto-sync off in a mode, DAVx5 on its own schedule. Risky: needs care so nothing is missed. | later, think first |
-| 9 | Radios per mode | Bluetooth and NFC off in modes that do not need them; Wi-Fi stays on (HA sync needs it) unless a window is set. | later |
+| 9 | Radios per mode | Wi-Fi, Bluetooth and data off in a mode, brought up for check-in windows. Full design in [radios-per-mode.md](radios-per-mode.md). | designed, not built |
 | 10 | Reporting in HA | The last 24 hours: how many apps were closed, why (idle, screen off, by hand), which most, and the latest few; a "report only" switch shows what would be closed without closing it. Free-memory points and screen-on hours later. | built |
 
 ## Safety rules (apply to every piece)
