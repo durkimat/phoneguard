@@ -94,6 +94,7 @@ class LauncherActivity : Activity() {
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
         if (leftKeyPending) { leftKeyPending = false; perform(model.onKey(Key.SOFT_LEFT, -1)) }
         registerReceiver(changes, IntentFilter().apply {
+            addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED); addAction(android.bluetooth.BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED); addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
             addAction(Intent.ACTION_BATTERY_CHANGED); addAction(Intent.ACTION_TIME_TICK); addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_CHANGED); addDataScheme("package")
         }.also { f -> f.addAction(Intent.ACTION_TIME_CHANGED) }, Context.RECEIVER_EXPORTED)
