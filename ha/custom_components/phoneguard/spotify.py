@@ -10,7 +10,7 @@ import base64
 import hashlib
 import secrets
 import time
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -27,12 +27,24 @@ def new_pkce() -> tuple[str, str]:
     return verifier, challenge
 
 
-def redirect_uri(origin: str) -> str:
-    """The address Spotify sends the browser back to: this Home Assistant, as the browser knows it."""
-    origin = origin.strip().rstrip("/")
-    if not origin.startswith("https://"):
-        raise ValueError("Spotify only accepts a secure (https) address for the return page; open Home Assistant through its https address (for example Nabu Casa) and try again")
-    return origin + CALLBACK_PATH
+# Spotify accepts only https return addresses, plus the loopback address http://127.0.0.1:PORT. When Home Assistant has no https address, the
+# loopback address is used instead: the browser ends on a "cannot connect" page whose address holds the code, and that address is pasted into the card.
+MANUAL_REDIRECT = "http://127.0.0.1:8888/callback"
+
+
+def redirect_uri(base: str) -> str:
+    """The address Spotify sends the browser back to: a secure address of this Home Assistant."""
+    base = base.strip().rstrip("/")
+    if not base.startswith("https://"):
+        raise ValueError("Spotify only accepts a secure (https) return address")
+    return base + CALLBACK_PATH
+
+
+def parse_pasted(text: str) -> tuple[str, str, str]:
+    """(state, code, error) from the address the browser ended on (or just its query part)."""
+    from urllib.parse import parse_qs
+    q = parse_qs(urlparse((text or "").strip()).query or (text or "").strip().lstrip("?"))
+    return (q.get("state", [""])[0], q.get("code", [""])[0], q.get("error", [""])[0])
 
 
 def authorize_url(client_id: str, redirect: str, challenge: str, state: str) -> str:
@@ -48,11 +60,11 @@ class Pending:
     def __init__(self) -> None:
         self._p: dict[str, dict] = {}
 
-    def start(self, child: str, client_id: str, origin: str, now: float | None = None) -> str:
+    def start(self, child: str, client_id: str, redirect: str, now: float | None = None) -> str:
+        """Begin a sign-in that will come back to [redirect] (see redirect_uri, or MANUAL_REDIRECT)."""
         now = time.time() if now is None else now
         self._p = {k: v for k, v in self._p.items() if v["exp"] > now}  # drop stale ones
         verifier, challenge = new_pkce()
-        redirect = redirect_uri(origin)
         state = secrets.token_urlsafe(24)
         self._p[state] = {"child": child, "client_id": client_id, "verifier": verifier, "redirect": redirect, "exp": now + PENDING_SECONDS}
         return authorize_url(client_id, redirect, challenge, state)

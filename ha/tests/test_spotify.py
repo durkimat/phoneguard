@@ -24,15 +24,19 @@ def test_pkce_challenge_matches_verifier():
     assert len(v) >= 43 and "=" not in v
 
 
-def test_redirect_must_be_https():
+def test_redirect_must_be_https_and_the_loopback_fallback_can_be_pasted_back():
     assert SP.redirect_uri(ORIGIN + "/") == ORIGIN + "/api/phoneguard/spotify_callback"
     with pytest.raises(ValueError):
         SP.redirect_uri("http://192.168.1.159:8123")
+    assert SP.MANUAL_REDIRECT.startswith("http://127.0.0.1:")  # the one plain-http address Spotify allows
+    assert SP.parse_pasted("http://127.0.0.1:8888/callback?code=ABC&state=XYZ") == ("XYZ", "ABC", "")
+    assert SP.parse_pasted("?error=access_denied&state=XYZ") == ("XYZ", "", "access_denied")
+    assert SP.parse_pasted("nonsense") == ("", "", "")
 
 
 def test_start_builds_the_spotify_address_and_state_is_single_use():
     p = SP.Pending()
-    url = p.start("ellie", "a" * 32, ORIGIN, now=1000)
+    url = p.start("ellie", "a" * 32, SP.redirect_uri(ORIGIN), now=1000)
     q = parse_qs(urlparse(url).query)
     assert q["client_id"] == ["a" * 32] and q["code_challenge_method"] == ["S256"]
     assert q["redirect_uri"] == [ORIGIN + SP.CALLBACK_PATH]
@@ -47,7 +51,7 @@ def test_start_builds_the_spotify_address_and_state_is_single_use():
 
 def test_state_expires_and_unknown_state_is_refused():
     p = SP.Pending()
-    q = parse_qs(urlparse(p.start("ellie", "a" * 32, ORIGIN, now=1000)).query)
+    q = parse_qs(urlparse(p.start("ellie", "a" * 32, SP.redirect_uri(ORIGIN), now=1000)).query)
     assert p.take("nope", now=1001) is None
     assert p.take(q["state"][0], now=1000 + SP.PENDING_SECONDS + 1) is None
 
