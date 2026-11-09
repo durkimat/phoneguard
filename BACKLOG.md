@@ -953,3 +953,5 @@ Questions to put to them together:
 - Music: spectrum analyser (Spectrum.kt, Visualizer on the output mix, 16 bars with held peaks) can replace the progress bar. Swap with key 7, a touch on the bar, or Music menu "Bar shows". Choice kept per phone. Only live when playing on this phone (audio elsewhere is silent here). Needs owner test; if Visualizer is refused the log says "spectrum: not available".
 
 - Play on: if this phone is not in Spotify's device list, the list now starts Spotify here first (behind the cover) and waits up to 9 s for the phone to appear, as playing a playlist already did.
+
+- Spectrum v2: largest FFT (1024), bands by pitch in Hz (50 Hz-16 kHz), dB levels with a treble lift and a scale that follows the loudest recent band. v1 used the smallest FFT (340 Hz per bin) so the low bars all read the same bins.
