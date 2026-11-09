@@ -36,9 +36,37 @@ object IdleReaper {
         else {
             val ok = dpm.setApplicationHidden(admin, pkg, true)
             try { Thread.sleep(600) } finally { dpm.setApplicationHidden(admin, pkg, false) }
+            if (ok) prefs(c).edit().putLong("stopped_$pkg", System.currentTimeMillis()).apply()
             ok
         }
     } catch (e: Exception) { Log.log(c, "idle stop $pkg: ${e.javaClass.simpleName}"); false }
+
+    /**
+     * Apps that look to be running in the background (Android does not let an app list other apps' processes, so this is worked out
+     * from what it does show): a music session, an ongoing notification, or an app used or heard in the last three hours and not
+     * stopped since. Playing apps first, then the most recent.
+     */
+    fun running(c: Context): List<io.github.durkimat.phoneguard.launcher.RunningApp> = try {
+        val cfg = Store.config(c)
+        val now = System.currentTimeMillis()
+        val p = prefs(c)
+        val stats = c.getSystemService(UsageStatsManager::class.java).queryAndAggregateUsageStats(now - 3 * 3_600_000L, now)
+        val media = mediaStates(c)
+        val busy = busyPackages(c)
+        val protectedApps = Protected.all(c, cfg)
+        val pm = c.packageManager
+        val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+        Enforcer.launcherPackages(c).filter { it !in protectedApps && !dpm.isApplicationHidden(admin, it) }.mapNotNull { pkg ->
+            val recent = maxOf(stats[pkg]?.lastTimeUsed ?: 0L, p.getLong("play_$pkg", 0))
+            val st = media[pkg]
+            val playing = st == PlaybackState.STATE_PLAYING || st == PlaybackState.STATE_BUFFERING
+            val alive = st != null || pkg in busy || (recent > p.getLong("stopped_$pkg", 0) && now - recent < 3 * 3_600_000L)
+            if (!alive) return@mapNotNull null
+            val label = try { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } catch (_: Exception) { pkg }
+            val state = when { playing -> "playing"; st != null -> "paused"; pkg in busy -> "busy"; else -> ((now - recent) / 60_000L).let { if (it < 1) "now" else "${it}m" } }
+            Triple(io.github.durkimat.phoneguard.launcher.RunningApp(pkg, label, state), if (playing) 0 else 1, recent)
+        }.sortedWith(compareBy({ it.second }, { -it.third })).map { it.first }
+    } catch (e: Exception) { Log.log(c, "running apps: ${e.javaClass.simpleName}"); emptyList() }
 
     fun run(c: Context) {
         try {
@@ -68,6 +96,12 @@ object IdleReaper {
             if (stopped.isNotEmpty()) Log.log(c, "idle apps stopped after $min min: ${stopped.joinToString()}")
         } catch (e: Exception) { Log.log(c, "idle saver: ${e.javaClass.simpleName}") }
     }
+
+    /** Every app with a media session, and what it is doing. */
+    private fun mediaStates(c: Context): Map<String, Int> = try {
+        c.getSystemService(MediaSessionManager::class.java).getActiveSessions(ComponentName(c, io.github.durkimat.phoneguard.notes.NoteService::class.java))
+            .associate { it.packageName to (it.playbackState?.state ?: PlaybackState.STATE_NONE) }
+    } catch (_: Exception) { emptyMap() }
 
     /** Apps with a media session that is playing or buffering; when that cannot be read, the music apps we know are treated as playing. */
     private fun playingPackages(c: Context): Set<String> = try {

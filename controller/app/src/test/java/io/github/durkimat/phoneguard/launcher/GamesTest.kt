@@ -199,6 +199,25 @@ class HomeBadgeTest {
         assertEquals("3:20", io.github.durkimat.phoneguard.music.MusicInfo.clock(200_000)); assertEquals("1:02:03", io.github.durkimat.phoneguard.music.MusicInfo.clock(3_723_000))
     }
 
+    @Test fun runningAppsKillsWithTheLeftKeyAndOkGoesToOurOwnScreens() {
+        fun atRunning(): LauncherModel {
+            val m = LauncherModel(listOf(MenuItem(LOGSET_PKG, "Logs & Settings"), MenuItem(MUSIC_PKG, "Music"), MenuItem(CAMERA_PKG, "Camera")), "com.android.contacts", "com.android.messaging")
+            m.logItems = listOf(MenuItem(RUNNING_PKG, "Running Apps"))
+            m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.OK)
+            return m
+        }
+        val m = atRunning(); assertEquals(Screen.RUNNING, m.screen)
+        assertEquals(listOf("Nothing running"), m.rows); assertEquals("" to "Back", m.softKeys)
+        val apps = listOf(RunningApp("com.spotify.music", "Spotify", "paused"), RunningApp("org.lineageos.aperture", "Camera", "4m"), RunningApp("com.example.game", "Game", "12m"))
+        m.running = apps
+        assertEquals(listOf("Spotify (paused)", "Camera (4m)", "Game (12m)"), m.rows); assertEquals("Kill" to "Back", m.softKeys)
+        assertEquals(Action.KillApp("com.spotify.music"), m.onKey(Key.SOFT_LEFT))
+        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen) // Spotify opens our Music screen, not the app
+        val c = atRunning(); c.running = apps; c.onKey(Key.DOWN); assertEquals(Action.OpenCamera, c.onKey(Key.OK))
+        val g = atRunning(); g.running = apps; g.onKey(Key.DOWN); g.onKey(Key.DOWN); assertEquals(Action.Launch("com.example.game"), g.onKey(Key.OK)) // no screen of ours for it
+        g.onKey(Key.SOFT_RIGHT); assertEquals(Screen.LOGSET, g.screen)
+    }
+
     @Test fun homeRightKeyOpensMusicAndBackComesHome() {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"), MenuItem("com.android.contacts", "Contacts")), "com.android.contacts")
         assertEquals("Menu" to "Music", m.softKeys)

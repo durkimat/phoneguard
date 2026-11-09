@@ -61,6 +61,14 @@ class F2Service : AccessibilityService() {
             val stopper = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context?, i: Intent?) { val pkg = i?.getStringExtra("pkg") ?: return; Thread { Log.log(this@F2Service, "debug stop $pkg: " + io.github.durkimat.phoneguard.IdleReaper.stop(this@F2Service, pkg)) }.start() }
             }
+            val lister = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: android.content.Context?, i: Intent?) {
+                    val am = this@F2Service.getSystemService(android.app.ActivityManager::class.java)
+                    val procs = am.runningAppProcesses ?: emptyList()
+                    Log.log(this@F2Service, "running processes seen: ${procs.size}: " + procs.joinToString { it.processName + ":" + it.importance })
+                }
+            }
+            registerReceiver(lister, android.content.IntentFilter("io.github.durkimat.phoneguard.DEBUG_RUNNING"), android.content.Context.RECEIVER_EXPORTED)
             registerReceiver(stopper, android.content.IntentFilter("io.github.durkimat.phoneguard.DEBUG_STOP"), android.content.Context.RECEIVER_EXPORTED)
         }
     }

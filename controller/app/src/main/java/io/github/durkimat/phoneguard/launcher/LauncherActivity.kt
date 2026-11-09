@@ -238,6 +238,7 @@ class LauncherActivity : Activity() {
             model.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)
             ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000)
         }
+        if (model.screen == Screen.RUNNING) model.running = io.github.durkimat.phoneguard.IdleReaper.running(this)
         if (model.screen == Screen.BATTERY) model.battery = LauncherData.batteryInfo(this)
         WeatherStore.refreshIfDue(this) { runOnUiThread { refresh() } }
         val all = LauncherData.items(this)
@@ -331,6 +332,7 @@ class LauncherActivity : Activity() {
             is Action.SoundTest -> io.github.durkimat.phoneguard.SoundTest.play(this, a.route)
             Action.SpShuffle -> Thread { sp.shuffle(this, !model.music.shuffle); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
             Action.SpRepeat -> Thread { sp.repeat(this, when (model.music.repeat) { "off" -> "context"; "context" -> "track"; else -> "off" }); spPolledAt = 0; ui.postDelayed({ refresh() }, 500) }.start()
+            is Action.KillApp -> Thread { io.github.durkimat.phoneguard.IdleReaper.stop(this, a.pkg); ui.postDelayed({ refresh() }, 300) }.start()
             Action.SleepStep -> { io.github.durkimat.phoneguard.music.SleepTimer.step(this); refresh() }
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); refresh() }
