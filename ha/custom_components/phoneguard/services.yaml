@@ -126,9 +126,13 @@ cancel_job:
 
 update_phone:
   name: Update Phone Guard on a phone
-  description: Queue the newest Phone Guard release for this phone.
+  description: Queue the newest Phone Guard release for this phone. To try a build that is not on GitHub, give its https address and SHA-256 as well.
   fields:
     child: {required: true, selector: {text: {}}}
+    url: {selector: {text: {}}}
+    sha256: {selector: {text: {}}}
+    version: {selector: {text: {}}}
+    size: {selector: {number: {min: 0, max: 400000000}}}
 
 check_updates:
   name: Check for a Phone Guard update
