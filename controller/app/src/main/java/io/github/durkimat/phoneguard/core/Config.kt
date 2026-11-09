@@ -38,7 +38,12 @@ data class ModeDef(
     val idleMin: Int = 10,
     /** Minutes with the screen off before every app that is not protected, kept, playing or busy is stopped (0 = never). */
     val screenOffMin: Int = 5,
+    /** Internet radio: "off", "presets" (only the parent's list of stations) or "any" (browse and find too). */
+    val radio: String = "any",
 )
+
+/** One internet radio station: a name for the screens and an https stream address. */
+data class RadioStation(val name: String, val url: String)
 
 /** Who WhatsApp may read and write to, and how fast it may send. Set per device in HA. */
 data class WaConfig(
@@ -76,6 +81,8 @@ data class Config(
     val whatsapp: WaConfig? = null,
     /** Apps the parent put in the Nokia main menu itself; the other allowed apps go under "Android Apps". */
     val pinned: List<String> = emptyList(),
+    /** The parent's radio stations in preset order; null means the phone's built-in list. */
+    val radioStations: List<RadioStation>? = null,
     /** Where the weather is for (set from HA, the phone never asks for its own location). */
     val lat: Double? = null,
     val lon: Double? = null,
@@ -124,6 +131,7 @@ data class Config(
                     notes = m.optString("notes", "show"),
                     idleMin = m.optInt("idleMin", 10),
                     screenOffMin = m.optInt("screenOffMin", 5),
+                    radio = m.optString("radio", "any"),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
@@ -168,6 +176,7 @@ data class Config(
                     }
                 },
                 keepRunning = if (o.has("keepRunning")) strings(o.optJSONArray("keepRunning")) else null,
+                radioStations = o.optJSONArray("radioStations")?.let { a -> (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { x -> RadioStation(x.optString("name"), x.optString("url")).takeIf { it.name.isNotBlank() && it.url.startsWith("https://") } } } },
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

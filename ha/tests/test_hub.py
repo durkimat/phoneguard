@@ -378,3 +378,19 @@ def test_spotify_client_id_is_an_option_for_every_phone(hub):
         hub.set_options({"something_else": "x"})
     hub.set_options({"spotify_client_id": ""})
     assert "spotifyClientId" not in S.build_config(hub.data["children"]["her"], hub.now(), hub.data.get("options"))
+
+
+def test_radio_setting_defaults_validation_and_station_list(hub):
+    ch = hub.data["children"]["her"]
+    cfg = S.build_config(ch, hub.now())
+    assert all(m["radio"] == "any" for m in cfg["modes"].values())  # open by default
+    assert "radioStations" not in cfg  # the phone uses its built-in list
+    modes = json.loads(json.dumps(ch["modes"])); modes["school"]["radio"] = "off"
+    hub.update_child("her", {"modes": modes})
+    assert S.build_config(hub.data["children"]["her"], hub.now())["modes"]["school"]["radio"] == "off"
+    bad = json.loads(json.dumps(modes)); bad["day"]["radio"] = "everything"
+    with pytest.raises(ValueError):
+        hub.update_child("her", {"modes": bad})
+    ch = hub.data["children"]["her"]
+    ch["radio_stations"] = [{"name": "Test FM", "url": "https://example.com/s"}, {"name": "Plain", "url": "http://example.com/s"}, {"name": "", "url": "https://x"}]
+    assert S.build_config(ch, hub.now())["radioStations"] == [{"name": "Test FM", "url": "https://example.com/s"}]

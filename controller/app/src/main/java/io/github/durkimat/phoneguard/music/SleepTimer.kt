@@ -30,6 +30,7 @@ object SleepTimer {
     /** Pause wherever it is playing: Spotify on any device, and the app on this phone. */
     private fun stop(c: Context) {
         Thread {
+            try { Radio.stop(c) } catch (_: Exception) { }
             try { if (Spotify.signedIn(c)) Spotify.pause(c) } catch (_: Exception) { }
             try { if (MusicController.info(c).playing) MusicController.playPause(c) } catch (_: Exception) { }
         }.start()

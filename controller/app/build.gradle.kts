@@ -43,6 +43,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.4")
     implementation("androidx.camera:camera-video:1.3.4")
     implementation("androidx.camera:camera-view:1.3.4") // the plain colour viewfinder used while recording video
+    // internet radio: streams (MP3, AAC, HLS) and the "now playing" text they carry (Apache-2.0)
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
     // the WhatsApp bridge (Go, built by ../../wabridge/build.sh)
     implementation(files("../../wabridge/out/wabridge.aar"))
     testImplementation("junit:junit:4.13.2")

@@ -327,7 +327,9 @@ class NokiaSkin : LauncherSkin {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
                 text(c, if (m.spSignedIn) "OK picks a playlist" else "Sign in to Spotify in the Music menu", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
             } else {
-                if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
+                val radio = mu.source == "radio"
+                if (radio) text(c, "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
+                else if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
                 marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)
                 marquee(c, mu.artist, 20f, 240f, 32f, 440f, u)
                 // where it is playing from (a playlist), else the album unless that only repeats the song or artist
@@ -335,12 +337,14 @@ class NokiaSkin : LauncherSkin {
                 if (sub.isNotEmpty()) marquee(c, sub, 20f, 284f, 26f, 440f, u)
                 // progress
                 if (m.spectrum) spectrum(c, mu.playing && mu.thisPhone, u)
+                else if (radio) text(c, "LIVE", 240f, 352f, 40f, u, bold = true, align = Paint.Align.CENTER)
                 else {
                     stroke.strokeWidth = 3 * u
                     c.drawRect(20 * u, 332 * u, 460 * u, 356 * u, stroke)
                     if (mu.durationMs > 0) c.drawRect(24 * u, 336 * u, (24 + 432f * mu.positionMs / mu.durationMs) * u, 352 * u, fill)
                 }
                 text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.positionMs), 20f, 392f, 26f, u)
+                if (radio) text(c, "LIVE", 460f, 392f, 26f, u, bold = true, align = Paint.Align.RIGHT)
                 if (m.spectrum && mu.durationMs > 0) { // the spectrum took the bar's place, so a slim progress bar sits between the two times
                     stroke.strokeWidth = 2 * u
                     c.drawRect(100 * u, 376 * u, 380 * u, 390 * u, stroke)
@@ -350,10 +354,14 @@ class NokiaSkin : LauncherSkin {
                 // the state: a large play triangle or two pause bars, between the previous and next hints
                 if (mu.playing) { c.drawRect(216 * u, 424 * u, 234 * u, 484 * u, fill); c.drawRect(246 * u, 424 * u, 264 * u, 484 * u, fill) }
                 else { val t = android.graphics.Path().apply { moveTo(216f * u, 422f * u); lineTo(268f * u, 454f * u); lineTo(216f * u, 486f * u); close() }; c.drawPath(t, fill) }
-                text(c, "4 prev", 20f, 464f, 26f, u); text(c, "6 next", 460f, 464f, 26f, u, align = Paint.Align.RIGHT)
-                if (m.spSignedIn) {
-                    text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 520f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "0 play on" + (if (m.sleepLabel.isNotEmpty()) "   sleep in " + m.sleepLabel else ""), 240f, 556f, 24f, u, align = Paint.Align.CENTER)
+                if (radio) { text(c, "< prev", 20f, 464f, 26f, u); text(c, "next >", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
+                else { text(c, "4 prev", 20f, 464f, 26f, u); text(c, "6 next", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
+                if (radio) {
+                    text(c, "1-9 presets   0 source", 240f, 520f, 24f, u, align = Paint.Align.CENTER)
+                    if (m.sleepLabel.isNotEmpty()) text(c, "sleep in " + m.sleepLabel, 240f, 556f, 24f, u, align = Paint.Align.CENTER)
+                } else if (m.spSignedIn || m.radioMode != "off") {
+                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 520f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "0 source" + (if (m.sleepLabel.isNotEmpty()) "   sleep in " + m.sleepLabel else ""), 240f, 556f, 24f, u, align = Paint.Align.CENTER)
                 }
             }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)

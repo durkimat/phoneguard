@@ -197,7 +197,7 @@ object LauncherData {
     } catch (_: Exception) { 0 }
 
     /** Music is playing on this phone (a media session that is playing). */
-    private fun musicPlaying(c: Context): Boolean = try { io.github.durkimat.phoneguard.music.MusicController.info(c).playing } catch (_: Exception) { false }
+    private fun musicPlaying(c: Context): Boolean = try { io.github.durkimat.phoneguard.music.Radio.playing || io.github.durkimat.phoneguard.music.MusicController.info(c).playing } catch (_: Exception) { false }
 
     private fun missedCalls(c: Context): Int = try {
         c.contentResolver.query(
