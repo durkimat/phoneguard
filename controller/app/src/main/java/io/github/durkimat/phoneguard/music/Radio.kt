@@ -121,6 +121,13 @@ object Radio {
         send(c.applicationContext, RadioService.STOP, "", "")
     }
 
+    /** Let the stream go and forget the station (Spotify is taking over, so Now playing must stop showing the radio). */
+    fun release(c: Context) {
+        if (state.url.isEmpty() && !playing) return
+        set(State())
+        send(c.applicationContext, RadioService.STOP, "", "")
+    }
+
     fun next(c: Context) = step(c, 1)
     fun previous(c: Context) = step(c, -1)
     private fun step(c: Context, by: Int) {
