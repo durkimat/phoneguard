@@ -151,7 +151,12 @@ object AppInstaller {
 
     private fun remove(c: Context, cmd: AppCmd) {
         try {
-            if (try { c.packageManager.getPackageInfo(cmd.pkg, 0); false } catch (_: Exception) { true }) { record(c, cmd.id, "done", "was not installed"); return }
+            // an app we hid (a new one starts hidden) looks uninstalled to a plain lookup, so ask for uninstalled packages too and show it again first
+            val ai = try { c.packageManager.getApplicationInfo(cmd.pkg, android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES) } catch (_: Exception) { null }
+            if (ai == null || (ai.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) == 0) { record(c, cmd.id, "done", "was not installed"); return }
+            val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+            if (dpm.isApplicationHidden(admin, cmd.pkg)) dpm.setApplicationHidden(admin, cmd.pkg, false)
+            Store.setHidden(c, Store.hidden(c) - cmd.pkg)
             val latch = CountDownLatch(1); waiting[cmd.id] = latch
             c.packageManager.packageInstaller.uninstall(cmd.pkg, sender(c, cmd.id))
             if (!latch.await(60, TimeUnit.SECONDS)) { record(c, cmd.id, "failed", "no answer from Android"); return }

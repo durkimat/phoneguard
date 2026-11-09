@@ -206,3 +206,18 @@ def test_update_is_offered_only_when_newer_and_ready():
     assert h.update_for("ellie")["available"] is False
     with pytest.raises(ValueError):
         h.queue_update("ellie")
+
+
+def test_index_parsing_and_local_search_and_official_matches():
+    from phoneguard import store as ST
+    idx = {"apps": [{"packageName": "org.a.notes", "name": "Easy Notes", "summary": "write things", "suggestedVersionCode": "3"},
+                    {"packageName": "org.b.clock", "localized": {"en-US": {"name": "Big Clock", "summary": "shows the time and notes"}}, "suggestedVersionCode": "1"},
+                    {"packageName": "org.c.nohash", "name": "Broken", "suggestedVersionCode": "1"}],
+           "packages": {"org.a.notes": [{"versionCode": 3, "versionName": "1.2", "apkName": "org.a.notes_3.apk", "hash": "c" * 64, "size": 10}],
+                        "org.b.clock": [{"versionCode": 1, "versionName": "1.0", "apkName": "org.b.clock_1.apk", "hash": "d" * 64, "size": 20}],
+                        "org.c.nohash": [{"versionCode": 1, "apkName": "x.apk", "hash": "bad"}]}}
+    entries = ST.parse_index(idx)
+    assert [e["pkg"] for e in entries] == ["org.a.notes", "org.b.clock"]
+    assert [e["pkg"] for e in ST.search_entries(entries, "notes")] == ["org.a.notes", "org.b.clock"]  # the name first, then the summary
+    assert ST.search_entries(entries, "zzz") == []
+    assert [o["name"] for o in ST.official_matches("whats")] == ["WhatsApp"] and ST.official_matches("calculator") == []

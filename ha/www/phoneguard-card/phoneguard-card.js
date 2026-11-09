@@ -1,8 +1,8 @@
-/* Phone Guard card v0.23.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.24.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.23.0";
+const PG_VERSION = "0.24.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -447,10 +447,10 @@ class PhoneGuardCard extends HTMLElement {
     if (waiting.length) h += `<div class="sub" style="margin-bottom:6px"><b>Waiting for the phone</b> (it does these on Wi-Fi at its next check-in): ${waiting.map((c) => `${c.kind === "remove" ? "remove" : c.kind === "update" ? "update" : "install"} ${this._esc(c.name)} <button class="small" data-act="job_cancel" data-id="${this._esc(c.id)}">cancel</button>`).join(" · ")}</div>`;
     if ((d.app_log || []).length) h += `<details style="margin-bottom:6px"><summary class="sub" style="cursor:pointer">Recent installs and removals</summary><div class="sub">${d.app_log.map(([t, nm, kind, res, why]) => `${this._fmtTime(t)} ${kind} ${this._esc(nm)}: ${res === "done" ? "done" : "failed (" + this._esc(why) + ")"}`).join("<br>")}</div></details>`;
     h += `<div class="sub" style="margin:6px 0 4px"><b>Installed</b>: remove one with the cross. The phone, messages and settings are never offered.</div><div class="chips">${d.apps.map((a) => `<span class="pchip">${this._esc(a.label)}<button data-act="app_remove" data-pkg="${this._esc(a.pkg)}" data-name="${this._esc(a.label)}" title="Remove from the phone">✕</button></span>`).join("")}</div>`;
-    h += `<div class="sub" style="margin:12px 0 4px"><b>Find an app</b> in the open-source store (F-Droid)</div>
+    h += `<div class="sub" style="margin:12px 0 4px"><b>Find an app</b>: official downloads, F-Droid and IzzyOnDroid searched together</div>
       <div class="row"><input data-store-q type="text" size="28" placeholder="What do you want? (calculator, maps, game…)" value="${this._esc(st.q)}"><button data-act="store_search" ${st.busy ? "disabled" : ""}>Search</button></div>`;
     if (st.msg) h += `<div class="sub" style="margin-top:6px">${this._esc(st.msg)}</div>`;
-    if (st.results.length) h += `<table class="mx" style="margin-top:6px">${st.results.map((a) => `<tr><td class="name" style="text-align:left">${this._esc(a.name)}<small>${this._esc(a.summary)}</small></td><td><button data-act="store_install" data-pkg="${this._esc(a.pkg)}" data-name="${this._esc(a.name)}" ${st.busy || d.apps.some((x) => x.pkg === a.pkg) ? "disabled" : ""}>${d.apps.some((x) => x.pkg === a.pkg) ? "Installed" : "Install"}</button></td></tr>`).join("")}</table>`;
+    if (st.results.length) h += `<table class="mx" style="margin-top:6px">${st.results.map((a) => `<tr><td class="name" style="text-align:left">${this._esc(a.name)} <span class="sub">${a.source === "official" ? "official" : a.source === "izzy" ? "IzzyOnDroid" : "F-Droid"}</span><small>${this._esc(a.summary)}</small></td><td><button data-act="store_install" data-pkg="${this._esc(a.pkg)}" data-name="${this._esc(a.name)}" data-source="${this._esc(a.source || "fdroid")}" ${st.busy || d.apps.some((x) => x.pkg === a.pkg) ? "disabled" : ""}>${d.apps.some((x) => x.pkg === a.pkg) ? "Installed" : "Install"}</button></td></tr>`).join("")}</table>`;
     return h + `<div class="sub" style="margin-top:8px">An installed app starts hidden and shows up above in "Modes and apps": tick it in the modes where it is allowed.</div>`;
   }
 
@@ -903,14 +903,14 @@ class PhoneGuardCard extends HTMLElement {
       if (st.q.length < 2) { st.msg = "Type at least two letters."; return this._render(); }
       st.busy = true; st.msg = "Searching…"; this._render();
       return this._hass.connection.sendMessagePromise({ type: "phoneguard/store_search", q: st.q })
-        .then((r) => { st.results = r.results; st.msg = r.results.length ? "" : "Nothing found."; })
+        .then((r) => { st.results = r.results; st.msg = r.results.length ? ((r.errors || []).length ? "Could not reach: " + r.errors.join(", ") : "") : ((r.errors || []).length ? "Could not reach: " + r.errors.join(", ") : "Nothing found."); })
         .catch((err) => { st.msg = (err && err.message) || "Search failed."; })
         .finally(() => { st.busy = false; this._render(); });
     }
     if (a === "store_install") {
       const st = ui.store;
       st.busy = true; st.msg = "Preparing " + b.dataset.name + " (the store's file is checked first, this can take a minute)…"; this._render();
-      return this._hass.connection.sendMessagePromise({ type: "phoneguard/store_install", child: d.child, pkg: b.dataset.pkg, name: b.dataset.name })
+      return this._hass.connection.sendMessagePromise({ type: "phoneguard/store_install", child: d.child, pkg: b.dataset.pkg, name: b.dataset.name, source: b.dataset.source || "fdroid" })
         .then((r) => { st.msg = b.dataset.name + " " + r.version + " is queued: the phone installs it when it next checks in."; })
         .catch((err) => { st.msg = (err && err.message) || "Could not prepare that app."; })
         .finally(() => { st.busy = false; this._render(); });
