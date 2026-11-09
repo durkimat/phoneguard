@@ -54,13 +54,14 @@ class F2Service : AccessibilityService() {
             try {
                 val root = rootInActiveWindow ?: return@postDelayed
                 // only a dialog that has the two pairing buttons counts (not any other Settings window)
-                if (root.findAccessibilityNodeInfosByViewId("android:id/button1").isNullOrEmpty() || root.findAccessibilityNodeInfosByViewId("android:id/button2").isNullOrEmpty()) return@postDelayed
+                if (pairButton(root, true) == null || pairButton(root, false) == null) return@postDelayed
                 val texts = mutableListOf<String>()
                 fun walk(n: android.view.accessibility.AccessibilityNodeInfo) {
-                    // "Allow contacts and call history": ticked for the person, as most people leave it (it does nothing for audio devices)
-                    if (n.className?.toString()?.contains("CheckBox") == true && n.isCheckable && !n.isChecked) n.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+                    // "Also allow access to contacts and call history": switched on for the person, as most people leave it (it does nothing for audio devices)
+                    val cls = n.className?.toString().orEmpty()
+                    if ((cls.contains("Switch") || cls.contains("CheckBox")) && n.isCheckable && !n.isChecked) n.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
                     val t = n.text?.toString()?.trim().orEmpty()
-                    if (t.isNotEmpty() && n.className?.toString()?.contains("Button") != true && n.className?.toString()?.contains("CheckBox") != true && n.className?.toString()?.contains("Switch") != true) texts += t
+                    if (t.isNotEmpty() && !cls.contains("Button") && !cls.contains("Switch") && !cls.contains("CheckBox") && !t.startsWith("Also allow") && !t.startsWith("Info will be used")) texts += t
                     for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it) }
                 }
                 walk(root)
@@ -70,10 +71,14 @@ class F2Service : AccessibilityService() {
         }, 350)
     }
 
+    /** The dialog's Pair (positive) or Cancel button: Settings names them positive_button and negative_button; plain Android dialogs button1 and button2. */
+    private fun pairButton(root: android.view.accessibility.AccessibilityNodeInfo, positive: Boolean): android.view.accessibility.AccessibilityNodeInfo? =
+        listOf(if (positive) "com.android.settings:id/positive_button" else "com.android.settings:id/negative_button", if (positive) "android:id/button1" else "android:id/button2")
+            .firstNotNullOfOrNull { root.findAccessibilityNodeInfosByViewId(it)?.firstOrNull() }
+
     private fun pressPairingButton(positive: Boolean) {
         try {
-            val id = if (positive) "android:id/button1" else "android:id/button2"
-            rootInActiveWindow?.findAccessibilityNodeInfosByViewId(id)?.firstOrNull()?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+            rootInActiveWindow?.let { pairButton(it, positive) }?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
         } catch (e: Exception) { Log.log(this, "pairing button: ${e.javaClass.simpleName}") }
         pairing = false; cover.hide()
     }
