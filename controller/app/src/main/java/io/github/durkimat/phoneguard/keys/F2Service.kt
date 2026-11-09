@@ -50,11 +50,13 @@ class F2Service : AccessibilityService() {
      * show its text and press its own two buttons.
      */
     private fun onPairingDialog() {
+        pairing = true
+        cover.showPanel(listOf("Pair this device?"), "Pair", "Cancel", 60_000) // up at once, so the touch dialog is never seen; filled in below
         main.postDelayed({
             try {
                 val root = rootInActiveWindow ?: return@postDelayed
                 // only a dialog that has the two pairing buttons counts (not any other Settings window)
-                if (pairButton(root, true) == null || pairButton(root, false) == null) return@postDelayed
+                if (pairButton(root, true) == null || pairButton(root, false) == null) { pairing = false; cover.hide(); return@postDelayed }
                 val texts = mutableListOf<String>()
                 fun walk(n: android.view.accessibility.AccessibilityNodeInfo) {
                     // "Also allow access to contacts and call history": switched on for the person, as most people leave it (it does nothing for audio devices)
@@ -80,7 +82,8 @@ class F2Service : AccessibilityService() {
         try {
             rootInActiveWindow?.let { pairButton(it, positive) }?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
         } catch (e: Exception) { Log.log(this, "pairing button: ${e.javaClass.simpleName}") }
-        pairing = false; cover.hide()
+        pairing = false
+        cover.showPanel(listOf("Pairing..."), "", "", 30_000) // keeps any follow-up dialog hidden until the pairing is settled (see the bond receiver)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -103,6 +106,13 @@ class F2Service : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        // the pairing is settled (paired, or given up): take the panel down
+        registerReceiver(object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: Intent?) {
+                val st = i?.getIntExtra(android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE, -1) ?: return
+                if (st == android.bluetooth.BluetoothDevice.BOND_BONDED || st == android.bluetooth.BluetoothDevice.BOND_NONE) { pairing = false; main.postDelayed({ cover.hide() }, 400) }
+            }
+        }, android.content.IntentFilter(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED), android.content.Context.RECEIVER_EXPORTED)
         if (io.github.durkimat.phoneguard.BuildConfig.DEBUG) {
             val r = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context?, i: Intent?) { volume.press(i?.getBooleanExtra("up", true) ?: true) }
