@@ -113,6 +113,8 @@ class Hub:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp check setting {m['wa']!r}")
             if m.get("wa_app", "auto") not in S.WA_APPS:
                 raise ValueError(f"mode {mid!r} has an unknown WhatsApp app setting {m['wa_app']!r}")
+            if m.get("radio", "any") not in S.RADIO_MODES:
+                raise ValueError(f"mode {mid!r} has an unknown radio setting {m['radio']!r}")
             if m.get("notes", "show") not in S.NOTE_MODES:
                 raise ValueError(f"mode {mid!r} has an unknown notifications setting {m['notes']!r}")
             if m.get("location", "off") not in S.LOC_MODES:

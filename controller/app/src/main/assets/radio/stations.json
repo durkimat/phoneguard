@@ -1,0 +1,94 @@
+[
+ {
+  "name": "BBC Radio 1",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_01505109/live/ww/bbc_radio_one/bbc_radio_one.isml/bbc_radio_one-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC Radio 2",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_74208725/live/ww/bbc_radio_two/bbc_radio_two.isml/bbc_radio_two-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC Radio 3",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_23461179/live/ww/bbc_radio_three/bbc_radio_three.isml/bbc_radio_three-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC Radio 4",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_55057080/live/ww/bbc_radio_fourfm/bbc_radio_fourfm.isml/bbc_radio_fourfm-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC Radio 5 Live",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_89021708/live/ww/bbc_radio_five_live/bbc_radio_five_live.isml/bbc_radio_five_live-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC 6 Music",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_81827798/live/ww/bbc_6music/bbc_6music.isml/bbc_6music-audio%3d320000.norewind.m3u8"
+ },
+ {
+  "name": "BBC 1Xtra",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_92079267/live/ww/bbc_1xtra/bbc_1xtra.isml/bbc_1xtra-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC 4 Extra",
+  "url": "https://as-hls-ww-live.akamaized.net/pool_26173715/live/ww/bbc_radio_four_extra/bbc_radio_four_extra.isml/bbc_radio_four_extra-audio%3d128000.norewind.m3u8"
+ },
+ {
+  "name": "BBC World Service",
+  "url": "https://stream.live.vc.bbcmedia.co.uk/bbc_world_service"
+ },
+ {
+  "name": "Heart",
+  "url": "https://media-ice.musicradio.com/HeartUKMP3"
+ },
+ {
+  "name": "Capital",
+  "url": "https://media-ice.musicradio.com/CapitalMP3"
+ },
+ {
+  "name": "Classic FM",
+  "url": "https://media-ice.musicradio.com/ClassicFMMP3"
+ },
+ {
+  "name": "Gold",
+  "url": "https://media-ssl.musicradio.com/GoldMP3"
+ },
+ {
+  "name": "Radio X",
+  "url": "https://media-the.musicradio.com/RadioXUK"
+ },
+ {
+  "name": "Smooth",
+  "url": "https://media-the.musicradio.com/SmoothLondon"
+ },
+ {
+  "name": "LBC",
+  "url": "https://media-sov.musicradio.com/LBC973MP3Low"
+ },
+ {
+  "name": "Magic",
+  "url": "https://stream-mz.hellorayo.co.uk/magicnational.mp3?aw_0_1st.skey=1602676850&direct=true&rp_source=1"
+ },
+ {
+  "name": "Kiss",
+  "url": "https://live-bauerkiss.sharp-stream.com/kissnational.aac?aw_0_1st.skey=1602676850&direct=true&rp_source=1"
+ },
+ {
+  "name": "Greatest Hits",
+  "url": "https://stream-mz.hellorayo.co.uk/net2westmidlands.aac?aw_0_1st.skey=1602676850&direct=true&rp_source=1"
+ },
+ {
+  "name": "Planet Rock",
+  "url": "https://stream-mz.hellorayo.co.uk/planetrock.aac?aw_0_1st.skey=1602676850&direct=true&rp_source=1"
+ },
+ {
+  "name": "Absolute Radio",
+  "url": "https://stream-ar.hellorayo.co.uk/absoluteradio.aac?aw_0_1st.skey=1602676850&direct=true&rp_source=1"
+ },
+ {
+  "name": "Virgin Radio",
+  "url": "https://virgin.live.stream.broadcasting.news/stream"
+ },
+ {
+  "name": "talkSPORT",
+  "url": "https://radio.talksport.com/stream"
+ }
+]

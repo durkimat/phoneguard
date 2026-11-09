@@ -50,6 +50,7 @@ class LauncherActivity : Activity() {
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
         WhatsApp.onChange(waChanged)
+        io.github.durkimat.phoneguard.music.Radio.onChange(radioChanged)
         try {
             contentResolver.registerContentObserver(android.provider.Telephony.Sms.CONTENT_URI, true, sms)
             contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, callLog)
@@ -235,6 +236,12 @@ class LauncherActivity : Activity() {
     }
 
     private fun nowPlayingRaw(): io.github.durkimat.phoneguard.music.MusicInfo {
+        if (io.github.durkimat.phoneguard.music.Radio.active) {
+            val st = io.github.durkimat.phoneguard.music.Radio.state
+            val connecting = st.buffering && !st.playing
+            return io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
+                if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting)
+        }
         val local = io.github.durkimat.phoneguard.music.MusicController.info(this)
         if (!sp.signedIn(this)) return local
         val now = System.currentTimeMillis()
@@ -257,7 +264,7 @@ class LauncherActivity : Activity() {
     }
     private val notesChanged: () -> Unit = { invalidate(D.INFO) }
 
-    override fun onDestroy() { try { contentResolver.unregisterContentObserver(sms); contentResolver.unregisterContentObserver(callLog); contentResolver.unregisterContentObserver(contactsObs) } catch (_: Exception) { }; loader.shutdown(); WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
+    override fun onDestroy() { try { contentResolver.unregisterContentObserver(sms); contentResolver.unregisterContentObserver(callLog); contentResolver.unregisterContentObserver(contactsObs) } catch (_: Exception) { }; loader.shutdown(); io.github.durkimat.phoneguard.music.Radio.offChange(radioChanged); WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
 
     private val gameStep = object : Runnable {
         override fun run() {
@@ -320,6 +327,7 @@ class LauncherActivity : Activity() {
         var info: HomeInfo? = null; var weather: WeatherData? = null; var androidSettings = false; var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
         var spConfigured = false; var spSignedIn = false; var sleepLabel: String? = null; var spectrum = false
         var waLinked = false; var waEnabled = false; var waCode: String? = null
+        var radioNames: List<String> = emptyList(); var radioMode = "any"
         var contacts: List<Contact>? = null; var calls: List<CallEntry>? = null; var convos: List<Convo>? = null
         var waStatus: String? = null; var waUnread = 0; var waConvos: List<Convo>? = null
         var all: List<MenuItem>? = null; var pinned: List<String> = emptyList()
@@ -351,6 +359,8 @@ class LauncherActivity : Activity() {
                     r.waLinked = WhatsApp.linked(this)
                     r.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
                     r.waCode = WhatsApp.pairCode
+                    r.radioNames = io.github.durkimat.phoneguard.music.Radio.stations(this).map { it.name }
+                    r.radioMode = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).radio
                     r.info = LauncherData.info(this)
                     WeatherStore.refreshIfDue(this) { ui.post { invalidate(D.INFO) } }
                 }
@@ -381,6 +391,7 @@ class LauncherActivity : Activity() {
             model.spConfigured = r.spConfigured; if (screen != Screen.MUSIC) model.spSignedIn = r.spSignedIn
             model.sleepLabel = r.sleepLabel ?: ""; model.spectrum = r.spectrum
             model.waLinked = r.waLinked; model.waEnabled = r.waEnabled
+            model.radioNames = r.radioNames; model.radioMode = r.radioMode
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
             model.badges = it.badges; model.wifiShown = it.wifi >= 0
             lastInfo = it
@@ -402,9 +413,11 @@ class LauncherActivity : Activity() {
             r.running?.let { model.running = it }
             r.battery?.let { model.battery = it }
         }
+        model.radioIndex = io.github.durkimat.phoneguard.music.Radio.state.index
         redraw()
     }
 
+    private val radioChanged: () -> Unit = { invalidate(D.SCREEN or D.INFO) }
     private val sms = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CONVOS or D.INFO) } }
     private val callLog = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CALLS or D.INFO) } }
     private val contactsObs = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CONTACTS or D.INFO) } }
@@ -423,7 +436,7 @@ class LauncherActivity : Activity() {
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
         // Now playing: a tap on left or right (or 4 and 6) skips the track when the key comes up; holding it winds back or forward instead
-        if (model.screen == Screen.MUSIC && model.music.active && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
+        if (model.screen == Screen.MUSIC && model.music.active && model.music.source != "radio" && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
             val dir = if (k.first == Key.RIGHT || k.second == 6) 1 else -1
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) { seekDir = dir; seekFired = false; seekSteps = 0; ui.removeCallbacks(seekStep); ui.postDelayed(seekStep, 500) }
             else if (ev.action == KeyEvent.ACTION_UP) { ui.removeCallbacks(seekStep); if (!seekFired) perform(if (dir > 0) Action.MusicNext else Action.MusicPrevious); seekFired = false }
@@ -501,14 +514,15 @@ class LauncherActivity : Activity() {
             }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
-            Action.MusicPlayPause -> {
+            is Action.RadioPlay -> { io.github.durkimat.phoneguard.music.Radio.play(this, a.index); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
+            Action.MusicPlayPause -> if (model.music.source == "radio") { val on = io.github.durkimat.phoneguard.music.Radio.playing; model.music = model.music.copy(playing = !on, buffering = false); redraw(); io.github.durkimat.phoneguard.music.Radio.toggle(this) } else {
                 val was = model.music.playing
                 playHold = !was to System.currentTimeMillis() + 5000
                 model.music = model.music.copy(playing = !was); lastInfo?.let { skin.render(model, it) } // show it at once; the player confirms in a moment
                 spOrLocal({ if (was) sp.pause(this) else sp.resume(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
             }
-            Action.MusicNext -> spOrLocal({ sp.next(this) }, { io.github.durkimat.phoneguard.music.MusicController.next(this) })
-            Action.MusicPrevious -> spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
+            Action.MusicNext -> if (model.music.source == "radio") io.github.durkimat.phoneguard.music.Radio.next(this) else spOrLocal({ sp.next(this) }, { io.github.durkimat.phoneguard.music.MusicController.next(this) })
+            Action.MusicPrevious -> if (model.music.source == "radio") io.github.durkimat.phoneguard.music.Radio.previous(this) else spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
             is Action.MusicVolume -> {
                 // on another device the volume is Spotify's for that device; on this phone it is the phone's music volume
                 if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { invalidate(D.SCREEN); refresh() } }.start()
@@ -546,8 +560,8 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
-            is Action.SpPlay -> Thread { playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
-            is Action.SpTransfer -> Thread { sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.Radio.stop(this); playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.stop(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
             is Action.Launch -> launch(a.pkg)

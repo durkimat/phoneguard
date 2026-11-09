@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.launcher
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
  * was pressed. The model says what should happen next.
  */
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, SOURCES }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -133,6 +133,8 @@ sealed class Action {
     data class SpLoad(val kind: String) : Action()
     data class SpSearch(val query: String) : Action()
     data class SpPlay(val uri: String) : Action()
+    /** Play radio preset n (0 is the first). */
+    data class RadioPlay(val index: Int) : Action()
     data class SpTransfer(val id: String, val name: String) : Action()
     object SpShuffle : Action()
     object SpRepeat : Action()
@@ -357,6 +359,8 @@ class LauncherModel(
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
         Screen.MUSIC -> "Now playing"
+        Screen.RADIO -> "Radio"
+        Screen.SOURCES -> "Source"
         Screen.LOGSET -> "Logs & Settings"
         Screen.RUNNING -> "Running Apps"
         Screen.WIFI -> "Wi-Fi"
@@ -391,11 +395,12 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET -> "Select" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOURCES -> "Select" to "Back"
+        Screen.RADIO -> "Play" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
-        Screen.MUSIC -> (if (music.active) (if (music.playing) "Pause" else "Play") else if (spSignedIn) "Playlists" else "") to "Back"
+        Screen.MUSIC -> (if (music.active) (if (music.playing || music.source == "radio" && music.buffering) "Pause" else "Play") else if (spSignedIn) "Playlists" else "") to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
         Screen.DIAL -> "Calls" to (if (dialNumber.isEmpty()) "Back" else "Clear")
@@ -422,6 +427,8 @@ class LauncherModel(
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
         Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.MUSICMENU -> musicMenuRows
+        Screen.RADIO -> radioNames.ifEmpty { listOf("No stations") }
+        Screen.SOURCES -> sourceRows
         Screen.LOGSET -> logItems.map { it.label }
         Screen.RUNNING -> if (running.isEmpty()) listOf("Nothing running") else running.map { it.label + " (" + it.state + ")" }
         Screen.WIFI -> listOf("Wi-Fi: " + (if (wifiOn) "On" else "Off")) + (if (!wifiOn) emptyList() else if (wifiNets.isEmpty()) listOf("Searching...") else wifiNets.map { wifiLabel(it) })
@@ -463,7 +470,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.SOURCES)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -480,6 +487,8 @@ class LauncherModel(
         Screen.BATTERY -> batteryKey(key)
         Screen.MUSIC -> musicKey(key, digit)
         Screen.MUSICMENU -> musicMenuKey(key)
+        Screen.RADIO -> radioKey(key)
+        Screen.SOURCES -> sourcesKey(key)
         Screen.LOGSET -> logSetKey(key)
         Screen.RUNNING -> runningKey(key)
         Screen.WIFI -> wifiKey(key)
@@ -971,7 +980,7 @@ class LauncherModel(
     // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { musicFromHome = true; screen = Screen.MUSICMENU; selected = 0; Action.Redraw } else openContacts(Screen.HOME)
+        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { musicFromHome = true; selected = 0; if (badges.any { it.kind == BadgeKind.MUSIC }) { nowFromHome = true; screen = Screen.MUSIC } else screen = Screen.MUSICMENU; Action.Redraw } else openContacts(Screen.HOME)
         Key.CALL -> openPhoneMenu(Screen.HOME)
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialFrom = Screen.HOME; screen = Screen.DIAL; Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
@@ -994,7 +1003,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.SOURCES)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -1074,7 +1083,7 @@ class LauncherModel(
         BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
         BadgeKind.NOTES -> { notesFrom = Screen.HOME; screen = Screen.NOTES; selected = 0; Action.Redraw }
-        BadgeKind.MUSIC -> { musicFromHome = true; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
+        BadgeKind.MUSIC -> { musicFromHome = true; nowFromHome = true; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
@@ -1090,6 +1099,8 @@ class LauncherModel(
     /** Where the Phone menu was opened from (Back returns there) and where the dial screen was opened from. */
     private var dialFrom = Screen.HOME
     private var musicFromHome = false
+    /** Now playing was opened straight from the home screen, so Back goes home instead of to the Music menu. */
+    private var nowFromHome = false
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
@@ -1141,23 +1152,55 @@ class LauncherModel(
      */
     private fun musicKey(key: Key, digit: Int): Action {
         val d = if (key == Key.DIGIT) digit else -1
+        val radio = music.active && music.source == "radio"
+        if (radio) { // internet radio: 1 to 9 jump to a preset; Left and Right step through them
+            if (d in 1..9) return if (d <= radioNames.size) Action.RadioPlay(d - 1) else Action.None
+        }
         return when {
-            key == Key.OK || key == Key.SOFT_LEFT || d == 5 -> if (music.active) Action.MusicPlayPause else if (spSignedIn) { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") } else Action.None
-            key == Key.RIGHT || d == 6 -> if (music.active) Action.MusicNext else Action.None
-            key == Key.LEFT || d == 4 -> if (music.active) Action.MusicPrevious else Action.None
-            key == Key.UP || d == 2 -> Action.MusicVolume(true)
-            key == Key.DOWN || d == 8 -> Action.MusicVolume(false)
-            key == Key.SOFT_RIGHT -> { screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
-            d == 0 && spSignedIn -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
-            d == 7 -> Action.SpectrumToggle
-            key == Key.STAR && spSignedIn -> Action.SpShuffle
-            key == Key.POUND && spSignedIn -> Action.SpRepeat
-            key == Key.END -> { goHome(); Action.Redraw }
+            key == Key.OK || key == Key.SOFT_LEFT || (d == 5 && !radio) -> if (music.active) Action.MusicPlayPause else if (spSignedIn) { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") } else Action.None
+            key == Key.RIGHT || (d == 6 && !radio) -> if (music.active) Action.MusicNext else Action.None
+            key == Key.LEFT || (d == 4 && !radio) -> if (music.active) Action.MusicPrevious else Action.None
+            key == Key.UP || (d == 2 && !radio) -> Action.MusicVolume(true)
+            key == Key.DOWN || (d == 8 && !radio) -> Action.MusicVolume(false)
+            key == Key.SOFT_RIGHT -> { if (nowFromHome) { nowFromHome = false; musicFromHome = false; goHome() } else { screen = Screen.MUSICMENU; selected = 0 }; Action.Redraw }
+            d == 0 -> { screen = Screen.SOURCES; selected = 0; Action.Redraw } // switch between Spotify and radio
+            d == 7 && !radio -> Action.SpectrumToggle
+            key == Key.STAR && spSignedIn && !radio -> Action.SpShuffle
+            key == Key.POUND && spSignedIn && !radio -> Action.SpRepeat
+            key == Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
             else -> Action.None
         }
     }
 
-    private val musicMenuRows: List<String> get() = listOf("Now playing", "Sleep timer: " + sleepLabel.ifEmpty { "off" }, "Bar shows: " + (if (spectrum) "spectrum" else "progress")) + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
+    /** What the Source screen offers: the two places music can come from, and where Spotify plays. */
+    private val sourceRows: List<String> get() = (if (radioMode != "off") listOf("Radio") else emptyList()) + (if (spSignedIn) listOf("Spotify playlists", "Spotify: play on...") else if (spConfigured) listOf("Sign in to Spotify") else emptyList())
+
+    private fun sourcesKey(key: Key): Action = move(key, sourceRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (sourceRows.getOrNull(selected)) {
+            "Radio" -> { screen = Screen.RADIO; selected = music.takeIf { it.source == "radio" }?.let { radioIndex.coerceAtLeast(0) } ?: 0; Action.Redraw }
+            "Spotify playlists" -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }
+            "Spotify: play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
+            "Sign in to Spotify" -> Action.SpSignIn
+            else -> Action.None
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
+        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun radioKey(key: Key): Action = move(key, maxOf(radioNames.size, 1)) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected in radioNames.indices) { screen = Screen.MUSIC; Action.RadioPlay(selected) } else Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SOURCES; selected = 0; Action.Redraw }
+        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    /** The radio station names in preset order, the setting for this mode ("off", "presets", "any") and the preset playing now; the activity keeps them current. */
+    var radioNames: List<String> = emptyList()
+    var radioMode = "any"
+    var radioIndex = -1
+
+    private val musicMenuRows: List<String> get() = listOf("Now playing") + (if (radioMode != "off") listOf("Radio") else emptyList()) + listOf("Sleep timer: " + sleepLabel.ifEmpty { "off" }, "Bar shows: " + (if (spectrum) "spectrum" else "progress")) + (if (spSignedIn) listOf("Playlists", "Search", "Play on...", "Sign out of Spotify") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA"))
 
     // the Phone entry and the green key open the dial pad (see the dialler notes in the backlog)
     private fun openPhoneMenu(from: Screen): Action { dialNumber = ""; dialFrom = from; screen = Screen.DIAL; return Action.Redraw }
@@ -1283,7 +1326,8 @@ class LauncherModel(
 
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (musicMenuRows.getOrNull(selected)) {
-            "Now playing" -> { screen = Screen.MUSIC; Action.Redraw }
+            "Now playing" -> { nowFromHome = false; screen = Screen.MUSIC; Action.Redraw }
+            "Radio" -> { screen = Screen.RADIO; selected = radioIndex.coerceAtLeast(0); Action.Redraw }
             "Sleep timer: ${sleepLabel.ifEmpty { "off" }}" -> Action.SleepStep
             "Bar shows: " + (if (spectrum) "spectrum" else "progress") -> Action.SpectrumToggle
             "Playlists" -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }

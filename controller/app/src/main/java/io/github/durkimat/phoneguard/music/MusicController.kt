@@ -17,6 +17,8 @@ data class MusicInfo(
     val device: String = "", val thisPhone: Boolean = true, val shuffle: Boolean = false, val repeat: String = "off",
     /** Where it is playing from, such as "Playlist: study" (empty when unknown). */
     val from: String = "",
+    /** "radio" for an internet radio station (live: no length, previous and next move between presets); empty for music. */
+    val source: String = "", val buffering: Boolean = false,
 ) {
     companion object {
         val NONE = MusicInfo(false, "", "", "", "", false, 0, 0, 0)

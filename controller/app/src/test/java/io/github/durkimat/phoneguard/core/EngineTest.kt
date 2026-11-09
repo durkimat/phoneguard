@@ -224,4 +224,19 @@ class EngineTest {
         assertEquals("auto", Engine.effective(c, Boost("day", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).waApp)
         assertEquals("full", Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day","waApp":"full"}},"segments":[]}""").modes["day"]!!.waApp)
     }
+
+    @Test fun radioSettingDefaultsToAnyAndABoostOnlyOpensItUp() {
+        assertEquals("any", Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"}},"segments":[]}""").modes["day"]!!.radio)
+        assertEquals("off", Engine.moreRadio("off", "off")); assertEquals("presets", Engine.moreRadio("off", "presets")); assertEquals("any", Engine.moreRadio("any", "off"))
+        val m2 = modes + ("school" to ModeDef("school", "School", false, setOf("a.calc"), false, radio = "off"))
+        val c = cfg().copy(modes = m2)
+        assertEquals("off", Engine.effective(c, null, at(2026, 11, 3, 10)).radio)
+        assertEquals("any", Engine.effective(c, Boost("day", at(2026, 11, 3, 11)), at(2026, 11, 3, 10)).radio)
+    }
+
+    @Test fun radioStationsComeFromTheParentAndPlainHttpIsRefused() {
+        val c = Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"}},"segments":[],"radioStations":[{"name":"A","url":"https://a/s"},{"name":"B","url":"http://b/s"},{"name":"","url":"https://c"}]}""")
+        assertEquals(listOf(RadioStation("A", "https://a/s")), c.radioStations)
+        assertNull(Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"}},"segments":[]}""").radioStations) // none: the phone uses its built-in list
+    }
 }

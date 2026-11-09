@@ -414,6 +414,7 @@ class PhoneGuardCard extends HTMLElement {
     h += row("Sound", (m) => sel("sound", m, [["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]], "normal"));
     h += row("WhatsApp checks", (m) => sel("wa", m, [["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]], "open"));
     h += row("WhatsApp app", (m) => sel("wa_app", m, [["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]], "auto"));
+    h += row("Internet radio", (m) => sel("radio", m, [["any", "Any station"], ["presets", "My list only"], ["off", "Off"]], "any"));
     h += row("Incoming calls allowed", (m) => tick("inbound", m)) + row("Camera offered", (m) => tick("camera", m));
     h += row("Location", (m) => sel("location", m, [["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]], "off"));
     h += row("Location every", (m) => `<td><select data-mode-opt="loc_every" data-mode="${m}" ${(d.modes[m].location || "off") === "off" ? "disabled" : ""}>${[[0, "Live"], [1, "1 min"], [5, "5 min"], [10, "10 min"], [15, "15 min"], [30, "30 min"], [60, "1 hour"]].map(([v, t]) => `<option value="${v}" ${(d.modes[m].loc_every ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select></td>`);
@@ -802,6 +803,7 @@ class PhoneGuardCard extends HTMLElement {
     if (opt === "sound") modes[mode].sound = i.value;
     if (opt === "wa") modes[mode].wa = i.value;
     if (opt === "wa_app") modes[mode].wa_app = i.value;
+    if (opt === "radio") modes[mode].radio = i.value;
     if (opt === "location") modes[mode].location = i.value;
     if (opt === "notes") modes[mode].notes = i.value;
     if (opt === "loc_every") modes[mode].loc_every = parseInt(i.value, 10);
