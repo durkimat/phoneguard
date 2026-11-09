@@ -298,15 +298,15 @@ class HomeBadgeTest {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
         assertEquals(listOf("Now playing", "Sleep timer: off", "Bar shows: progress", "Playlists", "Search", "Play on...", "Sign out of Spotify"), m.rows)
-        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.PLAYLISTS, m.screen)
+        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 4)); assertEquals(Screen.PLAYLISTS, m.screen)
         m.spPlaylists = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:playlist:1", "Chill", "10 tracks"))
         assertEquals(Action.SpPlay("spotify:playlist:1"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SpLoad("devices"), m.onKey(Key.DIGIT, 5)); assertEquals(Screen.DEVICES, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SpLoad("devices"), m.onKey(Key.DIGIT, 6)); assertEquals(Screen.DEVICES, m.screen)
         m.spDevices = listOf(io.github.durkimat.phoneguard.music.SpDevice("d1", "Lounge", "Speaker", false, 30), io.github.durkimat.phoneguard.music.SpDevice("d2", "Phone", "Smartphone", true, 50))
         m.spIsThisPhone = { it.id == "d2" }
         assertEquals(listOf("  Lounge", "> Phone (this phone)"), m.rows)
         assertEquals(Action.SpTransfer("d1", "Lounge"), m.onKey(Key.OK))
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 4) // search: the text entry, not a message
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 5) // search: the text entry, not a message
         assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
         m.onKey(Key.DIGIT, 2); m.onKey(Key.DIGIT, 2)
         val a = m.onKey(Key.OK); assertTrue(a is Action.SpSearch); assertEquals(Screen.SEARCHRES, m.screen)
