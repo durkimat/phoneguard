@@ -24,10 +24,14 @@ class ScreenCover(private val svc: AccessibilityService) {
     private var view: View? = null
     private val away = Runnable { hide() }
 
-    fun show(message: String, maxMs: Long = 20_000) {
+    fun show(message: String, maxMs: Long = 20_000) = showPanel(message.split("\n"), "", "", maxMs)
+
+    /** Lines of text in the middle, and labels for the two keys under the screen (left, right). */
+    fun showPanel(lines: List<String>, left: String, right: String, maxMs: Long = 20_000) {
         ui.post {
-            if (view == null) {
-                val v = Cover(svc, message)
+            view?.let { try { wm.removeView(it) } catch (_: Exception) { } }; view = null
+            run {
+                val v = Cover(svc, lines, left, right)
                 val lp = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN, PixelFormat.OPAQUE)
@@ -41,7 +45,7 @@ class ScreenCover(private val svc: AccessibilityService) {
         ui.post { ui.removeCallbacks(away); view?.let { try { wm.removeView(it) } catch (_: Exception) { } }; view = null }
     }
 
-    private class Cover(private val c: Context, private val message: String) : View(c) {
+    private class Cover(private val c: Context, private val lines: List<String>, private val left: String, private val right: String) : View(c) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
         override fun onDraw(cv: Canvas) {
             val prefs = c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -53,8 +57,19 @@ class ScreenCover(private val svc: AccessibilityService) {
                 when (font) { "sans" -> Typeface.SANS_SERIF; "vt323" -> Typeface.createFromAsset(c.assets, "fonts/VT323-Regular.ttf"); "pixelify" -> Typeface.createFromAsset(c.assets, "fonts/PixelifySans.ttf"); else -> Typeface.MONOSPACE }
             } catch (_: Exception) { Typeface.MONOSPACE }
             val u = width / 480f
-            p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true; p.textSize = 32 * u * (if (font == "vt323") 1.3f else 1f)
-            cv.drawText(message, width / 2f, height / 2f, p)
+            val scale = if (font == "vt323") 1.3f else 1f
+            p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
+            val first = height / 2f - (lines.size - 1) * 24f * u
+            lines.forEachIndexed { i, line ->
+                p.textSize = (if (lines.size == 1 || i == 0) 32f else 28f) * u * scale
+                var t = line; while (t.length > 1 && p.measureText(t) > width - 24 * u) t = t.dropLast(1)
+                cv.drawText(t, width / 2f, first + i * 48f * u, p)
+            }
+            // the two soft keys, like our own screens
+            p.strokeWidth = 2 * u; cv.drawLine(0f, height - 64 * u, width.toFloat(), height - 64 * u, p)
+            p.textSize = 30f * u * scale
+            p.textAlign = Paint.Align.LEFT; if (left.isNotEmpty()) cv.drawText(left, 16 * u, height - 22 * u, p)
+            p.textAlign = Paint.Align.RIGHT; if (right.isNotEmpty()) cv.drawText(right, width - 16 * u, height - 22 * u, p)
         }
     }
 }

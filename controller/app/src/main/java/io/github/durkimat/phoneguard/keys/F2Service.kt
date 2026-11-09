@@ -40,9 +40,47 @@ class F2Service : AccessibilityService() {
     /** The package whose window came to the front last (window titles and contents are never read). */
     @Volatile private var frontPkg = ""
 
+    /** True while Android's Bluetooth pairing dialog is on screen and our panel stands over it (see [onPairingDialog]). */
+    @Volatile private var pairing = false
+    private val pairingClass = "com.android.settings.bluetooth.BluetoothPairingDialog"
+
+    /**
+     * Android asks "Pair with X?" in a touch dialog. Here the dialog is covered by a panel in the phone's own style: what it asks
+     * (the name and the pairing code to compare), OK to pair, Back to cancel. Only that one dialog's window is read, and only to
+     * show its text and press its own two buttons.
+     */
+    private fun onPairingDialog() {
+        main.postDelayed({
+            try {
+                val root = rootInActiveWindow ?: return@postDelayed
+                val texts = mutableListOf<String>()
+                fun walk(n: android.view.accessibility.AccessibilityNodeInfo) {
+                    // "Allow contacts and call history": ticked for the person, as most people leave it (it does nothing for audio devices)
+                    if (n.className?.toString()?.contains("CheckBox") == true && n.isCheckable && !n.isChecked) n.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+                    val t = n.text?.toString()?.trim().orEmpty()
+                    if (t.isNotEmpty() && n.className?.toString()?.contains("Button") != true && n.className?.toString()?.contains("CheckBox") != true && n.className?.toString()?.contains("Switch") != true) texts += t
+                    for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it) }
+                }
+                walk(root)
+                pairing = true
+                cover.showPanel(texts.distinct().take(4).ifEmpty { listOf("Pair this device?") }, "Pair", "Cancel", 60_000)
+            } catch (e: Exception) { Log.log(this, "pairing panel: ${e.javaClass.simpleName}") }
+        }, 350)
+    }
+
+    private fun pressPairingButton(positive: Boolean) {
+        try {
+            val id = if (positive) "android:id/button1" else "android:id/button2"
+            rootInActiveWindow?.findAccessibilityNodeInfosByViewId(id)?.firstOrNull()?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+        } catch (e: Exception) { Log.log(this, "pairing button: ${e.javaClass.simpleName}") }
+        pairing = false; cover.hide()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val p = event.packageName?.toString().orEmpty()
+            if (event.className?.toString() == pairingClass) { onPairingDialog(); return }
+            if (pairing && p != packageName) { pairing = false; cover.hide() } // the dialog went away by itself
             // pop-ups and the system's own windows do not count as the app in front
             if (p.isNotEmpty() && p != "android" && p != "com.android.systemui") frontPkg = p
         }
@@ -96,6 +134,10 @@ class F2Service : AccessibilityService() {
     }
 
     override fun onKeyEvent(ev: KeyEvent): Boolean {
+        if (pairing && (ev.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || ev.keyCode == KeyEvent.KEYCODE_ENTER || ev.keyCode == KeyEvent.KEYCODE_MENU || ev.keyCode == KeyEvent.KEYCODE_BACK)) {
+            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) pressPairingButton(ev.keyCode != KeyEvent.KEYCODE_BACK)
+            return true
+        }
         if (ev.keyCode == KeyEvent.KEYCODE_CALL) return callKey(ev)
         if (ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP || ev.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             // the camera uses the volume keys as its shutter; everywhere else our own themed bar replaces Android's slider
