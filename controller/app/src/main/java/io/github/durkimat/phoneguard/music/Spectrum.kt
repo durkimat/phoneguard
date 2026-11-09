@@ -81,15 +81,17 @@ object Spectrum {
             var from = (loHz / hzPerBin).toInt().coerceIn(1, bins - 1)
             var to = (hiHz / hzPerBin).toInt().coerceIn(from, bins - 1)
             if (to == from) { from = ((loHz + hiHz) / 2 / hzPerBin).toInt().coerceIn(1, bins - 1); to = from } // narrower than a bin: the one at its centre
-            var sum = 0.0
-            for (k in from..to) sum += re[k] * re[k] + im[k] * im[k]
-            val amp = Math.sqrt(sum / (to - from + 1)) / (n / 4.0) // 1.0 is a full-scale sine
+            // the strongest bin, not the average: a voice or an instrument is a few sharp lines, and averaging them with the
+            // empty bins around them flattened the middle bars into the same muddle
+            var top = 0.0
+            for (k in from..to) top = max(top, re[k] * re[k] + im[k] * im[k])
+            val amp = Math.sqrt(top) / (n / 4.0) // 1.0 is a full-scale sine
             db[b] = (20 * Math.log10(amp + 1e-6)).toFloat() + b * 1.5f
         }
         val loud = db.max()
         ref = max(REF_FLOOR, if (loud > ref) loud else ref - 0.3f)
         for (b in 0 until BARS) {
-            val v = ((db[b] - (ref - DYNAMIC_DB)) / DYNAMIC_DB).coerceIn(0f, 1f)
+            val v = Math.pow(((db[b] - (ref - DYNAMIC_DB)) / DYNAMIC_DB).coerceIn(0f, 1f).toDouble(), 1.6).toFloat() // a curve, so middling levels sit low and real peaks stand out
             level[b] = if (v > level[b]) v else max(v, level[b] - 0.12f)
             if (level[b] >= peak[b]) { peak[b] = level[b]; peakAge[b] = now }
             else if (now - peakAge[b] > 450) peak[b] = max(level[b], peak[b] - 0.04f)
