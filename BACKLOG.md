@@ -974,3 +974,6 @@ Questions to put to them together:
 
 - Radios per mode: designed in docs/radios-per-mode.md (On / Saver / Off per radio per mode, check-in windows, keep-on list, spike first for the switches and a two-night baseline). Not built.
 - Other devices (Pixel 3 etc.): input layer (on-screen keypad, touch only in the bottom area, tall-screen scaling), role-based discovery instead of package-name lists, a Doctor self-test, QR provisioning, then bring-up on a Pixel 3 (stock Android 12 first, LineageOS if sensor-permission grants block us). Goal: other similar families.
+
+## Radios per mode: v2 design (owner, 2026-11-09)
+Simplified to one per-mode "radios sleep when locked"; check-ins follow loc_every; child intent restored on unlock; Settings > Connections (Wi-Fi, Bluetooth, Mobile data, Flight mode); status icons get a diagonal slash for off. See docs/radios-per-mode.md. Phone to be connected for the spike.
