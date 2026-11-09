@@ -1,8 +1,8 @@
-/* Phone Guard card v0.24.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.25.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.24.0";
+const PG_VERSION = "0.25.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -256,10 +256,10 @@ class PhoneGuardCard extends HTMLElement {
         <div class="row" style="margin-top:8px"><input class="sas" type="text" inputmode="numeric" maxlength="4" placeholder="1234" value="${this._esc(this._ui.sas)}">
         <button class="primary" data-act="confirm">Confirm</button><button data-act="forget" class="danger">Cancel pairing</button></div>`;
     } else {
-      html += this._matrixHtml(d) + this._appsHtml(d) + this._modeSettingsHtml(d) + this._powerHtml(d) + this._holidayHtml(d);
+      html += this._matrixHtml(d) + this._modeSettingsHtml(d) + this._powerHtml(d) + this._holidayHtml(d);
     }
     html += this._timetableHtml(d);
-    if (dev && !dev.pending) html += this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d);
+    if (dev && !dev.pending) html += this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._usageHtml(d) + this._batteryHtml(d) + this._updatesHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -293,7 +293,7 @@ class PhoneGuardCard extends HTMLElement {
       const i = part.indexOf("</h3>");
       const title = part.slice(0, i), body = part.slice(i + 5);
       const open = title in saved ? saved[title] : OPEN.includes(title);
-      const note = title === "Modes and apps" && d.pending_apps && d.pending_apps.length ? `<span class="note">${d.pending_apps.length} new</span>` : (title === "Apps and store" && d.update && d.update.available ? `<span class="note">update</span>` : "");
+      const note = title === "Modes and apps" && d.pending_apps && d.pending_apps.length ? `<span class="note">${d.pending_apps.length} new</span>` : (title === "Phone Guard updates" && d.update && d.update.available ? `<span class="note">update</span>` : "");
       out += `<details class="sec" data-sec="${this._esc(title)}" ${open ? "open" : ""}><summary>${title}${note}</summary>${body}</details>`;
     }
     return out;
@@ -432,26 +432,20 @@ class PhoneGuardCard extends HTMLElement {
       <div class="sub">Shows a small weather symbol, the temperature and any rain coming in the next few hours on the home screen, and a Weather entry in the menu. Data by Open-Meteo.com. The place is rounded to about 100 metres.</div>`;
   }
 
-  // Apps and store: remove an app, search the open-source store and install, and update Phone Guard itself. The phone does the work when it next checks in.
-  _appsHtml(d) {
-    if (!d.apps.length) return "";
-    const st = this._ui.store || (this._ui.store = { q: "", results: [], busy: false, msg: "" });
-    const label = (pkg) => ((d.apps.find((a) => a.pkg === pkg) || {}).label) || pkg;
-    let h = `<h3>Apps and store</h3>`;
+  // Updates: the only app HA installs for the phone is Phone Guard itself. People install their own apps with Aurora; the table above decides who sees them.
+  _updatesHtml(d) {
+    if (!d.device) return "";
+    let h = `<h3>Phone Guard updates</h3>`;
     const u = d.update;
-    if (u && u.available) h += `<div class="new" style="margin-bottom:8px"><b>Phone Guard ${this._esc(u.version)} is available</b> <span class="sub">(on the phone: ${this._esc(u.installed || "?")})</span>
-      ${u.notes ? `<div class="sub" style="white-space:pre-wrap;margin-top:4px">${this._esc(u.notes.slice(0, 300))}</div>` : ""}
-      <div class="row" style="margin-top:6px"><button class="primary" data-act="update_phone" ${u.ready && !(d.app_commands || []).some((c) => c.kind === "update") ? "" : "disabled"}>Update this phone</button>
-      <span class="sub">${u.ready ? "The phone updates itself when it next checks in, on Wi-Fi." : "This release has no checksum yet."}</span></div></div>`;
     const waiting = d.app_commands || [];
-    if (waiting.length) h += `<div class="sub" style="margin-bottom:6px"><b>Waiting for the phone</b> (it does these on Wi-Fi at its next check-in): ${waiting.map((c) => `${c.kind === "remove" ? "remove" : c.kind === "update" ? "update" : "install"} ${this._esc(c.name)} <button class="small" data-act="job_cancel" data-id="${this._esc(c.id)}">cancel</button>`).join(" · ")}</div>`;
-    if ((d.app_log || []).length) h += `<details style="margin-bottom:6px"><summary class="sub" style="cursor:pointer">Recent installs and removals</summary><div class="sub">${d.app_log.map(([t, nm, kind, res, why]) => `${this._fmtTime(t)} ${kind} ${this._esc(nm)}: ${res === "done" ? "done" : "failed (" + this._esc(why) + ")"}`).join("<br>")}</div></details>`;
-    h += `<div class="sub" style="margin:6px 0 4px"><b>Installed</b>: remove one with the cross. The phone, messages and settings are never offered.</div><div class="chips">${d.apps.map((a) => `<span class="pchip">${this._esc(a.label)}<button data-act="app_remove" data-pkg="${this._esc(a.pkg)}" data-name="${this._esc(a.label)}" title="Remove from the phone">✕</button></span>`).join("")}</div>`;
-    h += `<div class="sub" style="margin:12px 0 4px"><b>Find an app</b>: official downloads, F-Droid and IzzyOnDroid searched together</div>
-      <div class="row"><input data-store-q type="text" size="28" placeholder="What do you want? (calculator, maps, game…)" value="${this._esc(st.q)}"><button data-act="store_search" ${st.busy ? "disabled" : ""}>Search</button></div>`;
-    if (st.msg) h += `<div class="sub" style="margin-top:6px">${this._esc(st.msg)}</div>`;
-    if (st.results.length) h += `<table class="mx" style="margin-top:6px">${st.results.map((a) => `<tr><td class="name" style="text-align:left">${this._esc(a.name)} <span class="sub">${a.source === "official" ? "official" : a.source === "izzy" ? "IzzyOnDroid" : "F-Droid"}</span><small>${this._esc(a.summary)}</small></td><td><button data-act="store_install" data-pkg="${this._esc(a.pkg)}" data-name="${this._esc(a.name)}" data-source="${this._esc(a.source || "fdroid")}" ${st.busy || d.apps.some((x) => x.pkg === a.pkg) ? "disabled" : ""}>${d.apps.some((x) => x.pkg === a.pkg) ? "Installed" : "Install"}</button></td></tr>`).join("")}</table>`;
-    return h + `<div class="sub" style="margin-top:8px">An installed app starts hidden and shows up above in "Modes and apps": tick it in the modes where it is allowed.</div>`;
+    h += `<div class="sub">On this phone: <b>${this._esc((d.device.state || {}).version || "?")}</b>${u && u.version ? ` · newest release: <b>${this._esc(u.version)}</b>` : " · no release found yet"}</div>`;
+    if (u && u.available) h += `<div class="new" style="margin:8px 0"><b>Phone Guard ${this._esc(u.version)} is available</b>
+      ${u.notes ? `<div class="sub" style="white-space:pre-wrap;margin-top:4px">${this._esc(u.notes.slice(0, 300))}</div>` : ""}
+      <div class="row" style="margin-top:6px"><button class="primary" data-act="update_phone" ${u.ready && !waiting.some((c) => c.kind === "update") ? "" : "disabled"}>Update this phone</button>
+      <span class="sub">${u.ready ? "The phone updates itself when it next checks in, on Wi-Fi." : "This release has no checksum yet."}</span></div></div>`;
+    if (waiting.length) h += `<div class="sub" style="margin:6px 0">Waiting for the phone: ${waiting.map((c) => `${this._esc(c.name)} <button class="small" data-act="job_cancel" data-id="${this._esc(c.id)}">cancel</button>`).join(" · ")}</div>`;
+    if ((d.app_log || []).length) h += `<div class="sub" style="margin-top:6px">${d.app_log.slice(0, 3).map(([t, nm, kind, res, why]) => `${this._fmtTime(t)} ${this._esc(nm)}: ${res === "done" ? "done" : "failed (" + this._esc(why) + ")"}`).join("<br>")}</div>`;
+    return h + `<div class="sub" style="margin-top:8px">Other apps: install them with Aurora on the phone; a new app starts hidden and appears in "Modes and apps" above for you to tick.</div>`;
   }
 
   // Power and memory: automatic. The only thing to decide is which apps must never be closed, and how soon an idle one is.
@@ -893,28 +887,6 @@ class PhoneGuardCard extends HTMLElement {
     if (a === "forget") return this._svc("forget");
     if (a === "update_phone") return this._svc("update_phone", {});
     if (a === "job_cancel") return this._svc("cancel_job", { id: b.dataset.id });
-    if (a === "app_remove") {
-      if (!window.confirm("Remove " + b.dataset.name + " from the phone?")) return;
-      return this._svc("remove_app", { package: b.dataset.pkg, name: b.dataset.name });
-    }
-    if (a === "store_search") {
-      const st = ui.store || (ui.store = { q: "", results: [], busy: false, msg: "" });
-      st.q = ((this.shadowRoot.querySelector("[data-store-q]") || {}).value || "").trim();
-      if (st.q.length < 2) { st.msg = "Type at least two letters."; return this._render(); }
-      st.busy = true; st.msg = "Searching…"; this._render();
-      return this._hass.connection.sendMessagePromise({ type: "phoneguard/store_search", q: st.q })
-        .then((r) => { st.results = r.results; st.msg = r.results.length ? ((r.errors || []).length ? "Could not reach: " + r.errors.join(", ") : "") : ((r.errors || []).length ? "Could not reach: " + r.errors.join(", ") : "Nothing found."); })
-        .catch((err) => { st.msg = (err && err.message) || "Search failed."; })
-        .finally(() => { st.busy = false; this._render(); });
-    }
-    if (a === "store_install") {
-      const st = ui.store;
-      st.busy = true; st.msg = "Preparing " + b.dataset.name + " (the store's file is checked first, this can take a minute)…"; this._render();
-      return this._hass.connection.sendMessagePromise({ type: "phoneguard/store_install", child: d.child, pkg: b.dataset.pkg, name: b.dataset.name, source: b.dataset.source || "fdroid" })
-        .then((r) => { st.msg = b.dataset.name + " " + r.version + " is queued: the phone installs it when it next checks in."; })
-        .catch((err) => { st.msg = (err && err.message) || "Could not prepare that app."; })
-        .finally(() => { st.busy = false; this._render(); });
-    }
     if (a === "keep_add" || a === "keep_del") {
       const cur = new Set(d.keep_running || []);
       if (a === "keep_del") cur.delete(b.dataset.pkg);

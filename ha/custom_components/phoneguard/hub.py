@@ -195,19 +195,16 @@ class Hub:
 
     # ---- installing, removing and updating apps (jobs the phone does and reports back)
 
-    APP_KINDS = ("install", "remove", "update")
+    OWN_PACKAGE = "io.github.durkimat.phoneguard"
 
     def queue_app(self, cid: str, kind: str, pkg: str, name: str, url: str = "", sha256: str = "", size: int = 0) -> dict:
-        from . import store as ST
-        if kind not in self.APP_KINDS:
-            raise ValueError("unknown job")
-        if not ST.valid_pkg(pkg):
-            raise ValueError("that is not an app name")
-        if kind != "remove":
-            if not url.startswith("https://"):
-                raise ValueError("the download address must be https")
-            if not re.fullmatch(r"[0-9a-f]{64}", sha256 or ""):
-                raise ValueError("the checksum is missing")
+        """Queue a job for the phone. The only job there is: updating Phone Guard itself (people install their own apps with Aurora)."""
+        if kind != "update" or pkg != self.OWN_PACKAGE:
+            raise ValueError("only Phone Guard itself can be updated from here")
+        if not url.startswith("https://"):
+            raise ValueError("the download address must be https")
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256 or ""):
+            raise ValueError("the checksum is missing")
         ch = self.data["children"][cid]
         cmds = ch.setdefault("commands", [])
         if any(c["kind"] == kind and c["pkg"] == pkg for c in cmds):

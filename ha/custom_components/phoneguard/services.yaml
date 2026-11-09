@@ -118,14 +118,6 @@ set_mode_all:
     mode: {required: true, example: day, selector: {text: {}}}
     allowed: {required: true, selector: {boolean: {}}}
 
-remove_app:
-  name: Remove an app
-  description: Ask the phone to remove an app (never a protected one).
-  fields:
-    child: {required: true, selector: {text: {}}}
-    package: {required: true, selector: {text: {}}}
-    name: {selector: {text: {}}}
-
 cancel_job:
   name: Cancel an install, removal or update that is waiting
   fields:
