@@ -22,6 +22,7 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/appstate"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/proto/waHistorySync"
 	"go.mau.fi/whatsmeow/store"
@@ -270,6 +271,71 @@ func (b *Bridge) Send(chat string, text string) error {
 	}
 	_, err := b.cli.SendMessage(context.Background(), to, &waE2E.Message{Conversation: proto.String(text)})
 	return err
+}
+
+// bySender splits message ids by the sender who wrote them (ids and senders are lists with one entry per line, side by side),
+// keeping the order senders first appear in. WhatsApp wants one read notice per sender.
+func bySender(ids, senders string) ([]string, map[string][]types.MessageID) {
+	var order []string
+	groups := map[string][]types.MessageID{}
+	idl, sl := strings.Split(ids, "\n"), strings.Split(senders, "\n")
+	for i, id := range idl {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		s := ""
+		if i < len(sl) {
+			s = strings.TrimSpace(sl[i])
+		}
+		if _, seen := groups[s]; !seen {
+			order = append(order, s)
+		}
+		groups[s] = append(groups[s], types.MessageID(id))
+	}
+	return order, groups
+}
+
+// MarkRead tells WhatsApp the chat was read on this phone: the main phone then shows it read too. ids and senders are what the app still
+// held as unread (one per line, side by side; the sender matters only in groups). lastID, lastSender, lastFromMe and lastTS describe the
+// newest message in the chat. Read notices go to the senders only when the account has read receipts on; otherwise only the account's
+// other devices are told.
+func (b *Bridge) MarkRead(chat, ids, senders string, lastID, lastSender string, lastFromMe bool, lastTS int64) error {
+	if b.cli == nil {
+		return errors.New("not connected")
+	}
+	ctx := context.Background()
+	isGroup := strings.HasPrefix(chat, "g")
+	to := types.NewJID(digits(chat), types.DefaultUserServer)
+	if isGroup {
+		to = types.NewJID(chat[1:], types.GroupServer)
+	}
+	at := time.Now()
+	if lastTS > 0 {
+		at = time.Unix(lastTS, 0)
+	}
+	var extra []types.ReceiptType
+	if b.cli.GetPrivacySettings(ctx).ReadReceipts != types.PrivacySettingAll {
+		extra = []types.ReceiptType{types.ReceiptTypeReadSelf}
+	}
+	order, groups := bySender(ids, senders)
+	for _, s := range order {
+		sender := types.EmptyJID
+		if isGroup && s != "" {
+			sender = types.NewJID(digits(s), types.DefaultUserServer)
+		}
+		if err := b.cli.MarkRead(ctx, groups[s], at, to, sender, extra...); err != nil {
+			return err
+		}
+	}
+	if lastID == "" {
+		return nil
+	}
+	key := &waCommon.MessageKey{RemoteJID: proto.String(to.String()), FromMe: proto.Bool(lastFromMe), ID: proto.String(lastID)}
+	if isGroup && lastSender != "" && !lastFromMe {
+		key.Participant = proto.String(types.NewJID(digits(lastSender), types.DefaultUserServer).String())
+	}
+	return b.cli.SendAppState(ctx, appstate.BuildMarkChatAsRead(to, true, at, key))
 }
 
 func (b *Bridge) isAllowed(n string) bool {

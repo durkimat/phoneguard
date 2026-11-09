@@ -276,6 +276,25 @@ object WhatsApp {
     fun connect(c: Context): String = try { open(c)?.connect(); "ok" } catch (e: Throwable) { "error: ${e.message}" }
     fun disconnect() { bridge?.disconnect() }
     fun isConnected(): Boolean = bridge?.isConnected ?: false
+    /**
+     * The chat was opened on this phone: tell WhatsApp, so the main phone shows it read too. Must be called before the unread marks are
+     * cleared (it reads them). Runs on its own thread because it may have to connect first; a failure only leaves the main phone as it was.
+     */
+    fun readChat(c: Context, chat: String) {
+        val app = c.applicationContext
+        val info = store(app).readInfo(chat) ?: return
+        if (info.ids.isEmpty() && info.lastId.isEmpty()) return
+        Thread {
+            try {
+                main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
+                if (!isConnected()) { connect(app); for (i in 1..20) { if (isConnected()) break; Thread.sleep(500) } }
+                if (!isConnected()) { Log.log(app, "whatsapp: could not tell WhatsApp a chat was read (not connected)"); return@Thread }
+                open(app)?.markRead(chat, info.ids, info.senders, info.lastId, info.lastSender, info.lastFromMe, info.lastTs)
+                Log.log(app, "whatsapp: told WhatsApp chat ..." + chat.takeLast(3) + " was read")
+            } catch (e: Throwable) { Log.log(app, "whatsapp: could not tell WhatsApp a chat was read: ${e.message}") }
+        }.start()
+    }
+
     fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, text); "sent" } catch (e: Throwable) { e.message ?: "error" }
     /**
      * Pulls names and gaps back in without unlinking: asks WhatsApp again for the address-book names and the groups, gives
