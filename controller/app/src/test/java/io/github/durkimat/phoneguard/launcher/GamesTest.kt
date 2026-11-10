@@ -182,23 +182,6 @@ class HomeBadgeTest {
         assertTrue("Android settings" !in school.rows)
     }
 
-    @Test fun musicScreenIsARemoteForTheMusicApp() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
-        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
-        assertEquals(Screen.MUSICMENU, m.screen); assertEquals(listOf("Now playing", "Radio", "Sleep timer: off", "Bar shows: progress", "Sign in to Spotify"), m.rows)
-        m.onKey(Key.OK); assertEquals(Screen.MUSIC, m.screen)
-        assertEquals(Action.None, m.onKey(Key.OK)) // nothing playing, no music app: nothing to do
-        m.musicApp = true; assertEquals(Action.None, m.onKey(Key.OK)) // never opens the Spotify app itself
-        m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", "Song", "Band", "Album", true, 30_000, 200_000, 40)
-        assertEquals("Pause", m.softKeys.first)
-        assertEquals(Action.MusicPlayPause, m.onKey(Key.OK)); assertEquals(Action.MusicPlayPause, m.onKey(Key.DIGIT, 5)); assertEquals(Action.MusicPlayPause, m.onKey(Key.SOFT_LEFT))
-        assertEquals(Action.MusicNext, m.onKey(Key.RIGHT)); assertEquals(Action.MusicNext, m.onKey(Key.DIGIT, 6))
-        assertEquals(Action.MusicPrevious, m.onKey(Key.LEFT)); assertEquals(Action.MusicPrevious, m.onKey(Key.DIGIT, 4))
-        assertEquals(Action.MusicVolume(true), m.onKey(Key.UP)); assertEquals(Action.MusicVolume(false), m.onKey(Key.DIGIT, 8))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
-        assertEquals("3:20", io.github.durkimat.phoneguard.music.MusicInfo.clock(200_000)); assertEquals("1:02:03", io.github.durkimat.phoneguard.music.MusicInfo.clock(3_723_000))
-    }
-
     @Test fun runningAppsKillsWithTheLeftKeyAndOkGoesToOurOwnScreens() {
         fun atRunning(): LauncherModel {
             val m = LauncherModel(listOf(MenuItem(LOGSET_PKG, "Logs & Settings"), MenuItem(MUSIC_PKG, "Music"), MenuItem(CAMERA_PKG, "Camera")), "com.android.contacts", "com.android.messaging")
@@ -278,102 +261,6 @@ class HomeBadgeTest {
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // opened from the home screen, so Back goes straight home (not to the Music menu or the main menu)
     }
 
-    @Test fun nothingPlayingOffersPlaylistsNotTheSpotifyApp() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1)
-        assertEquals(Screen.MUSIC, m.screen); assertEquals("Playlists" to "Back", m.softKeys)
-        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.OK)); assertEquals(Screen.PLAYLISTS, m.screen)
-    }
-
-    @Test fun repeatAndSleepTimerKeys() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1) // Now playing
-        assertEquals(Screen.MUSIC, m.screen)
-        assertEquals(Action.SpRepeat, m.onKey(Key.POUND)); assertEquals(Action.SpShuffle, m.onKey(Key.STAR))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 3))
-        m.sleepLabel = "30 min"; assertEquals("Sleep timer: 30 min", m.rows[2])
-    }
-
-    @Test fun signedInMusicMenuOffersPlaylistsSearchAndDevices() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.spSignedIn = true
-        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
-        assertEquals(listOf("Now playing", "Radio", "Sleep timer: off", "Bar shows: progress", "Playlists", "Search", "Play on...", "Sign out of Spotify"), m.rows)
-        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 5)); assertEquals(Screen.PLAYLISTS, m.screen)
-        m.spPlaylists = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:playlist:1", "Chill", "10 tracks"))
-        assertEquals(Action.SpPlay("spotify:playlist:1"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Action.SpLoad("devices"), m.onKey(Key.DIGIT, 7)); assertEquals(Screen.DEVICES, m.screen)
-        m.spDevices = listOf(io.github.durkimat.phoneguard.music.SpDevice("d1", "Lounge", "Speaker", false, 30), io.github.durkimat.phoneguard.music.SpDevice("d2", "Phone", "Smartphone", true, 50))
-        m.spIsThisPhone = { it.id == "d2" }
-        assertEquals(listOf("  Lounge", "> Phone (this phone)"), m.rows)
-        assertEquals(Action.SpTransfer("d1", "Lounge"), m.onKey(Key.OK))
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 6) // search: the text entry, not a message
-        assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
-        m.onKey(Key.DIGIT, 2); m.onKey(Key.DIGIT, 2)
-        val a = m.onKey(Key.OK); assertTrue(a is Action.SpSearch); assertEquals(Screen.SEARCHRES, m.screen)
-    }
-
-    @Test fun homeMusicKeyGoesStraightToNowPlayingWhenSomethingPlaysAndBackReturnsHome() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen) // nothing playing: the Music menu
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
-        m.badges = listOf(Badge(BadgeKind.MUSIC, 1))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSIC, m.screen) // playing: straight in
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // and Back straight out
-        // reached through the Music menu, Back returns to the Music menu
-        m.badges = emptyList(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.OK); assertEquals(Screen.MUSIC, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen)
-    }
-
-    @Test fun radioPresetsSourceSwitchAndKeys() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
-        m.radioNames = listOf("BBC Radio 1", "Heart", "Classic FM")
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2) // Music menu, Radio
-        assertEquals(Screen.RADIO, m.screen); assertEquals(listOf("BBC Radio 1", "Heart", "Classic FM", "Find station", "Browse stations"), m.rows)
-        assertEquals(Action.RadioPlay(1), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.MUSIC, m.screen)
-        m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", "Heart", "", "", true, 5_000, 0, 40, source = "radio")
-        // on radio the digits are presets, the d-pad does the rest
-        assertEquals(Action.RadioPlay(2), m.onKey(Key.DIGIT, 3)); assertEquals(Action.None, m.onKey(Key.DIGIT, 9))
-        assertEquals(Action.MusicNext, m.onKey(Key.RIGHT)); assertEquals(Action.MusicPrevious, m.onKey(Key.LEFT)); assertEquals(Action.MusicPlayPause, m.onKey(Key.OK))
-        assertEquals(Action.MusicVolume(true), m.onKey(Key.UP))
-        m.spConfigured = false; m.onKey(Key.DIGIT, 0); assertEquals(Screen.SOURCES, m.screen); assertEquals(listOf("Radio"), m.rows) // Spotify is not set up here
-        m.spSignedIn = true; assertEquals(listOf("Radio", "Spotify playlists", "Spotify: play on..."), m.rows)
-        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.PLAYLISTS, m.screen)
-    }
-
-    @Test fun radioOffHidesTheRadioRows() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.radioMode = "off"
-        m.onKey(Key.SOFT_RIGHT); assertTrue("Radio" !in m.rows)
-    }
-
-    @Test fun radioBrowseAndFind() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.radioNames = listOf("BBC Radio 1", "Heart")
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(Screen.RADIO, m.screen)
-        // Browse: popular, genres, countries
-        m.onKey(Key.DOWN); m.onKey(Key.DOWN); m.onKey(Key.DOWN); m.onKey(Key.OK) // "Browse stations"
-        assertEquals(Screen.RADIOBROWSE, m.screen); assertEquals(listOf("Popular in the UK", "Genres", "Countries"), m.rows)
-        assertEquals(Action.RadioLoad("top", "GB"), m.onKey(Key.OK)); assertEquals(Screen.RADIORES, m.screen); assertEquals(listOf("Loading..."), m.rows)
-        m.radioRes = listOf(io.github.durkimat.phoneguard.music.RadioItem("Jazz FM", "MP3 128k GB", "https://j/s"), io.github.durkimat.phoneguard.music.RadioItem("Smooth", "AAC 48k GB", "https://s/s"))
-        assertEquals(listOf("Jazz FM", "Smooth"), m.rows)
-        assertEquals(Action.RadioFav("Jazz FM", "https://j/s"), m.onKey(Key.STAR))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIOBROWSE, m.screen) // Back goes to the browse list
-        m.onKey(Key.DOWN); m.onKey(Key.OK); assertEquals(Screen.RADIOBROWSE, m.screen); assertTrue("Pop" in m.rows) // genres
-        assertEquals(Action.RadioLoad("tag", "pop"), m.onKey(Key.OK))
-        m.radioRes = listOf(io.github.durkimat.phoneguard.music.RadioItem("Pop FM", "", "https://p/s"))
-        assertEquals(Action.RadioPlayUrl("Pop FM", "https://p/s"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
-        // Find: type a name
-        m.onKey(Key.DIGIT, 0); m.onKey(Key.OK); assertEquals(Screen.RADIO, m.screen)
-        m.onKey(Key.DOWN); m.onKey(Key.DOWN); m.onKey(Key.OK) // "Find station"
-        assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
-        m.onKey(Key.DIGIT, 4); m.onKey(Key.DIGIT, 3)
-        assertTrue(m.onKey(Key.OK) is Action.RadioSearch); assertEquals(Screen.RADIORES, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIO, m.screen) // Back from a search returns to the station list
-    }
-
-    @Test fun onlyAnyModeOffersFindAndBrowse() {
-        val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))); m.radioNames = listOf("A"); m.radioMode = "presets"
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(listOf("A"), m.rows)
-    }
-
     @Test fun connectionsGathersWifiBluetoothAndMobileData() {
         val m = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")))
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 6)
@@ -388,5 +275,97 @@ class HomeBadgeTest {
         val m = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings"))); m.dataShown = true
         assertEquals(Action.Redraw, m.tap(80f, 20f)); assertEquals(Screen.CONNECTIONS, m.screen)
         m.goHome(); assertEquals(Action.BtLoad, m.tap(190f, 20f)); assertEquals(Screen.BT, m.screen)
+    }
+
+    private fun musicModel(): LauncherModel = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music"))).also { it.radioNames = listOf("BBC Radio 1", "Heart", "Classic FM"); it.spSignedIn = true }
+
+    @Test fun theMusicMenuListsProvidersThenTheCommonSettings() {
+        val m = musicModel()
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen)
+        assertEquals(listOf("Radio", "Spotify", "Sleep timer: off", "Bar shows: progress"), m.rows)
+        m.provStatus = mapOf(Provider.RADIO to 2, Provider.SPOTIFY to 1); assertEquals(listOf(2, 1, 0, 0), m.rowMarks) // a symbol per provider: playing, paused
+        m.radioMode = "off"; assertEquals(listOf("Spotify", "Sleep timer: off", "Bar shows: progress"), m.rows) // radio off in this mode: no Radio row
+        assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 2)); assertEquals(Action.SpectrumToggle, m.onKey(Key.DIGIT, 3))
+    }
+
+    @Test fun aProviderScreenIsTheProvidersAppAndItsMenuHoldsItsFunctions() {
+        val m = musicModel()
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2) // Music menu, Spotify
+        assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.SPOTIFY, m.provider); assertEquals("Spotify", m.title); assertEquals("Menu" to "Back", m.softKeys)
+        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.OK)); assertEquals(Screen.PLAYLISTS, m.screen) // nothing playing: OK picks a playlist
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.SPOTIFYMENU, m.screen); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSIC, m.screen)
+        m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Spotify", "Song", "Band", "Album", true, 30_000, 200_000, 40)
+        assertEquals(Action.MusicPlayPause, m.onKey(Key.OK)); assertEquals(Action.MusicPlayPause, m.onKey(Key.DIGIT, 5))
+        assertEquals(Action.MusicNext, m.onKey(Key.RIGHT)); assertEquals(Action.MusicNext, m.onKey(Key.DIGIT, 6))
+        assertEquals(Action.MusicPrevious, m.onKey(Key.LEFT)); assertEquals(Action.MusicPrevious, m.onKey(Key.DIGIT, 4))
+        assertEquals(Action.MusicVolume(true), m.onKey(Key.UP)); assertEquals(Action.MusicVolume(false), m.onKey(Key.DIGIT, 8))
+        assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 0)); assertEquals(Action.SpectrumToggle, m.onKey(Key.DIGIT, 7))
+        assertEquals(Action.SpShuffle, m.onKey(Key.STAR)); assertEquals(Action.SpRepeat, m.onKey(Key.POUND))
+        // the left key opens the menu: Spotify's own functions, then the common ones
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
+        assertEquals(listOf("Playlists", "Search", "Play on...", "Sleep timer: off", "Bar shows: progress", "Sign out of Spotify"), m.rows)
+        assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 4)); assertEquals(Action.SpectrumToggle, m.onKey(Key.DIGIT, 5))
+        assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 1)); assertEquals(Screen.PLAYLISTS, m.screen)
+        m.spPlaylists = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:playlist:1", "Chill", "10 tracks"))
+        assertEquals(Action.SpPlay("spotify:playlist:1"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Action.SpLoad("devices"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.DEVICES, m.screen)
+        m.spDevices = listOf(io.github.durkimat.phoneguard.music.SpDevice("d1", "Lounge", "Speaker", false, 30), io.github.durkimat.phoneguard.music.SpDevice("d2", "Phone", "Smartphone", true, 50))
+        m.spIsThisPhone = { it.id == "d2" }
+        assertEquals(listOf("  Lounge", "> Phone (this phone)"), m.rows); assertEquals(Action.SpTransfer("d1", "Lounge"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
+        m.onKey(Key.SOFT_LEFT); m.onKey(Key.DIGIT, 2) // Search: the text entry, not a message
+        assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
+        m.onKey(Key.DIGIT, 2); m.onKey(Key.DIGIT, 2); val a = m.onKey(Key.OK); assertTrue(a is Action.SpSearch); assertEquals(Screen.SEARCHRES, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.SPOTIFYMENU, m.screen) // Back from the lists returns to the menu, and from the menu to the screen
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen) // opened through the Music menu: Back returns there
+    }
+
+    @Test fun spotifyNotSignedInOffersSigningIn() {
+        val m = musicModel(); m.spSignedIn = false; m.spConfigured = true
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); m.onKey(Key.SOFT_LEFT)
+        assertEquals(listOf("Sign in to Spotify", "Sleep timer: off", "Bar shows: progress"), m.rows); assertEquals(Action.SpSignIn, m.onKey(Key.DIGIT, 1))
+        m.spConfigured = false; assertEquals("Spotify: set up in HA", m.rows[0])
+    }
+
+    @Test fun theRadioScreenHasPresetKeysAndAMenuForFindAndBrowse() {
+        val m = musicModel()
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1) // Music menu, Radio
+        assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.RADIO, m.provider); assertEquals("Radio", m.title)
+        assertEquals(Action.Redraw, m.onKey(Key.OK)); assertEquals(Screen.RADIO, m.screen); assertEquals(listOf("BBC Radio 1", "Heart", "Classic FM"), m.rows) // nothing playing: OK shows the presets
+        assertEquals(Action.RadioPlay(1), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.MUSIC, m.screen)
+        m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", "Heart", "", "", true, 5_000, 0, 40, source = "radio")
+        assertEquals(Action.RadioPlay(2), m.onKey(Key.DIGIT, 3)); assertEquals(Action.None, m.onKey(Key.DIGIT, 9)) // the digits are presets
+        assertEquals(Action.MusicNext, m.onKey(Key.RIGHT)); assertEquals(Action.MusicPrevious, m.onKey(Key.LEFT)); assertEquals(Action.MusicPlayPause, m.onKey(Key.OK))
+        assertEquals(Action.MusicVolume(true), m.onKey(Key.UP)); assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 0)); assertEquals(Action.SpectrumToggle, m.onKey(Key.STAR))
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.RADIOMENU, m.screen)
+        assertEquals(listOf("Presets", "Find station", "Browse stations", "Sleep timer: off", "Bar shows: progress"), m.rows)
+        // Browse: popular, genres, countries
+        m.onKey(Key.DIGIT, 3); assertEquals(Screen.RADIOBROWSE, m.screen); assertEquals(listOf("Popular in the UK", "Genres", "Countries"), m.rows)
+        assertEquals(Action.RadioLoad("top", "GB"), m.onKey(Key.OK)); assertEquals(Screen.RADIORES, m.screen); assertEquals(listOf("Loading..."), m.rows)
+        m.radioRes = listOf(io.github.durkimat.phoneguard.music.RadioItem("Jazz FM", "MP3 128k GB", "https://j/s"), io.github.durkimat.phoneguard.music.RadioItem("Smooth", "AAC 48k GB", "https://s/s"))
+        assertEquals(Action.RadioFav("Jazz FM", "https://j/s"), m.onKey(Key.STAR))
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIOBROWSE, m.screen); m.onKey(Key.DOWN); m.onKey(Key.OK); assertTrue("Pop" in m.rows)
+        assertEquals(Action.RadioLoad("tag", "pop"), m.onKey(Key.OK)); m.radioRes = listOf(io.github.durkimat.phoneguard.music.RadioItem("Pop FM", "", "https://p/s"))
+        assertEquals(Action.RadioPlayUrl("Pop FM", "https://p/s"), m.onKey(Key.OK)); assertEquals(Screen.MUSIC, m.screen)
+        // Find: type a name
+        m.onKey(Key.SOFT_LEFT); m.onKey(Key.DIGIT, 2); assertEquals(Screen.WRITE, m.screen); assertTrue(m.writeSearch)
+        m.onKey(Key.DIGIT, 4); m.onKey(Key.DIGIT, 3); assertTrue(m.onKey(Key.OK) is Action.RadioSearch); assertEquals(Screen.RADIORES, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIOMENU, m.screen) // Back from a search returns to the Radio menu
+    }
+
+    @Test fun radioModeLimitsWhatTheRadioMenuOffers() {
+        val m = musicModel(); m.radioMode = "presets"
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1); m.onKey(Key.SOFT_LEFT)
+        assertEquals(listOf("Presets", "Sleep timer: off", "Bar shows: progress"), m.rows) // the parent's list only: no Find or Browse
+    }
+
+    @Test fun homeMusicKeyGoesStraightToTheProviderThatIsPlayingAndBackReturnsHome() {
+        val m = musicModel()
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen) // nothing playing: the Music menu
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
+        m.badges = listOf(Badge(BadgeKind.MUSIC, 1)); m.playingProvider = Provider.RADIO
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.RADIO, m.provider) // playing: straight into that provider's screen
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // and Back straight out
+        m.badges = emptyList(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.SPOTIFY, m.provider)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen) // reached through the Music menu, Back returns to it
     }
 }
