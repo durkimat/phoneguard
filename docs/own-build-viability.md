@@ -155,3 +155,27 @@ Findings about the process (useful for the recovery guide):
   "unauthorized" for our key, so recovery gives no read path.
 - Restore guidance (untested): mtkclient `w` / `wl` can write partitions back from these files in the same mode,
   so a bad system flash is recoverable if the preloader window can be caught. Never flash preloader or lk without need.
+
+## 9. Later Android and security patches (research, 2026-11-10)
+
+Later Android on this chip:
+- No official OEM update above the shipped vendor (Android 11 on one MT6761 phone in a TrebleDroid issue, Android 12 on ours)
+  found. Our kernel is 4.19.191 (build date 2026-08-04, so Qin still builds firmware), and Android's published common-kernel
+  matrix lists no 4.19 branch for Android 14, 15 or 16 (lowest is android12-5.10).
+- GSI evidence: TrebleDroid issue 228 (Oukitel WP5, MT6761, 4.19, Android 11 vendor, May 2026): Android 14 GSI boots, Wi-Fi works,
+  Bluetooth crashes; Android 15+ GSI has no Wi-Fi because of a BPF kernel gap; a kernel patcher attempt failed. So Android 14 looks
+  like the practical ceiling; 15+ is unproven and blocked by the old kernel.
+- Android 15/16 GSIs exist (TrebleDroid last release ci-20250617, Android 16; Google Android 16 GSI June 2025; community Lineage 23.2
+  GSIs 2026), but TrebleDroid has not released since mid-2025.
+- FCM docs: an Android 16 framework still accepts vendor FCM level 6 (Android 12) on paper; real-world failure comes from the kernel and HALs.
+
+Security patches for an Android 14 base:
+- Google's November 2026 bulletin (patch level 2026-11-05) still lists Android 14. Patches reach us through AOSP commits linked
+  from the bulletin; LineageOS 21 (lineage-21.0) is still receiving commits in Nov 2026 including security fixes (cherry-picked),
+  but the public android-14 tags on the AOSP build-numbers page stop at android-14.0.0_r75 (Aug 2024) / security r31 (Oct 2023)
+  (unverified whether the security branch continues without tags).
+- Covered by a system-image rebuild: framework, system, Android runtime, bundled Mainline modules as built into the image.
+- NOT covered: kernel 4.19 (EOL upstream, absent from Android's supported kernel list), modem (MOLY baseband), bootloader/preloader/TEE,
+  vendor HALs. MediaTek bulletins list MT6761 issues monthly (e.g. October 2026, modem/display/battery); fixes go to OEMs, not the public.
+  Only Qin can ship those. The reported patch level (Dumber build: 2026-06-01) overstates real security because vendor is 2024-01-05.
+- Without Google Play services there are no Mainline updates outside a full image update.
