@@ -100,3 +100,34 @@ Nothing above writes to the device.
 
 One device only. Until a second unit is available we do not flash experimental images to it. Work that can proceed
 without risk: host setup, trial builds, reading, and the read-only checks above.
+
+## 7. Evidence from our phone (read-only, 2026-11-10)
+
+Device: Qin J35-class (product AGN_5337BQ_J35_E1_MV3224), running Dumber OS build `eng.michal.20261102.113851`.
+Nothing written to the phone during these checks (one reboot to fastboot and back; the Phone Guard app update
+was a separate, authorised step).
+
+| Fact | Value | Why it matters |
+|---|---|---|
+| SoC | MediaTek MT6761 (Helio A22), eMMC storage | BROM-mode tools (mtkclient, SP Flash Tool) apply; known low-end chip |
+| Vendor firmware | Qin stock vendor, **Android 12** (fingerprint ...:12/SP1A.210812.016), vendor patch 2024-01-05, VNDK 31 | Android 14 system image runs over an Android 12 vendor. Vendor/kernel are two years behind: weak security-support story. "31" in Dumber's build target matches VNDK 31 (inference) |
+| Partitioning | A/B, dynamic partitions (super), Treble enabled | Matches what GSIs need |
+| Bootloader | LK, `fastboot getvar unlocked` = **yes**, `secure` = no, build 2026-08-04 | Unlocked, as expected. Android properties are misleading (`ro.boot.flash.locked=1`, verifiedbootstate green, vbmeta device_state unlocked), so trust fastboot, not getprop |
+| Unlock ability | `get_unlock_ability` = 0 | OEM-unlock toggle off (already unlocked; relock possibly changes this) |
+| Slots | current a; a successful, b never booted (retry 7) | Slot B holds no tried image: no proven fallback slot yet |
+| fastboot mode | bootloader fastboot, `is-userspace: no`; USB ID 0e8d:201c | fastbootd (userspace) can flash logical partitions; max-download 128 MB |
+| Serial | 0123456789ABCDEF (generic placeholder) | Not a usable per-unit identity |
+| Partitions seen | preloader_a/b on mmcblk0boot0/1, lk, tee, scp, sspm, spmfw, gz, md1img, boot/init_boot/vendor_boot, dtbo, vbmeta x3, super (5 GiB), plus nvram, nvdata, nvcfg, protect1/2, proinfo, seccfg, sec1, otp, expdb, frp, para, boot_para, flashinfo, logo, metadata, md_udc, userdata | The per-unit identity data to back up: nvram, nvdata, nvcfg, protect1, protect2, proinfo, sec1, seccfg (holds MediaTek unlock state), otp, md1img |
+
+Things now known about our recovery position:
+- Unlocked fastboot works and shows full variables, so a bad system image is recoverable by `fastboot flash`
+  of a known-good system while the bootloader and preloader stay intact.
+- Slot B has never booted, so we cannot count on it as a fallback until it is populated and proven.
+- We still lack: the exact stock firmware package for J35 (Android 12 vendor), a verified read-back of every
+  identity partition, and confirmation of how this chip's preloader accepts BROM connections.
+
+Checklist update: items 1 and 2 done; item 8 shows a real weakness (vendor and kernel patch level 2024-01).
+
+Next read-only steps (need owner OK for the tool use): confirm mtkclient's read-only mode and BROM USB ID with the
+phone off (key combo documented for this model), then take a full read-back of the identity partitions and verify
+by reading twice.
