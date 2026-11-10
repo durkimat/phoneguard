@@ -131,3 +131,27 @@ Checklist update: items 1 and 2 done; item 8 shows a real weakness (vendor and k
 Next read-only steps (need owner OK for the tool use): confirm mtkclient's read-only mode and BROM USB ID with the
 phone off (key combo documented for this model), then take a full read-back of the identity partitions and verify
 by reading twice.
+
+## 8. Backup taken (2026-11-10)
+
+Read-only full backup of our Qin J35 unit over MediaTek preloader mode with mtkclient (installed in an isolated
+venv; no root on the phone; adb cannot read raw partitions). Nothing was written to the phone.
+
+- Location (outside the repo): /home/matthew/phone-backups/qin-j35-20261110/
+  - partitions/ : every GPT partition except userdata (49 files, 5.9 GB), partitions.sha256
+  - identity/ : nvram, nvdata, nvcfg, protect1, protect2, proinfo, sec1, seccfg, otp, read separately first and
+    confirmed byte-identical to the second read in partitions/ (identity.sha256)
+  - preloader/preloader_boot1.bin : 4 MiB from the eMMC boot1 area (preloader.sha256)
+  - all files chmod read-only
+- Skipped on purpose: userdata (personal data, 23 GB), RPMB.
+- Not yet done: second copy on another disk; restore rehearsal (deliberately not attempted on the only device).
+
+Findings about the process (useful for the recovery guide):
+- The chip (MT6761) has SBC/SLA/DAA disabled, so mtkclient needs no signed loader or authentication.
+- With the phone off and USB plugged in, the preloader enumerates as 0e8d:2000 for about 2-3 seconds, then the
+  phone continues to its off-charge screen (0e8d:2046) or boots. mtkclient must catch that window; it succeeded about
+  one attempt in two. A retry loop with per-attempt output directories, keeping a result only if complete, worked well.
+- Holding a volume key at plug-in shows the LK boot menu (recovery/fastboot/normal), not BROM. Recovery adb is
+  "unauthorized" for our key, so recovery gives no read path.
+- Restore guidance (untested): mtkclient `w` / `wl` can write partitions back from these files in the same mode,
+  so a bad system flash is recoverable if the preloader window can be caught. Never flash preloader or lk without need.
