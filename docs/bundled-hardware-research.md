@@ -136,8 +136,8 @@ local_manifests_treble/*), their install blog post (2025-10-18), FAQ, and phhuss
   interface split is the general mechanism (inference); TrebleDroid exists to patch per-vendor quirks.
 - MediaTek device (they use mtkclient for backups). The phh wiki page notes copying the stock keylayout for the T9 keypad.
 - Their own components are repos pulled into the tree: DumbdroidUpdater (in-OS updater), DumbdroidPanel, and
-  miki151/device_owner built as packages/apps/DumbdroidAdmin, i.e. a device-owner app baked into the system image
-  (the same shape as our controller). Also treble_app (phh settings app), microG via lineageos4microg, MindTheGapps option.
+  miki151/device_owner built as packages/apps/DumbdroidAdmin. CORRECTION (see own-build-viability.md): this is NOT a device owner, it is a platform-signed privileged system app that hides apps via DevicePolicyManager.
+  Also treble_app (phh settings app), microG via lineageos4microg, MindTheGapps option.
 - Patches live in lineage_patches_unified and the manifest repo dumberos_manifests (neither read). Launcher, app blocker
   and settings source were not found on any page read.
 - Flashing (user guide): enable OEM unlock, `fastboot flashing unlock`, erase userdata+metadata, `fastboot flash system
