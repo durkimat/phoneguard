@@ -123,3 +123,28 @@ own-key locked bootloader) on commodity hardware, but small companies do ship cu
   small brands pre-certified Android builds. Qualcomm has no equal found. Source: vendor pages, dated.
 - Not found: any enthusiast group that obtained vendor BSP, certified, and relocked with its own key on a commodity
   keypad phone. DumberOS and community ports run unlocked or with test keys on retail hardware.
+
+## 10. How Dumber OS is built (read from their public build repo, 2026-11-10)
+
+Sources: github.com/miki151/dumberos_build (README, buildbot_unified.sh, apply_patches.sh, sign_target_files.sh,
+local_manifests_treble/*), their install blog post (2025-10-18), FAQ, and phhusson/treble_experimentations wiki page for the F21 Pro.
+
+- It is a Treble GSI-style system image: LineageOS 21 (Android 14) with TrebleDroid/phh patches (device/phh/treble and
+  vendor/interfaces at android-14.0), built with `lunch lineage_vanilla31` (or "30" for the F21 Pro) -> `make systemimage`.
+  Output is one signed system.img. Only the system partition is replaced; stock vendor, boot and firmware stay.
+  Why Android 14 runs over a stock Android 13 vendor is not explained on any page read. Treble's vendor/framework
+  interface split is the general mechanism (inference); TrebleDroid exists to patch per-vendor quirks.
+- MediaTek device (they use mtkclient for backups). The phh wiki page notes copying the stock keylayout for the T9 keypad.
+- Their own components are repos pulled into the tree: DumbdroidUpdater (in-OS updater), DumbdroidPanel, and
+  miki151/device_owner built as packages/apps/DumbdroidAdmin, i.e. a device-owner app baked into the system image
+  (the same shape as our controller). Also treble_app (phh settings app), microG via lineageos4microg, MindTheGapps option.
+- Patches live in lineage_patches_unified and the manifest repo dumberos_manifests (neither read). Launcher, app blocker
+  and settings source were not found on any page read.
+- Flashing (user guide): enable OEM unlock, `fastboot flashing unlock`, erase userdata+metadata, `fastboot flash system
+  dumberos.img`, reboot. No vbmeta or AVB key handling appears in the scripts or the guide, and relocking is never mentioned.
+  Evidence therefore points to an UNLOCKED bootloader on these phones, not a relocked one. Whether units Dumber sells
+  pre-installed ship locked is not established (check on our own phone: `getprop ro.boot.verifiedbootstate`,
+  green=locked, orange=unlocked).
+- Signing covers APKs/APEXes with a custom key (sign_target_files_apks), not the boot chain.
+- OTA: no server or protocol documented; the updater app is the mechanism. Builds appear run by hand by one developer;
+  no CI seen. No licence file seen.
