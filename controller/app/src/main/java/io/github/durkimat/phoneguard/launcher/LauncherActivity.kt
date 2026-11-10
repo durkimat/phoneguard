@@ -191,9 +191,10 @@ class LauncherActivity : Activity() {
         if (model.screen != Screen.MUSIC) return@Runnable
         if (!musicBusy) {
             musicBusy = true
+            val prov = model.provider
             Thread {
                 try {
-                    val now = nowPlaying()
+                    val now = nowPlaying(prov)
                     runOnUiThread {
                         if (model.screen == Screen.MUSIC) {
                             model.music = now
@@ -224,8 +225,9 @@ class LauncherActivity : Activity() {
     /** After play or pause the state we expect, held for a few seconds: Spotify still reports the old state for a moment and the symbol would flip back and forth. */
     private var playHold: Pair<Boolean, Long>? = null
 
-    private fun nowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo {
-        var m = nowPlayingRaw()
+    private fun nowPlaying(p: Provider): io.github.durkimat.phoneguard.music.MusicInfo {
+        if (p == Provider.RADIO) return radioInfo() ?: io.github.durkimat.phoneguard.music.MusicInfo.NONE.copy(volumePct = io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio")
+        var m = spotifyOrLocal()
         seekHold?.let { (to, at) ->
             val now = System.currentTimeMillis()
             if (now - at < 3000) m = m.copy(positionMs = (to + (if (m.playing) now - at else 0L)).coerceAtMost(if (m.durationMs > 0) m.durationMs else Long.MAX_VALUE)) else seekHold = null
@@ -235,20 +237,24 @@ class LauncherActivity : Activity() {
         return m.copy(playing = h.first)
     }
 
-    /**
-     * Which source Now playing shows: the radio while it plays here; otherwise Spotify (or another music app) if that is playing; and
-     * only when nothing else is playing, a station that was paused, so its play key brings it back.
-     */
-    private fun nowPlayingRaw(): io.github.durkimat.phoneguard.music.MusicInfo {
-        val radio: io.github.durkimat.phoneguard.music.MusicInfo? = if (io.github.durkimat.phoneguard.music.Radio.active) {
-            val st = io.github.durkimat.phoneguard.music.Radio.state
-            val connecting = st.buffering && !st.playing
-            io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
-                if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting)
-        } else null
-        if (radio != null && radio.playing) return radio
-        val other = spotifyOrLocal()
-        return if (radio != null && !(other.active && other.playing)) radio else other
+    /** The radio's state as Now playing shows it, or null when no station has been chosen. */
+    private fun radioInfo(): io.github.durkimat.phoneguard.music.MusicInfo? {
+        if (!io.github.durkimat.phoneguard.music.Radio.active) return null
+        val st = io.github.durkimat.phoneguard.music.Radio.state
+        val connecting = st.buffering && !st.playing
+        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
+            if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting)
+    }
+
+    /** What is playing, and each provider's state for the Music menu (0 idle, 1 paused, 2 playing), from what is already known (nothing is polled here). */
+    private fun providerStates(): Pair<Provider?, Map<Provider, Int>> {
+        val radio = if (io.github.durkimat.phoneguard.music.Radio.playing) 2 else if (io.github.durkimat.phoneguard.music.Radio.active) 1 else 0
+        val sp = try {
+            val local = io.github.durkimat.phoneguard.music.MusicController.info(this)
+            val p = spPlayer
+            if (local.playing || p?.playing == true) 2 else if (local.active || p != null) 1 else 0
+        } catch (_: Exception) { 0 }
+        return (if (radio == 2) Provider.RADIO else if (sp == 2) Provider.SPOTIFY else null) to mapOf(Provider.RADIO to radio, Provider.SPOTIFY to sp)
     }
 
     private fun spotifyOrLocal(): io.github.durkimat.phoneguard.music.MusicInfo {
@@ -257,7 +263,7 @@ class LauncherActivity : Activity() {
         val now = System.currentTimeMillis()
         if (!spPolling && now - spPolledAt > 3000) {
             spPolling = true; spPolledAt = now
-            Thread { try { spPlayer = sp.player(this) } finally { spPolling = false } }.start()
+            Thread { try { spPlayer = sp.player(this) } finally { spPolling = false }; if (model.screen == Screen.MUSICMENU) ui.post { invalidate(D.INFO) } }.start()
         }
         val p = spPlayer ?: return local
         val mine = thisPhone(io.github.durkimat.phoneguard.music.SpDevice(p.deviceId, p.deviceName, p.deviceType, true, p.volume))
@@ -338,6 +344,7 @@ class LauncherActivity : Activity() {
         var spConfigured = false; var spSignedIn = false; var sleepLabel: String? = null; var spectrum = false
         var waLinked = false; var waEnabled = false; var waCode: String? = null
         var radioNames: List<String> = emptyList(); var radioMode = "any"
+        var playingProvider: Provider? = null; var provStatus: Map<Provider, Int> = emptyMap()
         var contacts: List<Contact>? = null; var calls: List<CallEntry>? = null; var convos: List<Convo>? = null
         var waStatus: String? = null; var waUnread = 0; var waConvos: List<Convo>? = null
         var all: List<MenuItem>? = null; var pinned: List<String> = emptyList()
@@ -352,6 +359,7 @@ class LauncherActivity : Activity() {
         if (bits and D.CONTACTS != 0) bits = bits or D.CALLS or D.CONVOS or D.WA // names come from the contacts
         loading = true
         val screen = model.screen
+        val provider = model.provider
         loadedScreen = screen
         val known = model.contacts
         val bitsNow = bits
@@ -370,6 +378,7 @@ class LauncherActivity : Activity() {
                     r.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
                     r.waCode = WhatsApp.pairCode
                     r.radioNames = io.github.durkimat.phoneguard.music.Radio.stations(this).map { it.name }
+                    providerStates().let { (playing, status) -> r.playingProvider = playing; r.provStatus = status }
                     r.radioMode = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).radio
                     r.info = LauncherData.info(this)
                     WeatherStore.refreshIfDue(this) { ui.post { invalidate(D.INFO) } }
@@ -383,7 +392,8 @@ class LauncherActivity : Activity() {
                     r.waStatus = WhatsApp.status; r.waUnread = WhatsApp.store(this).unreadTotal(); r.waConvos = WhatsApp.convos(this, people)
                 }
                 if (bitsNow and D.SCREEN != 0) when (screen) {
-                    Screen.MUSIC -> { r.music = nowPlaying(); r.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this); r.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this) }
+                    Screen.MUSIC -> { r.music = nowPlaying(provider); r.musicApp = io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this); r.spSignedIn = io.github.durkimat.phoneguard.music.Spotify.signedIn(this) }
+                    Screen.MUSICMENU -> spotifyOrLocal() // looks again at Spotify, so the symbol next to it is right
                     Screen.RUNNING -> r.running = io.github.durkimat.phoneguard.IdleReaper.running(this)
                     Screen.BATTERY -> r.battery = LauncherData.batteryInfo(this)
                     else -> {}
@@ -402,6 +412,7 @@ class LauncherActivity : Activity() {
             model.sleepLabel = r.sleepLabel ?: ""; model.spectrum = r.spectrum
             model.waLinked = r.waLinked; model.waEnabled = r.waEnabled
             model.radioNames = r.radioNames; model.radioMode = r.radioMode
+            model.playingProvider = r.playingProvider; model.provStatus = r.provStatus
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
             model.badges = it.badges; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
             model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data
@@ -447,14 +458,14 @@ class LauncherActivity : Activity() {
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
         // Now playing: a tap on left or right (or 4 and 6) skips the track when the key comes up; holding it winds back or forward instead
-        if (model.screen == Screen.MUSIC && model.music.active && model.music.source != "radio" && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
+        if (model.screen == Screen.MUSIC && model.music.active && model.provider != Provider.RADIO && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
             val dir = if (k.first == Key.RIGHT || k.second == 6) 1 else -1
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) { seekDir = dir; seekFired = false; seekSteps = 0; ui.removeCallbacks(seekStep); ui.postDelayed(seekStep, 500) }
             else if (ev.action == KeyEvent.ACTION_UP) { ui.removeCallbacks(seekStep); if (!seekFired) perform(if (dir > 0) Action.MusicNext else Action.MusicPrevious); seekFired = false }
             return true
         }
         // radio Now playing: a short press of 1 to 9 plays that preset; holding it stores the playing station there (where the mode allows any station)
-        if (model.screen == Screen.MUSIC && model.music.active && model.music.source == "radio" && model.radioMode == "any" && k.first == Key.DIGIT && k.second in 1..9) {
+        if (model.screen == Screen.MUSIC && model.music.active && model.provider == Provider.RADIO && model.radioMode == "any" && k.first == Key.DIGIT && k.second in 1..9) {
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) { presetDigit = k.second; presetStored = false; presetDown = true; ui.removeCallbacks(storePreset); ui.postDelayed(storePreset, 400) }
             else if (ev.action == KeyEvent.ACTION_UP && presetDown) { presetDown = false; ui.removeCallbacks(storePreset); if (!presetStored) perform(model.onKey(k.first, k.second)); presetStored = false }
             return true
@@ -472,7 +483,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
-    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.SOURCES, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private var presetDigit = 0
     private var presetStored = false
@@ -545,7 +556,7 @@ class LauncherActivity : Activity() {
                 val l = io.github.durkimat.phoneguard.music.RadioBrowser.search(a.query)
                 ui.post { model.radioRes = l ?: emptyList(); model.radioStatus = if (l == null) "Could not search" else "Nothing found"; refresh() }
             }.start()
-            is Action.RadioPlayUrl -> { io.github.durkimat.phoneguard.music.Radio.playUrl(this, a.name, a.url); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
+            is Action.RadioPlayUrl -> { model.provider = Provider.RADIO; io.github.durkimat.phoneguard.music.Radio.playUrl(this, a.name, a.url); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
             is Action.RadioFav -> { val added = io.github.durkimat.phoneguard.music.RadioFavs.toggle(this, a.name, a.url); model.notify(if (added) "Added to presets" else "Removed from presets"); invalidate(D.INFO); refresh() }
             is Action.RadioStore -> io.github.durkimat.phoneguard.music.Radio.state.let { st ->
                 if (st.url.isNotEmpty()) { io.github.durkimat.phoneguard.music.RadioFavs.setSlot(this, a.slot, st.station, st.url); io.github.durkimat.phoneguard.music.Radio.reindex(this); model.notify("Saved as preset ${a.slot}"); invalidate(D.INFO or D.SCREEN); refresh() }
@@ -557,15 +568,15 @@ class LauncherActivity : Activity() {
                     refresh()
                 }
             }
-            is Action.RadioPlay -> { io.github.durkimat.phoneguard.music.Radio.play(this, a.index); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
-            Action.MusicPlayPause -> if (model.music.source == "radio") { val on = io.github.durkimat.phoneguard.music.Radio.playing; model.music = model.music.copy(playing = !on, buffering = false); redraw(); io.github.durkimat.phoneguard.music.Radio.toggle(this) } else {
+            is Action.RadioPlay -> { model.provider = Provider.RADIO; io.github.durkimat.phoneguard.music.Radio.play(this, a.index); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
+            Action.MusicPlayPause -> if (model.provider == Provider.RADIO) { val on = io.github.durkimat.phoneguard.music.Radio.playing; model.music = model.music.copy(playing = !on, buffering = false); redraw(); io.github.durkimat.phoneguard.music.Radio.toggle(this) } else {
                 val was = model.music.playing
                 playHold = !was to System.currentTimeMillis() + 5000
                 model.music = model.music.copy(playing = !was); lastInfo?.let { skin.render(model, it) } // show it at once; the player confirms in a moment
                 spOrLocal({ if (was) sp.pause(this) else sp.resume(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
             }
-            Action.MusicNext -> if (model.music.source == "radio") io.github.durkimat.phoneguard.music.Radio.next(this) else spOrLocal({ sp.next(this) }, { io.github.durkimat.phoneguard.music.MusicController.next(this) })
-            Action.MusicPrevious -> if (model.music.source == "radio") io.github.durkimat.phoneguard.music.Radio.previous(this) else spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
+            Action.MusicNext -> if (model.provider == Provider.RADIO) io.github.durkimat.phoneguard.music.Radio.next(this) else spOrLocal({ sp.next(this) }, { io.github.durkimat.phoneguard.music.MusicController.next(this) })
+            Action.MusicPrevious -> if (model.provider == Provider.RADIO) io.github.durkimat.phoneguard.music.Radio.previous(this) else spOrLocal({ sp.previous(this) }, { io.github.durkimat.phoneguard.music.MusicController.previous(this) })
             is Action.MusicVolume -> {
                 // on another device the volume is Spotify's for that device; on this phone it is the phone's music volume
                 if (sp.signedIn(this) && !model.music.thisPhone) Thread { sp.volume(this, model.music.volumePct + (if (a.up) 10 else -10)); spPolledAt = 0; ui.post { invalidate(D.SCREEN); refresh() } }.start()

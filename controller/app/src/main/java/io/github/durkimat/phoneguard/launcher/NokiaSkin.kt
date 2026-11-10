@@ -345,11 +345,15 @@ class NokiaSkin : LauncherSkin {
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
             titleText(c, m.title, u)
             val mu = m.music
+            val radio = m.provider == Provider.RADIO
             if (!mu.active) {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
-                text(c, if (m.spSignedIn) "OK picks a playlist" else "Sign in to Spotify in the Music menu", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
+                val other = m.playingProvider?.takeIf { it != m.provider }
+                text(c, if (other != null) (if (other == Provider.RADIO) "Radio" else "Spotify") + " is playing"
+                    else if (radio) (if (m.radioNames.isEmpty()) "No stations in this mode" else "OK picks a station")
+                    else if (m.spSignedIn) "OK picks a playlist" else "Menu: sign in to Spotify", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
+                if (other != null) text(c, if (radio) "OK picks a station" else if (m.spSignedIn) "OK picks a playlist" else "", 240f, 316f, 24f, u, align = Paint.Align.CENTER)
             } else {
-                val radio = mu.source == "radio"
                 if (radio) text(c, "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
                 else if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
                 marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)
@@ -380,11 +384,11 @@ class NokiaSkin : LauncherSkin {
                 else { text(c, "4 prev", 20f, 464f, 26f, u); text(c, "6 next", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
                 if (radio) {
                     text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 514f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "0 source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "* bars   0 sleep", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
                     if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
-                } else if (m.spSignedIn || m.radioMode != "off") {
-                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 520f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "0 source" + (if (m.sleepLabel.isNotEmpty()) "   sleep in " + m.sleepLabel else ""), 240f, 556f, 24f, u, align = Paint.Align.CENTER)
+                } else {
+                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 514f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "7 bars   0 sleep" + (if (m.sleepLabel.isNotEmpty()) " " + m.sleepLabel else ""), 240f, 548f, 24f, u, align = Paint.Align.CENTER)
                 }
             }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
@@ -527,6 +531,14 @@ class NokiaSkin : LauncherSkin {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
                     marquee(c, prefix + row, 20f, top + 42f, 32f, 440f, u, bold = true, color = lcd)
                 } else text(c, label, 20f, top + 42f, 32f, u)
+                // the Music menu shows what each provider is doing: a play triangle while it plays, two bars while it is paused
+                m.rowMarks.getOrNull(idx)?.takeIf { it > 0 }?.let { mark ->
+                    val cy = top + 27f; val col = if (idx == m.selected) lcd else ink
+                    p.color = col
+                    if (mark == 2) { val t = android.graphics.Path().apply { moveTo(432f * u, (cy - 11) * u); lineTo(454f * u, cy * u); lineTo(432f * u, (cy + 11) * u); close() }; c.drawPath(t, p.also { it.style = Paint.Style.FILL }) }
+                    else { c.drawRect(434f * u, (cy - 11) * u, 441f * u, (cy + 11) * u, p.also { it.style = Paint.Style.FILL }); c.drawRect(447f * u, (cy - 11) * u, 454f * u, (cy + 11) * u, p) }
+                    p.color = ink
+                }
             }
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
