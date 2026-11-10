@@ -104,3 +104,22 @@ competitor (unlicensed repo, so ask first). Their audience is adults who want fe
 - Request samples and BSP/OTA/bootloader details from 2-3 ODMs including the Qin maker.
 - Get a short consultation with a UK product-compliance adviser on "software-modified resale" and PSTI.
 - Check GMS licensing route with a Google-authorised distributor.
+
+## 9. Has a small or enthusiast group done this? (2026-11-10)
+
+Short answer: yes, in pieces. No one in the enthusiast scene gets everything (vendor source, Google certification,
+own-key locked bootloader) on commodity hardware, but small companies do ship custom-OS phones commercially.
+
+- Light Phone III: small US company, Qualcomm SM4450, built by Foxconn as contract manufacturer, own Android-based
+  LightOS, no Google apps. Shows the contract-manufacturer route works for a small brand (unit volumes and Foxconn terms unknown).
+- Punkt MC02 (Swiss): MediaTek Dimensity 900, Apostrophy OS (AOSP 13 based) built by a partner company. Reviewers say
+  the OS runs on one device only. ODM not identified (a reader guess says it is a stock Chinese ODM board; unconfirmed).
+- Murena (/e/OS): sells Fairphones with /e/OS preinstalled; forum reports say bootloader can be relocked on official
+  /e/OS builds for FP3-5 (not community builds) and Play Integrity can fail after updates. Relies on Fairphone's openness.
+- GrapheneOS: Pixel-only for years because Pixels allow relock with a custom verified-boot key. In March 2026 Motorola
+  announced a partnership (porting work mostly Motorola's, first compatible devices not before 2027). Shows even
+  enthusiast projects needed an OEM's cooperation.
+- Small certified route: Google GMS partner ODMs (e.g. Longcheer) and MediaTek's GMS Express programme (2017) give
+  small brands pre-certified Android builds. Qualcomm has no equal found. Source: vendor pages, dated.
+- Not found: any enthusiast group that obtained vendor BSP, certified, and relocked with its own key on a commodity
+  keypad phone. DumberOS and community ports run unlocked or with test keys on retail hardware.
