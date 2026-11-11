@@ -73,3 +73,8 @@ Phone Guard reinstall after any wipe: provision again as device owner (Provision
 - Fastboot unreachable but the preloader window works: R1 with mtkclient (retry until it catches the 2-3 s window, as in the recovery guide).
 - Identity or radio problems (no IMEI): restore the identity partitions from ~/phone-backups/qin-j35-20261110/identity/ (recovery-guide section 5.4). Our flash never writes them, so this is only for the unexpected.
 - No USB at all: stop and read recovery-guide section 5.5. Do not experiment.
+
+## 8. Ready-made kits (prepared 2026-11-11)
+- Flash kit: /artifacts/flash-baseline-20261111/ (system.img, product_empty.img, SHA256SUMS, flash-baseline.sh). It is a build output, so /artifacts is the right place. Script source: build/flash/flash-baseline.sh (checks checksums, requires unlocked bootloader, asks before each write, stops on the first error).
+- Restore kit (quick return, R2): /archive/phone-backups/restore-kit-dumber-20261110/ (Dumber system_a.img, stock product_a.img, SHA256SUMS-restore, restore-quick.sh). Copy of backup data, so it lives with the backups, not in /artifacts.
+- For R1 (byte-exact) the files are super.bin in the 10 Nov partitions folder plus the userdata/metadata dumps to be taken.
