@@ -384,11 +384,12 @@ class NokiaSkin : LauncherSkin {
                 else { text(c, "4 prev", 20f, 464f, 26f, u); text(c, "6 next", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
                 if (radio) {
                     text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 514f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "* bars   0 sleep", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "* bars  0 sleep  # source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
                     if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 } else {
-                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   # repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 514f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "7 bars   0 sleep" + (if (m.sleepLabel.isNotEmpty()) " " + m.sleepLabel else ""), 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   1 repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 514f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "7 bars  0 sleep  # source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 }
             }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
