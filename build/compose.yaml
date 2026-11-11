@@ -1,0 +1,163 @@
+# Phone Guard Android build environment (LineageOS 21 / Android 14 GSI).
+# Paste into MOS > Docker > Compose. Stack name: android-build
+# Environment Variables box (see env.example): PUID, PGID, AUTHORIZED_KEY.
+# Host directories to create first (owned by PUID:PGID): see README.md.
+# Needs Docker Compose >= 2.17 for dockerfile_inline.
+#
+# Two containers: android-build (builds, SSH 2222) and claude-workstation (Claude Code + all projects, SSH 2223). Each runs an
+# unprivileged sshd (key-only, no root) so a remote session can work inside the container and nowhere else.
+# AUTHORIZED_KEY may hold several public keys separated by "|". "$$" is compose's escape for a literal "$".
+services:
+  android-build:
+    container_name: android-build
+    image: android-build:ubuntu2204
+    pull_policy: build
+    build:
+      args:
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+      dockerfile_inline: |
+        FROM ubuntu:22.04
+        ARG PUID
+        ARG PGID
+        ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 TZ=Etc/UTC
+        RUN apt-get update && apt-get install -y --no-install-recommends \
+            bc bison build-essential ca-certificates ccache curl erofs-utils flex g++-multilib gcc-multilib \
+            git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libdw-dev libelf-dev \
+            kmod libgnutls28-dev libncurses5 libsdl1.2-dev libssl-dev libxml2 libxml2-utils lz4 lzop \
+            openssh-client openssh-server pngcrush protobuf-compiler python3 python3-protobuf rsync schedtool \
+            squashfs-tools tmux unzip xxd xsltproc xz-utils zip zlib1g-dev \
+            && rm -rf /var/lib/apt/lists/*
+        RUN ln -sf /usr/bin/python3 /usr/local/bin/python \
+            && curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o /usr/local/bin/repo \
+            && chmod 755 /usr/local/bin/repo
+        RUN groupadd -g ${PGID} builder \
+            && useradd -m -u ${PUID} -g ${PGID} -s /bin/bash builder \
+            && mkdir -p /src /out /ccache /artifacts /run/sshd \
+            && chown builder:builder /src /out /ccache /artifacts
+        RUN printf '%s\n' \
+            'Port 2222' \
+            'HostKey /home/builder/.sshd/ssh_host_ed25519_key' \
+            'PidFile /home/builder/.sshd/sshd.pid' \
+            'AuthorizedKeysFile /home/builder/.ssh/authorized_keys' \
+            'PasswordAuthentication no' \
+            'KbdInteractiveAuthentication no' \
+            'PubkeyAuthentication yes' \
+            'UsePAM no' \
+            'PermitRootLogin no' \
+            'AllowUsers builder' \
+            'X11Forwarding no' \
+            'AllowTcpForwarding no' \
+            'ClientAliveInterval 60' \
+            'SetEnv OUT_DIR=/out CCACHE_DIR=/ccache USE_CCACHE=1 CCACHE_EXEC=/usr/bin/ccache' \
+            'Subsystem sftp /usr/lib/openssh/sftp-server' \
+            > /etc/ssh/sshd_config_builder
+        USER builder
+        WORKDIR /src
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    shm_size: 2g
+    mem_limit: 48g
+    oom_score_adj: 500
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    restart: unless-stopped
+    ports:
+      - "192.168.1.138:2222:2222"
+    command:
+      - bash
+      - -ec
+      - |
+        mkdir -p $$HOME/.ssh $$HOME/.sshd
+        chmod 700 $$HOME $$HOME/.ssh $$HOME/.sshd
+        [ -f $$HOME/.sshd/ssh_host_ed25519_key ] || ssh-keygen -q -t ed25519 -N "" -f $$HOME/.sshd/ssh_host_ed25519_key
+        printf '%s\n' "$$AUTHORIZED_KEY" | tr '|' '\n' > $$HOME/.ssh/authorized_keys
+        chmod 600 $$HOME/.ssh/authorized_keys
+        exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config_builder
+    environment:
+      OUT_DIR: /out
+      CCACHE_DIR: /ccache
+      USE_CCACHE: "1"
+      CCACHE_EXEC: /usr/bin/ccache
+      HOME: /home/builder
+      AUTHORIZED_KEY: ${AUTHORIZED_KEY:?paste the public key into the Environment Variables box}
+    volumes:
+      - /mnt/NVME_raid1/android/home:/home/builder
+      - /mnt/NVME_raid1/android/src:/src
+      - /mnt/NVME_raid1/android/out:/out
+      - /mnt/NVME_raid1/android/ccache:/ccache
+      - /mnt/HDD_raid1/android/artifacts:/artifacts
+
+  claude-workstation:
+    container_name: claude-workstation
+    image: claude-workstation:ubuntu2204
+    pull_policy: build
+    build:
+      args:
+        PUID: ${PUID:-1000}
+        PGID: ${PGID:-1000}
+      dockerfile_inline: |
+        FROM ubuntu:22.04
+        ARG PUID
+        ARG PGID
+        ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 TZ=Etc/UTC
+        RUN apt-get update && apt-get install -y --no-install-recommends \
+            ca-certificates curl git git-lfs imagemagick jq less libusb-1.0-0 nano \
+            openjdk-17-jdk-headless openjdk-21-jdk-headless openssh-client openssh-server \
+            p7zip-full python3 python3-pip python3-venv rsync sqlite3 tmux unzip usbutils xz-utils zip \
+            && rm -rf /var/lib/apt/lists/*
+        RUN groupadd -g ${PGID} matthew \
+            && useradd -m -u ${PUID} -g ${PGID} -s /bin/bash matthew \
+            && mkdir -p /archive /artifacts /run/sshd \
+            && chown matthew:matthew /archive /artifacts
+        RUN printf '%s\n' \
+            'Port 2222' \
+            'HostKey /home/matthew/.sshd/ssh_host_ed25519_key' \
+            'PidFile /home/matthew/.sshd/sshd.pid' \
+            'AuthorizedKeysFile /home/matthew/.ssh/authorized_keys' \
+            'PasswordAuthentication no' \
+            'KbdInteractiveAuthentication no' \
+            'PubkeyAuthentication yes' \
+            'UsePAM no' \
+            'PermitRootLogin no' \
+            'AllowUsers matthew' \
+            'X11Forwarding no' \
+            'AllowTcpForwarding no' \
+            'ClientAliveInterval 60' \
+            'SetEnv ANDROID_HOME=/home/matthew/Android/Sdk ANDROID_SDK_ROOT=/home/matthew/Android/Sdk' \
+            'Subsystem sftp /usr/lib/openssh/sftp-server' \
+            > /etc/ssh/sshd_config_workstation
+        USER matthew
+        WORKDIR /home/matthew
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    shm_size: 1g
+    mem_limit: 10g
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    restart: unless-stopped
+    ports:
+      - "192.168.1.138:2223:2222"
+    command:
+      - bash
+      - -ec
+      - |
+        mkdir -p $$HOME/.ssh $$HOME/.sshd
+        chmod 700 $$HOME/.ssh $$HOME/.sshd
+        [ -f $$HOME/.sshd/ssh_host_ed25519_key ] || ssh-keygen -q -t ed25519 -N "" -f $$HOME/.sshd/ssh_host_ed25519_key
+        printf '%s\n' "$$AUTHORIZED_KEY" | tr '|' '\n' > $$HOME/.ssh/authorized_keys
+        chmod 600 $$HOME/.ssh/authorized_keys
+        [ -x $$HOME/.local/bin/claude ] || (curl -fsSL https://claude.ai/install.sh | bash) || echo "claude install failed; retry by hand"
+        exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config_workstation
+    environment:
+      HOME: /home/matthew
+      ANDROID_HOME: /home/matthew/Android/Sdk
+      AUTHORIZED_KEY: ${AUTHORIZED_KEY:?paste the public key into the Environment Variables box}
+    volumes:
+      - /mnt/NVME_raid1/workstation/home:/home/matthew
+      - /mnt/HDD_raid1/workstation/archive:/archive
+      - /mnt/HDD_raid1/android/artifacts:/artifacts
