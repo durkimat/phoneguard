@@ -228,3 +228,16 @@ of dex, mediatek-telephony-common 3,471,849 vs 3,469,653), so Dumber patched or 
 So VoLTE/Wi-Fi calling is more than copying five APKs: it needs the jars on the boot classpath (platform_bootclasspath / PRODUCT_BOOT_JARS), permission and
 sysconfig files, init entries, and probably patches for Android 13 -> 14 API changes. It cannot be validated without booting on the phone, so it is an iterative job
 (flash, logcat, fix), best started once the plain baseline is known to boot.
+
+## 14. Test-key check (alltechdev/haha-you-used-testkeys), 2026-11-11
+
+That repo's test: is the device's vbmeta signed with the public AOSP testkey_rsa2048 (AVB public-key SHA1 cdbb77177f731920bbe0a0f94f84d9038ae0617d)? If so the whole AVB chain can be re-signed and the bootloader relocked with modified images (tested there on Qin F21 Pro and Tiq Mini M5, both MT6761). Repo has no licence file.
+Our unit (Qin J36/J35 class, MT6761), checked with AOSP avbtool 1.2.0 on the partition dumps:
+- vbmeta_a key SHA1 182acf43e156e693479dfdc3ce9d71b97493343b (RSA2048). NOT the AOSP key. Also not testkey_rsa4096 (2597c218...) or rsa8192 (5227b569...).
+- Chain keys: boot dc7b1390..., vbmeta_system cdce2c73..., vbmeta_vendor c18eafc3... none are AOSP test keys.
+- vbmeta, vbmeta_system and vbmeta_vendor are byte-identical in the original (6 Nov) dump and the 10 Nov dump, so Dumber did not touch the AVB chain.
+=> This unit is NOT vulnerable to that technique. We cannot relock with our own key: the bootloader only trusts Qin's key. The bootloader stays unlocked (as Dumber's phones do).
+Other test-key places:
+- Original Qin stock system: ro.build.tags=release-keys, type user, platform cert 4717AB5D... (not AOSP). Qin's vendor partition reports ro.vendor.build.tags=dev-keys (a yellow flag, not tested further).
+- Dumber image: tags release-keys but build type userdebug, ro.debuggable=1 (ro.secure=1, adb auth required), platform cert 23D1B1E8... (their own key, not AOSP).
+- OUR baseline build: ro.build.tags=test-keys, platform cert 27196E38... = the public AOSP platform key, ro.adb.secure=0, userdebug. It IS a "test-keys" build: anyone can sign an app with our platform key. Fine for a desk test; for any real phone we must sign with our own keys (sign_target_files_apks) and use a `user` build.
