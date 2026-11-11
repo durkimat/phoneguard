@@ -33,7 +33,7 @@ class MainActivity : Activity() {
             }
         })
         root.addView(Button(this).apply { text = "Sync now"; setOnClickListener { Link.runAsync(this@MainActivity, "manual") } })
-        root.addView(Button(this).apply { text = "Re-check now"; setOnClickListener { Controller.evaluate(this@MainActivity, "manual"); refresh() } })
+        root.addView(Button(this).apply { text = "Re-check now"; setOnClickListener { Controller.evaluateAsync(this@MainActivity, "manual") { runOnUiThread { refresh() } } } })
         root.addView(logView)
         setContentView(ScrollView(this).apply { addView(root, ViewGroup.LayoutParams(-1, -2)) })
         Log.listener = { ui.post { refresh() } }

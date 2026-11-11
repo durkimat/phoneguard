@@ -20,6 +20,21 @@ object Controller {
 
     private val HM = SimpleDateFormat("EEE HH:mm", Locale.UK)
 
+    private val worker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "pg-evaluate") }
+    private val queued = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * Evaluate off the calling thread. An evaluation makes dozens of device-policy calls that wait on the system, which on this phone can take
+     * longer than the 5 s Android allows the main thread (the "Phone Guard isn't responding" box after a boot or an update). Everything that
+     * runs on the main thread must use this; [done] runs when the evaluation has finished (for a receiver to call finish()). A request made
+     * while another is still waiting to start is folded into it.
+     */
+    fun evaluateAsync(c: Context, reason: String, done: (() -> Unit)? = null) {
+        val app = c.applicationContext
+        if (!queued.compareAndSet(false, true)) { done?.invoke(); return }
+        worker.execute { queued.set(false); try { evaluate(app, reason) } finally { done?.invoke() } }
+    }
+
     fun evaluate(c: Context, reason: String) {
         val asked = System.nanoTime()
         synchronized(this) {

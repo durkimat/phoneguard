@@ -25,7 +25,7 @@ class GuardService : Service() {
             main.postDelayed(this, IdleReaper.EVERY_MS)
         }
     }
-    private val evalSoon = Runnable { Controller.evaluate(this, "package change"); Link.runAsync(this, "package change") }
+    private val evalSoon = Runnable { Controller.evaluateAsync(this, "package change"); Link.runAsync(this, "package change") }
 
     private val radioWatch: () -> Unit = { io.github.durkimat.phoneguard.net.RadioManager.evaluate(this, "radio or call") }
     private val audioWatch = object : android.media.AudioManager.AudioPlaybackCallback() {
@@ -127,7 +127,7 @@ class GuardService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Controller.evaluate(this, "service start")
+        Controller.evaluateAsync(this, "service start")
         return START_STICKY
     }
 

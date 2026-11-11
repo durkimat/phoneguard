@@ -14,10 +14,14 @@ class AdminReceiver : DeviceAdminReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         Log.log(c, "trigger ${i.action?.substringAfterLast('.')}")
-        Controller.evaluate(c, i.action?.substringAfterLast('.') ?: "boot")
         GuardService.start(c)
-        if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-            Link.schedulePoll(c, 30_000) // soon after boot, once the network is up
+        val pending = goAsync() // the evaluation waits on the system for seconds: not on the main thread
+        Controller.evaluateAsync(c, i.action?.substringAfterLast('.') ?: "boot") {
+            try {
+                if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+                    Link.schedulePoll(c, 30_000) // soon after boot, once the network is up
+                }
+            } finally { pending.finish() }
         }
     }
 }
@@ -33,7 +37,7 @@ class AlarmReceiver : BroadcastReceiver() {
             Thread { try { if (!c.getSystemService(android.os.PowerManager::class.java).isInteractive) IdleReaper.sweep(c) } finally { pending.finish() } }.start()
         }
         else if (i.getStringExtra("kind") == "radio") io.github.durkimat.phoneguard.net.RadioManager.evaluate(c, "alarm")
-        else Controller.evaluate(c, "alarm")
+        else { val pending = goAsync(); Controller.evaluateAsync(c, "alarm") { pending.finish() } }
     }
 }
 

@@ -53,7 +53,7 @@ class CallActivity : Activity() {
         CallState.unlisten(listener)
         LeftKey.listener = null
         // give the left key back to whatever the current mode wants
-        io.github.durkimat.phoneguard.Controller.evaluate(this, "call screen closed")
+        io.github.durkimat.phoneguard.Controller.evaluateAsync(this, "call screen closed")
         super.onDestroy()
     }
 
