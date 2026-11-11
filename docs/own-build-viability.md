@@ -205,3 +205,16 @@ system_a sha256 0615df75...2083 (2,173,976,576 bytes); product_a fb934ead...1a56
 - Other Dumber additions seen in system_a: tt9 (T9 keypad text input), QcRilAm, Iwlan and QualifiedNetworksService, Seedvault, TrebleApp, DumbdroidAdmin/Panel/Updater/BugreportUploader (Dumber's, not ours to copy).
 - **product_a** (2.3 GB) is Qin's stock product partition and holds Google apps (Chrome, Gmail, Maps, YouTube, Photos...) and GMS overlays. Whether Dumber's image actually mounts it is not established.
 - Keypad layout: no mtk-kpd keylayout found in vendor_a or system_a by name; to be checked on the running phone (`getevent -p`, /vendor/usr/keylayout).
+
+## 12. Original stock firmware found (2026-11-11)
+
+The owner's earlier mtkclient dump (6 Nov 2026, four days before our 10 Nov backup) was supplied as stock_backup.zip and moved from /artifacts to
+/archive/phone-backups/qin-j35-original-firmware/ (zip + .sha256 b1288d01...4ad1d, read-only; zip tests clean; extracted/ holds super.bin and the three logical images).
+- Same unit: hwparam MEID/SoC ID identical to the 10 Nov backup.
+- Taken BEFORE Dumber's flash: super has system_a 1736.9 MiB (the original), vendor_a and product_a byte-identical (sha256) to the 10 Nov backup. So Dumber only replaced `system`.
+  system_a original sha256 aabb1148...5283 (1,821,229,056 bytes), display id 5337BQ.J35.A1.AND13.VGA.CN.MV3224.P0.20260804.V00.ATA, security patch 2024-06-05.
+- Original stock system contains the proper MediaTek telephony apps: ImsService, MtkGbaService, MtkTelephonyAssist, MtkCarrierConfig, mediatek-res,
+  MtkTeleService, MtkTelecom, ONS, plus sysconfig com.mediatek.ims.config.xml, com.mediatek.wfo.legacy.xml (Wi-Fi offload), privapp-permissions-mediatek.xml.
+  Also Qin apps (DuoqinIme_new keypad IME, QinSystemUpdate, MDMConfig, FMRadio, EngineerMode...).
+- It is a dump of the partitions, not a vendor-supplied firmware package: no scatter file, so SP Flash Tool needs one made from gpt.bin.
+- Rollback now has two known-good system images: original Qin stock (this) and Dumber's (10 Nov backup).
