@@ -29,11 +29,19 @@ sync)
   ;;
 build)
   ccache -M 100G
+  # Our own fixups (build/patches/*.patch, path = target repo with / replaced by _ in the file name's prefix is not
+  # used; each patch header names its repo in PATCHDIR below). Idempotent: skipped if already applied.
+  for pf in /src/phoneguard-build/patches/*.patch; do
+    dir=$(sed -n 's/^# repo: //p' "$pf" | head -1)
+    (cd "$SRC/$dir" && { git apply -R --check "$pf" 2>/dev/null && echo "already applied: $pf" || git apply "$pf"; })
+  done
+  set +u   # Android's envsetup.sh and lunch use unset variables
   source build/envsetup.sh; source vendor/lineage/vars/aosp_target_release
   (cd device/phh/treble && git clean -fdx && bash generate.sh lineage)
-  lunch lineage_${TARGET}-${aosp_target_release}-userdebug
+  lunch treble_${TARGET}-${aosp_target_release}-userdebug
+  export LINEAGE_BUILD=treble_${TARGET}   # what Lineage's breakfast sets; AOSP product makefiles key off it
   make installclean
-  WITH_ADB_INSECURE=true make -j12 systemimage        # -j12: 48 GB cap, ~4 GB per job at peak
+  WITH_LINEAGE_CHARGER=false WITH_ADB_INSECURE=true make -j$(nproc) systemimage   # all 16 cores; Soong/ninja also size their own parallelism. Drop to -j12/-j8 if the 48 GB cap OOMs
   ;;
 publish)
   d=/artifacts/lineage-21-$(date -u +%Y%m%d)-${TARGET}; mkdir -p "$d"
