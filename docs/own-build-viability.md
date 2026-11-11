@@ -179,3 +179,20 @@ Security patches for an Android 14 base:
   vendor HALs. MediaTek bulletins list MT6761 issues monthly (e.g. October 2026, modem/display/battery); fixes go to OEMs, not the public.
   Only Qin can ship those. The reported patch level (Dumber build: 2026-06-01) overstates real security because vendor is 2024-01-05.
 - Without Google Play services there are no Mainline updates outside a full image update.
+
+## 10. `super` layout and slot B (read from the backup's super.bin, 2026-11-11)
+
+Parsed the LP metadata of backup/partitions/super.bin (read-only; script was a throwaway Python parser). Slots 0 and 1 are identical (current), slot 2 is an older state.
+| Partition | Size | Note |
+|---|---|---|
+| system_a | 2073 MiB | Dumber's image |
+| product_a | 2371 MiB | stock Qin product partition, kept by Dumber's system-only flash |
+| vendor_a | 395 MiB | |
+| system_b | 202 MiB | leftover, not a real system |
+| vendor_b, product_b | 0 (no extents) | slot B has no vendor or product |
+Groups main_a and main_b each allow 5118 MiB. Slot A uses 4840 MiB, so the free room in the group is about 278 MiB.
+Slot B images: vbmeta_b, dtbo_b and boot_b are all zero bytes (checked). Slot B is completely unpopulated: it is NOT a fallback and cannot be switched to.
+Consequences:
+- Rollback after a test means re-flashing system_a (a known-good system.img extracted from this backup), not `set_active`.
+- Size: with product_a kept, system_a can be at most about 2352 MiB (5118 - 395 - 2371). Lineage's system.img may be larger; if so, product_a has to be shrunk or deleted in fastbootd (`resize-logical-partition` / `delete-logical-partition`). Check the built image size first.
+- Our GSI replaces system only; the stock Qin product partition (2.3 GB: Qin apps and overlays) stays mounted over /product unless we remove it. Check what is in it.
