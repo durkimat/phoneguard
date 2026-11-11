@@ -241,3 +241,13 @@ Other test-key places:
 - Original Qin stock system: ro.build.tags=release-keys, type user, platform cert 4717AB5D... (not AOSP). Qin's vendor partition reports ro.vendor.build.tags=dev-keys (a yellow flag, not tested further).
 - Dumber image: tags release-keys but build type userdebug, ro.debuggable=1 (ro.secure=1, adb auth required), platform cert 23D1B1E8... (their own key, not AOSP).
 - OUR baseline build: ro.build.tags=test-keys, platform cert 27196E38... = the public AOSP platform key, ro.adb.secure=0, userdebug. It IS a "test-keys" build: anyone can sign an app with our platform key. Fine for a desk test; for any real phone we must sign with our own keys (sign_target_files_apks) and use a `user` build.
+
+## 15. Live phone state (read-only, collected by the PC session 2026-11-11, files in /archive/phone-backups/phone-state-20261111/)
+
+- Device: Dumber image lineage_vanilla31-userdebug 14 AP2A.240905.003 eng.michal.20261102.113851, slot _a, bootloader unlocked, secure no, slot b never successful.
+- Storage: /data 23G total, **2.8 GB used (13%)**: apps 1.06 GB, app data 434 MB, cache 215 MB, photos+videos 28 MB. The 23 GB is the partition size, not use.
+- Third-party apps: Spotify, WhatsApp, Aurora Store, Home Assistant companion, Phone Guard (release) and Phone Guard lab, and com.mediatek.ims (installed as a non-system package).
+- Input: keypad is the "mtk-kpd" device (event0), also "mtk-pmic-keys" (power/volume), touch "sitronix_ts_i2c", "mt63xx-accdet Headset". /system/usr/keylayout has Generic.kl and others; no mtk-kpd.kl was listed in the files I read, so check whether the device falls back to Generic.kl and how the stock firmware handles it.
+- IMS on Dumber's image: volte_imsm_93, volte_md_status and wfca services running; persist.vendor.mtk.volte.enable=1, persist.vendor.mtk.wfc.enable=0 (Wi-Fi calling OFF), persist.dbg.volte_avail_ovr=1 (VoLTE forced available), persist.dbg.wfc_avail_ovr=0, sys.phh.stock_mtk_ims=false.
+- At the time of the check telephony.registry showed voice and data OUT_OF_SERVICE, no operator, empty cell info (SIM absent or no signal then; to confirm).
+- Our own baseline already contains TrebleDroid's MediaTek IMS overlays (treble-overlay-mtk-ims, treble-overlay-telephony-mtk-ims), so the framework side is pointed at com.mediatek.ims; what is missing is the com.mediatek.ims APK itself and its jars/permissions.
