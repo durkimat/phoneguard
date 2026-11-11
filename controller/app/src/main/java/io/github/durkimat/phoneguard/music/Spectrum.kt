@@ -8,7 +8,9 @@ import io.github.durkimat.phoneguard.Log
 import kotlin.math.max
 
 /**
- * Levels for the Music screen's spectrum analyser, taken from what this phone is playing (the whole output mix, so any app).
+ * Levels for the Music screen's spectrum analyser. The radio is analysed inside its own player, from the decoded audio before it
+ * reaches the volume control, so the bars do not depend on the phone's volume. Anything else (Spotify) is taken from the whole
+ * output mix, which is after the volume, so there the bars follow it.
  * It only listens while the screen asks for it: each draw calls [use], and a second after the last draw it lets go.
  * Music playing on another device makes no sound here, so the bars simply fall.
  */
@@ -27,12 +29,23 @@ object Spectrum {
     private var vis: Visualizer? = null
     private var lastUse = 0L
     private var failed = false
+    /** True while the radio player runs: its audio arrives through [feedPcm] and the output mix is not listened to. */
+    @Volatile var radioPcm = false
+    private val pcm = DoubleArray(1024)
+    private var pcmFill = 0
+    private var lastPcm = 0L
     private val watch = object : Runnable {
         override fun run() { if (System.currentTimeMillis() - lastUse > 1000) stop() else main.postDelayed(this, 500) }
     }
 
     fun use(c: Context) {
-        lastUse = System.currentTimeMillis(); ctx = c.applicationContext
+        val now = System.currentTimeMillis()
+        lastUse = now; ctx = c.applicationContext
+        if (radioPcm) {
+            if (vis != null) stop()
+            if (now - lastPcm > 400) for (i in 0 until BARS) { level[i] = max(0f, level[i] - 0.18f); peak[i] = max(level[i], peak[i] - 0.04f) } // paused or buffering: no audio is arriving, so the bars fall
+            return
+        }
         synchronized(this) { if (vis != null || failed || starting) return; starting = true }
         work.post { start(c.applicationContext) }
     }
@@ -79,9 +92,30 @@ object Spectrum {
      * scaled to the loudest recent band. Bars rise at once and fall steadily.
      */
     private fun feed(wave: ByteArray, rateMilliHz: Int) {
-        val n = wave.size
-        if (n != 1024) return
-        val re = DoubleArray(n) { ((wave[it].toInt() and 0xFF) - 128) / 128.0 * window[it] }
+        if (wave.size != 1024) return
+        analyse(DoubleArray(1024) { ((wave[it].toInt() and 0xFF) - 128) / 128.0 }, rateMilliHz)
+    }
+
+    /** The radio's decoded audio, as the player hands it on (16-bit PCM, any channels), mixed to mono and analysed 1024 samples at a time. */
+    fun feedPcm(rateHz: Int, channels: Int, encoding: Int, buf: java.nio.ByteBuffer) {
+        val now = System.currentTimeMillis()
+        if (now - lastUse > 1500 || encoding != androidx.media3.common.C.ENCODING_PCM_16BIT || channels < 1) return // nobody is looking
+        val b = buf.duplicate().order(java.nio.ByteOrder.nativeOrder())
+        while (b.remaining() >= 2 * channels) {
+            var s = 0.0
+            for (ch in 0 until channels) s += b.short / 32768.0
+            pcm[pcmFill++] = s / channels
+            if (pcmFill == pcm.size) { pcmFill = 0; lastPcm = now; analyse(pcm, rateHz * 1000) }
+        }
+    }
+
+    private fun analyse(x: DoubleArray, rateMilliHz: Int) {
+        val n = x.size
+        // take the average out first: a constant offset leaks into the lowest bands and kept the two bottom bars lit
+        var mean = 0.0
+        for (i in 0 until n) mean += x[i]
+        mean /= n
+        val re = DoubleArray(n) { (x[it] - mean) * window[it] }
         val im = DoubleArray(n)
         fft(re, im)
         val bins = n / 2
