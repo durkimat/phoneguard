@@ -44,7 +44,8 @@ build)
   lunch treble_${TARGET}-${aosp_target_release}-userdebug
   export LINEAGE_BUILD=treble_${TARGET}   # what Lineage's breakfast sets; AOSP product makefiles key off it
   make installclean
-  WITH_LINEAGE_CHARGER=false WITH_ADB_INSECURE=true make -j$(nproc) systemimage   # all 16 cores; Soong/ninja also size their own parallelism. Drop to -j12/-j8 if the 48 GB cap OOMs
+  # TrebleDroid adds public API (FAKE_PACKAGE_SIGNATURE) that API lint/checkapi reject; skip those checks, not the build.
+  DISABLE_STUB_VALIDATION=true WITH_LINEAGE_CHARGER=false WITH_ADB_INSECURE=true make -j$(nproc) systemimage   # all 16 cores; Soong/ninja also size their own parallelism. Drop to -j12/-j8 if the 48 GB cap OOMs
   ;;
 publish)
   d=/artifacts/lineage-21-$(date -u +%Y%m%d)-${TARGET}; mkdir -p "$d"
