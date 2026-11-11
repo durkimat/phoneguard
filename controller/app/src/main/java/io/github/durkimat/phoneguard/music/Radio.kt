@@ -18,7 +18,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Metadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import androidx.media3.extractor.metadata.icy.IcyInfo
 import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.Store
@@ -172,7 +176,17 @@ class RadioService : Service() {
 
     private fun begin(url: String) {
         player?.release()
-        val p = ExoPlayer.Builder(this)
+        // the spectrum analyser listens here, to the decoded audio before the volume is applied
+        val tee = TeeAudioProcessor(object : TeeAudioProcessor.AudioBufferSink {
+            private var rate = 44100; private var channels = 2; private var encoding = C.ENCODING_PCM_16BIT
+            override fun flush(sampleRateHz: Int, channelCount: Int, encoding: Int) { rate = sampleRateHz; channels = channelCount; this.encoding = encoding }
+            override fun handleBuffer(buffer: java.nio.ByteBuffer) { Spectrum.feedPcm(rate, channels, encoding, buffer) }
+        })
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink =
+                DefaultAudioSink.Builder(context).setEnableFloatOutput(enableFloatOutput).setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams).setAudioProcessors(arrayOf(tee)).build()
+        }
+        val p = ExoPlayer.Builder(this, renderers)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -194,6 +208,7 @@ class RadioService : Service() {
         p.prepare()
         p.playWhenReady = true
         player = p
+        Spectrum.radioPcm = true
         if (session == null) session = MediaSession(this, "PhoneGuardRadio").apply {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() { Radio.toggle(this@RadioService) }
@@ -228,6 +243,7 @@ class RadioService : Service() {
     }
 
     private fun release() {
+        Spectrum.radioPcm = false
         player?.release(); player = null
         session?.release(); session = null
     }
