@@ -78,3 +78,12 @@ Phone Guard reinstall after any wipe: provision again as device owner (Provision
 - Flash kit: /artifacts/flash-baseline-20261111/ (system.img, product_empty.img, SHA256SUMS, flash-baseline.sh). It is a build output, so /artifacts is the right place. Script source: build/flash/flash-baseline.sh (checks checksums, requires unlocked bootloader, asks before each write, stops on the first error).
 - Restore kit (quick return, R2): /archive/phone-backups/restore-kit-dumber-20261110/ (Dumber system_a.img, stock product_a.img, SHA256SUMS-restore, restore-quick.sh). Copy of backup data, so it lives with the backups, not in /artifacts.
 - For R1 (byte-exact) the files are super.bin in the 10 Nov partitions folder plus the userdata/metadata dumps to be taken.
+
+## 9. SIM timing (owner: the phone reboots when a SIM is inserted, so power off first, every time)
+Current phone has NO SIM. Order, with the owner told at each SIM step:
+1. (Optional, recommended) Reference test on the CURRENT Dumber image: power off, insert the owner's SIM, boot, wait for registration, then collect read-only VoLTE evidence via the PC session (`dumpsys telephony.registry`, `getprop | grep -i ims`, a short logcat of IMS, one test call). This records what "working" looks like on this vendor before anything changes. Then power off and take the SIM out.
+2. Userdata and metadata dumps (phone off, mtkclient preloader mode): SIM not needed, leave it out.
+3. Flash, then first boot WITHOUT a SIM: check boot, keypad, Wi-Fi, Bluetooth, audio, display, charging.
+4. Power off, insert the SIM, boot: registration, mobile data, VoLTE call (expected to fail until the IMS pieces are in), SMS.
+5. After any later SIM change, power off first.
+Remove the SIM PIN before the tests if one is set (a PIN prompt blocks the keypad test).
