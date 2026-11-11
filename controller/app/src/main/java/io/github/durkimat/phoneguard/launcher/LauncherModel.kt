@@ -1199,11 +1199,12 @@ class LauncherModel(
             key == Key.LEFT || (d == 4 && !radio) -> if (music.active) Action.MusicPrevious else Action.None
             key == Key.UP || (d == 2 && !radio) -> Action.MusicVolume(true)
             key == Key.DOWN || (d == 8 && !radio) -> Action.MusicVolume(false)
-            key == Key.SOFT_RIGHT -> { if (nowFromHome) { nowFromHome = false; musicFromHome = false; goHome() } else { screen = Screen.MUSICMENU; selected = 0 }; Action.Redraw }
+            key == Key.SOFT_RIGHT -> { nowFromHome = false; musicFromHome = false; goHome(); Action.Redraw } // Now playing is a destination: Back is always home
+            key == Key.POUND -> { musicFromHome = true; nowFromHome = false; screen = Screen.MUSICMENU; selected = 0; Action.Redraw } // change source
             d == 0 -> Action.SleepStep
             (d == 7 && !radio) || (key == Key.STAR && radio) -> Action.SpectrumToggle
             key == Key.STAR && spSignedIn && !radio -> Action.SpShuffle
-            key == Key.POUND && spSignedIn && !radio -> Action.SpRepeat
+            d == 1 && spSignedIn && !radio -> Action.SpRepeat
             key == Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
             else -> Action.None
         }
@@ -1213,15 +1214,16 @@ class LauncherModel(
     private fun commonMusicRow(row: String?): Action = when { row == null -> Action.None; row.startsWith("Sleep timer") -> Action.SleepStep; row.startsWith("Bar shows") -> Action.SpectrumToggle; else -> Action.None }
 
     /** What each provider's menu offers (the sleep timer and the bar are in each, as in the Music menu). */
-    private val radioMenuRows: List<String> get() = listOf("Presets") + (if (radioMode == "any") listOf("Find station", "Browse stations") else emptyList()) + commonMusicRows
-    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + commonMusicRows + (if (spSignedIn) listOf("Sign out of Spotify") else emptyList())
+    private val radioMenuRows: List<String> get() = listOf("Presets") + (if (radioMode == "any") listOf("Find station", "Browse stations") else emptyList()) + "Change source"
+    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("Sign out of Spotify") else emptyList())
 
     private fun radioMenuKey(key: Key): Action = move(key, radioMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = radioMenuRows.getOrNull(selected)) {
             "Presets" -> { screen = Screen.RADIO; selected = if (provider == Provider.RADIO && music.active) radioIndex.coerceAtLeast(0) else 0; Action.Redraw }
             "Find station" -> { startWrite("", Screen.RADIOMENU); writeField = 1; writeSearch = true; writeRadio = true; Action.Redraw }
             "Browse stations" -> { browseLevel = 0; screen = Screen.RADIOBROWSE; selected = 0; Action.Redraw }
-            else -> commonMusicRow(r)
+            "Change source" -> { musicFromHome = true; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+            else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
         Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
@@ -1235,7 +1237,8 @@ class LauncherModel(
             "Play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
             "Sign out of Spotify" -> Action.SpSignOut
             "Sign in to Spotify" -> Action.SpSignIn
-            else -> commonMusicRow(r)
+            "Change source" -> { musicFromHome = true; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+            else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
         Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
@@ -1439,8 +1442,8 @@ class LauncherModel(
 
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = musicMenuRows.getOrNull(selected)) {
-            "Radio" -> { provider = Provider.RADIO; nowFromHome = false; screen = Screen.MUSIC; Action.Redraw }
-            "Spotify" -> { provider = Provider.SPOTIFY; nowFromHome = false; screen = Screen.MUSIC; Action.Redraw }
+            "Radio" -> { provider = Provider.RADIO; nowFromHome = false; selected = 0; if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) screen = Screen.RADIO else screen = Screen.MUSIC; Action.Redraw }
+            "Spotify" -> { provider = Provider.SPOTIFY; nowFromHome = false; selected = 0; if ((provStatus[Provider.SPOTIFY] ?: 0) == 0 && spSignedIn) { screen = Screen.PLAYLISTS; spStatus = "Loading..."; Action.SpLoad("playlists") } else { screen = Screen.MUSIC; Action.Redraw } }
             else -> commonMusicRow(r)
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { if (musicFromHome) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0) }; musicFromHome = false; Action.Redraw }

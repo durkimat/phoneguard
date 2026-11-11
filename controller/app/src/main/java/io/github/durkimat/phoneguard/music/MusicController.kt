@@ -40,7 +40,8 @@ object MusicController {
     private const val SPOTIFY = "com.spotify.music"
 
     private fun controller(c: Context): MediaController? = try {
-        val list = c.getSystemService(MediaSessionManager::class.java).getActiveSessions(ComponentName(c, NoteService::class.java))
+        // our own sessions (the radio) are not a music app: without this Spotify's Now playing showed the radio
+        val list = c.getSystemService(MediaSessionManager::class.java).getActiveSessions(ComponentName(c, NoteService::class.java)).filter { it.packageName != c.packageName }
         list.firstOrNull { it.packageName == SPOTIFY } ?: list.firstOrNull { it.playbackState?.state == PlaybackState.STATE_PLAYING } ?: list.firstOrNull { it.metadata != null }
     } catch (_: Exception) { null }
 
