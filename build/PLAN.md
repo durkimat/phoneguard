@@ -47,3 +47,10 @@ The 53 `patches_platform` are Andy's taste (SystemUI theming, navbar, launcher t
 | A. Andy's repos | Lineage 21 + his rebased TrebleDroid patches | Works now; one-man, unlicensed, last updated 2025-09 | Dependency and licence doubt |
 | B. TrebleDroid `patches-for-developers.zip` (android_14.0.0_r17, ~0.5 MB) | Official, from the upstream authors, for AOSP 14, applied to Lineage 21 | No third-party layer | Rejects against Lineage's changes must be resolved by us, once per Lineage update |
 | C. Plain AOSP 14 + TrebleDroid (their `treble_manifest` android-14.0 + `replace.xml`) | The official TrebleDroid GSI recipe, no Lineage | Smallest dependency set; matches what TrebleDroid tests | No Lineage extras (Lineage apps, security cherry-picks on lineage-21.0); AOSP tags stop at android-14.0.0_r75 |
+
+## First-boot test goals (owner, 2026-11-11)
+Carrier: Smarty (Three network). Calls already work on the stock Dumber image, and Three has no 3G, so VoLTE works with the stock vendor.
+1. **VoLTE call must still work on our image** (the main risk of the telephony patches left out). Read-only checks: `dumpsys telephony.registry`, `dumpsys telephony_ims`, `getprop | grep -i ims`.
+2. **Wi-Fi calling** (owner would like it; feasibility unknown). Vendor declares `persist.vendor.mtk_wfc_support=1`, `volte_support=1`, `ims_support=1`, `ro.telephony.iwlan_operation_mode=AP-assisted`. Smarty decides network-side and publishes only a partial device list, so the result is not predictable.
+3. Keypad keys (stock keylayout), mobile data (APNs: Lineage's merged list is used), Bluetooth.
+Before any flash: extract Dumber's current `system` from the backup's super.bin as the known-good image; flashing wipes userdata.

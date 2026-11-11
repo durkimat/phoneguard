@@ -26,9 +26,12 @@ sync)
   fi
   bash /src/td-patches/apply-patches.sh /src/td-patches 2>&1 | tee /out/logs/patches.log
   grep "Failed applying" /out/logs/patches.log | tee /out/logs/patch-rejects.txt || true
+  # patch(1) leaves *.orig backups when a hunk applies with fuzz; aapt2 rejects them inside res/ dirs. Drop untracked ones.
+  repo forall -c 'git ls-files --others --exclude-standard | grep -E "\.(orig|rej)$" | xargs -r rm -v' | tee -a /out/logs/patches.log
   ;;
 build)
   ccache -M 100G
+  repo forall -c 'git ls-files --others --exclude-standard | grep -E "\.(orig|rej)$" | xargs -r rm -v' || true   # see sync step
   # Our own fixups (build/patches/*.patch, path = target repo with / replaced by _ in the file name's prefix is not
   # used; each patch header names its repo in PATCHDIR below). Idempotent: skipped if already applied.
   for pf in /src/phoneguard-build/patches/*.patch; do
