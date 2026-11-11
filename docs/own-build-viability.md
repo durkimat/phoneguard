@@ -218,3 +218,13 @@ The owner's earlier mtkclient dump (6 Nov 2026, four days before our 10 Nov back
   Also Qin apps (DuoqinIme_new keypad IME, QinSystemUpdate, MDMConfig, FMRadio, EngineerMode...).
 - It is a dump of the partitions, not a vendor-supplied firmware package: no scatter file, so SP Flash Tool needs one made from gpt.bin.
 - Rollback now has two known-good system images: original Qin stock (this) and Dumber's (10 Nov backup).
+
+## 13. Scope of the MediaTek IMS integration (checked 2026-11-11)
+
+Stock (Android 13) puts ten MediaTek framework jars on the boot classpath: mediatek-framework, -common, -ims-base, -ims-common, -ims-extension-plugin,
+-telephony-base, -telephony-common, -telecom-common, -carrier-config-manager, -wfo-legacy, plus ims-common (and mediatek-services in system_server).
+Dumber's Android 14 image ships the same jars but NOT byte-identical: all differ, and their classes.dex differ slightly (e.g. mediatek-ims-common 75,321 vs 75,325 bytes
+of dex, mediatek-telephony-common 3,471,849 vs 3,469,653), so Dumber patched or re-dexed them for Android 14. Their bootclasspath.pb is 190 bytes larger than stock's.
+So VoLTE/Wi-Fi calling is more than copying five APKs: it needs the jars on the boot classpath (platform_bootclasspath / PRODUCT_BOOT_JARS), permission and
+sysconfig files, init entries, and probably patches for Android 13 -> 14 API changes. It cannot be validated without booting on the phone, so it is an iterative job
+(flash, logcat, fix), best started once the plain baseline is known to boot.
