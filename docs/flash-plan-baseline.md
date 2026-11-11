@@ -1,0 +1,71 @@
+# Flash plan: baseline Lineage 21 GSI on the Qin J36/J35 (draft, 2026-11-11)
+
+Status: PLAN ONLY. Nothing has been flashed. Every write below needs the owner's go at that step. Commands marked (UNTESTED) have never been run on this phone.
+Phone: MT6761, bootloader unlocked, stock vendor, A/B + dynamic partitions (`super` 5 GiB). It is plugged into the OLD PC (adb, fastboot, mtkclient live there).
+
+## 0. What gets written, and what never does
+Written: `super` logical partitions `system_a` (our image) and `product_a` (shrunk, emptied), then userdata and metadata are wiped.
+Never touched: preloader, lk, tee, md1img (modem), nvram, nvdata, nvcfg, protect1/2, proinfo, sec1, seccfg, otp, boot*/vendor_boot*/dtbo*/vbmeta* (Dumber also leaves these alone), vendor_a.
+Assumption to verify on first boot: with the bootloader unlocked, a modified system boots without re-signing (Dumber's flash is system-only and works). Unverified for product_a changes.
+
+## 1. Files (all verified; copy them to the old PC and re-check checksums there)
+| File | Size / checksum | Where |
+|---|---|---|
+| Our baseline system.img | 2,511,581,184 B, sha256 e1a736d24693be7161d8ff50c6792c9361164548e72446dd9dfdba021a35aae3 | /artifacts/lineage-21-20261111-arm64_bvN/ |
+| Dumber system_a (current phone state) | sha256 0615df75de0713b05b7ac1a600fdfc95ff50073231d9fe8d05db68ea70052083 | ~/phone-backups/qin-j35-20261110/extracted/ |
+| Dumber-era product_a | sha256 fb934ead...1a56 (identical to Qin stock product_a) | same folder |
+| Whole super as it is now | 5 GiB, sha256 f97fb7a0dbfc9fd1cffbc6a1a910f042a1d36e384d01c99f3ff8b88c00b17a86 | ~/phone-backups/qin-j35-20261110/partitions/super.bin |
+| Original Qin system_a | sha256 aabb1148...5283 | /archive/phone-backups/qin-j35-original-firmware/extracted/ |
+| Identity partitions | verified 2026-11-11 | ~/phone-backups/qin-j35-20261110/identity/ |
+Also create now: an empty 64 MiB ext4 product image: `mke2fs -t ext4 -L product -d <empty dir> product_empty.img 64M` (mke2fs exists on the workstation).
+
+## 2. The size problem and the fix
+Group main_a = 5118 MiB; vendor_a 395 MiB; product_a 2371.5 MiB; our system needs 2395.2 MiB (613,179 blocks of 4096). With product_a kept, system_a can only reach 2352 MiB.
+Fix: shrink product_a to 64 MiB and flash an empty ext4 into it (keeps a valid /product mount; the stock Google apps in it are not needed). That leaves ~2264 MiB of free room in the group.
+Slot B is empty (vbmeta_b, boot_b, dtbo_b all zero; vendor_b/product_b have no extents), so there is NO slot-switch fallback.
+
+## 3. Before the first write (owner decisions and checks)
+1. **Your data.** Flashing wipes userdata (the phone's apps, Phone Guard state, WhatsApp bridge session, photos). It was NOT in the backups. To be able to return to "exactly where it is now" take a full read of `userdata` (about 23 GB) and a fresh `metadata` (FBE keys live partly there) with mtkclient first: `mtk r userdata userdata.bin` and `mtk r metadata metadata_now.bin`, verified by reading twice (UNTESTED for userdata size; allow 1-2 hours). The dump holds private data: store read-only on /archive and encrypt before any copy leaves the NAS. If you do not want the data back, skip this and accept the wipe.
+2. Battery above 50%, good cable, direct USB port (the front port worked).
+3. `adb shell getprop ro.boot.slot_suffix` should be `_a`. Save `fastboot getvar all` output to a file as the "before" state.
+4. Re-verify sha256 of every file above on the old PC.
+5. Know the recovery ladder (docs/recovery-guide.md): fastboot works while the bootloader is intact, mtkclient preloader mode otherwise.
+
+## 4. Flash (fastbootd; UNTESTED)
+```
+adb reboot bootloader
+fastboot getvar unlocked                      # expect yes
+fastboot reboot fastboot                      # userspace fastbootd (needed for logical partitions)
+fastboot getvar is-userspace                  # expect yes
+fastboot getvar super-partition-name
+fastboot resize-logical-partition product_a 67108864
+fastboot flash product_a product_empty.img
+fastboot resize-logical-partition system_a 2511581184
+fastboot flash system_a system.img            # raw 2.4 GB, fastboot splits it (max-download 128 MB)
+fastboot erase userdata
+fastboot erase metadata
+fastboot reboot
+```
+Check after each command that it said OKAY. If `resize-logical-partition` or the flash refuses, STOP and go to section 7; do not improvise with other partitions.
+First boot can take several minutes. adb: the build is userdebug with insecure adb; if the screen/keypad is dead, `adb devices` and `adb logcat` still work if USB debugging came up.
+
+## 5. What to check on first boot (log everything: `adb logcat -b all -d > boot.log`, `adb shell dumpsys telephony.registry`, `getprop`)
+1. Boots to the launcher; keypad keys work (Back/Home/Call/End, digits, D-pad); `getevent -p` shows which device and keylayout the keypad uses.
+2. SIM (Smarty): registered on the network? mobile data (APN from Lineage's merged list) works?
+3. VoLTE call: expected to FAIL without the MediaTek IMS pieces. Look at telephony.registry for IMS state and logcat for ImsService/ims/mtkims errors.
+4. Wi-Fi, Bluetooth pairing, audio (speaker, earpiece, headset), battery and charging indicator, display brightness, torch/camera.
+5. Anything crashing in a loop (the stock NFC package is a known ANR source; there is no NFC chip).
+Results go into docs and decide what the IMS port needs.
+
+## 6. Going back to exactly where the phone is now
+Exact state = Dumber image + stock product/vendor + the phone's own data. Pick one:
+- **R1, byte-exact (recommended if you took the data dumps).** mtkclient preloader mode: write back `super` from the 10 Nov super.bin (sha256 f97fb7a0...), then `userdata` and `metadata` from the dumps taken in step 3.1: `mtk w super super.bin`, `mtk w userdata userdata.bin`, `mtk w metadata metadata_now.bin` (UNTESTED; super is 5 GiB, slow). This restores the partition table, Dumber's system, the stock product and the original data together. Write userdata and metadata as a pair or the encryption keys will not match.
+- **R2, quick, functional.** fastbootd: `fastboot resize-logical-partition product_a 2486730752`, `fastboot flash product_a product_a.img` (the extracted stock one), `fastboot resize-logical-partition system_a 2173976576`, `fastboot flash system_a system_a.img` (Dumber's), then wipe userdata/metadata. Everything works as before except the old data is gone, and logical partition placement inside super differs slightly.
+- **R3, original Qin stock.** Same as R2 with the original system_a (sha256 aabb1148..., 1,821,229,056 bytes).
+Phone Guard reinstall after any wipe: provision again as device owner (Provisioning steps in the app docs).
+
+## 7. If something goes wrong
+- Boots to fastboot only / bootloop: `fastboot reboot fastboot`, redo R2 (needs no data) to get back a working phone.
+- Fastboot unreachable but the preloader window works: R1 with mtkclient (retry until it catches the 2-3 s window, as in the recovery guide).
+- Identity or radio problems (no IMEI): restore the identity partitions from ~/phone-backups/qin-j35-20261110/identity/ (recovery-guide section 5.4). Our flash never writes them, so this is only for the unexpected.
+- No USB at all: stop and read recovery-guide section 5.5. Do not experiment.
