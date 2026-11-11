@@ -1,0 +1,72 @@
+#!/bin/bash
+# pg-flash: pull a finished image from the NAS and (carefully) flash the phone from this PC.
+#   pg-flash fetch [name]    copy /artifacts/<name|latest> from the NAS to ~/phone-images and verify checksums
+#   pg-flash plan  [name]    read-only: show the phone's state and the exact commands flash would run
+#   pg-flash flash [name] --go   write system to the INACTIVE slot only (asks you to type a phrase first)
+#   pg-flash activate        make the other slot the next boot slot (separate step, on purpose)
+# Never touches preloader, lk, vbmeta, userdata or the active slot. Dry-run unless --go is given.
+set -euo pipefail
+NAS_HOST=${PG_NAS_HOST:-192.168.1.138}; NAS_PORT=${PG_NAS_PORT:-2223}; NAS_USER=${PG_NAS_USER:-matthew}
+NAS_KEY=${PG_NAS_KEY:-$HOME/.ssh/nas_workstation}; REMOTE_DIR=${PG_REMOTE_DIR:-/artifacts}
+LOCAL_DIR=${PG_LOCAL_DIR:-$HOME/phone-images}
+SSH=(ssh -i "$NAS_KEY" -o IdentitiesOnly=yes -p "$NAS_PORT")
+die() { echo "pg-flash: $*" >&2; exit 1; }
+
+cmd=${1:-}; shift || true
+name=latest; go=0
+for a in "$@"; do case $a in --go) go=1 ;; *) name=$a ;; esac; done
+
+fetch() {
+  local real
+  real=$("${SSH[@]}" "$NAS_USER@$NAS_HOST" "readlink -f '$REMOTE_DIR/$name'") || die "cannot reach the NAS"
+  [ -n "$real" ] && "${SSH[@]}" "$NAS_USER@$NAS_HOST" "test -d '$real'" || die "no such image folder: $REMOTE_DIR/$name"
+  build=$(basename "$real"); mkdir -p "$LOCAL_DIR/$build"
+  echo "fetching $build ..."
+  rsync -a --partial --info=progress2 -e "ssh -i $NAS_KEY -o IdentitiesOnly=yes -p $NAS_PORT" \
+    "$NAS_USER@$NAS_HOST:$real/" "$LOCAL_DIR/$build/"
+  [ -f "$LOCAL_DIR/$build/SHA256SUMS" ] || die "no SHA256SUMS in $build; refusing to use it"
+  (cd "$LOCAL_DIR/$build" && sha256sum -c SHA256SUMS) || die "checksum mismatch in $build"
+  ln -sfn "$LOCAL_DIR/$build" "$LOCAL_DIR/current"
+  echo "ok: $LOCAL_DIR/$build (also $LOCAL_DIR/current)"
+}
+
+var() { fastboot getvar "$1" 2>&1 | awk -F': *' -v k="$1" '$1==k{print $2; exit}'; }
+
+state() {
+  fastboot devices | grep -q . || die "no phone in fastboot (adb reboot bootloader, or hold the volume key at power-on)"
+  unlocked=$(var unlocked); cur=$(var current-slot); userspace=$(var is-userspace)
+  [ "$unlocked" = yes ] || die "bootloader reports unlocked='$unlocked'; stopping"
+  case $cur in a) other=b ;; b) other=a ;; *) die "unknown current-slot '$cur'" ;; esac
+  echo "phone: unlocked=$unlocked current-slot=$cur target-slot=$other is-userspace=$userspace"
+}
+
+img() { d="$LOCAL_DIR/current"; [ -f "$d/system.img" ] || die "no system.img in $d (run: pg-flash fetch)"; echo "$d/system.img"; }
+
+case $cmd in
+  fetch) fetch ;;
+  plan|flash)
+    [ "$name" = latest ] && [ -L "$LOCAL_DIR/current" ] || true
+    state; image=$(img)
+    echo "image: $image ($(du -h "$image" | cut -f1))"
+    echo "would run:"
+    echo "  fastboot reboot fastboot            # userspace fastbootd, needed for logical partitions"
+    echo "  fastboot flash system_$other $image"
+    echo "  (slot stays $cur until you run: pg-flash activate)"
+    [ "$cmd" = plan ] && exit 0
+    [ "$go" = 1 ] || { echo "dry run only; add --go to write"; exit 0; }
+    echo "Have you got the full backup and a known-good system image ready? See docs/recovery-guide.md."
+    read -r -p "Type 'flash slot $other' to continue: " ans
+    [ "$ans" = "flash slot $other" ] || die "not confirmed"
+    fastboot reboot fastboot; sleep 8
+    [ "$(var is-userspace)" = yes ] || die "did not reach fastbootd; nothing was written"
+    fastboot flash "system_$other" "$image"
+    echo "written to slot $other. Not activated. To try it: pg-flash activate"
+    ;;
+  activate)
+    state
+    read -r -p "Type 'boot slot $other' to make it the next boot slot: " ans
+    [ "$ans" = "boot slot $other" ] || die "not confirmed"
+    fastboot set_active "$other"; echo "next boot: slot $other. Fall back with: fastboot set_active $cur"
+    ;;
+  *) sed -n '2,8p' "$0"; exit 2 ;;
+esac
