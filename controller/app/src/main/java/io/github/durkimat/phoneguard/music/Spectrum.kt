@@ -29,6 +29,9 @@ object Spectrum {
     private var vis: Visualizer? = null
     private var lastUse = 0L
     private var failed = false
+    /** The music volume's gain in dB (0 at full volume, negative below), refreshed while the screen draws: the mix is captured after it, so it is put back. */
+    @Volatile private var volumeDb = 0.0
+    private var volumeAt = 0L
     /** True while the radio player runs: its audio arrives through [feedPcm] and the output mix is not listened to. */
     @Volatile var radioPcm = false
     private val pcm = DoubleArray(1024)
@@ -41,6 +44,7 @@ object Spectrum {
     fun use(c: Context) {
         val now = System.currentTimeMillis()
         lastUse = now; ctx = c.applicationContext
+        if (now - volumeAt > 400) { volumeAt = now; volumeDb = streamGainDb(c) }
         if (radioPcm) {
             if (vis != null) stop()
             if (now - lastPcm > 400) for (i in 0 until BARS) { level[i] = max(0f, level[i] - 0.18f); peak[i] = max(level[i], peak[i] - 0.04f) } // paused or buffering: no audio is arriving, so the bars fall
@@ -54,10 +58,21 @@ object Spectrum {
         try {
             val v = Visualizer(0)
             v.enabled = false
-            try { v.scalingMode = Visualizer.SCALING_MODE_AS_PLAYED } catch (_: Throwable) { } // the default scales the data up to fill the range, so quiet music looked as loud as loud
+            // The mix is captured after the volume, and the 8-bit AS_PLAYED capture is nearly empty at a low volume. NORMALIZED scales each capture to full
+            // range before it is cut to 8 bits, so the shape survives; the level is then restored from the 16-bit peak measurement and the volume's gain.
+            try { v.scalingMode = Visualizer.SCALING_MODE_NORMALIZED } catch (_: Throwable) { }
+            val measured = try { v.setMeasurementMode(Visualizer.MEASUREMENT_MODE_PEAK_RMS) == Visualizer.SUCCESS } catch (_: Throwable) { false }
             v.captureSize = Visualizer.getCaptureSizeRange()[1] // the largest: 1024 gives about 21 Hz per bin
             v.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
-                override fun onWaveFormDataCapture(vz: Visualizer?, wf: ByteArray?, rate: Int) { if (wf != null) feed(wf, rate) }
+                override fun onWaveFormDataCapture(vz: Visualizer?, wf: ByteArray?, rate: Int) {
+                    if (wf == null) return
+                    var gain = 1.0
+                    if (measured && vz != null) {
+                        val m = Visualizer.MeasurementPeakRms()
+                        if (vz.getMeasurementPeakRms(m) == Visualizer.SUCCESS) gain = if (m.mPeak <= -9000) 0.0 else Math.pow(10.0, (m.mPeak / 100.0 - volumeDb) / 20.0).coerceAtMost(1.0)
+                    }
+                    feed(wf, rate, gain)
+                }
                 override fun onFftDataCapture(vz: Visualizer?, fft: ByteArray?, rate: Int) {}
             }, Visualizer.getMaxCaptureRate(), true, false)
             v.enabled = true
@@ -91,10 +106,23 @@ object Spectrum {
      * (50 Hz to 16 kHz); each is its RMS level in dB with a lift of about 1.5 dB per bar (music has far less energy up high),
      * scaled to the loudest recent band. Bars rise at once and fall steadily.
      */
-    private fun feed(wave: ByteArray, rateMilliHz: Int) {
+    private fun feed(wave: ByteArray, rateMilliHz: Int, gain: Double) {
         if (wave.size != 1024) return
-        analyse(DoubleArray(1024) { ((wave[it].toInt() and 0xFF) - 128) / 128.0 }, rateMilliHz)
+        analyse(DoubleArray(1024) { ((wave[it].toInt() and 0xFF) - 128) / 128.0 * gain }, rateMilliHz)
     }
+
+    /** The music stream's volume as gain in dB for the output in use (0 for full volume); 0 if the phone will not say. */
+    private fun streamGainDb(c: Context): Double = try {
+        val am = c.getSystemService(android.media.AudioManager::class.java)
+        val outs = am.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS).map { it.type }
+        val type = when {
+            android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP in outs -> android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES in outs -> android.media.AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+            android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET in outs -> android.media.AudioDeviceInfo.TYPE_WIRED_HEADSET
+            else -> android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+        }
+        am.getStreamVolumeDb(android.media.AudioManager.STREAM_MUSIC, am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC), type).toDouble().coerceAtMost(0.0)
+    } catch (_: Throwable) { 0.0 }
 
     /** The radio's decoded audio, as the player hands it on (16-bit PCM, any channels), mixed to mono and analysed 1024 samples at a time. */
     fun feedPcm(rateHz: Int, channels: Int, encoding: Int, buf: java.nio.ByteBuffer) {
@@ -137,7 +165,7 @@ object Spectrum {
             db[b] = if (raw < GATE_DB) -200f else raw + b * 1.0f
         }
         val loud = db.max().coerceAtLeast(-100f)
-        if (now - lastLog > 5000) { lastLog = now; ctx?.let { Log.log(it, "spectrum: loudest band ${"%.0f".format(loud)} dB bands " + db.joinToString(" ") { "%.0f".format(it) }) } }
+        if (now - lastLog > 5000) { lastLog = now; ctx?.let { Log.log(it, "spectrum: volume ${"%.0f".format(volumeDb)} dB, loudest band ${"%.0f".format(loud)} dB bands " + db.joinToString(" ") { "%.0f".format(it) }) } }
         for (b in 0 until BARS) {
             val v = Math.pow(((db[b] - BOTTOM_DB) / (TOP_DB - BOTTOM_DB)).coerceIn(0f, 1f).toDouble(), 1.4).toFloat() // a curve, so middling levels sit low and real peaks stand out
             level[b] = if (v > level[b]) v else max(v, level[b] - 0.18f)
