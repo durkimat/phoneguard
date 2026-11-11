@@ -196,3 +196,12 @@ Consequences:
 - Rollback after a test means re-flashing system_a (a known-good system.img extracted from this backup), not `set_active`.
 - Size: with product_a kept, system_a can be at most about 2352 MiB (5118 - 395 - 2371). Lineage's system.img may be larger; if so, product_a has to be shrunk or deleted in fastbootd (`resize-logical-partition` / `delete-logical-partition`). Check the built image size first.
 - Our GSI replaces system only; the stock Qin product partition (2.3 GB: Qin apps and overlays) stays mounted over /product unless we remove it. Check what is in it.
+
+## 11. What Dumber's image contains that our build lacks (read from the backup, 2026-11-11)
+
+Extracted system_a, product_a and vendor_a from super.bin to ~/phone-backups/qin-j35-20261110/extracted/ (ext4, read-only, images.sha256).
+system_a sha256 0615df75...2083 (2,173,976,576 bytes); product_a fb934ead...1a56; vendor_a 55187...9693. Listed with 7z; nothing mounted or changed.
+- **MediaTek IMS apps (VoLTE and Wi-Fi calling).** Dumber's system has ImsService, MtkGbaService, MtkTelephonyAssist, MtkCarrierConfig (CarrierConfig.apk) and mediatek-res.apk, also kept under /system/etc/phh/stock_mtk_ims/. The vendor side (volte_imsm_93, volte_stack, wfca init files, libvolte_*) is in vendor_a. Our TrebleDroid tree has no such mechanism: TrebleDroid's phh-on-boot.sh even clears persist.mtk_ims_support/persist.mtk_epdg_support on devices with /vendor/bin/mtkmal. So VoLTE on our plain build is expected to FAIL until we add these apps. They are proprietary MediaTek apps; the right source is the phone's original Qin stock system (not located yet), the copies in Dumber's image are a fallback for private testing only. Redistribution needs legal advice.
+- Other Dumber additions seen in system_a: tt9 (T9 keypad text input), QcRilAm, Iwlan and QualifiedNetworksService, Seedvault, TrebleApp, DumbdroidAdmin/Panel/Updater/BugreportUploader (Dumber's, not ours to copy).
+- **product_a** (2.3 GB) is Qin's stock product partition and holds Google apps (Chrome, Gmail, Maps, YouTube, Photos...) and GMS overlays. Whether Dumber's image actually mounts it is not established.
+- Keypad layout: no mtk-kpd keylayout found in vendor_a or system_a by name; to be checked on the running phone (`getevent -p`, /vendor/usr/keylayout).
