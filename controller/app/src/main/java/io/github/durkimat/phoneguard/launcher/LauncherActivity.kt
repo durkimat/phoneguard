@@ -472,7 +472,9 @@ class LauncherActivity : Activity() {
         }
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
             val before = model.screen
+            val was = model.provider
             val a = model.onKey(k.first, k.second)
+            if (model.provider != was) pauseSource(was) // a different music source was chosen: the old one stops, so only one thing is ever playing
             // moving the highlight up or down in a list changes nothing that needs reading again (contacts, messages, apps, music...): redraw at once from what is held
             val info = lastInfo
             if (a == Action.Redraw && (k.first == Key.UP || k.first == Key.DOWN) && model.screen == before && before in moveOnly && info != null) skin.render(model, info)
@@ -641,6 +643,13 @@ class LauncherActivity : Activity() {
         model.music = m.copy(volumePct = pct)
         Thread { sp.volume(this, pct); spPolledAt = 0 }.start()
         return pct to m.device.uppercase().take(8)
+    }
+
+    /** Pauses a music source that is playing (the radio lets go of its stream, Spotify is told to pause); does nothing if it is not playing. */
+    private fun pauseSource(p: Provider) {
+        if (p == Provider.RADIO) { if (io.github.durkimat.phoneguard.music.Radio.playing) io.github.durkimat.phoneguard.music.Radio.stop(this); return }
+        if (providerStates().second[Provider.SPOTIFY] != 2) return
+        spOrLocal({ sp.pause(this) }, { io.github.durkimat.phoneguard.music.MusicController.playPause(this) })
     }
 
     private fun spOrLocal(api: () -> Unit, local: () -> Unit) {
