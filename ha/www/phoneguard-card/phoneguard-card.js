@@ -2,7 +2,7 @@
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.29.0";
+const PG_VERSION = "0.30.0";
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -259,7 +259,7 @@ class PhoneGuardCard extends HTMLElement {
       html += this._matrixHtml(d) + this._modeSettingsHtml(d) + this._powerHtml(d) + this._holidayHtml(d);
     }
     html += this._timetableHtml(d);
-    if (dev && !dev.pending) html += this._weatherHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._radioHtml(d) + this._usageHtml(d) + this._batteryHtml(d) + this._updatesHtml(d);
+    if (dev && !dev.pending) html += this._weatherHtml(d) + this._lookHtml(d) + this._spotifyHtml(d) + this._whatsappHtml(d) + this._radioHtml(d) + this._usageHtml(d) + this._batteryHtml(d) + this._updatesHtml(d);
     html += this._restrictionsHtml(d);
     html += `<h3>Device</h3>`;
     if (this._ui.renaming) {
@@ -482,6 +482,19 @@ class PhoneGuardCard extends HTMLElement {
     if (r.latest && r.latest.length) h += `<details style="margin:4px 0"><summary class="sub" style="cursor:pointer">Recent</summary><div class="sub">${r.latest.map(([t, nm, why2, would]) => `${this._fmtTime(t)} ${this._esc(nm)} · ${this._esc(why2)}${would ? " (report only)" : ""}`).join("<br>")}</div></details>`;
     h += `<label class="sub" style="display:block;margin-top:6px"><input type="checkbox" data-dry ${dry ? "checked" : ""}> Report only: show what would be closed, but close nothing</label>`;
     return h;
+  }
+
+  // How the phone looks. Each setting is either left to the phone (its Settings menu) or fixed here; what is fixed here wins.
+  _lookHtml(d) {
+    const look = d.look || {};
+    const sel = (key, label, opts) => `<label class="sub" style="display:inline-block;margin:4px 12px 4px 0">${label}
+      <select data-look="${key}"><option value="">Phone's own choice</option>${opts.map(([v, n]) => `<option value="${v}" ${look[key] === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
+    return `<h3>Look</h3><div>
+      ${sel("theme", "Theme", [["green", "Green"], ["grey", "Grey"], ["amber", "Amber"], ["orange", "Orange"], ["mac", "Classic Mac"], ["macdark", "Classic Mac dark"]])}
+      ${sel("font", "Font", [["mono", "Monospace"], ["sans", "Sans-serif"], ["vt323", "Pixel VT323"], ["pixelify", "Pixelify"]])}
+      ${sel("menu_style", "Main menu", [["list", "List"], ["grid", "Grid of icons"]])}
+      ${sel("accent", "Accent (held peaks)", [["#D42A1E", "Red"], ["#2255DD", "Blue"], ["#2E8B3D", "Green"], ["#E07A00", "Orange"]])}
+      </div><div class="sub">A setting fixed here cannot be changed from the phone's own Settings menu; the phone shows "Set by a parent".</div>`;
   }
 
   // Spotify: the developer app's Client ID (public by design, entered once for every phone, never the client secret) and
@@ -787,6 +800,10 @@ class PhoneGuardCard extends HTMLElement {
       try { localStorage.setItem("phoneguard-card:sections", JSON.stringify(this._ui.sec)); } catch (e) { /* private window */ }
     }));
     r.querySelectorAll("input[data-upd-enable]").forEach((i) => i.addEventListener("change", () => this._hass.callService("phoneguard", "set_options", { updates_enabled: i.checked })));
+    r.querySelectorAll("select[data-look]").forEach((i) => i.addEventListener("change", () => {
+      const look = { ...(this._d.look || {}), [i.dataset.look]: i.value };
+      this._svc("set_child", { config: { look } });
+    }));
     r.querySelectorAll("input[data-dry]").forEach((i) => i.addEventListener("change", () => this._svc("set_child", { config: { idle_dry_run: i.checked } })));
     r.querySelectorAll("input[data-all]").forEach((i) => {
       const d = this._d, m = i.dataset.all, apps = d.apps || [];

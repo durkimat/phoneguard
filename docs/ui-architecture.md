@@ -51,5 +51,16 @@ Slice 4b finished the look: list rows carry pixel icons (main menu) and a shortc
 bar, Now playing is its own Mac layout (ruled display, slider, analyser inset, three push buttons), notices are an alert box, and the
 soft-key buttons lost their Nokia arrows. The grid, lists, Home and Settings are the same screens as before, framed.
 
-Still to do: the Look data object (so the parent app can set accent, window style and fonts one at a time) and moving this out of
-`NokiaSkin` into a skin of its own.
+## Slice 5: the look as data, and the skins apart
+
+- **`Look`** (`Look.kt`) is the phone's look as plain data: theme, font, main-menu style and an optional accent. The theme decides the
+  skin (`Theme.skin`). The phone keeps its own choices (Settings); a parent can fix any of them from Home Assistant, and a fixed
+  setting wins for that field only (`Look.resolve`). Picking something the parent holds saves the phone's own choice but the screen
+  stays as the parent set it, with the notice "Set by a parent". Unknown ids from HA are ignored.
+- **The path from HA:** the card's new Look section (v0.30.0) calls `set_child` with `look: {theme, font, menu_style, accent}`;
+  `hub.update_child` checks it (`schedule.clean_look`), `build_config` sends it as `look` (`menuStyle` on the wire), and `Config.parse`
+  reads it into `ParentLook`. The launcher, call screen, volume bar, lock-screen cover and camera all read `Look.current`.
+- **Skins:** `PaintedSkin` draws each screen's content; a `Chrome` draws what surrounds it and may take over the title, soft keys,
+  list rows, scroll bar, player, notices and message boxes. `NokiaSkin` is `PaintedSkin(NokiaChrome)` (every hook left at its plain
+  default) and `MacSkin` is `PaintedSkin(MacChrome())` in `MacSkin.kt`. The launcher swaps the skin live when the look needs another.
+- A new look therefore means one new `Chrome`, with no change to the navigation or to any screen.

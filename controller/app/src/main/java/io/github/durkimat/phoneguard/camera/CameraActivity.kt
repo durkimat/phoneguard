@@ -78,8 +78,8 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         if (!io.github.durkimat.phoneguard.launcher.LauncherData.cameraAllowed(this)) { finish(); return } // the mode does not offer the camera
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", MODE_PRIVATE)
-        view = CamView(this, model, prefs.getString("theme", null), prefs.getString("font", null))
+        val look = io.github.durkimat.phoneguard.launcher.Look.current(this)
+        view = CamView(this, model, look.theme, look.font)
         // video mode: this camera cannot run our live-picture stream and a video recorder together, so video shows the camera's plain colour picture
         previewView = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE; scaleType = PreviewView.ScaleType.FILL_CENTER; visibility = android.view.View.GONE }
         val root = FrameLayout(this)

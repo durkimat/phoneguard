@@ -414,3 +414,17 @@ def test_radios_sleep_defaults_on_everywhere_and_can_be_switched_off(hub):
     hub.update_child("her", {"modes": modes})
     cfg = S.build_config(hub.data["children"]["her"], hub.now())
     assert cfg["modes"]["day"]["radiosSleep"] is False and cfg["modes"]["school"]["radiosSleep"] is True
+
+
+def test_the_look_is_checked_and_reaches_the_phone_config(hub):
+    now = hub.now()
+    assert "look" not in S.build_config(hub.data["children"]["her"], now)
+    hub.update_child("her", {"look": {"theme": "macdark", "menu_style": "grid", "accent": "#D42A1E", "font": ""}})
+    assert S.build_config(hub.data["children"]["her"], now)["look"] == {"theme": "macdark", "menuStyle": "grid", "accent": "#D42A1E"}
+    assert hub.view("her")["look"] == {"theme": "macdark", "menu_style": "grid", "accent": "#D42A1E"}
+    for bad in ({"theme": "neon"}, {"font": "comic"}, {"menu_style": "carousel"}, {"accent": "red"}, {"colour": "x"}, "mac"):
+        with pytest.raises(ValueError):
+            hub.update_child("her", {"look": bad})
+    assert hub.view("her")["look"]["theme"] == "macdark"  # a bad change is never kept
+    hub.update_child("her", {"look": None})
+    assert "look" not in S.build_config(hub.data["children"]["her"], now)

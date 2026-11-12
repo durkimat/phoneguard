@@ -100,6 +100,8 @@ data class Config(
     val idleDryRun: Boolean = false,
     /** Installs, updates and removals a parent asked for in HA, each once (the id says which have been done). */
     val appCommands: List<AppCmd> = emptyList(),
+    /** Look settings a parent chose in HA (each optional); they win over the phone's own choice for that setting. */
+    val look: ParentLook? = null,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -178,6 +180,12 @@ data class Config(
                         AppCmd(x.optString("id"), x.optString("kind"), x.optString("pkg"), x.optString("name"), x.optString("url"), x.optString("sha256"), x.optLong("size", 0))
                     }
                 },
+                look = o.optJSONObject("look")?.let { l ->
+                    ParentLook(
+                        theme = l.optString("theme").ifEmpty { null }, font = l.optString("font").ifEmpty { null }, menuStyle = l.optString("menuStyle").ifEmpty { null },
+                        accent = l.optString("accent").takeIf { it.length == 7 && it[0] == '#' }?.let { h -> h.substring(1).toLongOrNull(16)?.let { (0xFF000000L or it).toInt() } },
+                    ).takeIf { it.theme != null || it.font != null || it.menuStyle != null || it.accent != null }
+                },
                 keepRunning = if (o.has("keepRunning")) strings(o.optJSONArray("keepRunning")) else null,
                 radioStations = o.optJSONArray("radioStations")?.let { a -> (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { x -> RadioStation(x.optString("name"), x.optString("url")).takeIf { it.name.isNotBlank() && it.url.startsWith("https://") } } } },
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
@@ -193,6 +201,9 @@ data class Config(
         }
     }
 }
+
+/** What a parent set for the phone's look (ids as strings; the phone checks them against what it has). The accent is an ARGB colour. */
+data class ParentLook(val theme: String? = null, val font: String? = null, val menuStyle: String? = null, val accent: Int? = null)
 
 /** One job from HA for the app installer: install (or update) an app from a download address, or remove one. */
 data class AppCmd(val id: String, val kind: String, val pkg: String, val name: String, val url: String, val sha256: String, val size: Long)

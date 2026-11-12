@@ -11,11 +11,10 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * The first skin: a monochrome list-style Nokia. It only draws. Everything is laid out on a 480 by 640
+ * The painted skins: the content of each screen is drawn here, and a [Chrome] decides what frames it (a plain Nokia screen, a Mac window). It only draws. Everything is laid out on a 480 by 640
  * design grid and scaled to the real screen, so another skin can use a different grid or none.
  */
-class NokiaSkin : LauncherSkin {
-    override val id = "nokia-list"
+open class PaintedSkin(private val chrome: Chrome, override val id: String) : LauncherSkin {
 
     private var model: LauncherModel? = null
     /** A touch that lifted at this height on the 640 high design grid (only reaches us where touch is allowed). */
@@ -32,7 +31,7 @@ class NokiaSkin : LauncherSkin {
         view?.invalidate()
     }
 
-    private inner class Canvas2(context: Context) : View(context) {
+    private inner class Canvas2(context: Context) : View(context), Pen {
         private val typefaces = HashMap<String, Typeface>()
         private var sizeScale = 1f
         private var downY = 0f
@@ -50,16 +49,14 @@ class NokiaSkin : LauncherSkin {
             }
         } catch (_: Exception) { Typeface.MONOSPACE }
 
-        private var lcd = 0
-        private var ink = 0
-        private var accent = 0
-        private var mac = false
-        private var macTitle = ""
-        private var macKeys: Pair<String, String>? = null
-        private var deskCache: Pair<Theme, android.graphics.BitmapShader>? = null
+        override var lcd = 0
+        override var ink = 0
+        override var accent = 0
+        override val viewWidth get() = width
+        override val viewHeight get() = height
         private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE }
-        private val fill = Paint()
-        private val stroke = Paint().apply { style = Paint.Style.STROKE }
+        override val fill = Paint()
+        override val stroke = Paint().apply { style = Paint.Style.STROKE }
 
         init {
             isFocusable = false
@@ -96,15 +93,14 @@ class NokiaSkin : LauncherSkin {
             val i = info ?: return
             val u = width / 480f
             val t = Themes.byId(m.theme)
-            lcd = t.lcd; ink = t.ink; accent = t.accent; fill.color = ink; stroke.color = ink
-            mac = t.skin == "mac"
+            lcd = t.lcd; ink = t.ink; accent = m.accent ?: t.accent; fill.color = ink; stroke.color = ink
             val f = if (t.font != null && m.font == Fonts.DEFAULT) t.font else Fonts.byId(m.font).id
             p.typeface = typefaces.getOrPut(f) { load(f) }
             sizeScale = if (f == "vt323") 1.3f else 1f
             c.drawColor(lcd)
-            if (mac) { macTitle = if (m.screen == Screen.HOME) "Home" else m.title; macKeys = null; macDesktop(c, t, u) }
+            chrome.background(this, c, t, m, u)
             statusLine(c, i, u)
-            if (mac) { c.save(); c.clipRect(11 * u, 94 * u, 469 * u, 569 * u) }
+            chrome.beginContent(this, c, u)
             when (m.screen) {
                 Screen.HOME -> { home(c, i, u); m.weather?.let { w -> weatherStrip(c, w, u) } }
                 Screen.WEATHER -> weatherScreen(c, m, u)
@@ -125,119 +121,10 @@ class NokiaSkin : LauncherSkin {
                 else -> menu(c, m, u)
             }
             m.notice?.let { notice(c, it, u) }
-            if (mac) { c.restore(); macTitleBar(c, m, u); macButtons(c, u) }
+            chrome.endContent(this, c, m, u)
         }
 
-        /** The classic-Mac desktop: a dithered backdrop, a menu bar for the status symbols, and one window that holds the screen. */
-        private fun macDesktop(c: Canvas, t: Theme, u: Float) {
-            val sh = deskCache?.takeIf { it.first === t }?.second ?: run {
-                val bmp = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
-                bmp.setPixel(0, 0, t.desk); bmp.setPixel(1, 1, t.desk); bmp.setPixel(1, 0, t.desk2); bmp.setPixel(0, 1, t.desk2)
-                val s = android.graphics.BitmapShader(bmp, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
-                s.setLocalMatrix(android.graphics.Matrix().apply { setScale(2f * u, 2f * u) })
-                deskCache = t to s; s
-            }
-            val d = Paint().apply { shader = sh; isFilterBitmap = false }
-            c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), d)
-            fill.color = lcd; c.drawRect(0f, 0f, width.toFloat(), 46 * u, fill) // the menu bar
-            fill.color = ink; c.drawRect(12 * u, 56 * u, 476 * u, 576 * u, fill)  // the window's drop shadow
-            fill.color = lcd; c.drawRect(8 * u, 52 * u, 472 * u, 572 * u, fill)
-            stroke.strokeWidth = 3 * u; c.drawRect(8 * u, 52 * u, 472 * u, 572 * u, stroke)
-            fill.color = ink
-        }
-
-        /** Pinstriped title bar with a close box (where Back has somewhere to go) and the title on a plate in the middle. */
-        private fun macTitleBar(c: Canvas, m: LauncherModel, u: Float) {
-            stroke.strokeWidth = 2 * u
-            var y = 58f
-            while (y < 88f) { c.drawLine(10 * u, y * u, 470 * u, y * u, stroke); y += 4f }
-            c.drawLine(8 * u, 92 * u, 472 * u, 92 * u, stroke)
-            if (m.screen != Screen.HOME && m.depth > 0) {
-                fill.color = lcd; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, fill); fill.color = ink
-                stroke.strokeWidth = 2.5f * u; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, stroke)
-            }
-            val room = 340f
-            val w = minOf(measureBold(macTitle, 28f), room)
-            fill.color = lcd; c.drawRect((240 - w / 2 - 12) * u, 56 * u, (240 + w / 2 + 12) * u, 89 * u, fill); fill.color = ink
-            marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, center = true)
-        }
-
-        /** A classic scroll bar down the window's right edge: a ruled track with a solid thumb. */
-        private fun macScroll(c: Canvas, first: Int, total: Int, u: Float) {
-            val x0 = 454f; val x1 = 468f; val y0 = 104f; val y1 = 104f + LIST_VISIBLE * 62f - 4f
-            fill.color = lcd; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, fill); fill.color = ink
-            stroke.strokeWidth = 2 * u; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, stroke)
-            val span = y1 - y0 - 6f
-            val thumb = maxOf(24f, span * LIST_VISIBLE / total)
-            val top = y0 + 3f + (span - thumb) * first / (total - LIST_VISIBLE).coerceAtLeast(1)
-            c.drawRect((x0 + 3) * u, top * u, (x1 - 3) * u, (top + thumb) * u, fill)
-        }
-
-        /** Now playing as a Mac window: a ruled display for the track, a slider, an inset for the analyser and three push buttons. */
-        private fun macNowPlaying(c: Canvas, m: LauncherModel, u: Float) {
-            val mu = m.music
-            val radio = m.provider == Provider.RADIO
-            stroke.strokeWidth = 2 * u
-            c.drawRect(22 * u, 104 * u, 458 * u, 256 * u, stroke)
-            c.drawRect(26 * u, 108 * u, 454 * u, 252 * u, stroke)
-            val where = if (radio) "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else "")
-                else if (mu.device.isNotEmpty()) (if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 250f, 22f)) else ""
-            text(c, where, 38f, 134f, 22f, u)
-            if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 442f, 134f, 22f, u, align = Paint.Align.RIGHT)
-            marquee(c, mu.title.ifEmpty { "(no title)" }, 38f, 180f, 34f, 404f, u, bold = true)
-            marquee(c, mu.artist, 38f, 214f, 28f, 404f, u)
-            val sub = if (mu.from.isNotEmpty()) mu.from else if (mu.album.isNotEmpty() && !mu.album.equals(mu.title, true) && !mu.album.equals(mu.artist, true)) mu.album else ""
-            if (sub.isNotEmpty()) marquee(c, sub, 38f, 242f, 22f, 404f, u)
-            // the slider: times either side of a ruled track with a square thumb (a radio has no end, so it just says LIVE)
-            if (radio) text(c, "LIVE", 240f, 284f, 30f, u, bold = true, align = Paint.Align.CENTER)
-            else {
-                text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.positionMs), 22f, 286f, 22f, u)
-                if (mu.durationMs > 0) text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.durationMs), 458f, 286f, 22f, u, align = Paint.Align.RIGHT)
-                stroke.strokeWidth = 2 * u; c.drawRect(100 * u, 270 * u, 380 * u, 286 * u, stroke)
-                if (mu.durationMs > 0) {
-                    val tx = 100f + 280f * (mu.positionMs.toFloat() / mu.durationMs).coerceIn(0f, 1f)
-                    c.drawRect(104 * u, 274 * u, tx * u, 282 * u, fill)
-                    c.drawRect((tx - 7).coerceAtLeast(96f) * u, 264 * u, (tx + 7).coerceAtMost(384f) * u, 292 * u, fill)
-                }
-            }
-            if (m.spectrum) {
-                stroke.strokeWidth = 2 * u; c.drawRect(18 * u, 296 * u, 462 * u, 378 * u, stroke)
-                spectrum(c, mu.playing && mu.thisPhone, u)
-            }
-            // the three buttons: previous, play/pause, next, each with the key that does it
-            fun button(x0: Float, x1: Float): RectF {
-                val r = RectF(x0 * u, 398 * u, x1 * u, 454 * u)
-                fill.color = lcd; c.drawRoundRect(r, 14 * u, 14 * u, fill); fill.color = ink
-                stroke.strokeWidth = 2.5f * u; c.drawRoundRect(r, 14 * u, 14 * u, stroke); return r
-            }
-            button(24f, 144f); button(336f, 456f); button(180f, 300f)
-            text(c, if (radio) "< prev" else "4 prev", 84f, 434f, 24f, u, bold = true, align = Paint.Align.CENTER)
-            text(c, if (radio) "next >" else "6 next", 396f, 434f, 24f, u, bold = true, align = Paint.Align.CENTER)
-            if (mu.playing) { c.drawRect(228 * u, 410 * u, 240 * u, 442 * u, fill); c.drawRect(250 * u, 410 * u, 262 * u, 442 * u, fill) }
-            else { val t = android.graphics.Path().apply { moveTo(228f * u, 408f * u); lineTo(260f * u, 426f * u); lineTo(228f * u, 444f * u); close() }; c.drawPath(t, fill) }
-            if (radio) {
-                text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 492f, 22f, u, align = Paint.Align.CENTER)
-                text(c, "* bars  0 sleep  # source", 240f, 526f, 22f, u, align = Paint.Align.CENTER)
-            } else {
-                if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   1 repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 492f, 22f, u, align = Paint.Align.CENTER)
-                text(c, "7 bars  0 sleep  # source", 240f, 526f, 22f, u, align = Paint.Align.CENTER)
-            }
-        }
-
-        /** The two soft keys as Mac push buttons under the window: the left one (the default action) has the heavier ring. */
-        private fun macButtons(c: Canvas, u: Float) {
-            val (left, right) = macKeys ?: return
-            fun button(x0: Float, x1: Float, label: String, heavy: Boolean) {
-                val r = RectF(x0 * u, 584 * u, x1 * u, 632 * u)
-                fill.color = lcd; c.drawRoundRect(r, 14 * u, 14 * u, fill); fill.color = ink
-                stroke.strokeWidth = (if (heavy) 4.5f else 2.5f) * u; c.drawRoundRect(r, 14 * u, 14 * u, stroke)
-                text(c, label, (x0 + x1) / 2, 618f, 28f, u, bold = true, align = Paint.Align.CENTER)
-            }
-            if (left.isNotEmpty()) button(10f, 236f, left, true)
-            if (right.isNotEmpty()) button(244f, 470f, right, false)
-        }
-
-        private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
+        override fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean, align: Paint.Align, color: Int) {
             p.textSize = size * sizeScale * u; p.isFakeBoldText = bold; p.textAlign = align; p.color = color
             c.drawText(s, x * u, y * u, p)
         }
@@ -313,7 +200,7 @@ class NokiaSkin : LauncherSkin {
 
         // The two labels are the D-pad's Left and Right: a small arrow shows which way to press.
         private fun softKeys(c: Canvas, left: String, right: String, u: Float) {
-            if (mac) { macKeys = left to right; return } // drawn as buttons below the window, outside the content's clip
+            if (chrome.softKeys(this, c, left, right, u)) return
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, (640 - 64) * u, width.toFloat(), (640 - 64) * u, stroke)
             val cy = 606f
@@ -471,8 +358,8 @@ class NokiaSkin : LauncherSkin {
                     else if (radio) (if (m.radioNames.isEmpty()) "No stations in this mode" else "OK picks a station")
                     else if (m.spSignedIn) "OK picks a playlist" else "Menu: sign in to Spotify", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
                 if (other != null) text(c, if (radio) "OK picks a station" else if (m.spSignedIn) "OK picks a playlist" else "", 240f, 316f, 24f, u, align = Paint.Align.CENTER)
-            } else if (mac) {
-                macNowPlaying(c, m, u)
+            } else if (chrome.nowPlaying(this, c, m, u)) {
+                // the chrome drew the whole player
             } else {
                 if (radio) text(c, "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
                 else if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
@@ -516,7 +403,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         /** Classic spectrum analyser in the progress bar's place: bouncing bars built of small blocks, each with a held peak block above it. */
-        private fun spectrum(c: Canvas, live: Boolean, u: Float) {
+        override fun spectrum(c: Canvas, live: Boolean, u: Float) {
             val sp = io.github.durkimat.phoneguard.music.Spectrum
             if (live) sp.use(context) else sp.stop() // not playing here: let go and show empty bars
             val n = sp.BARS; val left = 24f; val barW = 23f; val gap = 4f
@@ -539,7 +426,7 @@ class NokiaSkin : LauncherSkin {
          * A line that fits is drawn plainly. A longer one rests at its start, then scrolls left as a loop: a gap follows the end
          * and the start comes back in behind it, so when the scroll stops the line is exactly where it began (no jump).
          */
-        private fun marquee(c: Canvas, s0: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean = false, color: Int = ink, center: Boolean = false) {
+        override fun marquee(c: Canvas, s0: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean, color: Int, center: Boolean) {
             var s = s0
             if (measureBold(s, size) > room * 3) s = ellipsize(s, room * 3, size) // never longer than three screens
             val w = measureBold(s, size)
@@ -564,7 +451,7 @@ class NokiaSkin : LauncherSkin {
         /** The title bar's text: centred when it fits, otherwise it scrolls forwards and back. */
         /** The title bar: an inverted band for the Nokia look; a Mac window notes the title and draws its own bar around the content. */
         private fun titleBar(c: Canvas, s: String, u: Float) {
-            if (mac) { macTitle = s; return }
+            if (chrome.title(this, c, s, u)) return
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
             titleText(c, s, u)
         }
@@ -650,21 +537,16 @@ class NokiaSkin : LauncherSkin {
                 val idx = first + n
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
-                val prefix = if (mac) "" else if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
-                val icon = if (mac && m.screen == Screen.MENU) m.items.getOrNull(idx) else null
-                val tx = if (icon != null) 66f else 20f
-                val room = if (mac) 396f - (tx - 20f) else 440f // a Mac row leaves room for its shortcut digit and the scroll bar
+                val style = chrome.row(m, idx)
+                val prefix = style?.prefix ?: if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
+                val tx = style?.tx ?: 20f
+                val room = style?.room ?: 440f
                 val label = ellipsize(prefix + row, room, 32f)
                 if (idx == m.selected) {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
                     marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = lcd)
                 } else text(c, label, tx, top + 42f, 32f, u)
-                if (mac) {
-                    val sel = idx == m.selected
-                    if (icon != null) PixelIcons.draw(c, m.iconFor(icon), 20f * u, (top + 13f) * u, 2f * u, if (sel) lcd else ink, if (sel) ink else lcd)
-                    val key = if (idx < 9) "${idx + 1}" else if (idx == 9 && m.screen == Screen.MENU) "0" else ""
-                    if (key.isNotEmpty() && (m.rowMarks.getOrNull(idx) ?: 0) == 0) text(c, key, 440f, top + 40f, 22f, u, align = Paint.Align.RIGHT, color = if (sel) lcd else ink)
-                }
+                chrome.rowExtras(this, c, m, idx, top, idx == m.selected, u)
                 // the Music menu shows what each provider is doing: a play triangle while it plays, two bars while it is paused
                 m.rowMarks.getOrNull(idx)?.takeIf { it > 0 }?.let { mark ->
                     val cy = top + 27f; val col = if (idx == m.selected) lcd else ink
@@ -674,7 +556,7 @@ class NokiaSkin : LauncherSkin {
                     p.color = ink
                 }
             }
-            if (mac && m.rows.size > visible) macScroll(c, first, m.rows.size, u)
+            if (m.rows.size > visible) chrome.scrollBar(this, c, first, m.rows.size, visible, u)
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
@@ -691,7 +573,7 @@ class NokiaSkin : LauncherSkin {
                 val x = GRID_LEFT + col * (GRID_TILE_W + GRID_GAP)
                 val y = GRID_TOP + r * (GRID_TILE_H + GRID_GAP)
                 val on = idx == m.selected
-                val inset = if (mac) 5f else 0f // a window frame sits at the edge, so its tiles step in
+                val inset = chrome.gridInset // a window frame sits at the edge, so its tiles step in
                 val tile = RectF((x + inset) * u, y * u, (x + GRID_TILE_W - inset) * u, (y + GRID_TILE_H) * u)
                 if (on) c.drawRect(tile, fill) else c.drawRect(tile, stroke)
                 PixelIcons.draw(c, m.iconFor(item), (x + (GRID_TILE_W - 64f) / 2) * u, (y + (GRID_TILE_H - 64f) / 2) * u, 4f * u, if (on) lcd else ink, if (on) ink else lcd)
@@ -763,7 +645,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         /** Cuts a long line to fit the screen, ending in "..." (previews of messages are often longer than one line). */
-        private fun ellipsize(s: String, room: Float, size: Float): String {
+        override fun ellipsize(s: String, room: Float, size: Float): String {
             val paint = bodyPaint(); paint.textSize = size * (if (Fonts.byId(model?.font).id == "vt323") 1.3f else 1f); paint.isFakeBoldText = true
             val fits = paint.measureText(s) <= room
             if (fits) { paint.isFakeBoldText = false; return s }
@@ -773,7 +655,7 @@ class NokiaSkin : LauncherSkin {
             return "$t..."
         }
 
-        private fun measureBold(s: String, size: Float): Float {
+        override fun measureBold(s: String, size: Float): Float {
             val paint = bodyPaint(); paint.textSize = size * (if (Fonts.byId(model?.font).id == "vt323") 1.3f else 1f); paint.isFakeBoldText = true
             val w = paint.measureText(s); paint.isFakeBoldText = false
             return w
@@ -804,7 +686,7 @@ class NokiaSkin : LauncherSkin {
             // the To field takes the title bar's place, inverted while it has focus
             if (m.writeField == 0) {
                 val field = if (m.writeSearch) "Search_" else if (m.writeWifi != null) "Password_" else "To: " + m.writeLabel.ifBlank { m.writeTo } + "_"
-                if (mac) macTitle = field
+                if (chrome.fieldTitle(field)) { /* the chrome shows it in its title bar */ }
                 else {
                     c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
                     text(c, field, 16f, 85f, 30f, u, bold = true, color = lcd)
@@ -870,8 +752,8 @@ class NokiaSkin : LauncherSkin {
             c.drawRect((left + g.food.first * cell + 5) * u, (top + g.food.second * cell + 5) * u, (left + g.food.first * cell + cell - 5) * u, (top + g.food.second * cell + cell - 5) * u, stroke)
             val msg = when (g.state) { Snake.State.READY -> "Press a key"; Snake.State.PAUSED -> "Paused"; Snake.State.OVER -> "Game over"; else -> null }
             if (msg != null) {
-                c.drawRect((left + 40) * u, (top + 150) * u, (left + g.cols * cell - 40) * u, (top + 250) * u, fill)
-                text(c, msg, 240f, top + 212f, 34f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                val fg = callout(c, left + 40, top + 150, left + g.cols * cell - 40, top + 250, u)
+                text(c, msg, 240f, top + 212f, 34f, u, bold = true, align = Paint.Align.CENTER, color = fg)
             }
             text(c, "Score ${g.score}", 16f, 556f, 26f, u, bold = true)
             text(c, "Best ${m.snakeBest}", 464f, 556f, 26f, u, align = Paint.Align.RIGHT)
@@ -890,9 +772,15 @@ class NokiaSkin : LauncherSkin {
         }
 
         /** A filled box with a message in the theme's light colour. */
+        /** A filled box for a message: the chrome may draw its own kind (and then the text is in the ink colour). Returns the text colour. */
+        private fun callout(c: Canvas, x0: Float, y0: Float, x1: Float, y1: Float, u: Float): Int {
+            if (chrome.callout(this, c, x0, y0, x1, y1, u)) return ink
+            c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, fill); return lcd
+        }
+
         private fun banner(c: Canvas, msg: String, u: Float, y: Float) {
-            c.drawRect(60 * u, y * u, 420 * u, (y + 90) * u, fill)
-            text(c, msg, 240f, y + 58f, 34f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            val fg = callout(c, 60f, y, 420f, y + 90, u)
+            text(c, msg, 240f, y + 58f, 34f, u, bold = true, align = Paint.Align.CENTER, color = fg)
         }
 
         private fun pairs(c: Canvas, m: LauncherModel, u: Float) {
@@ -1016,9 +904,9 @@ class NokiaSkin : LauncherSkin {
                 }
                 CallPhase.ENDED -> {
                     text(c, who, 240f, 130f, fitted(who, 34f), u, bold = true, align = Paint.Align.CENTER)
-                    c.drawRect(60 * u, 230 * u, 420 * u, 370 * u, fill)
-                    text(c, "Call ended", 240f, 292f, 36f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
-                    text(c, clock(call.seconds), 240f, 342f, 36f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                    val fg = callout(c, 60f, 230f, 420f, 370f, u)
+                    text(c, "Call ended", 240f, 292f, 36f, u, bold = true, align = Paint.Align.CENTER, color = fg)
+                    text(c, clock(call.seconds), 240f, 342f, 36f, u, bold = true, align = Paint.Align.CENTER, color = fg)
                 }
             }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
@@ -1051,14 +939,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun notice(c: Canvas, s: String, u: Float) {
-            if (mac) { // an alert box: shadow, ruled border, plain text
-                fill.color = ink; c.drawRect(44 * u, 254 * u, 444 * u, 354 * u, fill)
-                fill.color = lcd; c.drawRect(40 * u, 250 * u, 440 * u, 350 * u, fill); fill.color = ink
-                stroke.strokeWidth = 3 * u; c.drawRect(40 * u, 250 * u, 440 * u, 350 * u, stroke)
-                stroke.strokeWidth = 1.5f * u; c.drawRect(47 * u, 257 * u, 433 * u, 343 * u, stroke)
-                text(c, s, 240f, 312f, 30f, u, bold = true, align = Paint.Align.CENTER)
-                return
-            }
+            if (chrome.notice(this, c, s, u)) return
             c.drawRect(30 * u, 250 * u, 450 * u, 350 * u, fill)
             text(c, s, 240f, 312f, 32f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }
@@ -1066,3 +947,8 @@ class NokiaSkin : LauncherSkin {
         private fun plural(n: Int, what: String) = "$n $what" + if (n == 1) "" else "s"
     }
 }
+
+/** The skins. They share the painted screens and differ only in their chrome. */
+class NokiaSkin : PaintedSkin(NokiaChrome, "nokia-list")
+
+class MacSkin : PaintedSkin(MacChrome(), "classic-mac")

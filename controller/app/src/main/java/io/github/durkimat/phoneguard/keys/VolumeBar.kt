@@ -72,9 +72,9 @@ class VolumeBar(private val svc: AccessibilityService) {
         fun set(cur: Int, max: Int, label: String, silent: Boolean) { this.cur = cur; this.max = max; this.label = label; this.silent = silent; invalidate() }
 
         override fun onDraw(cv: Canvas) {
-            val prefs = c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
-            val t = Themes.byId(prefs.getString("theme", Themes.DEFAULT))
-            val font = Fonts.byId(prefs.getString("font", Fonts.DEFAULT)).id
+            val look = io.github.durkimat.phoneguard.launcher.Look.current(c)
+            val t = look.colours()
+            val font = Fonts.byId(look.font).id
             val u = width / 330f
             p.isAntiAlias = false
             p.color = t.ink; cv.drawRect(0f, 0f, width.toFloat(), height.toFloat(), p)           // the frame

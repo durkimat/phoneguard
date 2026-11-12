@@ -69,7 +69,7 @@ class Hub:
 
     def update_child(self, cid: str, patch: dict) -> None:
         ch = self.data["children"][cid]
-        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations"}
+        allowed = {"name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look"}
         before = {k: ch[k] for k in allowed if k in ch}
         for k, v in patch.items():
             if k == "whatsapp" and isinstance(v, dict):
@@ -101,6 +101,8 @@ class Hub:
                     raise ValueError("location is out of range")
             if k == "notes_hide" and isinstance(v, list):
                 v = list(dict.fromkeys(x for x in v if isinstance(x, str) and x))
+            if k == "look":  # how the phone looks; a parent's choice wins over the phone's own for each setting it names
+                v = S.clean_look(v)
             if k == "pinned" and isinstance(v, list):  # keep the parent's order, no blanks or repeats
                 v = list(dict.fromkeys(x for x in v if isinstance(x, str) and x))
             if k in allowed:
@@ -526,6 +528,7 @@ class Hub:
             "radio_stations": list(ch.get("radio_stations") or []),
             "options": dict(self.data.get("options") or {}),
             "pinned": list(ch.get("pinned") or []),
+            "look": dict(ch.get("look") or {}),
             "notes_hide": list(ch.get("notes_hide") or []),
             "keep_running": list(ch.get("keep_running", S.DEFAULT_KEEP_RUNNING)),
             "idle_dry_run": bool(ch.get("idle_dry_run", False)),

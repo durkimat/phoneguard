@@ -32,7 +32,12 @@ class LauncherActivity : Activity() {
         @Volatile var inFront = false
     }
 
-    private val skin = NokiaSkin().also { s -> s.onTap = { x, y -> perform(model.tap(x, y)) } }
+    private fun newSkin(kind: String): PaintedSkin = (if (kind == "mac") MacSkin() else NokiaSkin()).also { s -> s.onTap = { x, y -> perform(model.tap(x, y)) } }
+    private var skinKind = "nokia"
+    private var skin: PaintedSkin = newSkin(skinKind)
+    private var contentSet = false
+    /** The look settings a parent is holding from HA; the phone's own choice for these is kept but not shown. */
+    private var lockedLook: Set<String> = emptySet()
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
     private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
@@ -46,10 +51,7 @@ class LauncherActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         // if a swipe from the top does reveal the system bar, let it wear the theme's colours instead of a dark strip
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
-        applyBarColour()
-        model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
-        model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
-        model.menuStyle = prefs().getString("menu_style", MenuStyles.DEFAULT) ?: MenuStyles.DEFAULT
+        applyLook()
         WhatsApp.onChange(waChanged)
         io.github.durkimat.phoneguard.music.Radio.onChange(radioChanged)
         try {
@@ -67,7 +69,7 @@ class LauncherActivity : Activity() {
         model.pairsBest = prefs().getInt("pairs_best", 0)
         Thread { LockWallpaper.apply(this, model.theme) }.start()
         loadWords()
-        setContentView(skin.create(this))
+        setContentView(skin.create(this)); contentSet = true
         refresh()
         pendingDial = intent?.getStringExtra(EXTRA_DIAL)
         if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
@@ -138,11 +140,27 @@ class LauncherActivity : Activity() {
         }.start()
     }
 
+    /** Works out the look to show (the phone's own choices, a parent's laid over them) and, if that needs another skin, swaps it in. */
+    private fun applyLook() {
+        val parent = io.github.durkimat.phoneguard.Store.config(this)?.look
+        val l = Look.resolve(Look.own(this), parent)
+        lockedLook = Look.locked(parent)
+        model.theme = l.theme; model.font = l.font; model.menuStyle = l.menuStyle; model.accent = l.accent
+        if (l.skin != skinKind) {
+            skinKind = l.skin; skin = newSkin(skinKind)
+            if (contentSet) { setContentView(skin.create(this)); lastInfo?.let { skin.render(model, it) } }
+        }
+        applyBarColour()
+    }
+
     private fun applyBarColour() {
-        val t = Themes.byId(prefs().getString("theme", Themes.DEFAULT))
+        val t = Themes.byId(model.theme)
         window.statusBarColor = t.lcd; window.navigationBarColor = t.lcd
         window.decorView.systemUiVisibility = if (android.graphics.Color.luminance(t.lcd) > 0.5f) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0
     }
+
+    /** The choice was saved, but a parent is holding that setting, so say why the screen did not change. */
+    private fun heldNote(key: String) { if (key in lockedLook) model.notify("Set by a parent") }
 
     private fun prefs() = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
 
@@ -540,9 +558,9 @@ class LauncherActivity : Activity() {
             }.start()
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
-            is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
-            is Action.SaveMenuStyle -> { prefs().edit().putString("menu_style", a.id).apply(); refresh() }
-            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyBarColour(); Thread { LockWallpaper.apply(this, a.id) }.start(); refresh() }
+            is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); applyLook(); heldNote("font"); refresh() }
+            is Action.SaveMenuStyle -> { prefs().edit().putString("menu_style", a.id).apply(); applyLook(); heldNote("menu_style"); refresh() }
+            is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyLook(); heldNote("theme"); val shown = model.theme; Thread { LockWallpaper.apply(this, shown) }.start(); refresh() }
             is Action.OpenNote -> {
                 val n = io.github.durkimat.phoneguard.notes.Notes.all().firstOrNull { it.key == a.key }
                 try { n?.intent?.send() } catch (e: Exception) { Log.log(this, "open note: ${e.javaClass.simpleName}") }

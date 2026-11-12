@@ -256,6 +256,8 @@ class LauncherModel(
     var font: String = Fonts.DEFAULT
     /** [MenuStyles]: the main menu as a list or as a grid of icons. */
     var menuStyle: String = MenuStyles.DEFAULT
+    /** An accent colour a parent set, replacing the theme's (null: the theme's own). */
+    var accent: Int? = null
 
     /** The phone's contacts, sorted by name. The activity fills this in. */
     var contacts: List<Contact> = emptyList()
