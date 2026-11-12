@@ -37,14 +37,15 @@ class NavigationBackTest {
         "settings" to "OK DOWN*10 OK",
         "theme" to "OK DOWN*10 OK OK",
         "font" to "OK DOWN*10 OK DOWN OK",
-        "typing" to "OK DOWN*10 OK DOWN*2 OK",
+        "menuStyle" to "OK DOWN*10 OK DOWN*2 OK",
+        "typing" to "OK DOWN*10 OK DOWN*3 OK",
         "dialFromHome" to "D5",
         "callLogFromHome" to "CALL CALL",
         "snakeHelp" to "OK DOWN*6 OK OK",
-        "speaker" to "OK DOWN*10 OK DOWN*3 OK",
-        "soundTest" to "OK DOWN*10 OK DOWN*4 OK",
-        "connections" to "OK DOWN*10 OK DOWN*5 OK",
-        "battery" to "OK DOWN*10 OK DOWN*6 OK",
+        "speaker" to "OK DOWN*10 OK DOWN*4 OK",
+        "soundTest" to "OK DOWN*10 OK DOWN*5 OK",
+        "connections" to "OK DOWN*10 OK DOWN*6 OK",
+        "battery" to "OK DOWN*10 OK DOWN*7 OK",
         "logSet" to "OK DOWN*11 OK",
         "callsFromLogSet" to "OK DOWN*11 OK OK",
         "notesFromLogSet" to "OK DOWN*11 OK DOWN OK",
@@ -103,14 +104,15 @@ musicMenu: MUSICMENU -SOFT_RIGHT-> MENU/9
 settings: SETTINGS -SOFT_RIGHT-> MENU/10
 theme: THEME -SOFT_RIGHT-> SETTINGS/0
 font: FONT -SOFT_RIGHT-> SETTINGS/1
-typing: TYPING -SOFT_RIGHT-> SETTINGS/2
+menuStyle: MENUSTYLE -SOFT_RIGHT-> SETTINGS/2
+typing: TYPING -SOFT_RIGHT-> SETTINGS/3
 dialFromHome: DIAL -SOFT_RIGHT-> DIAL/0
 callLogFromHome: CALLLOG -SOFT_RIGHT-> HOME/0
 snakeHelp: GAMEHELP -SOFT_RIGHT-> GAMES/0
-speaker: SPEAKER -SOFT_RIGHT-> SETTINGS/3
-soundTest: SOUNDTEST -SOFT_RIGHT-> SETTINGS/4
-connections: CONNECTIONS -SOFT_RIGHT-> SETTINGS/5
-battery: BATTERY -SOFT_RIGHT-> SETTINGS/6
+speaker: SPEAKER -SOFT_RIGHT-> SETTINGS/4
+soundTest: SOUNDTEST -SOFT_RIGHT-> SETTINGS/5
+connections: CONNECTIONS -SOFT_RIGHT-> SETTINGS/6
+battery: BATTERY -SOFT_RIGHT-> SETTINGS/7
 logSet: LOGSET -SOFT_RIGHT-> MENU/11
 callsFromLogSet: CALLLOG -SOFT_RIGHT-> LOGSET/0
 notesFromLogSet: NOTES -SOFT_RIGHT-> LOGSET/1
@@ -140,6 +142,7 @@ musicMenu: MUSICMENU -END-> HOME/0
 settings: SETTINGS -END-> HOME/0
 theme: THEME -END-> HOME/0
 font: FONT -END-> HOME/0
+menuStyle: MENUSTYLE -END-> HOME/0
 typing: TYPING -END-> HOME/0
 snakeHelp: GAMEHELP -END-> HOME/0
 speaker: SPEAKER -END-> HOME/0

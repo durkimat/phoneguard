@@ -49,6 +49,7 @@ class LauncherActivity : Activity() {
         applyBarColour()
         model.theme = prefs().getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
         model.font = prefs().getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
+        model.menuStyle = prefs().getString("menu_style", MenuStyles.DEFAULT) ?: MenuStyles.DEFAULT
         WhatsApp.onChange(waChanged)
         io.github.durkimat.phoneguard.music.Radio.onChange(radioChanged)
         try {
@@ -477,7 +478,7 @@ class LauncherActivity : Activity() {
             if (model.provider != was) pauseSource(was) // a different music source was chosen: the old one stops, so only one thing is ever playing
             // moving the highlight up or down in a list changes nothing that needs reading again (contacts, messages, apps, music...): redraw at once from what is held
             val info = lastInfo
-            if (a == Action.Redraw && (k.first == Key.UP || k.first == Key.DOWN) && model.screen == before && before in moveOnly && info != null) skin.render(model, info)
+            if (a == Action.Redraw && (k.first == Key.UP || k.first == Key.DOWN || (model.layout == Layout.GRID && (k.first == Key.LEFT || k.first == Key.RIGHT))) && model.screen == before && before in moveOnly && info != null) skin.render(model, info)
             else perform(a)
         }
         else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
@@ -540,6 +541,7 @@ class LauncherActivity : Activity() {
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); refresh() }
+            is Action.SaveMenuStyle -> { prefs().edit().putString("menu_style", a.id).apply(); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyBarColour(); Thread { LockWallpaper.apply(this, a.id) }.start(); refresh() }
             is Action.OpenNote -> {
                 val n = io.github.durkimat.phoneguard.notes.Notes.all().firstOrNull { it.key == a.key }

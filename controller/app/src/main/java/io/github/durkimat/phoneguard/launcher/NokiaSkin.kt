@@ -516,6 +516,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun menu(c: Canvas, m: LauncherModel, u: Float) {
+            if (m.layout == Layout.GRID) { menuGrid(c, m, u); return }
             // title bar
             c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
             titleText(c, m.title, u)
@@ -543,6 +544,33 @@ class NokiaSkin : LauncherSkin {
             }
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** The main menu as a grid of pixel icons: the chosen tile is inverted and its name sits above the soft keys. */
+        private fun menuGrid(c: Canvas, m: LauncherModel, u: Float) {
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            titleText(c, m.title, u)
+            val first = m.gridFirstRow()
+            stroke.strokeWidth = 2 * u
+            for (r in 0 until GRID_ROWS) for (col in 0 until GRID_COLS) {
+                val idx = (first + r) * GRID_COLS + col
+                val item = m.items.getOrNull(idx) ?: continue
+                val x = GRID_LEFT + col * (GRID_TILE_W + GRID_GAP)
+                val y = GRID_TOP + r * (GRID_TILE_H + GRID_GAP)
+                val on = idx == m.selected
+                val tile = RectF(x * u, y * u, (x + GRID_TILE_W) * u, (y + GRID_TILE_H) * u)
+                if (on) c.drawRect(tile, fill) else c.drawRect(tile, stroke)
+                PixelIcons.draw(c, m.iconFor(item), (x + (GRID_TILE_W - 64f) / 2) * u, (y + (GRID_TILE_H - 64f) / 2) * u, 4f * u, if (on) lcd else ink, if (on) ink else lcd)
+            }
+            val rows = (m.items.size + GRID_COLS - 1) / GRID_COLS
+            if (rows > GRID_ROWS) { // a thin bar on the right edge shows there are more rows to scroll to
+                val span = GRID_ROWS * (GRID_TILE_H + GRID_GAP) - GRID_GAP
+                val thumb = span * GRID_ROWS / rows
+                val top = GRID_TOP + (span - thumb) * first / (rows - GRID_ROWS)
+                c.drawRect(474f * u, top * u, 478f * u, (top + thumb) * u, fill)
+            }
+            m.items.getOrNull(m.selected)?.let { marquee(c, it.label, 20f, 556f, 34f, 440f, u, bold = true, center = true) }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
