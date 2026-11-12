@@ -50,10 +50,17 @@ class NavigationBackTest {
         "notesFromLogSet" to "OK DOWN*11 OK DOWN OK",
         "settingsFromLogSet" to "OK DOWN*11 OK DOWN*2 OK",
         "themeFromLogSet" to "OK DOWN*11 OK DOWN*2 OK OK",
+        "padToCalls" to "OK OK LEFT",
+        "padToContacts" to "OK OK LEFT LEFT",
+        "contactsBackToPad" to "OK OK LEFT LEFT LEFT",
+        "callKeyInMenu" to "OK CALL", // Back returns to the row the green key was pressed on (it used to jump to the Calls entry)
+        "callKeyOnHome" to "CALL",
     )
 
+    private fun model() = LauncherModel(items, contactsApp = "com.android.contacts", messagesApp = "com.android.messaging", dialerApp = "com.android.dialer")
+
     private fun line(name: String, path: String, back: Key): String {
-        val m = LauncherModel(items, contactsApp = "com.android.contacts", messagesApp = "com.android.messaging", dialerApp = "com.android.dialer")
+        val m = model()
         m.logItems = listOf(MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(SETTINGS_PKG, "Settings"))
         run(m, path)
         val before = "${m.screen}"
@@ -66,8 +73,14 @@ class NavigationBackTest {
         assertEquals(GOLDEN_BACK.trim(), actual.trim())
     }
 
+    @Test fun theDialPadOpenedFromHomeGoesHomeEvenAfterTheMenuOpenedItEarlier() {
+        val m = model()
+        run(m, "OK OK END STAR SOFT_RIGHT SOFT_RIGHT") // Menu > Phone, Home, then * on Home: Back clears the star, then leaves
+        assertEquals(Screen.HOME, m.screen)
+    }
+
     @Test fun endGoesHomeFromEverywhereItIsHandled() {
-        val actual = cases.filter { it.first !in setOf("dialFromHome", "callLogFromHome") }.joinToString("\n") { (n, p) -> line(n, p, Key.END) }
+        val actual = cases.filter { it.first !in setOf("dialFromHome", "callLogFromHome", "callKeyOnHome") }.joinToString("\n") { (n, p) -> line(n, p, Key.END) }
         assertEquals(GOLDEN_END.trim(), actual.trim())
     }
 
@@ -100,6 +113,11 @@ callsFromLogSet: CALLLOG -SOFT_RIGHT-> LOGSET/0
 notesFromLogSet: NOTES -SOFT_RIGHT-> LOGSET/1
 settingsFromLogSet: SETTINGS -SOFT_RIGHT-> LOGSET/2
 themeFromLogSet: THEME -SOFT_RIGHT-> SETTINGS/0
+padToCalls: CALLLOG -SOFT_RIGHT-> MENU/0
+padToContacts: CONTACTS -SOFT_RIGHT-> MENU/0
+contactsBackToPad: DIAL -SOFT_RIGHT-> MENU/0
+callKeyInMenu: CALLLOG -SOFT_RIGHT-> MENU/0
+callKeyOnHome: DIAL -SOFT_RIGHT-> HOME/0
 """
         const val GOLDEN_END = """
 menu: MENU -END-> HOME/0
@@ -127,6 +145,10 @@ callsFromLogSet: CALLLOG -END-> HOME/0
 notesFromLogSet: NOTES -END-> HOME/0
 settingsFromLogSet: SETTINGS -END-> HOME/0
 themeFromLogSet: THEME -END-> HOME/0
+padToCalls: CALLLOG -END-> HOME/0
+padToContacts: CONTACTS -END-> HOME/0
+contactsBackToPad: DIAL -END-> HOME/0
+callKeyInMenu: CALLLOG -END-> HOME/0
 """
     }
 }

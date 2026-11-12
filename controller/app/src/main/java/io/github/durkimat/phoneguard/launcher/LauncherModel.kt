@@ -219,7 +219,8 @@ class LauncherModel(
     /** The phone's contacts, sorted by name. The activity fills this in. */
     var contacts: List<Contact> = emptyList()
     private var contact: Contact? = null
-    private var contactsFrom = Screen.HOME
+    /** Inside the dialler: the dial pad, the calls and the contacts, which Left cycles through and Back leaves together. */
+    private var dialler = false
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
@@ -293,7 +294,6 @@ class LauncherModel(
         val d = dialNumber.filter { it.isDigit() }.takeLast(9)
         return contacts.firstOrNull { c -> c.numbers.any { n -> n.filter { it.isDigit() }.takeLast(9) == d } }?.name
     }
-    private var callsFrom = Screen.HOME
     /** Splits text into the lines that fit the screen. The skin sets this, because only it knows the font. */
     var wrapper: (String) -> List<String> = { listOf(it) }
     var pageLines = 11
@@ -350,7 +350,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0; homeEntry = false; trail.clear() }
+    fun goHome() { screen = Screen.HOME; selected = 0; homeEntry = false; dialler = false; trail.clear() }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -409,8 +409,8 @@ class LauncherModel(
     val softKeys: Pair<String, String> get() = when (screen) {
         Screen.HOME -> "Menu" to (if (items.any { it.pkg == MUSIC_PKG }) "Music" else "Contacts")
         Screen.CALC -> "Equals" to "Clear"
-        Screen.CALLLOG -> (if (callsFrom == Screen.DIAL) "Contacts" else "Call") to "Back"
-        Screen.CONTACTS -> (if (contactsFrom == Screen.DIAL && !picking) "Dial" else "Select") to "Back"
+        Screen.CALLLOG -> (if (dialler) "Contacts" else "Call") to "Back"
+        Screen.CONTACTS -> (if (dialler && !picking) "Dial" else "Select") to "Back"
         Screen.SNAKE -> (when (snake.state) { Snake.State.READY -> "Start"; Snake.State.RUNNING -> "Pause"; Snake.State.PAUSED -> "Resume"; Snake.State.OVER -> "Again" }) to "Back"
         Screen.SHOOTER -> (when (shooter.state) { Shooter.State.READY -> "Start"; Shooter.State.RUNNING -> "Pause"; Shooter.State.PAUSED -> "Resume"; Shooter.State.OVER -> "Again" }) to "Back"
         Screen.PAIRS -> (if (pairs.won) "Again" else "Turn") to "Back"
@@ -609,17 +609,22 @@ class LauncherModel(
 
     /** Back out of the dialler (pad, calls or contacts) to where it was opened from. */
     private fun exitDialler(): Action {
-        if (dialFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == dialerApp }.coerceAtLeast(0) } else goHome()
+        dialler = false
+        leave()
         dialNumber = ""
         return Action.Redraw
     }
 
-    private fun openCallLog(from: Screen): Action { callsFrom = from; screen = Screen.CALLLOG; selected = 0; return Action.Redraw }
+    /** From the dial pad this is a sideways step inside the dialler; from anywhere else it opens on top of where you are. */
+    private fun openCallLog(from: Screen): Action {
+        if (from == Screen.DIAL) { dialler = true; screen = Screen.CALLLOG; selected = 0 } else { dialler = false; enter(Screen.CALLLOG) }
+        return Action.Redraw
+    }
 
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
-        Key.LEFT, Key.SOFT_LEFT -> if (callsFrom == Screen.DIAL) openContacts(Screen.DIAL) else calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
+        Key.LEFT, Key.SOFT_LEFT -> if (dialler) openContacts(Screen.DIAL) else calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
         Key.OK, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (callsFrom == Screen.DIAL) exitDialler() else if (callsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else if (callsFrom == Screen.MENU) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALLLOG_PKG }.coerceAtLeast(0) } else goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> if (dialler) exitDialler() else { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -906,7 +911,15 @@ class LauncherModel(
 
     private fun insert(t: String) { writeText = writeText.substring(0, cursor) + t + writeText.substring(cursor); cursor += t.length }
 
-    private fun openContacts(from: Screen): Action { contactsFrom = from; screen = Screen.CONTACTS; selected = 0; return Action.Redraw }
+    /** From the dial pad, or to pick a recipient while writing, this is a sideways step; from anywhere else it opens on top of where you are. */
+    private fun openContacts(from: Screen): Action {
+        when (from) {
+            Screen.DIAL -> { dialler = true; screen = Screen.CONTACTS; selected = 0 }
+            Screen.WRITE -> { screen = Screen.CONTACTS; selected = 0 }
+            else -> { dialler = false; enter(Screen.CONTACTS) }
+        }
+        return Action.Redraw
+    }
 
     private fun contactOpen(): Action = contacts.getOrNull(selected)?.let {
         if (picking) { picking = false; writeTo = it.numbers.firstOrNull().orEmpty(); screen = Screen.WRITE; writeField = 1; Action.Redraw }
@@ -914,14 +927,13 @@ class LauncherModel(
     } ?: Action.None
 
     private fun contactList(key: Key, digit: Int): Action = move(key, contacts.size) ?: when (key) {
-        Key.LEFT, Key.SOFT_LEFT -> if (contactsFrom == Screen.DIAL && !picking) { screen = Screen.DIAL; Action.Redraw } else contactOpen()
+        Key.LEFT, Key.SOFT_LEFT -> if (dialler && !picking) { screen = Screen.DIAL; Action.Redraw } else contactOpen()
         Key.OK -> contactOpen()
         Key.RIGHT, Key.SOFT_RIGHT -> {
             when {
                 picking -> { picking = false; screen = Screen.WRITE }
-                contactsFrom == Screen.DIAL -> exitDialler()
-                contactsFrom == Screen.MENU -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == contactsApp }.coerceAtLeast(0) }
-                else -> goHome()
+                dialler -> exitDialler()
+                else -> leave()
             }
             Action.Redraw
         }
@@ -956,7 +968,7 @@ class LauncherModel(
         item.pkg == SETTINGS_PKG -> { enter(Screen.SETTINGS); Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
-        item.pkg == dialerApp -> openPhoneMenu(Screen.MENU)
+        item.pkg == dialerApp -> openPhoneMenu()
         item.pkg == CALC_PKG -> { calc.allClear(); enter(Screen.CALC); Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
@@ -1012,10 +1024,10 @@ class LauncherModel(
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { musicFromHome = true; selected = 0; if (badges.any { it.kind == BadgeKind.MUSIC }) { nowFromHome = true; provider = playingProvider ?: provider; screen = Screen.MUSIC } else screen = Screen.MUSICMENU; Action.Redraw } else openContacts(Screen.HOME)
-        Key.CALL -> openPhoneMenu(Screen.HOME)
-        Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialFrom = Screen.HOME; screen = Screen.DIAL; Action.Redraw } else Action.None
-        Key.STAR -> { dialNumber = "*"; screen = Screen.DIAL; Action.Redraw }
-        Key.POUND -> { dialNumber = "#"; screen = Screen.DIAL; Action.Redraw }
+        Key.CALL -> openPhoneMenu()
+        Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialler = true; enter(Screen.DIAL); Action.Redraw } else Action.None
+        Key.STAR -> { dialNumber = "*"; dialler = true; enter(Screen.DIAL); Action.Redraw }
+        Key.POUND -> { dialNumber = "#"; dialler = true; enter(Screen.DIAL); Action.Redraw }
         else -> Action.None
     }
 
@@ -1128,8 +1140,6 @@ class LauncherModel(
     /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
     /** What "Logs & Settings" lists (Call log, Notifications, Settings); the activity fills it in. */
     var logItems: List<MenuItem> = emptyList()
-    /** Where the Phone menu was opened from (Back returns there) and where the dial screen was opened from. */
-    private var dialFrom = Screen.HOME
     private var musicFromHome = false
     /** Now playing was opened straight from the home screen, so Back goes home instead of to the Music menu. */
     private var nowFromHome = false
@@ -1306,7 +1316,7 @@ class LauncherModel(
     val rowMarks: List<Int> get() = if (screen == Screen.MUSICMENU) musicMenuRows.map { r -> when (r) { "Radio" -> provStatus[Provider.RADIO] ?: 0; "Spotify" -> provStatus[Provider.SPOTIFY] ?: 0; else -> 0 } } else emptyList()
 
     // the Phone entry and the green key open the dial pad (see the dialler notes in the backlog)
-    private fun openPhoneMenu(from: Screen): Action { dialNumber = ""; dialFrom = from; screen = Screen.DIAL; return Action.Redraw }
+    private fun openPhoneMenu(): Action { dialNumber = ""; dialler = true; enter(Screen.DIAL); return Action.Redraw }
 
 
     private fun soundTestKey(key: Key): Action = move(key, io.github.durkimat.phoneguard.SoundTest.routes.size) ?: when (key) {
@@ -1333,7 +1343,7 @@ class LauncherModel(
 
     private fun switchTo(pkg: String): Action = when {
         pkg == io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG && items.any { it.pkg == MUSIC_PKG } -> { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.Redraw }
-        pkg == dialerApp -> openPhoneMenu(Screen.HOME)
+        pkg == dialerApp -> openPhoneMenu()
         pkg == messagesApp -> openMessages()
         pkg == contactsApp -> openContacts(Screen.HOME)
         pkg in CAMERA_APPS && items.any { it.pkg == CAMERA_PKG } -> Action.OpenCamera
