@@ -162,18 +162,79 @@ class NokiaSkin : LauncherSkin {
             marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, center = true)
         }
 
+        /** A classic scroll bar down the window's right edge: a ruled track with a solid thumb. */
+        private fun macScroll(c: Canvas, first: Int, total: Int, u: Float) {
+            val x0 = 454f; val x1 = 468f; val y0 = 104f; val y1 = 104f + LIST_VISIBLE * 62f - 4f
+            fill.color = lcd; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, fill); fill.color = ink
+            stroke.strokeWidth = 2 * u; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, stroke)
+            val span = y1 - y0 - 6f
+            val thumb = maxOf(24f, span * LIST_VISIBLE / total)
+            val top = y0 + 3f + (span - thumb) * first / (total - LIST_VISIBLE).coerceAtLeast(1)
+            c.drawRect((x0 + 3) * u, top * u, (x1 - 3) * u, (top + thumb) * u, fill)
+        }
+
+        /** Now playing as a Mac window: a ruled display for the track, a slider, an inset for the analyser and three push buttons. */
+        private fun macNowPlaying(c: Canvas, m: LauncherModel, u: Float) {
+            val mu = m.music
+            val radio = m.provider == Provider.RADIO
+            stroke.strokeWidth = 2 * u
+            c.drawRect(22 * u, 104 * u, 458 * u, 256 * u, stroke)
+            c.drawRect(26 * u, 108 * u, 454 * u, 252 * u, stroke)
+            val where = if (radio) "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else "")
+                else if (mu.device.isNotEmpty()) (if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 250f, 22f)) else ""
+            text(c, where, 38f, 134f, 22f, u)
+            if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 442f, 134f, 22f, u, align = Paint.Align.RIGHT)
+            marquee(c, mu.title.ifEmpty { "(no title)" }, 38f, 180f, 34f, 404f, u, bold = true)
+            marquee(c, mu.artist, 38f, 214f, 28f, 404f, u)
+            val sub = if (mu.from.isNotEmpty()) mu.from else if (mu.album.isNotEmpty() && !mu.album.equals(mu.title, true) && !mu.album.equals(mu.artist, true)) mu.album else ""
+            if (sub.isNotEmpty()) marquee(c, sub, 38f, 242f, 22f, 404f, u)
+            // the slider: times either side of a ruled track with a square thumb (a radio has no end, so it just says LIVE)
+            if (radio) text(c, "LIVE", 240f, 284f, 30f, u, bold = true, align = Paint.Align.CENTER)
+            else {
+                text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.positionMs), 22f, 286f, 22f, u)
+                if (mu.durationMs > 0) text(c, io.github.durkimat.phoneguard.music.MusicInfo.clock(mu.durationMs), 458f, 286f, 22f, u, align = Paint.Align.RIGHT)
+                stroke.strokeWidth = 2 * u; c.drawRect(100 * u, 270 * u, 380 * u, 286 * u, stroke)
+                if (mu.durationMs > 0) {
+                    val tx = 100f + 280f * (mu.positionMs.toFloat() / mu.durationMs).coerceIn(0f, 1f)
+                    c.drawRect(104 * u, 274 * u, tx * u, 282 * u, fill)
+                    c.drawRect((tx - 7).coerceAtLeast(96f) * u, 264 * u, (tx + 7).coerceAtMost(384f) * u, 292 * u, fill)
+                }
+            }
+            if (m.spectrum) {
+                stroke.strokeWidth = 2 * u; c.drawRect(18 * u, 296 * u, 462 * u, 378 * u, stroke)
+                spectrum(c, mu.playing && mu.thisPhone, u)
+            }
+            // the three buttons: previous, play/pause, next, each with the key that does it
+            fun button(x0: Float, x1: Float): RectF {
+                val r = RectF(x0 * u, 398 * u, x1 * u, 454 * u)
+                fill.color = lcd; c.drawRoundRect(r, 14 * u, 14 * u, fill); fill.color = ink
+                stroke.strokeWidth = 2.5f * u; c.drawRoundRect(r, 14 * u, 14 * u, stroke); return r
+            }
+            button(24f, 144f); button(336f, 456f); button(180f, 300f)
+            text(c, if (radio) "< prev" else "4 prev", 84f, 434f, 24f, u, bold = true, align = Paint.Align.CENTER)
+            text(c, if (radio) "next >" else "6 next", 396f, 434f, 24f, u, bold = true, align = Paint.Align.CENTER)
+            if (mu.playing) { c.drawRect(228 * u, 410 * u, 240 * u, 442 * u, fill); c.drawRect(250 * u, 410 * u, 262 * u, 442 * u, fill) }
+            else { val t = android.graphics.Path().apply { moveTo(228f * u, 408f * u); lineTo(260f * u, 426f * u); lineTo(228f * u, 444f * u); close() }; c.drawPath(t, fill) }
+            if (radio) {
+                text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 492f, 22f, u, align = Paint.Align.CENTER)
+                text(c, "* bars  0 sleep  # source", 240f, 526f, 22f, u, align = Paint.Align.CENTER)
+            } else {
+                if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   1 repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 492f, 22f, u, align = Paint.Align.CENTER)
+                text(c, "7 bars  0 sleep  # source", 240f, 526f, 22f, u, align = Paint.Align.CENTER)
+            }
+        }
+
         /** The two soft keys as Mac push buttons under the window: the left one (the default action) has the heavier ring. */
         private fun macButtons(c: Canvas, u: Float) {
             val (left, right) = macKeys ?: return
-            fun button(x0: Float, x1: Float, label: String, arrowX: Float, dir: Int, heavy: Boolean) {
+            fun button(x0: Float, x1: Float, label: String, heavy: Boolean) {
                 val r = RectF(x0 * u, 584 * u, x1 * u, 632 * u)
                 fill.color = lcd; c.drawRoundRect(r, 14 * u, 14 * u, fill); fill.color = ink
                 stroke.strokeWidth = (if (heavy) 4.5f else 2.5f) * u; c.drawRoundRect(r, 14 * u, 14 * u, stroke)
-                arrow(c, arrowX, 608f, dir, u)
                 text(c, label, (x0 + x1) / 2, 618f, 28f, u, bold = true, align = Paint.Align.CENTER)
             }
-            if (left.isNotEmpty()) button(10f, 236f, left, 32f, -1, true)
-            if (right.isNotEmpty()) button(244f, 470f, right, 448f, 1, false)
+            if (left.isNotEmpty()) button(10f, 236f, left, true)
+            if (right.isNotEmpty()) button(244f, 470f, right, false)
         }
 
         private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
@@ -401,7 +462,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun musicScreen(c: Canvas, m: LauncherModel, u: Float) {
             titleBar(c, m.title, u)
-            val mu = m.music
+            val mu = m.music.copy(active = true, playing = true, thisPhone = true, title = "A Long Song Title That Scrolls Along", artist = "Some Artist", album = "The Album", positionMs = 83000, durationMs = 240000, device = "Phone").copy(active = true, playing = true, thisPhone = true, title = "A Long Song Title That Scrolls Along", artist = "Some Artist", album = "The Album", positionMs = 83000, durationMs = 240000, device = "Phone")
             val radio = m.provider == Provider.RADIO
             if (!mu.active) {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
@@ -410,6 +471,8 @@ class NokiaSkin : LauncherSkin {
                     else if (radio) (if (m.radioNames.isEmpty()) "No stations in this mode" else "OK picks a station")
                     else if (m.spSignedIn) "OK picks a playlist" else "Menu: sign in to Spotify", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
                 if (other != null) text(c, if (radio) "OK picks a station" else if (m.spSignedIn) "OK picks a playlist" else "", 240f, 316f, 24f, u, align = Paint.Align.CENTER)
+            } else if (mac) {
+                macNowPlaying(c, m, u)
             } else {
                 if (radio) text(c, "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
                 else if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
@@ -587,12 +650,21 @@ class NokiaSkin : LauncherSkin {
                 val idx = first + n
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
-                val prefix = if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
-                val label = ellipsize(prefix + row, 440f, 32f)
+                val prefix = if (mac) "" else if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
+                val icon = if (mac && m.screen == Screen.MENU) m.items.getOrNull(idx) else null
+                val tx = if (icon != null) 66f else 20f
+                val room = if (mac) 396f - (tx - 20f) else 440f // a Mac row leaves room for its shortcut digit and the scroll bar
+                val label = ellipsize(prefix + row, room, 32f)
                 if (idx == m.selected) {
                     c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
-                    marquee(c, prefix + row, 20f, top + 42f, 32f, 440f, u, bold = true, color = lcd)
-                } else text(c, label, 20f, top + 42f, 32f, u)
+                    marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = lcd)
+                } else text(c, label, tx, top + 42f, 32f, u)
+                if (mac) {
+                    val sel = idx == m.selected
+                    if (icon != null) PixelIcons.draw(c, m.iconFor(icon), 20f * u, (top + 13f) * u, 2f * u, if (sel) lcd else ink, if (sel) ink else lcd)
+                    val key = if (idx < 9) "${idx + 1}" else if (idx == 9 && m.screen == Screen.MENU) "0" else ""
+                    if (key.isNotEmpty() && (m.rowMarks.getOrNull(idx) ?: 0) == 0) text(c, key, 440f, top + 40f, 22f, u, align = Paint.Align.RIGHT, color = if (sel) lcd else ink)
+                }
                 // the Music menu shows what each provider is doing: a play triangle while it plays, two bars while it is paused
                 m.rowMarks.getOrNull(idx)?.takeIf { it > 0 }?.let { mark ->
                     val cy = top + 27f; val col = if (idx == m.selected) lcd else ink
@@ -602,6 +674,7 @@ class NokiaSkin : LauncherSkin {
                     p.color = ink
                 }
             }
+            if (mac && m.rows.size > visible) macScroll(c, first, m.rows.size, u)
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
@@ -978,6 +1051,14 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun notice(c: Canvas, s: String, u: Float) {
+            if (mac) { // an alert box: shadow, ruled border, plain text
+                fill.color = ink; c.drawRect(44 * u, 254 * u, 444 * u, 354 * u, fill)
+                fill.color = lcd; c.drawRect(40 * u, 250 * u, 440 * u, 350 * u, fill); fill.color = ink
+                stroke.strokeWidth = 3 * u; c.drawRect(40 * u, 250 * u, 440 * u, 350 * u, stroke)
+                stroke.strokeWidth = 1.5f * u; c.drawRect(47 * u, 257 * u, 433 * u, 343 * u, stroke)
+                text(c, s, 240f, 312f, 30f, u, bold = true, align = Paint.Align.CENTER)
+                return
+            }
             c.drawRect(30 * u, 250 * u, 450 * u, 350 * u, fill)
             text(c, s, 240f, 312f, 32f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }

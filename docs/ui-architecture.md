@@ -44,8 +44,12 @@ every screen inside one window on a dithered desktop:
 - Screens do not know about any of this. They still call `titleBar(...)` and `softKeys(...)`; in the Mac look those only record the
   title and labels, the content is clipped to the window, and the frame is drawn around it. So every screen, including games and
   Messages, works in both looks from day one.
-- The main-menu grid, lists, Home and Now playing all come through unchanged. Held spectrum peaks use the theme's `accent` (red in the
+- The main-menu grid, lists, and Home come through unchanged. Held spectrum peaks use the theme's `accent` (red in the
   Mac themes, the ink colour in the Nokia ones). The Mac themes prefer Pixelify until the user picks a font.
 
-Still to do for this look: icons beside list rows, a proper scroll bar in the window, a Mac-style Now playing layout, the Look data
-object (so the parent app can set window style, accent and fonts one by one), and a skin of its own rather than a branch in `NokiaSkin`.
+Slice 4b finished the look: list rows carry pixel icons (main menu) and a shortcut digit at the right, long lists get a window scroll
+bar, Now playing is its own Mac layout (ruled display, slider, analyser inset, three push buttons), notices are an alert box, and the
+soft-key buttons lost their Nokia arrows. The grid, lists, Home and Settings are the same screens as before, framed.
+
+Still to do: the Look data object (so the parent app can set accent, window style and fonts one at a time) and moving this out of
+`NokiaSkin` into a skin of its own.
