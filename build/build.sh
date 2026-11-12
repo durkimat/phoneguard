@@ -38,6 +38,10 @@ build)
     dir=$(sed -n 's/^# repo: //p' "$pf" | head -1)
     (cd "$SRC/$dir" && { git apply -R --check "$pf" 2>/dev/null && echo "already applied: $pf" || git apply "$pf"; })
   done
+  # MediaTek IMS module (docs/ims-port-plan.md): our Android.bp/ims.mk plus the proprietary inputs, which are not in git.
+  chmod -R u+w vendor/phoneguard/ims 2>/dev/null || true; rm -rf vendor/phoneguard/ims; mkdir -p vendor/phoneguard/ims
+  cp -r "$PLAN"/ims/module/. vendor/phoneguard/ims/
+  cp -r "$PLAN"/proprietary/ims-stock-android13-20261112 vendor/phoneguard/ims/proprietary; chmod -R u+w vendor/phoneguard/ims
   set +u   # Android's envsetup.sh and lunch use unset variables
   source build/envsetup.sh; source vendor/lineage/vars/aosp_target_release
   (cd device/phh/treble && git clean -fdx && bash generate.sh lineage)

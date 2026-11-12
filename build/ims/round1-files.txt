@@ -26,5 +26,4 @@
 /system/lib64/vendor.mediatek.hardware.mtkradioex.sim-V1-ndk.so
 /system/lib64/libccci_util_sys.so
 /system/lib64/lib_remote_simlock.so
-/system/lib64/android.hardware.radio-V1-ndk.so
 /system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so

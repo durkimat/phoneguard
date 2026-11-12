@@ -1,0 +1,25 @@
+# Included from device/phh/treble/base.mk by patch 0006. Round 1 of the MediaTek IMS port.
+PG_IMS := vendor/phoneguard/ims/proprietary
+
+PRODUCT_PACKAGES += ImsService MtkGbaService MtkTelephonyAssist MtkCapCtrl mediatek-res \
+    mediatek-ims-extension-plugin mediatek-wfo-legacy mediatek-services \
+    mediatek-carrier-config-manager mediatek-common mediatek-framework mediatek-ims-base mediatek-ims-common \
+    mediatek-telecom-common mediatek-telephony-base mediatek-telephony-common
+
+# Stock puts these on the boot classpath.
+PRODUCT_BOOT_JARS += \
+    platform:mediatek-carrier-config-manager platform:mediatek-common platform:mediatek-framework \
+    platform:mediatek-ims-base platform:mediatek-ims-common platform:mediatek-telecom-common \
+    platform:mediatek-telephony-base platform:mediatek-telephony-common
+
+PRODUCT_COPY_FILES += \
+    $(PG_IMS)/system/etc/sysconfig/com.mediatek.ims.config.xml:system/etc/sysconfig/com.mediatek.ims.config.xml \
+    $(PG_IMS)/system/etc/permissions/com.mediatek.wfo.legacy.xml:system/etc/permissions/com.mediatek.wfo.legacy.xml \
+    $(PG_IMS)/system/etc/permissions/privapp-permissions-mediatek.xml:system/etc/permissions/privapp-permissions-mediatek.xml \
+    $(PG_IMS)/system/system_ext/etc/permissions/system-ext-permissions-mediatek.xml:system/system_ext/etc/permissions/system-ext-permissions-mediatek.xml \
+    $(PG_IMS)/system/lib64/vendor.mediatek.hardware.mtkradioex.rsu-V1-ndk.so:system/lib64/vendor.mediatek.hardware.mtkradioex.rsu-V1-ndk.so \
+    $(PG_IMS)/system/lib64/vendor.mediatek.hardware.mtkradioex.se-V1-ndk.so:system/lib64/vendor.mediatek.hardware.mtkradioex.se-V1-ndk.so \
+    $(PG_IMS)/system/lib64/vendor.mediatek.hardware.mtkradioex.sim-V1-ndk.so:system/lib64/vendor.mediatek.hardware.mtkradioex.sim-V1-ndk.so \
+    $(PG_IMS)/system/lib64/libccci_util_sys.so:system/lib64/libccci_util_sys.so \
+    $(PG_IMS)/system/lib64/lib_remote_simlock.so:system/lib64/lib_remote_simlock.so \
+    $(PG_IMS)/system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so:system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so

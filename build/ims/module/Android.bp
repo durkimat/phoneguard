@@ -1,0 +1,23 @@
+// Round 1 of the MediaTek IMS port (docs/ims-port-plan.md). Proprietary inputs live in ./proprietary (copied by build.sh, never in git).
+// Apps are re-signed with the platform key: stock's phone-group apps share a UID and must match the system signature.
+// Module names get a pg_ prefix where the stem is set, so nothing collides with the tree's own modules.
+
+android_app_import { name: "ImsService", apk: "proprietary/system/priv-app/ImsService/ImsService.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
+android_app_import { name: "MtkGbaService", apk: "proprietary/system/priv-app/MtkGbaService/MtkGbaService.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
+android_app_import { name: "MtkTelephonyAssist", apk: "proprietary/system/priv-app/MtkTelephonyAssist/MtkTelephonyAssist.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
+android_app_import { name: "MtkCapCtrl", apk: "proprietary/system/priv-app/MtkCapCtrl/MtkCapCtrl.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
+android_app_import { name: "mediatek-res", apk: "proprietary/system/app/mediatek-res/mediatek-res.apk", certificate: "platform", dex_preopt: { enabled: false }, }
+
+// Jars that stock puts on the boot classpath (it ships boot-*.vdex for these): dex-only jars.
+dex_import { name: "mediatek-carrier-config-manager", jars: ["proprietary/system/framework/mediatek-carrier-config-manager.jar"], }
+dex_import { name: "mediatek-common", jars: ["proprietary/system/framework/mediatek-common.jar"], }
+dex_import { name: "mediatek-framework", jars: ["proprietary/system/framework/mediatek-framework.jar"], }
+dex_import { name: "mediatek-ims-base", jars: ["proprietary/system/framework/mediatek-ims-base.jar"], }
+dex_import { name: "mediatek-ims-common", jars: ["proprietary/system/framework/mediatek-ims-common.jar"], }
+dex_import { name: "mediatek-telecom-common", jars: ["proprietary/system/framework/mediatek-telecom-common.jar"], }
+dex_import { name: "mediatek-telephony-base", jars: ["proprietary/system/framework/mediatek-telephony-base.jar"], }
+dex_import { name: "mediatek-telephony-common", jars: ["proprietary/system/framework/mediatek-telephony-common.jar"], }
+// Shared libraries (not boot classpath) and the system_server jar (not wired in round 1: a wrong system_server jar can stop the boot).
+dex_import { name: "mediatek-ims-extension-plugin", jars: ["proprietary/system/framework/mediatek-ims-extension-plugin.jar"], }
+dex_import { name: "mediatek-wfo-legacy", jars: ["proprietary/system/framework/mediatek-wfo-legacy.jar"], }
+dex_import { name: "mediatek-services", jars: ["proprietary/system/framework/mediatek-services.jar"], }
