@@ -972,7 +972,7 @@ class LauncherModel(
         item.pkg == CALC_PKG -> { calc.allClear(); enter(Screen.CALC); Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
-        item.pkg == MUSIC_PKG -> { musicFromHome = false; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+        item.pkg == MUSIC_PKG -> { enter(Screen.MUSICMENU); Action.Redraw }
         item.pkg == RUNNING_PKG -> { screen = Screen.RUNNING; selected = 0; Action.Redraw }
         item.pkg == NOTES_PKG -> { enter(Screen.NOTES); Action.Redraw }
         item.pkg == WEATHER_PKG -> { enter(Screen.WEATHER); Action.Redraw }
@@ -1023,7 +1023,7 @@ class LauncherModel(
     // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
     private fun home(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { musicFromHome = true; selected = 0; if (badges.any { it.kind == BadgeKind.MUSIC }) { nowFromHome = true; provider = playingProvider ?: provider; screen = Screen.MUSIC } else screen = Screen.MUSICMENU; Action.Redraw } else openContacts(Screen.HOME)
+        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { if (badges.any { it.kind == BadgeKind.MUSIC }) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU); Action.Redraw } else openContacts(Screen.HOME)
         Key.CALL -> openPhoneMenu()
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialler = true; enter(Screen.DIAL); Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; dialler = true; enter(Screen.DIAL); Action.Redraw }
@@ -1128,7 +1128,7 @@ class LauncherModel(
         BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
         BadgeKind.NOTES -> { enter(Screen.NOTES); Action.Redraw }
-        BadgeKind.MUSIC -> { musicFromHome = true; nowFromHome = true; provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
+        BadgeKind.MUSIC -> { provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
@@ -1140,9 +1140,6 @@ class LauncherModel(
     /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
     /** What "Logs & Settings" lists (Call log, Notifications, Settings); the activity fills it in. */
     var logItems: List<MenuItem> = emptyList()
-    private var musicFromHome = false
-    /** Now playing was opened straight from the home screen, so Back goes home instead of to the Music menu. */
-    private var nowFromHome = false
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
@@ -1214,13 +1211,13 @@ class LauncherModel(
             key == Key.LEFT || (d == 4 && !radio) -> if (music.active) Action.MusicPrevious else Action.None
             key == Key.UP || (d == 2 && !radio) -> Action.MusicVolume(true)
             key == Key.DOWN || (d == 8 && !radio) -> Action.MusicVolume(false)
-            key == Key.SOFT_RIGHT -> { nowFromHome = false; musicFromHome = false; goHome(); Action.Redraw } // Now playing is a destination: Back is always home
-            key == Key.POUND -> { musicFromHome = true; nowFromHome = false; screen = Screen.MUSICMENU; selected = 0; Action.Redraw } // change source
+            key == Key.SOFT_RIGHT -> { goHome(); Action.Redraw } // Now playing is a destination: Back is always home
+            key == Key.POUND -> openSourcePicker() // change source
             d == 0 -> Action.SleepStep
             (d == 7 && !radio) || (key == Key.STAR && radio) -> Action.SpectrumToggle
             key == Key.STAR && spSignedIn && !radio -> Action.SpShuffle
             d == 1 && spSignedIn && !radio -> Action.SpRepeat
-            key == Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+            key == Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
     }
@@ -1237,11 +1234,11 @@ class LauncherModel(
             "Presets" -> { screen = Screen.RADIO; selected = if (provider == Provider.RADIO && music.active) radioIndex.coerceAtLeast(0) else 0; Action.Redraw }
             "Find station" -> { startWrite("", Screen.RADIOMENU); writeField = 1; writeSearch = true; writeRadio = true; Action.Redraw }
             "Browse stations" -> { browseLevel = 0; screen = Screen.RADIOBROWSE; selected = 0; Action.Redraw }
-            "Change source" -> { musicFromHome = true; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+            "Change source" -> openSourcePicker()
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
-        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
@@ -1252,11 +1249,11 @@ class LauncherModel(
             "Play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
             "Sign out of Spotify" -> Action.SpSignOut
             "Sign in to Spotify" -> Action.SpSignIn
-            "Change source" -> { musicFromHome = true; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
+            "Change source" -> openSourcePicker()
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
-        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
@@ -1266,7 +1263,7 @@ class LauncherModel(
     private fun radioKey(key: Key): Action = move(key, maxOf(radioRows.size, 1)) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected in radioNames.indices) { provider = Provider.RADIO; screen = Screen.MUSIC; Action.RadioPlay(selected) } else Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.RADIOMENU; selected = 0; Action.Redraw }
-        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
@@ -1291,7 +1288,7 @@ class LauncherModel(
             else -> when (selected) { 0 -> loadRadio("top", "GB", "Popular in the UK"); 1 -> { browseLevel = 1; selected = 0; Action.Redraw }; 2 -> { browseLevel = 2; selected = 0; Action.Redraw }; else -> Action.None }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { if (browseLevel > 0) { selected = browseLevel - 1; browseLevel = 0 } else { screen = Screen.RADIOMENU; selected = radioMenuRows.indexOf("Browse stations").coerceAtLeast(0) }; Action.Redraw }
-        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
@@ -1301,7 +1298,7 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> radioRes.getOrNull(selected)?.let { provider = Provider.RADIO; screen = Screen.MUSIC; Action.RadioPlayUrl(it.name, it.url) } ?: Action.None
         Key.STAR -> radioRes.getOrNull(selected)?.let { Action.RadioFav(it.name, it.url) } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { if (resFromFind) { screen = Screen.RADIOMENU; selected = radioMenuRows.indexOf("Find station").coerceAtLeast(0) } else { screen = Screen.RADIOBROWSE; selected = 0 }; Action.Redraw }
-        Key.END -> { nowFromHome = false; goHome(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
@@ -1455,14 +1452,17 @@ class LauncherModel(
         else -> Action.None
     }
 
+    /** "Change source": the Music menu with Home beneath it, so Back from it goes home however Now playing was reached. */
+    private fun openSourcePicker(): Action { trail.clear(); trail.addLast(Frame(Screen.HOME, 0)); screen = Screen.MUSICMENU; selected = 0; return Action.Redraw }
+
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = musicMenuRows.getOrNull(selected)) {
-            "Radio" -> { provider = Provider.RADIO; nowFromHome = false; selected = 0; if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) screen = Screen.RADIO else screen = Screen.MUSIC; Action.Redraw }
-            "Spotify" -> { provider = Provider.SPOTIFY; nowFromHome = false; selected = 0; if ((provStatus[Provider.SPOTIFY] ?: 0) == 0 && spSignedIn) { screen = Screen.PLAYLISTS; spStatus = "Loading..."; Action.SpLoad("playlists") } else { screen = Screen.MUSIC; Action.Redraw } }
+            "Radio" -> { provider = Provider.RADIO; selected = 0; if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) screen = Screen.RADIO else screen = Screen.MUSIC; Action.Redraw }
+            "Spotify" -> { provider = Provider.SPOTIFY; selected = 0; if ((provStatus[Provider.SPOTIFY] ?: 0) == 0 && spSignedIn) { screen = Screen.PLAYLISTS; spStatus = "Loading..."; Action.SpLoad("playlists") } else { screen = Screen.MUSIC; Action.Redraw } }
             else -> commonMusicRow(r)
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (musicFromHome) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == MUSIC_PKG }.coerceAtLeast(0) }; musicFromHome = false; Action.Redraw }
-        Key.END -> { musicFromHome = false; goHome(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 

@@ -55,6 +55,9 @@ class NavigationBackTest {
         "contactsBackToPad" to "OK OK LEFT LEFT LEFT",
         "callKeyInMenu" to "OK CALL", // Back returns to the row the green key was pressed on (it used to jump to the Calls entry)
         "callKeyOnHome" to "CALL",
+        "musicMenuFromHome" to "RIGHT",
+        "nowPlaying" to "OK DOWN*9 OK OK",
+        "sourcePicker" to "OK DOWN*9 OK OK POUND",
     )
 
     private fun model() = LauncherModel(items, contactsApp = "com.android.contacts", messagesApp = "com.android.messaging", dialerApp = "com.android.dialer")
@@ -118,6 +121,9 @@ padToContacts: CONTACTS -SOFT_RIGHT-> MENU/0
 contactsBackToPad: DIAL -SOFT_RIGHT-> MENU/0
 callKeyInMenu: CALLLOG -SOFT_RIGHT-> MENU/0
 callKeyOnHome: DIAL -SOFT_RIGHT-> HOME/0
+musicMenuFromHome: MUSICMENU -SOFT_RIGHT-> HOME/0
+nowPlaying: MUSIC -SOFT_RIGHT-> HOME/0
+sourcePicker: MUSICMENU -SOFT_RIGHT-> HOME/0
 """
         const val GOLDEN_END = """
 menu: MENU -END-> HOME/0
@@ -149,6 +155,9 @@ padToCalls: CALLLOG -END-> HOME/0
 padToContacts: CONTACTS -END-> HOME/0
 contactsBackToPad: DIAL -END-> HOME/0
 callKeyInMenu: CALLLOG -END-> HOME/0
+musicMenuFromHome: MUSICMENU -END-> HOME/0
+nowPlaying: MUSIC -END-> HOME/0
+sourcePicker: MUSICMENU -END-> HOME/0
 """
     }
 }
