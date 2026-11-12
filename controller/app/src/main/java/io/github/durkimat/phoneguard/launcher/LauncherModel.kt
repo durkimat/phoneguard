@@ -31,7 +31,15 @@ data class Msg(val body: String, val date: Long, val mine: Boolean, val sender: 
 data class Convo(val address: String, val name: String, val msgs: List<Msg>, val unread: Int)
 
 /** A colour scheme: LCD background and ink. Plain ints so the model stays free of Android classes. */
-data class Theme(val id: String, val name: String, val lcd: Int, val ink: Int)
+/**
+ * A colour set. `skin` picks the drawing style (a plain Nokia screen, or the classic-Mac desktop with windows); `desk` and `desk2`
+ * are the two dither colours behind the windows, `accent` is the colour of held spectrum peaks, and `font` is the typeface a
+ * theme prefers until the user picks one.
+ */
+data class Theme(
+    val id: String, val name: String, val lcd: Int, val ink: Int,
+    val skin: String = "nokia", val desk: Int = lcd, val desk2: Int = lcd, val accent: Int = ink, val font: String? = null,
+)
 
 object Themes {
     val all = listOf(
@@ -39,6 +47,8 @@ object Themes {
         Theme("grey", "Grey", 0xFFCFD3CC.toInt(), 0xFF1A1A1A.toInt()),
         Theme("amber", "Amber", 0xFF1A1200.toInt(), 0xFFFFB52E.toInt()),
         Theme("orange", "Orange", 0xFFF2A33A.toInt(), 0xFF3A1A00.toInt()),
+        Theme("mac", "Classic Mac", 0xFFFAFAF5.toInt(), 0xFF111111.toInt(), "mac", 0xFF8E8E8E.toInt(), 0xFFCFCFCF.toInt(), 0xFFD42A1E.toInt(), "pixelify"),
+        Theme("macdark", "Classic Mac dark", 0xFF222226.toInt(), 0xFFEDEDE6.toInt(), "mac", 0xFF050505.toInt(), 0xFF2E2E34.toInt(), 0xFFFF5A4A.toInt(), "pixelify"),
     )
     const val DEFAULT = "green"
     fun byId(id: String?): Theme = all.firstOrNull { it.id == id } ?: all.first { it.id == DEFAULT }
@@ -217,6 +227,8 @@ class LauncherModel(
     /** One step of the way back: the screen to return to and the row that was selected on it. */
     private data class Frame(val screen: Screen, val selected: Int)
     private val trail = ArrayDeque<Frame>()
+    /** How many screens sit behind this one (a stacked-window skin draws a close box when there is something to close back to). */
+    val depth: Int get() = trail.size
     /** Opens [to] (on row [row]) on top of the current screen, remembering where we are so Back comes back to the same row. */
     private fun enter(to: Screen, row: Int = 0) { trail.addLast(Frame(screen, selected)); screen = to; selected = row }
     /** Back to a screen further down the trail, dropping its own frame and everything above it; with no such frame it is simply shown. */

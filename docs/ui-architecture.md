@@ -32,3 +32,20 @@ Status: plan agreed with the owner 2026-11-12. Slice 1 (this branch, `feat/ui-na
 - Which screens use Left/Right for something other than the soft-key alias (text entry, games, Now playing seek/volume?) needs a short list before grid work.
 - Pixel fonts blur on Android at sizes off the font's own grid; needs a check on the real phone, plus font licences before bundling.
 - Prototype: `theme-lab` HTML mock-ups (owner has them) show the intended look; they are not in the repo.
+
+## Slice 4a: the classic-Mac look (first cut)
+
+A theme now carries a `skin` as well as its colours. The two new themes, "Classic Mac" and "Classic Mac dark" (Settings > Theme), draw
+every screen inside one window on a dithered desktop:
+
+- A menu bar across the top carries the status symbols. The window has a pinstriped title bar, and a close box appears when Back has
+  somewhere to go (it reads `depth`, the length of the back stack). The two soft keys become push buttons under the window, the left one
+  (the default action) with the heavier ring.
+- Screens do not know about any of this. They still call `titleBar(...)` and `softKeys(...)`; in the Mac look those only record the
+  title and labels, the content is clipped to the window, and the frame is drawn around it. So every screen, including games and
+  Messages, works in both looks from day one.
+- The main-menu grid, lists, Home and Now playing all come through unchanged. Held spectrum peaks use the theme's `accent` (red in the
+  Mac themes, the ink colour in the Nokia ones). The Mac themes prefer Pixelify until the user picks a font.
+
+Still to do for this look: icons beside list rows, a proper scroll bar in the window, a Mac-style Now playing layout, the Look data
+object (so the parent app can set window style, accent and fonts one by one), and a skin of its own rather than a branch in `NokiaSkin`.

@@ -52,6 +52,11 @@ class NokiaSkin : LauncherSkin {
 
         private var lcd = 0
         private var ink = 0
+        private var accent = 0
+        private var mac = false
+        private var macTitle = ""
+        private var macKeys: Pair<String, String>? = null
+        private var deskCache: Pair<Theme, android.graphics.BitmapShader>? = null
         private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE }
         private val fill = Paint()
         private val stroke = Paint().apply { style = Paint.Style.STROKE }
@@ -91,12 +96,15 @@ class NokiaSkin : LauncherSkin {
             val i = info ?: return
             val u = width / 480f
             val t = Themes.byId(m.theme)
-            lcd = t.lcd; ink = t.ink; fill.color = ink; stroke.color = ink
-            val f = Fonts.byId(m.font).id
+            lcd = t.lcd; ink = t.ink; accent = t.accent; fill.color = ink; stroke.color = ink
+            mac = t.skin == "mac"
+            val f = if (t.font != null && m.font == Fonts.DEFAULT) t.font else Fonts.byId(m.font).id
             p.typeface = typefaces.getOrPut(f) { load(f) }
             sizeScale = if (f == "vt323") 1.3f else 1f
             c.drawColor(lcd)
+            if (mac) { macTitle = if (m.screen == Screen.HOME) "Home" else m.title; macKeys = null; macDesktop(c, t, u) }
             statusLine(c, i, u)
+            if (mac) { c.save(); c.clipRect(11 * u, 94 * u, 469 * u, 569 * u) }
             when (m.screen) {
                 Screen.HOME -> { home(c, i, u); m.weather?.let { w -> weatherStrip(c, w, u) } }
                 Screen.WEATHER -> weatherScreen(c, m, u)
@@ -117,6 +125,55 @@ class NokiaSkin : LauncherSkin {
                 else -> menu(c, m, u)
             }
             m.notice?.let { notice(c, it, u) }
+            if (mac) { c.restore(); macTitleBar(c, m, u); macButtons(c, u) }
+        }
+
+        /** The classic-Mac desktop: a dithered backdrop, a menu bar for the status symbols, and one window that holds the screen. */
+        private fun macDesktop(c: Canvas, t: Theme, u: Float) {
+            val sh = deskCache?.takeIf { it.first === t }?.second ?: run {
+                val bmp = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
+                bmp.setPixel(0, 0, t.desk); bmp.setPixel(1, 1, t.desk); bmp.setPixel(1, 0, t.desk2); bmp.setPixel(0, 1, t.desk2)
+                val s = android.graphics.BitmapShader(bmp, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
+                s.setLocalMatrix(android.graphics.Matrix().apply { setScale(2f * u, 2f * u) })
+                deskCache = t to s; s
+            }
+            val d = Paint().apply { shader = sh; isFilterBitmap = false }
+            c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), d)
+            fill.color = lcd; c.drawRect(0f, 0f, width.toFloat(), 46 * u, fill) // the menu bar
+            fill.color = ink; c.drawRect(12 * u, 56 * u, 476 * u, 576 * u, fill)  // the window's drop shadow
+            fill.color = lcd; c.drawRect(8 * u, 52 * u, 472 * u, 572 * u, fill)
+            stroke.strokeWidth = 3 * u; c.drawRect(8 * u, 52 * u, 472 * u, 572 * u, stroke)
+            fill.color = ink
+        }
+
+        /** Pinstriped title bar with a close box (where Back has somewhere to go) and the title on a plate in the middle. */
+        private fun macTitleBar(c: Canvas, m: LauncherModel, u: Float) {
+            stroke.strokeWidth = 2 * u
+            var y = 58f
+            while (y < 88f) { c.drawLine(10 * u, y * u, 470 * u, y * u, stroke); y += 4f }
+            c.drawLine(8 * u, 92 * u, 472 * u, 92 * u, stroke)
+            if (m.screen != Screen.HOME && m.depth > 0) {
+                fill.color = lcd; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, fill); fill.color = ink
+                stroke.strokeWidth = 2.5f * u; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, stroke)
+            }
+            val room = 340f
+            val w = minOf(measureBold(macTitle, 28f), room)
+            fill.color = lcd; c.drawRect((240 - w / 2 - 12) * u, 56 * u, (240 + w / 2 + 12) * u, 89 * u, fill); fill.color = ink
+            marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, center = true)
+        }
+
+        /** The two soft keys as Mac push buttons under the window: the left one (the default action) has the heavier ring. */
+        private fun macButtons(c: Canvas, u: Float) {
+            val (left, right) = macKeys ?: return
+            fun button(x0: Float, x1: Float, label: String, arrowX: Float, dir: Int, heavy: Boolean) {
+                val r = RectF(x0 * u, 584 * u, x1 * u, 632 * u)
+                fill.color = lcd; c.drawRoundRect(r, 14 * u, 14 * u, fill); fill.color = ink
+                stroke.strokeWidth = (if (heavy) 4.5f else 2.5f) * u; c.drawRoundRect(r, 14 * u, 14 * u, stroke)
+                arrow(c, arrowX, 608f, dir, u)
+                text(c, label, (x0 + x1) / 2, 618f, 28f, u, bold = true, align = Paint.Align.CENTER)
+            }
+            if (left.isNotEmpty()) button(10f, 236f, left, 32f, -1, true)
+            if (right.isNotEmpty()) button(244f, 470f, right, 448f, 1, false)
         }
 
         private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, color: Int = ink) {
@@ -195,6 +252,7 @@ class NokiaSkin : LauncherSkin {
 
         // The two labels are the D-pad's Left and Right: a small arrow shows which way to press.
         private fun softKeys(c: Canvas, left: String, right: String, u: Float) {
+            if (mac) { macKeys = left to right; return } // drawn as buttons below the window, outside the content's clip
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, (640 - 64) * u, width.toFloat(), (640 - 64) * u, stroke)
             val cy = 606f
@@ -342,8 +400,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun musicScreen(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val mu = m.music
             val radio = m.provider == Provider.RADIO
             if (!mu.active) {
@@ -410,7 +467,7 @@ class NokiaSkin : LauncherSkin {
                     else stroke.also { it.strokeWidth = 1 * u }.let { if (b == 0) c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, it) }
                 }
                 val pk = (sp.peak[i] * blocks).toInt().coerceIn(0, blocks - 1)
-                if (pk >= lit && sp.peak[i] > 0.05f) { val y = bottom - (pk + 1) * pitch; c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill) }
+                if (pk >= lit && sp.peak[i] > 0.05f) { val y = bottom - (pk + 1) * pitch; fill.color = accent; c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill); fill.color = ink }
             }
             if (live) postInvalidateDelayed(70)
         }
@@ -442,11 +499,17 @@ class NokiaSkin : LauncherSkin {
         }
 
         /** The title bar's text: centred when it fits, otherwise it scrolls forwards and back. */
+        /** The title bar: an inverted band for the Nokia look; a Mac window notes the title and draws its own bar around the content. */
+        private fun titleBar(c: Canvas, s: String, u: Float) {
+            if (mac) { macTitle = s; return }
+            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+            titleText(c, s, u)
+        }
+
         private fun titleText(c: Canvas, s: String, u: Float) = marquee(c, s, 20f, 85f, 30f, 440f, u, bold = true, color = lcd, center = true)
 
         private fun noteScreen(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val n = m.currentNote
             if (n == null) text(c, "Gone", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             else {
@@ -459,8 +522,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun batteryScreen(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val b = m.battery
             if (b == null) text(c, "Reading...", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
             else {
@@ -481,8 +543,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun weatherScreen(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val w = m.weather
             if (w == null) { text(c, "No weather yet", 240f, 300f, 30f, u, align = Paint.Align.CENTER) }
             else {
@@ -518,8 +579,7 @@ class NokiaSkin : LauncherSkin {
         private fun menu(c: Canvas, m: LauncherModel, u: Float) {
             if (m.layout == Layout.GRID) { menuGrid(c, m, u); return }
             // title bar
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val rowH = 62f
             val visible = LIST_VISIBLE
             val first = m.listFirst(visible)
@@ -549,8 +609,7 @@ class NokiaSkin : LauncherSkin {
 
         /** The main menu as a grid of pixel icons: the chosen tile is inverted and its name sits above the soft keys. */
         private fun menuGrid(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val first = m.gridFirstRow()
             stroke.strokeWidth = 2 * u
             for (r in 0 until GRID_ROWS) for (col in 0 until GRID_COLS) {
@@ -559,7 +618,8 @@ class NokiaSkin : LauncherSkin {
                 val x = GRID_LEFT + col * (GRID_TILE_W + GRID_GAP)
                 val y = GRID_TOP + r * (GRID_TILE_H + GRID_GAP)
                 val on = idx == m.selected
-                val tile = RectF(x * u, y * u, (x + GRID_TILE_W) * u, (y + GRID_TILE_H) * u)
+                val inset = if (mac) 5f else 0f // a window frame sits at the edge, so its tiles step in
+                val tile = RectF((x + inset) * u, y * u, (x + GRID_TILE_W - inset) * u, (y + GRID_TILE_H) * u)
                 if (on) c.drawRect(tile, fill) else c.drawRect(tile, stroke)
                 PixelIcons.draw(c, m.iconFor(item), (x + (GRID_TILE_W - 64f) / 2) * u, (y + (GRID_TILE_H - 64f) / 2) * u, 4f * u, if (on) lcd else ink, if (on) ink else lcd)
             }
@@ -614,8 +674,7 @@ class NokiaSkin : LauncherSkin {
         private fun thread(c: Canvas, m: LauncherModel, u: Float) {
             val convo = m.openConvo ?: return
             val msg = m.shownMsg ?: return
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val lines = wrap(msg.body)
             val whenText = SimpleDateFormat(if (sameDay(msg.date)) "HH:mm" else "d MMM HH:mm", Locale.UK).format(Date(msg.date))
             val pos = "${m.selected + 1}/${convo.msgs.size}"
@@ -671,8 +730,12 @@ class NokiaSkin : LauncherSkin {
         private fun write(c: Canvas, m: LauncherModel, u: Float) {
             // the To field takes the title bar's place, inverted while it has focus
             if (m.writeField == 0) {
-                c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-                text(c, (if (m.writeSearch) "Search_" else if (m.writeWifi != null) "Password_" else "To: " + m.writeLabel.ifBlank { m.writeTo } + "_"), 16f, 85f, 30f, u, bold = true, color = lcd)
+                val field = if (m.writeSearch) "Search_" else if (m.writeWifi != null) "Password_" else "To: " + m.writeLabel.ifBlank { m.writeTo } + "_"
+                if (mac) macTitle = field
+                else {
+                    c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
+                    text(c, field, 16f, 85f, 30f, u, bold = true, color = lcd)
+                }
             } else {
                 text(c, if (m.writeSearch) "Search" else if (m.writeWifi != null) "Password: " + m.writeWifi!!.ssid else "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
                 stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
@@ -708,8 +771,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun calc(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             text(c, m.calc.pending, 464f, 160f, 30f, u, align = Paint.Align.RIGHT)
             val big = m.calc.display
             var size = 84f
@@ -726,8 +788,7 @@ class NokiaSkin : LauncherSkin {
 
         private fun snake(c: Canvas, m: LauncherModel, u: Float) {
             val g = m.snake
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             val cell = 20f; val left = (480f - g.cols * cell) / 2; val top = 110f
             stroke.strokeWidth = 2 * u
             c.drawRect((left - 3) * u, (top - 3) * u, (left + g.cols * cell + 3) * u, (top + g.rows * cell + 3) * u, stroke)
@@ -752,8 +813,7 @@ class NokiaSkin : LauncherSkin {
         }
 
         private fun gameTitle(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
         }
 
         /** A filled box with a message in the theme's light colour. */
@@ -894,8 +954,7 @@ class NokiaSkin : LauncherSkin {
         private fun clock(secs: Int): String = if (secs >= 3600) "%d:%02d:%02d".format(secs / 3600, secs / 60 % 60, secs % 60) else "%02d:%02d".format(secs / 60, secs % 60)
 
         private fun waPair(c: Canvas, m: LauncherModel, u: Float) {
-            c.drawRect(0f, 47 * u, width.toFloat(), 99 * u, fill)
-            titleText(c, m.title, u)
+            titleBar(c, m.title, u)
             when {
                 m.waLinked -> {
                     text(c, "Linked", 240f, 220f, 52f, u, bold = true, align = Paint.Align.CENTER)
