@@ -33,13 +33,14 @@ object PixelIcons {
     val names: Set<String> get() = ICONS.keys
 
     /** Draws icon [id] with its top left corner at ([x], [y]); each square is [px] pixels. [ink] draws the lines, [lcd] the paper. */
-    fun draw(c: Canvas, id: String, x: Float, y: Float, px: Float, ink: Int, lcd: Int) {
+    fun draw(c: Canvas, id: String, x: Float, y: Float, px: Float, ink: Int, lcd: Int, fillInk: Int = ink) {
         val rows = ICONS[id] ?: ICONS.getValue("app")
         val half = blend(ink, lcd)
         for ((r, line) in rows.withIndex()) {
             for (col in 0 until 16) {
                 paint.color = when (line.getOrElse(col) { '.' }) {
-                    'k', 'r' -> ink
+                    'k' -> ink
+                    'r' -> fillInk
                     'g' -> half
                     'w' -> lcd
                     else -> continue

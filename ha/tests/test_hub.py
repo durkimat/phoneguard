@@ -428,3 +428,50 @@ def test_the_look_is_checked_and_reaches_the_phone_config(hub):
     assert hub.view("her")["look"]["theme"] == "macdark"  # a bad change is never kept
     hub.update_child("her", {"look": None})
     assert "look" not in S.build_config(hub.data["children"]["her"], now)
+
+
+def test_the_appearance_settings_are_checked_and_reach_the_phone_config(hub):
+    now = hub.now()
+    hub.update_child("her", {"look": {"windows": "platinum", "colour": "colour", "wall": "green", "shadow": "off", "bars": "grad", "font_display": "j10", "font_text": "inter", "font_label": "silk", "menu_style": "text"}})
+    assert S.build_config(hub.data["children"]["her"], now)["look"] == {
+        "windows": "platinum", "colour": "colour", "wall": "green", "shadow": "off", "bars": "grad",
+        "fontDisplay": "j10", "fontText": "inter", "fontLabel": "silk", "menuStyle": "text",
+    }
+    for bad in ({"windows": "glass"}, {"wall": "lava"}, {"shadow": "soft"}, {"bars": "rainbow"}, {"font_label": "comic"}, {"colour": "neon"}):
+        with pytest.raises(ValueError):
+            hub.update_child("her", {"look": bad})
+    assert hub.view("her")["look"]["windows"] == "platinum"
+
+
+def _kotlin(name):
+    base = Path(__file__).resolve().parents[2] / "controller/app/src/main/java/io/github/durkimat/phoneguard/launcher"
+    f = base / name
+    if not f.exists():
+        pytest.skip("the launcher source is not next to this copy of the integration")
+    return f.read_text()
+
+
+def test_the_looks_the_integration_accepts_are_the_ones_the_phone_has():
+    import re
+    style, model = _kotlin("Style.kt"), _kotlin("LauncherModel.kt")
+    ids = lambda text, rx: tuple(re.findall(rx, text))  # noqa: E731
+    assert S.LOOK_THEMES == ids(model, r'Theme\("(\w+)", "'), "themes"
+    assert S.LOOK_FONTS == ids(style, r'FontChoice\("(\w+)", "'), "fonts"
+    assert S.LOOK_MENUS == ids(model, r'MenuStyle\("(\w+)", "'), "main menu styles"
+    for key, kt in {"windows": "windows", "colour": "colour", "wall": "wall", "shadow": "shadow", "bars": "bars"}.items():
+        block = re.search(r"val " + kt + r" = listOf\((.*?)\)\n", style, re.S).group(1)
+        assert S.LOOK_OPTS[key] == ids(block, r'Opt\("(\w+)", "'), key
+
+
+def test_the_card_offers_exactly_what_the_phone_has():
+    import re
+    card = Path(__file__).resolve().parents[1] / "www/phoneguard-card/phoneguard-card.js"
+    look = json.loads(re.search(r"const PG_LOOK = (\{.*?\});\n/\*END-LOOK-OPTIONS", card.read_text(), re.S).group(1))
+    assert tuple(i for i, _ in look["theme"]) == S.LOOK_THEMES
+    assert tuple(i for i, _ in look["font"]) == S.LOOK_FONTS
+    assert tuple(i for i, _ in look["menu_style"]) == S.LOOK_MENUS
+    for k, v in S.LOOK_OPTS.items():
+        assert tuple(i for i, _ in look[k]) == v, k
+    for p in look["presets"]:  # a preset the card offers must pass the integration's own checks
+        assert S.clean_look({k: v for k, v in p.items() if k not in ("id", "name")}), p["id"]
+    assert len(look["presets"]) >= 6

@@ -1,0 +1,7 @@
+The typefaces in this folder (other than VT323 and Pixelify Sans, which have their own notices) are from Google Fonts and are
+licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org). Each family's copyright line is on its
+Google Fonts page (https://fonts.google.com/specimen/<name>). They were converted from WOFF2 to TrueType, latin glyphs only,
+without any other change.
+
+Bitcount Single, DotGothic16, Doto, Handjet, Instrument Serif, Inter, Jacquard 12, Jersey 10, Jersey 15, Micro 5,
+Press Start 2P, Silkscreen, Sixtyfour, Tiny5, Workbench.

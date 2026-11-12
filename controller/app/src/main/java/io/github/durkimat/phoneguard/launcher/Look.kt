@@ -9,7 +9,7 @@ import io.github.durkimat.phoneguard.core.ParentLook
  * accent colour. Nothing here draws anything. The phone keeps its own choices (Settings), and a parent can set any of these
  * from Home Assistant; whatever a parent sets wins, field by field, and the phone's own choice shows for the rest.
  */
-data class Look(val theme: String, val font: String, val menuStyle: String, val accent: Int? = null) {
+data class Look(val theme: String, val font: String, val menuStyle: String, val accent: Int? = null, val style: Style = Style()) {
     /** Which skin draws this look. */
     val skin: String get() = Themes.byId(theme).skin
 
@@ -24,6 +24,7 @@ data class Look(val theme: String, val font: String, val menuStyle: String, val 
                 font = parent.font?.takeIf { id -> Fonts.all.any { it.id == id } } ?: own.font,
                 menuStyle = parent.menuStyle?.takeIf { id -> MenuStyles.all.any { it.id == id } } ?: own.menuStyle,
                 accent = parent.accent ?: own.accent,
+                style = Choices.keys.fold(own.style) { s, k -> parent.opts[k]?.takeIf { Choices.valid(k, it) }?.let { s.with(k, it) } ?: s },
             )
         }
 
@@ -34,6 +35,7 @@ data class Look(val theme: String, val font: String, val menuStyle: String, val 
             if (parent.font != null && Fonts.all.any { it.id == parent.font }) add("font")
             if (parent.menuStyle != null && MenuStyles.all.any { it.id == parent.menuStyle }) add("menu_style")
             if (parent.accent != null) add("accent")
+            Choices.keys.filter { Choices.valid(it, parent.opts[it]) }.forEach { add(it) }
         }
 
         fun own(c: Context): Look {
@@ -42,6 +44,7 @@ data class Look(val theme: String, val font: String, val menuStyle: String, val 
                 p.getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT,
                 p.getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT,
                 p.getString("menu_style", MenuStyles.DEFAULT) ?: MenuStyles.DEFAULT,
+                style = Choices.keys.fold(Style()) { s, k -> p.getString("opt_$k", null)?.takeIf { Choices.valid(k, it) }?.let { s.with(k, it) } ?: s },
             )
         }
 

@@ -1,8 +1,290 @@
-/* Phone Guard card v0.29.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
+/* Phone Guard card v0.31.0. Parent view of one child's phone: status, boost, holiday, app approvals, pairing.
  * Config: type: custom:phoneguard-card   (shows every guarded device, with tabs)
  *         optional  entity: sensor.phoneguard_<child>   to show just one
  * Reads the JSON string in the sensor's `data` attribute; every action is a phoneguard.* service. */
-const PG_VERSION = "0.30.0";
+const PG_VERSION = "0.31.0";
+/*LOOK-OPTIONS (generated from the launcher's Style.kt; a test keeps them equal)*/
+const PG_LOOK = {
+ "theme": [
+  [
+   "green",
+   "Green"
+  ],
+  [
+   "grey",
+   "Grey"
+  ],
+  [
+   "amber",
+   "Amber"
+  ],
+  [
+   "orange",
+   "Orange"
+  ],
+  [
+   "mac",
+   "Classic Mac"
+  ],
+  [
+   "macdark",
+   "Classic Mac dark"
+  ]
+ ],
+ "font": [
+  [
+   "mono",
+   "Monospace"
+  ],
+  [
+   "sans",
+   "Sans-serif"
+  ],
+  [
+   "vt323",
+   "Pixel VT323"
+  ],
+  [
+   "pixelify",
+   "Pixelify"
+  ],
+  [
+   "inst",
+   "Instrument Serif"
+  ],
+  [
+   "inter",
+   "Inter"
+  ],
+  [
+   "silk",
+   "Silkscreen"
+  ],
+  [
+   "dot",
+   "DotGothic16"
+  ],
+  [
+   "j15",
+   "Jersey 15"
+  ],
+  [
+   "j10",
+   "Jersey 10"
+  ],
+  [
+   "tiny",
+   "Tiny5"
+  ],
+  [
+   "micro",
+   "Micro 5"
+  ],
+  [
+   "hand",
+   "Handjet"
+  ],
+  [
+   "doto",
+   "Doto"
+  ],
+  [
+   "bit",
+   "Bitcount Single"
+  ],
+  [
+   "ps2p",
+   "Press Start 2P"
+  ],
+  [
+   "bench",
+   "Workbench"
+  ],
+  [
+   "jac",
+   "Jacquard 12"
+  ],
+  [
+   "sixty",
+   "Sixtyfour"
+  ]
+ ],
+ "menu_style": [
+  [
+   "list",
+   "List"
+  ],
+  [
+   "grid",
+   "Grid of icons"
+  ],
+  [
+   "text",
+   "List, no icons"
+  ]
+ ],
+ "windows": [
+  [
+   "stripes",
+   "Stripes (System 7)"
+  ],
+  [
+   "platinum",
+   "Platinum (OS 8)"
+  ],
+  [
+   "flat",
+   "Flat"
+  ]
+ ],
+ "colour": [
+  [
+   "mono",
+   "Mono"
+  ],
+  [
+   "red",
+   "Red"
+  ],
+  [
+   "colour",
+   "Colourful"
+  ]
+ ],
+ "wall": [
+  [
+   "dither",
+   "Dither"
+  ],
+  [
+   "plain",
+   "Plain"
+  ],
+  [
+   "blue",
+   "Blue"
+  ],
+  [
+   "green",
+   "Green"
+  ]
+ ],
+ "shadow": [
+  [
+   "on",
+   "Hard"
+  ],
+  [
+   "off",
+   "None"
+  ]
+ ],
+ "bars": [
+  [
+   "red",
+   "Red peaks"
+  ],
+  [
+   "same",
+   "Same colour"
+  ],
+  [
+   "grad",
+   "Gradient"
+  ],
+  [
+   "none",
+   "No peaks"
+  ]
+ ],
+ "presets": [
+  {
+   "id": "favourites",
+   "name": "My favourites",
+   "theme": "mac",
+   "menu_style": "list",
+   "windows": "stripes",
+   "colour": "colour",
+   "wall": "blue",
+   "shadow": "on",
+   "bars": "red",
+   "font_display": "inst",
+   "font_text": "inter",
+   "font_label": "silk"
+  },
+  {
+   "id": "pixelify",
+   "name": "All Pixelify, mono",
+   "theme": "mac",
+   "menu_style": "list",
+   "windows": "stripes",
+   "colour": "mono",
+   "wall": "dither",
+   "shadow": "on",
+   "bars": "red",
+   "font_display": "pixelify",
+   "font_text": "pixelify",
+   "font_label": "pixelify"
+  },
+  {
+   "id": "arcade",
+   "name": "Arcade grid (night)",
+   "theme": "macdark",
+   "menu_style": "grid",
+   "windows": "stripes",
+   "colour": "colour",
+   "wall": "dither",
+   "shadow": "on",
+   "bars": "red",
+   "font_display": "j10",
+   "font_text": "j15",
+   "font_label": "ps2p"
+  },
+  {
+   "id": "platinum",
+   "name": "Platinum grid",
+   "theme": "mac",
+   "menu_style": "grid",
+   "windows": "platinum",
+   "colour": "colour",
+   "wall": "blue",
+   "shadow": "on",
+   "bars": "red",
+   "font_display": "pixelify",
+   "font_text": "pixelify",
+   "font_label": "silk"
+  },
+  {
+   "id": "terminal",
+   "name": "Terminal green",
+   "theme": "macdark",
+   "menu_style": "list",
+   "windows": "flat",
+   "colour": "colour",
+   "wall": "green",
+   "shadow": "off",
+   "bars": "red",
+   "font_display": "vt323",
+   "font_text": "vt323",
+   "font_label": "vt323"
+  },
+  {
+   "id": "dotmatrix",
+   "name": "Dot-matrix (Doto)",
+   "theme": "macdark",
+   "menu_style": "list",
+   "windows": "flat",
+   "colour": "red",
+   "wall": "plain",
+   "shadow": "off",
+   "bars": "red",
+   "font_display": "doto",
+   "font_text": "dot",
+   "font_label": "doto"
+  }
+ ]
+};
+/*END-LOOK-OPTIONS*/
 
 class PhoneGuardCard extends HTMLElement {
   setConfig(config) {
@@ -488,12 +770,26 @@ class PhoneGuardCard extends HTMLElement {
   _lookHtml(d) {
     const look = d.look || {};
     const sel = (key, label, opts) => `<label class="sub" style="display:inline-block;margin:4px 12px 4px 0">${label}
-      <select data-look="${key}"><option value="">Phone's own choice</option>${opts.map(([v, n]) => `<option value="${v}" ${look[key] === v ? "selected" : ""}>${n}</option>`).join("")}</select></label>`;
+      <select data-look="${key}"><option value="">Phone's own choice</option>${opts.map(([v, n]) => `<option value="${v}" ${look[key] === v ? "selected" : ""}>${this._esc(n)}</option>`).join("")}</select></label>`;
+    const L = PG_LOOK;
     return `<h3>Look</h3><div>
-      ${sel("theme", "Theme", [["green", "Green"], ["grey", "Grey"], ["amber", "Amber"], ["orange", "Orange"], ["mac", "Classic Mac"], ["macdark", "Classic Mac dark"]])}
-      ${sel("font", "Font", [["mono", "Monospace"], ["sans", "Sans-serif"], ["vt323", "Pixel VT323"], ["pixelify", "Pixelify"]])}
-      ${sel("menu_style", "Main menu", [["list", "List"], ["grid", "Grid of icons"]])}
+      <label class="sub" style="display:inline-block;margin:4px 12px 4px 0">Preset
+        <select data-look-preset><option value="">Choose a preset to set everything below…</option>${L.presets.map((p) => `<option value="${p.id}">${this._esc(p.name)}</option>`).join("")}</select></label>
+      <button data-look-clear>Let the phone choose everything</button></div><div>
+      ${sel("theme", "Theme", L.theme)}
+      ${sel("font", "Font", L.font)}
+      ${sel("menu_style", "Main menu", L.menu_style)}
       ${sel("accent", "Accent (held peaks)", [["#D42A1E", "Red"], ["#2255DD", "Blue"], ["#2E8B3D", "Green"], ["#E07A00", "Orange"]])}
+      </div><div class="sub" style="margin-top:6px">Classic Mac look only:</div><div>
+      ${sel("windows", "Windows", L.windows)}
+      ${sel("colour", "Colour", L.colour)}
+      ${sel("wall", "Wallpaper", L.wall)}
+      ${sel("shadow", "Shadow", L.shadow)}
+      </div><div class="sub" style="margin-top:6px">Every look:</div><div>
+      ${sel("bars", "Spectrum", L.bars)}
+      ${sel("font_display", "Clock font", L.font)}
+      ${sel("font_text", "Text font", L.font)}
+      ${sel("font_label", "Title font", L.font)}
       </div><div class="sub">A setting fixed here cannot be changed from the phone's own Settings menu; the phone shows "Set by a parent".</div>`;
   }
 
@@ -804,6 +1100,13 @@ class PhoneGuardCard extends HTMLElement {
       const look = { ...(this._d.look || {}), [i.dataset.look]: i.value };
       this._svc("set_child", { config: { look } });
     }));
+    r.querySelectorAll("select[data-look-preset]").forEach((i) => i.addEventListener("change", () => {
+      const p = PG_LOOK.presets.find((x) => x.id === i.value);
+      if (!p) return;
+      const { id, name, ...fields } = p;
+      this._svc("set_child", { config: { look: { ...(this._d.look || {}), ...fields } } });
+    }));
+    r.querySelectorAll("button[data-look-clear]").forEach((i) => i.addEventListener("click", () => this._svc("set_child", { config: { look: null } })));
     r.querySelectorAll("input[data-dry]").forEach((i) => i.addEventListener("change", () => this._svc("set_child", { config: { idle_dry_run: i.checked } })));
     r.querySelectorAll("input[data-all]").forEach((i) => {
       const d = this._d, m = i.dataset.all, apps = d.apps || [];
