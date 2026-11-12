@@ -1,0 +1,30 @@
+# IMS port, round 1: files taken from the phone's OWN original Qin system (qin-j35-original-firmware, Android 13, sha256 aabb1148...5283).
+# Paths inside system_a.img. Deliberately NOT taken: MtkTeleService, MtkTelecom, MtkTelephonyProvider, MtkMmsService (they replace AOSP's phone stack),
+# telephony-common.jar / ims-common.jar / telecom.jar (MediaTek-modified AOSP jars), MtkDialer/MtkSettings/MtkSystemUI.
+/system/app/mediatek-res/mediatek-res.apk
+/system/priv-app/ImsService/ImsService.apk
+/system/priv-app/MtkGbaService/MtkGbaService.apk
+/system/priv-app/MtkTelephonyAssist/MtkTelephonyAssist.apk
+/system/priv-app/MtkCapCtrl/MtkCapCtrl.apk
+/system/framework/mediatek-carrier-config-manager.jar
+/system/framework/mediatek-common.jar
+/system/framework/mediatek-framework.jar
+/system/framework/mediatek-ims-base.jar
+/system/framework/mediatek-ims-common.jar
+/system/framework/mediatek-ims-extension-plugin.jar
+/system/framework/mediatek-services.jar
+/system/framework/mediatek-telecom-common.jar
+/system/framework/mediatek-telephony-base.jar
+/system/framework/mediatek-telephony-common.jar
+/system/framework/mediatek-wfo-legacy.jar
+/system/etc/sysconfig/com.mediatek.ims.config.xml
+/system/etc/permissions/com.mediatek.wfo.legacy.xml
+/system/etc/permissions/privapp-permissions-mediatek.xml
+/system/system_ext/etc/permissions/system-ext-permissions-mediatek.xml
+/system/lib64/vendor.mediatek.hardware.mtkradioex.rsu-V1-ndk.so
+/system/lib64/vendor.mediatek.hardware.mtkradioex.se-V1-ndk.so
+/system/lib64/vendor.mediatek.hardware.mtkradioex.sim-V1-ndk.so
+/system/lib64/libccci_util_sys.so
+/system/lib64/lib_remote_simlock.so
+/system/lib64/android.hardware.radio-V1-ndk.so
+/system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so
