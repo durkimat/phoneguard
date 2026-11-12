@@ -11,7 +11,7 @@ Status values: Untested, Verified-works, Verified-fails, Dropped.
 
 | ID | Item | Why it matters | Baseline expectation | Plan if it fails | Confidence | Status |
 |---|---|---|---|---|---|---|
-| B1 | **Bluetooth audio** (A2DP music, headset calls) | Owner: a blocker | Unknown. TrebleDroid's MT6761 Bluetooth audio patches (sysbta, audio policy) are among the ~15-20 rejected patches we still have to triage | Triage the rejects for audio/BT first; compare with Dumber's vendor/system audio config (extracted, read-only); test with the owner's headphones at first boot | Low-medium | Untested |
+| B1 | **Bluetooth audio** (A2DP music, headset calls) | Owner: a blocker | Unknown. TrebleDroid's MT6761 Bluetooth audio patches (sysbta, audio policy) are among the ~15-20 rejected patches we still have to triage | Triage the rejects for audio/BT first; compare with Dumber's vendor/system audio config (extracted, read-only); test with the owner's headphones at first boot | Medium (see rejected-patches-triage.md: vendor already has the BT audio HAL) | Untested |
 | B2 | **VoLTE calls** (no 3G on Smarty/Three) | No voice without it | Expected to FAIL: MediaTek IMS apps and vendor services missing | Port ImsService, MtkGbaService, MtkTelephonyAssist, CarrierConfig, mediatek-res and the framework jars from the phone's original stock system | Medium | Untested |
 | B3 | **Wi-Fi calling** | Owner wants it; not a blocker | Expected to fail until B2 works | Same port plus EPDG/IWLAN services | Low-medium | Untested |
 | B4 | Boots, modem registers, mobile data, SMS | Basics | Unknown | Debug with logs | Medium | Untested |
