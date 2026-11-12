@@ -11,7 +11,7 @@ class NavigationBackTest {
     private val items = listOf(
         MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
         MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(WEATHER_PKG, "Weather"), MenuItem(GAMES_PKG, "Games"),
-        MenuItem(APPS_PKG, "Apps"), MenuItem(CALC_PKG, "Calculator"), MenuItem(MUSIC_PKG, "Music"), MenuItem(SETTINGS_PKG, "Settings"),
+        MenuItem(APPS_PKG, "Apps"), MenuItem(CALC_PKG, "Calculator"), MenuItem(MUSIC_PKG, "Music"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(LOGSET_PKG, "Logs"),
     )
 
     /** Presses the keys in [path]: names of [Key], "D7" for the digit 7, and "DOWN*3" to repeat. */
@@ -41,10 +41,20 @@ class NavigationBackTest {
         "dialFromHome" to "D5",
         "callLogFromHome" to "CALL CALL",
         "snakeHelp" to "OK DOWN*6 OK OK",
+        "speaker" to "OK DOWN*10 OK DOWN*3 OK",
+        "soundTest" to "OK DOWN*10 OK DOWN*4 OK",
+        "connections" to "OK DOWN*10 OK DOWN*5 OK",
+        "battery" to "OK DOWN*10 OK DOWN*6 OK",
+        "logSet" to "OK DOWN*11 OK",
+        "callsFromLogSet" to "OK DOWN*11 OK OK",
+        "notesFromLogSet" to "OK DOWN*11 OK DOWN OK",
+        "settingsFromLogSet" to "OK DOWN*11 OK DOWN*2 OK",
+        "themeFromLogSet" to "OK DOWN*11 OK DOWN*2 OK OK",
     )
 
     private fun line(name: String, path: String, back: Key): String {
         val m = LauncherModel(items, contactsApp = "com.android.contacts", messagesApp = "com.android.messaging", dialerApp = "com.android.dialer")
+        m.logItems = listOf(MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(SETTINGS_PKG, "Settings"))
         run(m, path)
         val before = "${m.screen}"
         m.onKey(back)
@@ -81,6 +91,15 @@ typing: TYPING -SOFT_RIGHT-> SETTINGS/2
 dialFromHome: DIAL -SOFT_RIGHT-> DIAL/0
 callLogFromHome: CALLLOG -SOFT_RIGHT-> HOME/0
 snakeHelp: GAMEHELP -SOFT_RIGHT-> GAMES/0
+speaker: SPEAKER -SOFT_RIGHT-> SETTINGS/3
+soundTest: SOUNDTEST -SOFT_RIGHT-> SETTINGS/4
+connections: CONNECTIONS -SOFT_RIGHT-> SETTINGS/5
+battery: BATTERY -SOFT_RIGHT-> SETTINGS/6
+logSet: LOGSET -SOFT_RIGHT-> MENU/11
+callsFromLogSet: CALLLOG -SOFT_RIGHT-> LOGSET/0
+notesFromLogSet: NOTES -SOFT_RIGHT-> LOGSET/1
+settingsFromLogSet: SETTINGS -SOFT_RIGHT-> LOGSET/2
+themeFromLogSet: THEME -SOFT_RIGHT-> SETTINGS/0
 """
         const val GOLDEN_END = """
 menu: MENU -END-> HOME/0
@@ -99,6 +118,15 @@ theme: THEME -END-> HOME/0
 font: FONT -END-> HOME/0
 typing: TYPING -END-> HOME/0
 snakeHelp: GAMEHELP -END-> HOME/0
+speaker: SPEAKER -END-> HOME/0
+soundTest: SOUNDTEST -END-> HOME/0
+connections: CONNECTIONS -END-> HOME/0
+battery: BATTERY -END-> HOME/0
+logSet: LOGSET -END-> HOME/0
+callsFromLogSet: CALLLOG -END-> HOME/0
+notesFromLogSet: NOTES -END-> HOME/0
+settingsFromLogSet: SETTINGS -END-> HOME/0
+themeFromLogSet: THEME -END-> HOME/0
 """
     }
 }

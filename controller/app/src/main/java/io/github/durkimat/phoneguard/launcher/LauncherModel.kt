@@ -193,6 +193,14 @@ class LauncherModel(
     var selected = 0
         private set
 
+    /** One step of the way back: the screen to return to and the row that was selected on it. */
+    private data class Frame(val screen: Screen, val selected: Int)
+    private val trail = ArrayDeque<Frame>()
+    /** Opens [to] (on row [row]) on top of the current screen, remembering where we are so Back comes back to the same row. */
+    private fun enter(to: Screen, row: Int = 0) { trail.addLast(Frame(screen, selected)); screen = to; selected = row }
+    /** Back: returns to the screen below and the row it was on, or home when there is nothing below. */
+    private fun leave() { val f = trail.removeLastOrNull(); if (f == null || f.screen == Screen.HOME) goHome() else { screen = f.screen; selected = f.selected } }
+
     /** The allowed apps that are not in the main menu, shown under "Android Apps". */
     var apps: List<MenuItem> = emptyList()
 
@@ -259,7 +267,6 @@ class LauncherModel(
     var badges: List<Badge> = emptyList()
     /** True when a list was opened by tapping a symbol on the home screen, so Back goes home. */
     private var homeEntry = false
-    private var weatherFrom = Screen.MENU
     val pairs = Pairs()
     val shooter = Shooter()
     val seeds = Seeds()
@@ -343,7 +350,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0; homeEntry = false }
+    fun goHome() { screen = Screen.HOME; selected = 0; homeEntry = false; trail.clear() }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -625,7 +632,7 @@ class LauncherModel(
             Key.UP -> calc.operator('+')
             Key.DOWN -> calc.operator('-')
             Key.OK, Key.LEFT, Key.SOFT_LEFT -> calc.equals()
-            Key.RIGHT, Key.SOFT_RIGHT -> if (!calc.clear()) { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == CALC_PKG }.coerceAtLeast(0) }
+            Key.RIGHT, Key.SOFT_RIGHT -> if (!calc.clear()) leave()
             Key.END -> { calc.allClear(); goHome() }
             else -> return Action.None
         }
@@ -633,16 +640,16 @@ class LauncherModel(
     }
 
     private fun speakerSetting(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { speakerShown = selected == 0; screen = Screen.SETTINGS; selected = 3; Action.SaveSpeaker(speakerShown) }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 3; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { speakerShown = selected == 0; leave(); Action.SaveSpeaker(speakerShown) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
     }
 
     private fun typing(key: Key, digit: Int): Action = move(key, 3) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 2) { screen = Screen.SETTINGS; selected = 2; Action.ForgetWords } else { predictiveOn = selected == 0; writeMode = 0; screen = Screen.SETTINGS; selected = 2; Action.SavePredictive(predictiveOn) }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 2; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 2) { leave(); Action.ForgetWords } else { predictiveOn = selected == 0; writeMode = 0; leave(); Action.SavePredictive(predictiveOn) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
@@ -946,19 +953,19 @@ class LauncherModel(
     private fun open(item: MenuItem?): Action = when {
         item == null -> Action.None
         item.pkg == LOGSET_PKG -> { screen = Screen.LOGSET; selected = 0; Action.Redraw }
-        item.pkg == SETTINGS_PKG -> { settingsFrom = screen; screen = Screen.SETTINGS; selected = 0; Action.Redraw }
+        item.pkg == SETTINGS_PKG -> { enter(Screen.SETTINGS); Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
         item.pkg == dialerApp -> openPhoneMenu(Screen.MENU)
-        item.pkg == CALC_PKG -> { calc.allClear(); screen = Screen.CALC; Action.Redraw }
+        item.pkg == CALC_PKG -> { calc.allClear(); enter(Screen.CALC); Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == MUSIC_PKG -> { musicFromHome = false; screen = Screen.MUSICMENU; selected = 0; Action.Redraw }
         item.pkg == RUNNING_PKG -> { screen = Screen.RUNNING; selected = 0; Action.Redraw }
-        item.pkg == NOTES_PKG -> { notesFrom = if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU; screen = Screen.NOTES; selected = 0; Action.Redraw }
-        item.pkg == WEATHER_PKG -> { weatherFrom = Screen.MENU; screen = Screen.WEATHER; Action.Redraw }
-        item.pkg == GAMES_PKG -> { screen = Screen.GAMES; selected = 0; Action.Redraw }
-        item.pkg == APPS_PKG -> { screen = Screen.APPS; selected = 0; Action.Redraw }
+        item.pkg == NOTES_PKG -> { enter(Screen.NOTES); Action.Redraw }
+        item.pkg == WEATHER_PKG -> { enter(Screen.WEATHER); Action.Redraw }
+        item.pkg == GAMES_PKG -> { enter(Screen.GAMES); Action.Redraw }
+        item.pkg == APPS_PKG -> { enter(Screen.APPS); Action.Redraw }
         else -> Action.Launch(item.pkg)
     }
 
@@ -966,35 +973,35 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
             var out: Action = Action.Redraw
             when (settingsRows.getOrNull(selected)) {
-                "Theme" -> { screen = Screen.THEME; selected = Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0) }
-                "Font" -> { screen = Screen.FONT; selected = Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0) }
-                "Predictive text" -> { screen = Screen.TYPING; selected = if (predictiveOn) 0 else 1 }
-                "Speakerphone" -> { screen = Screen.SPEAKER; selected = if (speakerShown) 0 else 1 }
+                "Theme" -> enter(Screen.THEME, Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0))
+                "Font" -> enter(Screen.FONT, Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0))
+                "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
+                "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
                 "Sound test" -> { screen = Screen.SOUNDTEST; selected = 0 }
                 "WhatsApp" -> { screen = Screen.WASET; selected = 0 }
                 "Android settings" -> out = Action.Launch("com.android.settings")
-                "Battery" -> { screen = Screen.BATTERY; selected = 0 }
+                "Battery" -> enter(Screen.BATTERY)
                 "Connections" -> { screen = Screen.CONNECTIONS; selected = 0 }
             }
             out
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (settingsFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0) } else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == SETTINGS_PKG }.coerceAtLeast(0) }; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
     }
 
     private fun fonts(key: Key, digit: Int): Action = move(key, Fonts.all.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { font = Fonts.all[selected].id; screen = Screen.SETTINGS; selected = 1; Action.SaveFont(font) }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 1; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { font = Fonts.all[selected].id; leave(); Action.SaveFont(font) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
     }
 
     private fun themes(key: Key, digit: Int): Action = move(key, Themes.all.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { theme = Themes.all[selected].id; screen = Screen.SETTINGS; selected = 0; Action.SaveTheme(theme) }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 0; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { theme = Themes.all[selected].id; leave(); Action.SaveTheme(theme) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
@@ -1108,12 +1115,12 @@ class LauncherModel(
         BadgeKind.SMS -> { homeEntry = true; threadWa = false; screen = Screen.INBOX; selected = convos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); Action.Redraw }
         BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
-        BadgeKind.NOTES -> { notesFrom = Screen.HOME; screen = Screen.NOTES; selected = 0; Action.Redraw }
+        BadgeKind.NOTES -> { enter(Screen.NOTES); Action.Redraw }
         BadgeKind.MUSIC -> { musicFromHome = true; nowFromHome = true; provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
-    fun openWeather(): Action { if (screen != Screen.HOME || weather == null) return Action.None; weatherFrom = Screen.HOME; screen = Screen.WEATHER; return Action.Redraw }
+    fun openWeather(): Action { if (screen != Screen.HOME || weather == null) return Action.None; enter(Screen.WEATHER); return Action.Redraw }
 
     /** The numbers on the battery page; the activity fills them in while the page is open. */
     var battery: BatteryInfo? = null
@@ -1121,7 +1128,6 @@ class LauncherModel(
     /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
     /** What "Logs & Settings" lists (Call log, Notifications, Settings); the activity fills it in. */
     var logItems: List<MenuItem> = emptyList()
-    private var settingsFrom = Screen.MENU
     /** Where the Phone menu was opened from (Back returns there) and where the dial screen was opened from. */
     private var dialFrom = Screen.HOME
     private var musicFromHome = false
@@ -1152,11 +1158,10 @@ class LauncherModel(
     /** The notifications, newest first (the activity fills this in). */
     var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
     private var noteKeyShown: String? = null
-    private var notesFrom = Screen.MENU
 
     private fun notesKey(key: Key): Action = move(key, notes.size + (if (notes.isEmpty()) 0 else 1)) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (notes.isEmpty()) Action.None else if (selected >= notes.size) Action.ClearNotes else { noteKeyShown = notes[selected].key; screen = Screen.NOTE; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (notesFrom == Screen.HOME) goHome() else if (notesFrom == Screen.LOGSET) { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == NOTES_PKG }.coerceAtLeast(0) } else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == NOTES_PKG }.coerceAtLeast(0) }; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1470,7 +1475,7 @@ class LauncherModel(
 
     private fun batteryKey(key: Key): Action {
         when (key) {
-            Key.RIGHT, Key.SOFT_RIGHT, Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.SETTINGS; selected = settingsRows.size - 1 }
+            Key.RIGHT, Key.SOFT_RIGHT, Key.OK, Key.LEFT, Key.SOFT_LEFT -> leave()
             Key.END -> goHome()
             else -> return Action.None
         }
@@ -1479,7 +1484,7 @@ class LauncherModel(
 
     private fun weatherKey(key: Key): Action {
         when (key) {
-            Key.RIGHT, Key.SOFT_RIGHT, Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (weatherFrom == Screen.HOME) goHome() else { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == WEATHER_PKG }.coerceAtLeast(0) }
+            Key.RIGHT, Key.SOFT_RIGHT, Key.OK, Key.LEFT, Key.SOFT_LEFT -> leave()
             Key.END -> goHome()
             else -> return Action.None
         }
@@ -1508,7 +1513,7 @@ class LauncherModel(
 
     private fun gameList(key: Key): Action = move(key, 4) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { helpGame = selected; screen = Screen.GAMEHELP; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == GAMES_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1613,7 +1618,7 @@ class LauncherModel(
 
     private fun appList(key: Key): Action = move(key, apps.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> apps.getOrNull(selected)?.let { Action.Launch(it.pkg) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == APPS_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }

@@ -21,7 +21,7 @@ Status: plan agreed with the owner 2026-11-12. Slice 1 (this branch, `feat/ui-na
 ## Slices
 
 1. Pin today's Back behaviour (`NavigationBackTest`). **Done in this branch.**
-2. Replace the `*From` flags with a back stack, family by family, keeping the pinned behaviour.
+2. Replace the `*From` flags with a back stack, family by family, keeping the pinned behaviour. **Part 1 done:** Settings (Theme, Font, Typing, Speaker, Battery), Notes, Weather, Games, Apps and Calculator now use `enter()` / `leave()`; `settingsFrom`, `notesFrom` and `weatherFrom` are gone. Still on flags: calls and dial (`callsFrom`, `dialFrom`), contacts (`contactsFrom`), messages (`homeEntry`), music (`musicFromHome`, `nowFromHome`, `resFromFind`), WhatsApp pairing, Connections/Wi-Fi/Bluetooth.
 3. Add layout kinds and grid movement; main menu as a grid behind a Look setting, list as the default.
 4. Move colour and font choices into one Look data object and feed it to `NokiaSkin`.
 5. A second skin (classic-Mac style), starting with the generic list, home and Now playing; games and calculator keep shared drawing.
