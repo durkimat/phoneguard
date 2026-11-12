@@ -56,3 +56,10 @@ FILE-GONE: build 0001, core 0011, core 0012 (target code no longer exists). IN-H
 - **Real risks are boot and data, not features:** cgroups (core 0020) and bpf (bpf 0001, Connectivity 0003) depend on the stock kernel, which we have not inspected. If the first boot fails or mobile data does not come up, these are the first suspects.
 - **No patch work is needed before the flash.** Apply A-list items only when a test points to them, so the baseline tells us what is actually broken. Each patch is applied by hand against Lineage 21, so keep them as `build/patches/*.patch` files.
 - Still to do: read the kernel version and config (cgroup2, bpf) from the running phone via `adb` during the flash session.
+
+## Update 2026-11-12: kernel evidence (`/archive/phone-backups/phone-state-20261112/`)
+
+- Kernel 4.19.191, built 4 Aug 2026 (so not the original Qin stock kernel; most likely Dumber's rebuild, and our flash does not touch boot, so we keep it). cgroup v2 is mounted next to v1; BPF is present (CONFIG_BPF, BPF_SYSCALL, BPF_JIT, CGROUP_BPF =y, bpffs mounted); DM_DEFAULT_KEY, DM_VERITY, FS_ENCRYPTION, F2FS are on.
+- So the cgroup (core 0020) and no-bpf (bpf 0001, Connectivity 0003) patches in group A are now **unlikely to be needed**: the first-boot and mobile-data risk drops. Unconfirmed: which BPF programs are loaded (adb shell is not root).
+- Bluetooth: the vendor BT HAL (bluetooth-1-1) and the system-side `system.bt-audio-hal` are running on the Dumber image; A2DP source is enabled. No sysbta property was set, so Dumber uses the normal route as well.
+- Dependency to remember: our "own" system image runs on Dumber's boot/kernel and the stock vendor. A fully independent build would also need our own kernel/boot image.
