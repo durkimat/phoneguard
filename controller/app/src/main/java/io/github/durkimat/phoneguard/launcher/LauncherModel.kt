@@ -219,6 +219,12 @@ class LauncherModel(
     private val trail = ArrayDeque<Frame>()
     /** Opens [to] (on row [row]) on top of the current screen, remembering where we are so Back comes back to the same row. */
     private fun enter(to: Screen, row: Int = 0) { trail.addLast(Frame(screen, selected)); screen = to; selected = row }
+    /** Back to a screen further down the trail, dropping its own frame and everything above it; with no such frame it is simply shown. */
+    private fun leaveTo(target: Screen, row: Int) {
+        val i = trail.indexOfLast { it.screen == target }
+        if (i >= 0) while (trail.size > i) trail.removeLast()
+        screen = target; selected = row
+    }
     /** Back: returns to the screen below and the row it was on, or home when there is nothing below. */
     private fun leave() { val f = trail.removeLastOrNull(); if (f == null || f.screen == Screen.HOME) goHome() else { screen = f.screen; selected = f.selected } }
 
@@ -290,7 +296,6 @@ class LauncherModel(
     /** The symbols shown on the home screen, left to right; the skin draws them and a tap on one opens what it stands for. */
     var badges: List<Badge> = emptyList()
     /** True when a list was opened by tapping a symbol on the home screen, so Back goes home. */
-    private var homeEntry = false
     val pairs = Pairs()
     val shooter = Shooter()
     val seeds = Seeds()
@@ -373,7 +378,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0; homeEntry = false; dialler = false; trail.clear() }
+    fun goHome() { screen = Screen.HOME; selected = 0; dialler = false; trail.clear() }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -688,11 +693,11 @@ class LauncherModel(
 
     // ---- Messages
 
-    private fun openMessages(): Action { screen = Screen.MESSAGES; selected = 0; return Action.Redraw }
+    private fun openMessages(): Action { enter(Screen.MESSAGES); return Action.Redraw }
 
     private fun messagesMenu(key: Key, digit: Int): Action = move(key, messagesRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> messageEntry(selected)
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == messagesApp }.coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         Key.DIGIT -> if (digit in 1..messagesRows.size) { selected = digit - 1; messageEntry(digit - 1) } else Action.None
@@ -701,29 +706,28 @@ class LauncherModel(
 
     /** Row 0 is the SMS inbox; with WhatsApp linked row 1 is WhatsApp and the last row writes a text. */
     private fun messageEntry(row: Int): Action = when {
-        row == 0 -> { screen = Screen.INBOX; selected = 0; Action.Redraw }
-        waEnabled && row == 1 -> { screen = Screen.WHATSAPP; selected = 0; threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
+        row == 0 -> { enter(Screen.INBOX); Action.Redraw }
+        waEnabled && row == 1 -> { enter(Screen.WHATSAPP); threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
         else -> { threadWa = false; startWrite("", Screen.MESSAGES, wa = false) }
     }
 
-    private fun startPair(back: Screen): Action { waPairNumber = ""; waCode = null; waPairBack = back; screen = Screen.WAPAIR; return Action.Redraw }
-    private var waPairBack = Screen.WHATSAPP
+    private fun startPair(): Action { waPairNumber = ""; waCode = null; enter(Screen.WAPAIR); return Action.Redraw }
 
     private fun waNames(key: Key, digit: Int): Action = move(key, NameStyle.all.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { waNameStyle = NameStyle.all[selected].first; screen = Screen.WASET; selected = 1; Action.SaveNameStyle(waNameStyle) }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WASET; selected = 1; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { waNameStyle = NameStyle.all[selected].first; leave(); Action.SaveNameStyle(waNameStyle) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
     private fun waSettings(key: Key, digit: Int): Action = move(key, if (waLinked) 3 else 1) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
-            !waLinked -> startPair(Screen.WASET)
+            !waLinked -> startPair()
             selected == 0 -> { notice = "Re-syncing..."; Action.ResyncWa }
-            selected == 1 -> { screen = Screen.WANAMES; selected = NameStyle.all.indexOfFirst { it.first == waNameStyle }.coerceAtLeast(0); Action.Redraw }
-            else -> { screen = Screen.SETTINGS; selected = 4; Action.UnlinkWa }
+            selected == 1 -> { enter(Screen.WANAMES, NameStyle.all.indexOfFirst { it.first == waNameStyle }.coerceAtLeast(0)); Action.Redraw }
+            else -> { leave(); Action.UnlinkWa }
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = 4; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -735,9 +739,9 @@ class LauncherModel(
             // with a code showing, the left key asks for a fresh one (the old one may have run out)
             Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked && waPairNumber.length >= 9) Action.PairWa(waPairNumber) else Action.None
             Key.SOFT_RIGHT, Key.RIGHT -> when {
-                done -> { screen = waPairBack; selected = 0; Action.Redraw }
+                done -> { leave(); Action.Redraw }
                 waPairNumber.isNotEmpty() -> { waPairNumber = waPairNumber.dropLast(1); Action.Redraw }
-                else -> { screen = waPairBack; selected = 0; Action.Redraw }
+                else -> { leave(); Action.Redraw }
             }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
@@ -745,8 +749,8 @@ class LauncherModel(
     }
 
     private fun whatsapp(key: Key, digit: Int): Action = move(key, if (waLinked) waConvos.size else 1) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked) startPair(Screen.WHATSAPP) else waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { threadWa = false; if (homeEntry) goHome() else { screen = Screen.MESSAGES; selected = 1 }; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (!waLinked) startPair() else waConvos.getOrNull(selected)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { threadWa = false; leave(); Action.Redraw }
         Key.END -> { threadWa = false; goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
         else -> Action.None
@@ -754,7 +758,7 @@ class LauncherModel(
 
     private fun inbox(key: Key, digit: Int): Action = move(key, convos.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.Redraw } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (homeEntry) goHome() else { screen = Screen.MESSAGES; selected = 0 }; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> convos.getOrNull(selected)?.let { Action.Call(it.address) } ?: Action.CallKey
         else -> Action.None
@@ -810,7 +814,7 @@ class LauncherModel(
         return Action.Redraw
     }
 
-    private fun leaveWrite(): Action { screen = writeBack; if (writeBack == Screen.MESSAGES) selected = 1; return Action.Redraw }
+    private fun leaveWrite(): Action { screen = writeBack; return Action.Redraw }
 
     private fun write(key: Key, digit: Int, now: Long): Action =
         if (writeField == 0) writeToField(key, digit) else writeBody(key, digit, now)
@@ -839,7 +843,7 @@ class LauncherModel(
         Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
         Key.OK, Key.SOFT_LEFT -> { commit(); if (writeWifi != null) { val n = writeWifi!!; screen = Screen.WIFI; selected = 0; writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; resFromFind = true; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; screen = Screen.RADIORES; selected = 0; Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = if (writeWa) Action.SendWa(writeTo, writeText.trim()) else Action.Send(writeTo, writeText.trim())
-            screen = Screen.MESSAGES; selected = 0; notice = "Message sent"
+            leaveTo(Screen.MESSAGES, 0); notice = "Message sent"
             a
         } }
         Key.SOFT_RIGHT -> when {
@@ -990,7 +994,7 @@ class LauncherModel(
 
     private fun open(item: MenuItem?): Action = when {
         item == null -> Action.None
-        item.pkg == LOGSET_PKG -> { screen = Screen.LOGSET; selected = 0; Action.Redraw }
+        item.pkg == LOGSET_PKG -> { enter(Screen.LOGSET); Action.Redraw }
         item.pkg == SETTINGS_PKG -> { enter(Screen.SETTINGS); Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
@@ -999,7 +1003,7 @@ class LauncherModel(
         item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == MUSIC_PKG -> { enter(Screen.MUSICMENU); Action.Redraw }
-        item.pkg == RUNNING_PKG -> { screen = Screen.RUNNING; selected = 0; Action.Redraw }
+        item.pkg == RUNNING_PKG -> { enter(Screen.RUNNING); Action.Redraw }
         item.pkg == NOTES_PKG -> { enter(Screen.NOTES); Action.Redraw }
         item.pkg == WEATHER_PKG -> { enter(Screen.WEATHER); Action.Redraw }
         item.pkg == GAMES_PKG -> { enter(Screen.GAMES); Action.Redraw }
@@ -1016,11 +1020,11 @@ class LauncherModel(
                 "Menu style" -> enter(Screen.MENUSTYLE, MenuStyles.all.indexOfFirst { it.id == menuStyle }.coerceAtLeast(0))
                 "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
                 "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
-                "Sound test" -> { screen = Screen.SOUNDTEST; selected = 0 }
-                "WhatsApp" -> { screen = Screen.WASET; selected = 0 }
+                "Sound test" -> enter(Screen.SOUNDTEST)
+                "WhatsApp" -> enter(Screen.WASET)
                 "Android settings" -> out = Action.Launch("com.android.settings")
                 "Battery" -> enter(Screen.BATTERY)
-                "Connections" -> { screen = Screen.CONNECTIONS; selected = 0 }
+                "Connections" -> enter(Screen.CONNECTIONS)
             }
             out
         }
@@ -1082,6 +1086,10 @@ class LauncherModel(
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
         Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+
+    private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
+    /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
+    private fun openConnection(to: Screen) { if (screen in connectionScreens) { screen = to; selected = 0 } else enter(to) }
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -1161,9 +1169,9 @@ class LauncherModel(
     fun tap(x: Float, y: Float): Action {
         if (screen in noTouch) return Action.None // the games stay keypad classics
         if (y >= 576f) return onKey(if (x < 240f) Key.SOFT_LEFT else Key.SOFT_RIGHT)
-        if (y < 46f && x in 105f..175f && screen != Screen.WIFI && wifiShown) { screen = Screen.WIFI; selected = 0; return Action.WifiLoad } // the Wi-Fi symbol in the status line
-        if (y < 46f && x in 176f..215f && screen != Screen.BT && btShown) { screen = Screen.BT; selected = 0; return Action.BtLoad } // the Bluetooth symbol
-        if (y < 46f && x < 105f && screen != Screen.CONNECTIONS && (dataShown || wifiShown)) { screen = Screen.CONNECTIONS; selected = 0; return Action.Redraw } // the signal and data symbols
+        if (y < 46f && x in 105f..175f && screen != Screen.WIFI && wifiShown) { openConnection(Screen.WIFI); return Action.WifiLoad } // the Wi-Fi symbol in the status line
+        if (y < 46f && x in 176f..215f && screen != Screen.BT && btShown) { openConnection(Screen.BT); return Action.BtLoad } // the Bluetooth symbol
+        if (y < 46f && x < 105f && screen != Screen.CONNECTIONS && (dataShown || wifiShown)) { openConnection(Screen.CONNECTIONS); return Action.Redraw } // the signal and data symbols
         if (screen == Screen.MUSIC && music.active) { // touch: the big play/pause, and the previous and next words either side of it
             if (y in 300f..362f) return Action.SpectrumToggle // touch the bar to swap progress and spectrum
             if (y in 410f..500f && x in 180f..300f) return Action.MusicPlayPause
@@ -1213,8 +1221,8 @@ class LauncherModel(
 
     /** Jump straight to what a home-screen symbol stands for: the text inbox, the WhatsApp chats or the call log. */
     private fun openBadge(b: Badge): Action = when (b.kind) {
-        BadgeKind.SMS -> { homeEntry = true; threadWa = false; screen = Screen.INBOX; selected = convos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); Action.Redraw }
-        BadgeKind.WHATSAPP -> { homeEntry = true; threadWa = true; screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0); if (waLinked) Action.WaOpen else Action.Redraw }
+        BadgeKind.SMS -> { threadWa = false; enter(Screen.INBOX, convos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0)); Action.Redraw }
+        BadgeKind.WHATSAPP -> { threadWa = true; enter(Screen.WHATSAPP, waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0)); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
         BadgeKind.NOTES -> { enter(Screen.NOTES); Action.Redraw }
         BadgeKind.MUSIC -> { provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
@@ -1407,7 +1415,7 @@ class LauncherModel(
 
     private fun soundTestKey(key: Key): Action = move(key, io.github.durkimat.phoneguard.SoundTest.routes.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> Action.SoundTest(selected)
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Sound test").coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1422,7 +1430,7 @@ class LauncherModel(
     private fun runningKey(key: Key): Action = move(key, maxOf(running.size, 1)) ?: when (key) {
         Key.SOFT_LEFT, Key.LEFT -> running.getOrNull(selected)?.let { Action.KillApp(it.pkg) } ?: Action.None
         Key.OK -> running.getOrNull(selected)?.let { switchTo(it.pkg) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.LOGSET; selected = logItems.indexOfFirst { it.pkg == RUNNING_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1457,7 +1465,7 @@ class LauncherModel(
             2 -> if (dataShown) Action.DataToggle else Action.None
             else -> Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SETTINGS; selected = settingsRows.indexOf("Connections").coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1536,7 +1544,7 @@ class LauncherModel(
 
     private fun logSetKey(key: Key): Action = move(key, logItems.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(logItems.getOrNull(selected))
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MENU; selected = items.indexOfFirst { it.pkg == LOGSET_PKG }.coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
