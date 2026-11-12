@@ -8,7 +8,7 @@ import android.graphics.RectF
 class MacChrome : Chrome {
     private var macTitle = ""
     private var macKeys: Pair<String, String>? = null
-    private var deskCache: Pair<Theme, android.graphics.BitmapShader>? = null
+    private var deskCache: Pair<Pair<Theme, String>, android.graphics.BitmapShader>? = null
 
     override val gridInset = 5f
 
@@ -22,15 +22,26 @@ class MacChrome : Chrome {
     override fun softKeys(pen: Pen, c: Canvas, left: String, right: String, u: Float): Boolean { macKeys = left to right; return true }
     override fun fieldTitle(s: String): Boolean { macTitle = s; return true }
 
+    /** Colourful: a blue highlight with white text. Otherwise ink on paper, like every plain look. */
+    override fun selection(pen: Pen): Pair<Int, Int>? = if (pen.style.colour == "colour") Palette.of(pen.night).blue to 0xFFFFFFFF.toInt() else null
+    /** Red: every icon's filled part in the one red. Colourful: a colour for each icon. A highlighted row's icon is drawn in the one text colour. */
+    override fun iconFill(pen: Pen, icon: String, selected: Boolean): Int? = if (selected) null else when (pen.style.colour) {
+        "red" -> Palette.of(pen.night).red
+        "colour" -> Palette.iconColour(pen.night, icon)
+        else -> null
+    }
+
     override fun row(m: LauncherModel, idx: Int): RowStyle {
-        val icon = if (m.screen == Screen.MENU) m.items.getOrNull(idx) else null
+        val icon = if (m.screen == Screen.MENU && m.menuStyle != "text") m.items.getOrNull(idx) else null
         val tx = if (icon != null) 66f else 20f
         return RowStyle("", icon, tx, 396f - (tx - 20f)) // room for the shortcut digit and the scroll bar
     }
     override fun rowExtras(pen: Pen, c: Canvas, m: LauncherModel, idx: Int, top: Float, selected: Boolean, u: Float) = with(pen) {
-        m.items.takeIf { m.screen == Screen.MENU }?.getOrNull(idx)?.let { PixelIcons.draw(c, m.iconFor(it), 20f * u, (top + 13f) * u, 2f * u, if (selected) lcd else ink, if (selected) ink else lcd) }
+        val sel = selection(pen)
+        val fg = if (selected) sel?.second ?: lcd else ink; val bg = if (selected) sel?.first ?: ink else lcd
+        if (m.menuStyle != "text") m.items.takeIf { m.screen == Screen.MENU }?.getOrNull(idx)?.let { val n = m.iconFor(it); PixelIcons.draw(c, n, 20f * u, (top + 13f) * u, 2f * u, fg, bg, iconFill(pen, n, selected) ?: fg) }
         val key = if (idx < 9) "${idx + 1}" else if (idx == 9 && m.screen == Screen.MENU) "0" else ""
-        if (key.isNotEmpty() && (m.rowMarks.getOrNull(idx) ?: 0) == 0) text(c, key, 440f, top + 40f, 22f, u, align = Paint.Align.RIGHT, color = if (selected) lcd else ink)
+        if (key.isNotEmpty() && (m.rowMarks.getOrNull(idx) ?: 0) == 0) text(c, key, 440f, top + 40f, 22f, u, align = Paint.Align.RIGHT, color = fg, role = LABEL)
     }
     override fun scrollBar(pen: Pen, c: Canvas, first: Int, total: Int, visible: Int, u: Float) = pen.scroll(c, first, total, u)
     override fun nowPlaying(pen: Pen, c: Canvas, m: LauncherModel, u: Float): Boolean { pen.player(c, m, u); return true }
@@ -43,45 +54,76 @@ class MacChrome : Chrome {
     }
 
     override fun callout(pen: Pen, c: Canvas, x0: Float, y0: Float, x1: Float, y1: Float, u: Float): Boolean = with(pen) {
-        fill.color = ink; c.drawRect((x0 + 4) * u, (y0 + 4) * u, (x1 + 4) * u, (y1 + 4) * u, fill)
+        fill.color = ink; if (style.shadow == "on") c.drawRect((x0 + 4) * u, (y0 + 4) * u, (x1 + 4) * u, (y1 + 4) * u, fill)
         fill.color = lcd; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, fill); fill.color = ink
         stroke.strokeWidth = 3 * u; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, stroke)
         stroke.strokeWidth = 1.5f * u; c.drawRect((x0 + 7) * u, (y0 + 7) * u, (x1 - 7) * u, (y1 - 7) * u, stroke)
         true
     }
 
-    /** The classic-Mac desktop: a dithered backdrop, a menu bar for the status symbols, and one window that holds the screen. */
+    /** The two colours of the wallpaper's dither (the same colour twice for a plain one). */
+    private fun wall(t: Theme, style: Style, night: Boolean): Pair<Int, Int> = when (style.wall) {
+        "plain" -> (if (night) 0xFF101215.toInt() else 0xFFEAE7DF.toInt()).let { it to it }
+        "blue" -> if (night) 0xFF15212D.toInt() to 0xFF1C2B3A.toInt() else 0xFF6C90B6.toInt() to 0xFF7FA3C7.toInt()
+        "green" -> if (night) 0xFF112018.toInt() to 0xFF18281F.toInt() else 0xFF7CA187.toInt() to 0xFF8FB39A.toInt()
+        else -> t.desk to t.desk2
+    }
+
+    /** The classic-Mac desktop: a wallpaper, a menu bar for the status symbols, and one window that holds the screen. */
     private fun Pen.desktop(c: Canvas, t: Theme, u: Float) {
-        val sh = deskCache?.takeIf { it.first === t }?.second ?: run {
+        val key = t to (style.wall + night)
+        val sh = deskCache?.takeIf { it.first == key }?.second ?: run {
+            val (d1, d2) = wall(t, style, night)
             val bmp = android.graphics.Bitmap.createBitmap(2, 2, android.graphics.Bitmap.Config.ARGB_8888)
-            bmp.setPixel(0, 0, t.desk); bmp.setPixel(1, 1, t.desk); bmp.setPixel(1, 0, t.desk2); bmp.setPixel(0, 1, t.desk2)
+            bmp.setPixel(0, 0, d1); bmp.setPixel(1, 1, d1); bmp.setPixel(1, 0, d2); bmp.setPixel(0, 1, d2)
             val s = android.graphics.BitmapShader(bmp, android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
             s.setLocalMatrix(android.graphics.Matrix().apply { setScale(2f * u, 2f * u) })
-            deskCache = t to s; s
+            deskCache = key to s; s
         }
         val d = Paint().apply { shader = sh; isFilterBitmap = false }
         c.drawRect(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat(), d)
         fill.color = lcd; c.drawRect(0f, 0f, viewWidth.toFloat(), 46 * u, fill) // the menu bar
-        fill.color = ink; c.drawRect(12 * u, 56 * u, 476 * u, 576 * u, fill)  // the window's drop shadow
-        fill.color = lcd; c.drawRect(8 * u, 52 * u, 472 * u, 572 * u, fill)
-        stroke.strokeWidth = 3 * u; c.drawRect(8 * u, 52 * u, 472 * u, 572 * u, stroke)
+        val round = if (style.windows == "platinum") 14f * u else 0f
+        if (style.shadow == "on") { fill.color = ink; c.drawRoundRect(RectF(12 * u, 56 * u, 476 * u, 576 * u), round, round, fill) } // the window's drop shadow
+        fill.color = lcd; c.drawRoundRect(RectF(8 * u, 52 * u, 472 * u, 572 * u), round, round, fill)
+        stroke.strokeWidth = 3 * u; c.drawRoundRect(RectF(8 * u, 52 * u, 472 * u, 572 * u), round, round, stroke)
         fill.color = ink
     }
 
-    /** Pinstriped title bar with a close box (where Back has somewhere to go) and the title on a plate in the middle. */
+    /** The title bar, by window frame: pinstripes and a close box (stripes), a shaded bar (platinum), or a solid bar (flat). Colourful tints it blue. */
     private fun Pen.titleBar(c: Canvas, m: LauncherModel, u: Float) {
-        stroke.strokeWidth = 2 * u
-        var y = 58f
-        while (y < 88f) { c.drawLine(10 * u, y * u, 470 * u, y * u, stroke); y += 4f }
-        c.drawLine(8 * u, 92 * u, 472 * u, 92 * u, stroke)
-        if (m.screen != Screen.HOME && m.depth > 0) {
-            fill.color = lcd; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, fill); fill.color = ink
-            stroke.strokeWidth = 2.5f * u; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, stroke)
-        }
+        val blue = Palette.of(night).blue
+        val closable = m.screen != Screen.HOME && m.depth > 0
         val room = 340f
-        val w = minOf(measureBold(macTitle, 28f), room)
-        fill.color = lcd; c.drawRect((240 - w / 2 - 12) * u, 56 * u, (240 + w / 2 + 12) * u, 89 * u, fill); fill.color = ink
-        marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, center = true)
+        val w = minOf(measureBold(macTitle, 28f, LABEL), room)
+        when (style.windows) {
+            "flat" -> {
+                fill.color = if (style.colour == "colour") blue else ink; c.drawRect(8 * u, 52 * u, 472 * u, 92 * u, fill); fill.color = ink
+                marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, color = if (style.colour == "colour") 0xFFFFFFFF.toInt() else lcd, center = true, role = LABEL)
+            }
+            "platinum" -> {
+                val top = Paint().apply { shader = android.graphics.LinearGradient(0f, 52 * u, 0f, 92 * u, lcd, Palette.mix(lcd, ink, .18f), android.graphics.Shader.TileMode.CLAMP) }
+                c.save(); c.clipRect(8 * u, 52 * u, 472 * u, 92 * u); c.drawRoundRect(RectF(8 * u, 52 * u, 472 * u, 110 * u), 14 * u, 14 * u, top); c.restore()
+                stroke.strokeWidth = 2 * u; c.drawLine(8 * u, 92 * u, 472 * u, 92 * u, stroke)
+                if (closable) { fill.color = lcd; val r = RectF(20 * u, 63 * u, 36 * u, 79 * u); c.drawRoundRect(r, 4 * u, 4 * u, fill); fill.color = ink; stroke.strokeWidth = 2 * u; c.drawRoundRect(r, 4 * u, 4 * u, stroke) }
+                marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, center = true, role = LABEL)
+            }
+            else -> {
+                stroke.strokeWidth = 2 * u
+                val line = stroke.color
+                if (style.colour == "colour") stroke.color = Palette.mix(lcd, blue, .6f)
+                var y = 58f
+                while (y < 88f) { c.drawLine(10 * u, y * u, 470 * u, y * u, stroke); y += 4f }
+                stroke.color = line
+                c.drawLine(8 * u, 92 * u, 472 * u, 92 * u, stroke)
+                if (closable) {
+                    fill.color = lcd; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, fill); fill.color = ink
+                    stroke.strokeWidth = 2.5f * u; c.drawRect(18 * u, 62 * u, 36 * u, 80 * u, stroke)
+                }
+                fill.color = lcd; c.drawRect((240 - w / 2 - 12) * u, 56 * u, (240 + w / 2 + 12) * u, 89 * u, fill); fill.color = ink
+                marquee(c, macTitle, 240 - room / 2, 82f, 28f, room, u, bold = true, center = true, role = LABEL)
+            }
+        }
     }
 
     /** A classic scroll bar down the window's right edge: a ruled track with a solid thumb. */
@@ -153,7 +195,7 @@ class MacChrome : Chrome {
             val r = RectF(x0 * u, 584 * u, x1 * u, 632 * u)
             fill.color = lcd; c.drawRoundRect(r, 14 * u, 14 * u, fill); fill.color = ink
             stroke.strokeWidth = (if (heavy) 4.5f else 2.5f) * u; c.drawRoundRect(r, 14 * u, 14 * u, stroke)
-            text(c, label, (x0 + x1) / 2, 618f, 28f, u, bold = true, align = Paint.Align.CENTER)
+            text(c, label, (x0 + x1) / 2, 618f, 28f, u, bold = true, align = Paint.Align.CENTER, role = LABEL)
         }
         if (left.isNotEmpty()) button(10f, 236f, left, true)
         if (right.isNotEmpty()) button(244f, 470f, right, false)

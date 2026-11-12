@@ -64,3 +64,27 @@ soft-key buttons lost their Nokia arrows. The grid, lists, Home and Settings are
   list rows, scroll bar, player, notices and message boxes. `NokiaSkin` is `PaintedSkin(NokiaChrome)` (every hook left at its plain
   default) and `MacSkin` is `PaintedSkin(MacChrome())` in `MacSkin.kt`. The launcher swaps the skin live when the look needs another.
 - A new look therefore means one new `Chrome`, with no change to the navigation or to any screen.
+
+## Slice 6: Appearance, and the walkers that test navigation
+
+**Appearance** (Settings > Appearance, the fourth row). Everything in the owner's theme-lab mock-up is a setting now:
+
+| Setting | Choices | Where it lives |
+|---|---|---|
+| Presets | six looks that set everything below in one go | `Presets` in `Style.kt` |
+| Windows (Mac look) | Stripes (System 7), Platinum (OS 8), Flat | `Style.windows` |
+| Colour (Mac look) | Mono, Red, Colourful | `Style.colour` |
+| Wallpaper (Mac look) | Dither, Plain, Blue, Green | `Style.wall` |
+| Shadow (Mac look) | Hard, None | `Style.shadow` |
+| Spectrum | Red peaks, Same colour, Gradient, No peaks | `Style.bars` |
+| Clock, Text, Title fonts | any of 19 typefaces, or the one chosen under Font | `Style.fontDisplay/Text/Label` |
+| Main menu (Settings > Menu style) | List, Grid, List without icons | `MenuStyle` |
+
+`Style.kt` holds the data (`Style`, `Choices`, `Presets`, `Fonts`); `Look` carries a `Style`; a parent can hold any field from HA (config `look`: `windows`, `colour`, `wall`, `shadow`, `bars`, `fontDisplay`, `fontText`, `fontLabel`). The Mac-only rows are hidden when the theme is not a Mac one. The painted skin picks a typeface per role (`DISPLAY` the clock, `TEXT` the default, `LABEL` titles and soft keys); `Chrome` gained `selection` and `iconFill` so a chrome can colour the highlight and the icons. The 17 new typefaces are SIL OFL (`assets/fonts/OFL-NOTICE.txt`), converted from the mock-up's WOFF2 to TrueType.
+
+The ids exist in four places (the phone, the integration's `schedule.py`, the card's `PG_LOOK`, the Settings screens). `ha/tests/test_hub.py` reads `Style.kt` and `LauncherModel.kt` and fails if the integration or the card drifts from the phone.
+
+**Navigation tests, in three layers**
+1. `NavigationBackTest`, `NavigationDataTest`: hand-picked paths pinned to a golden list of where Back goes.
+2. `JourneyTest`: breadth first over every screen reachable by key presses, in seven setups (list and grid main menus, WhatsApp on, off and unlinked, three themes). Checks no key crashes, the highlight is always on the list, Back and End always reach Home, Back undoes a step in on the same row, a number key equals Down + OK, and every screen is reachable. A new screen with no route in, or a Back that strands you, fails here.
+3. `rig/journey.py walk`: the same idea on the real app. Debug builds log what is on screen to logcat (`PGState`: screen, row, depth, layout, row count, look; never any row text) and the script presses real keys on the emulator or a test phone, visiting every screen it can reach without side effects. It catches what the model tests cannot: key mapping, the activity, other activities that take over the screen, the home request the red key sends. `rig/journey.py looks OUT` cycles every preset and Appearance choice and screenshots Home, Menu and Settings for each.

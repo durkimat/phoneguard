@@ -145,7 +145,7 @@ class LauncherActivity : Activity() {
         val parent = io.github.durkimat.phoneguard.Store.config(this)?.look
         val l = Look.resolve(Look.own(this), parent)
         lockedLook = Look.locked(parent)
-        model.theme = l.theme; model.font = l.font; model.menuStyle = l.menuStyle; model.accent = l.accent
+        model.theme = l.theme; model.font = l.font; model.menuStyle = l.menuStyle; model.accent = l.accent; model.style = l.style
         if (l.skin != skinKind) {
             skinKind = l.skin; skin = newSkin(skinKind)
             if (contentSet) { setContentView(skin.create(this)); lastInfo?.let { skin.render(model, it) } }
@@ -558,6 +558,18 @@ class LauncherActivity : Activity() {
             }.start()
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
+            is Action.SaveOption -> {
+                prefs().edit().also { if (a.id.isEmpty()) it.remove("opt_" + a.key) else it.putString("opt_" + a.key, a.id) }.apply()
+                applyLook(); heldNote(a.key); refresh()
+            }
+            is Action.SavePreset -> {
+                Presets.byId(a.id)?.let { pr ->
+                    prefs().edit().putString("theme", pr.theme).putString("menu_style", pr.menuStyle).also { e -> Choices.keys.forEach { k -> pr.style[k]?.let { e.putString("opt_$k", it) } ?: e.remove("opt_$k") } }.apply()
+                    applyLook(); if (lockedLook.isNotEmpty()) model.notify("Set by a parent")
+                    val shown = model.theme; Thread { LockWallpaper.apply(this, shown) }.start()
+                }
+                refresh()
+            }
             is Action.SaveFont -> { prefs().edit().putString("font", a.id).apply(); applyLook(); heldNote("font"); refresh() }
             is Action.SaveMenuStyle -> { prefs().edit().putString("menu_style", a.id).apply(); applyLook(); heldNote("menu_style"); refresh() }
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyLook(); heldNote("theme"); val shown = model.theme; Thread { LockWallpaper.apply(this, shown) }.start(); refresh() }

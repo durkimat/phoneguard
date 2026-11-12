@@ -33,9 +33,9 @@ class NavigationDataTest {
         Case("whatsapp", path = "OK DOWN OK DOWN OK"),
         Case("whatsappFromBadge", setup = badge(BadgeKind.WHATSAPP)),
         Case("pairFromWhatsapp", path = "OK DOWN OK DOWN OK OK"),
-        Case("waSettings", path = "OK DOWN*10 OK DOWN*7 OK"),
-        Case("pairFromWaSettings", path = "OK DOWN*10 OK DOWN*7 OK OK"),
-        Case("waNames", linked = true, path = "OK DOWN*10 OK DOWN*7 OK DOWN OK"),
+        Case("waSettings", path = "OK DOWN*10 OK DOWN*8 OK"),
+        Case("pairFromWaSettings", path = "OK DOWN*10 OK DOWN*8 OK OK"),
+        Case("waNames", linked = true, path = "OK DOWN*10 OK DOWN*8 OK DOWN OK"),
         Case("running", path = "OK DOWN*11 OK DOWN*3 OK"),
         Case("sentMessage", path = "OK DOWN OK DOWN*2 OK D5 DOWN D2 OK"),
         Case("writeBack", path = "OK DOWN OK DOWN*2 OK"),
@@ -65,7 +65,7 @@ inboxFromBadge: INBOX -SOFT_RIGHT-> HOME/0
 whatsapp: WHATSAPP -SOFT_RIGHT-> MESSAGES/1
 whatsappFromBadge: WHATSAPP -SOFT_RIGHT-> HOME/0
 pairFromWhatsapp: WAPAIR -SOFT_RIGHT-> WHATSAPP/0
-waSettings: WASET -SOFT_RIGHT-> SETTINGS/7
+waSettings: WASET -SOFT_RIGHT-> SETTINGS/8
 pairFromWaSettings: WAPAIR -SOFT_RIGHT-> WASET/0
 waNames: WANAMES -SOFT_RIGHT-> WASET/1
 running: RUNNING -SOFT_RIGHT-> LOGSET/3

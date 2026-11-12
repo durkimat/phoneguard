@@ -177,9 +177,20 @@ def build_config(child: dict, now_ms: int, options: dict | None = None) -> dict:
 
 # The phone's look: what a parent may choose (the ids are the phone's own: Themes, Fonts and MenuStyles in the launcher).
 LOOK_THEMES = ("green", "grey", "amber", "orange", "mac", "macdark")
-LOOK_FONTS = ("mono", "sans", "vt323", "pixelify")
-LOOK_MENUS = ("list", "grid")
-LOOK_KEYS = {"theme": "theme", "font": "font", "menu_style": "menuStyle", "accent": "accent"}
+LOOK_FONTS = ("mono", "sans", "vt323", "pixelify", "inst", "inter", "silk", "dot", "j15", "j10", "tiny", "micro", "hand", "doto", "bit", "ps2p", "bench", "jac", "sixty")
+LOOK_MENUS = ("list", "grid", "text")
+LOOK_OPTS = {
+    "windows": ("stripes", "platinum", "flat"),
+    "colour": ("mono", "red", "colour"),
+    "wall": ("dither", "plain", "blue", "green"),
+    "shadow": ("on", "off"),
+    "bars": ("red", "same", "grad", "none"),
+}
+LOOK_KEYS = {
+    "theme": "theme", "font": "font", "menu_style": "menuStyle", "accent": "accent",
+    "windows": "windows", "colour": "colour", "wall": "wall", "shadow": "shadow", "bars": "bars",
+    "font_display": "fontDisplay", "font_text": "fontText", "font_label": "fontLabel",
+}
 
 
 def clean_look(v) -> dict | None:
@@ -194,7 +205,7 @@ def clean_look(v) -> dict | None:
             raise ValueError(f"look has no setting {k!r}")
         if val in (None, ""):
             continue
-        ok = {"theme": LOOK_THEMES, "font": LOOK_FONTS, "menu_style": LOOK_MENUS}.get(k)
+        ok = {"theme": LOOK_THEMES, "font": LOOK_FONTS, "menu_style": LOOK_MENUS, "font_display": LOOK_FONTS, "font_text": LOOK_FONTS, "font_label": LOOK_FONTS, **LOOK_OPTS}.get(k)
         if ok is not None and val not in ok:
             raise ValueError(f"look {k} {val!r} is not one of {', '.join(ok)}")
         if k == "accent" and not (isinstance(val, str) and len(val) == 7 and val[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in val[1:])):

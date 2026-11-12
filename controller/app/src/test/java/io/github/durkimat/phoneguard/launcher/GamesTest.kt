@@ -175,9 +175,9 @@ class HomeBadgeTest {
         val m = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")))
         m.androidSettings = true
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1) // the menu's only entry: Settings
-        assertEquals(listOf("Theme", "Font", "Menu style", "Predictive text", "Speakerphone", "Sound test", "Connections", "Android settings", "Battery"), m.rows)
-        assertEquals(Action.Launch("com.android.settings"), m.onKey(Key.DIGIT, 8))
-        assertEquals(Screen.BATTERY, run { m.onKey(Key.DIGIT, 9); m.screen })
+        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Android settings", "Battery"), m.rows)
+        assertEquals(Action.Launch("com.android.settings"), m.onKey(Key.DIGIT, 9))
+        assertEquals(Screen.BATTERY, run { m.onKey(Key.DOWN); m.onKey(Key.OK); m.screen }) // Battery is the tenth row: no number key
         val school = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings"))); school.onKey(Key.OK); school.onKey(Key.DIGIT, 1)
         assertTrue("Android settings" !in school.rows)
     }
@@ -217,7 +217,7 @@ class HomeBadgeTest {
         assertEquals(Screen.SETTINGS, m.screen)
         m.wifiOn = true
         m.wifiNets = listOf(WifiNet("Home", 3, true, true, 4, true, true, "[WPA2-PSK]"), WifiNet("Shed", 5, true, true, -1, false, false, ""), WifiNet("Cafe", -1, false, true, 2, false, true, "[WPA2-PSK]"), WifiNet("Open", -1, false, false, 1, false, true, "[ESS]"))
-        m.onKey(Key.DIGIT, 7); assertEquals(Screen.CONNECTIONS, m.screen); assertEquals(listOf("Wi-Fi: On", "Bluetooth: On"), m.rows)
+        m.onKey(Key.DIGIT, 8); assertEquals(Screen.CONNECTIONS, m.screen); assertEquals(listOf("Wi-Fi: On", "Bluetooth: On"), m.rows)
         assertEquals(Action.WifiLoad, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WIFI, m.screen)
         assertEquals(listOf("Wi-Fi: On", "> Home", "* Shed", "  Cafe", "  Open"), m.rows)
         assertEquals(Action.WifiToggle, m.onKey(Key.OK)) // the first row switches Wi-Fi
@@ -235,7 +235,7 @@ class HomeBadgeTest {
         val m = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")))
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.btOn = true
         m.btDevs = listOf(BtDev("A", "AYIMA", true, false), BtDev("B", "Speaker", false, false))
-        m.onKey(Key.DIGIT, 7); assertEquals(Screen.CONNECTIONS, m.screen); assertEquals(Action.BtLoad, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.BT, m.screen)
+        m.onKey(Key.DIGIT, 8); assertEquals(Screen.CONNECTIONS, m.screen); assertEquals(Action.BtLoad, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.BT, m.screen)
         assertEquals(listOf("Bluetooth: On", "Search for devices", "* AYIMA", "  Speaker"), m.rows)
         assertEquals(Action.BtToggle, m.onKey(Key.DIGIT, 1)); assertEquals(Action.BtSearch, m.onKey(Key.DIGIT, 2))
         m.onKey(Key.DIGIT, 3); assertEquals(listOf("Connect", "Forget"), m.rows)
@@ -263,7 +263,7 @@ class HomeBadgeTest {
 
     @Test fun connectionsGathersWifiBluetoothAndMobileData() {
         val m = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")))
-        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 7)
+        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 8)
         assertEquals(Screen.CONNECTIONS, m.screen); assertEquals(listOf("Wi-Fi: On", "Bluetooth: On"), m.rows) // no data row without a SIM
         m.dataShown = true; m.connWifi = 2; m.connData = 2
         assertEquals(listOf("Wi-Fi: Off", "Bluetooth: On", "Mobile data: Off"), m.rows)

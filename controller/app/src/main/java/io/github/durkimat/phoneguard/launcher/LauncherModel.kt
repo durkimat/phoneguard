@@ -8,7 +8,7 @@ package io.github.durkimat.phoneguard.launcher
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -58,7 +58,7 @@ object Themes {
 data class MenuStyle(val id: String, val name: String)
 
 object MenuStyles {
-    val all = listOf(MenuStyle("list", "List"), MenuStyle("grid", "Grid"))
+    val all = listOf(MenuStyle("list", "List"), MenuStyle("grid", "Grid"), MenuStyle("text", "List, no icons"))
     const val DEFAULT = "list"
 }
 
@@ -73,15 +73,6 @@ const val GRID_TOP = 108f
 const val GRID_TILE_W = 148f
 const val GRID_TILE_H = 128f
 const val GRID_GAP = 8f
-
-/** A typeface choice. The skin maps the id to a real typeface. */
-data class FontChoice(val id: String, val name: String)
-
-object Fonts {
-    val all = listOf(FontChoice("mono", "Monospace"), FontChoice("sans", "Sans-serif"), FontChoice("vt323", "Pixel VT323"), FontChoice("pixelify", "Pixelify"))
-    const val DEFAULT = "mono"
-    fun byId(id: String?): FontChoice = all.firstOrNull { it.id == id } ?: all.first { it.id == DEFAULT }
-}
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
@@ -125,6 +116,9 @@ sealed class Action {
     data class SaveTheme(val id: String) : Action()
     data class SaveFont(val id: String) : Action()
     data class SaveMenuStyle(val id: String) : Action()
+    /** An Appearance setting was chosen: [key] is one of [Choices.keys], [id] empty for "same as Font". */
+    data class SaveOption(val key: String, val id: String) : Action()
+    data class SavePreset(val id: String) : Action()
     data class SavePredictive(val on: Boolean) : Action()
     data class SaveSpeaker(val shown: Boolean) : Action()
     /** Start linking WhatsApp: this is the account's phone number (digits, with country code). */
@@ -258,6 +252,9 @@ class LauncherModel(
     var menuStyle: String = MenuStyles.DEFAULT
     /** An accent colour a parent set, replacing the theme's (null: the theme's own). */
     var accent: Int? = null
+    /** Window frame, colour, wallpaper, shadow, analyser and the three typefaces (see [Style]). */
+    var style: Style = Style()
+    private var choiceKey = ""
 
     /** The phone's contacts, sorted by name. The activity fills this in. */
     var contacts: List<Contact> = emptyList()
@@ -267,7 +264,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -399,6 +396,8 @@ class LauncherModel(
         Screen.THEME -> "Theme"
         Screen.FONT -> "Font"
         Screen.MENUSTYLE -> "Menu style"
+        Screen.APPEARANCE -> "Appearance"
+        Screen.CHOICE -> Choices.title(choiceKey)
         Screen.CONTACTS -> "Contacts"
         Screen.CONTACT -> contact?.name ?: "Contact"
         Screen.MESSAGES -> "Messages"
@@ -515,6 +514,8 @@ class LauncherModel(
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
         Screen.MENUSTYLE -> MenuStyles.all.map { it.name + if (it.id == menuStyle) " *" else "" }
+        Screen.APPEARANCE -> appearanceKeys.map { if (it == "preset") "Presets" else Choices.title(it) + ": " + Choices.valueName(style, it) }
+        Screen.CHOICE -> choiceOpts.map { it.name + if (it.id == choiceCurrent) " *" else "" }
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
@@ -542,7 +543,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -581,6 +582,8 @@ class LauncherModel(
         Screen.SEEDS -> seedsKey(key, digit)
         Screen.SETTINGS -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
+        Screen.APPEARANCE -> appearance(key)
+        Screen.CHOICE -> choice(key)
         Screen.FONT -> fonts(key, digit)
         Screen.MENUSTYLE -> menuStyles(key, digit)
         Screen.CONTACTS -> contactList(key, digit)
@@ -1032,6 +1035,7 @@ class LauncherModel(
                 "Theme" -> enter(Screen.THEME, Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0))
                 "Font" -> enter(Screen.FONT, Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0))
                 "Menu style" -> enter(Screen.MENUSTYLE, MenuStyles.all.indexOfFirst { it.id == menuStyle }.coerceAtLeast(0))
+                "Appearance" -> enter(Screen.APPEARANCE)
                 "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
                 "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
                 "Sound test" -> enter(Screen.SOUNDTEST)
@@ -1058,6 +1062,39 @@ class LauncherModel(
 
     private fun fonts(key: Key, digit: Int): Action = move(key, Fonts.all.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { font = Fonts.all[selected].id; leave(); Action.SaveFont(font) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
+    }
+
+    /** Preset first, then the settings the skin in use has (window frame, colour, wallpaper and shadow belong to the Mac look). */
+    private val appearanceKeys: List<String> get() = listOf("preset") + (if (Themes.byId(theme).skin == "mac") listOf("windows", "colour", "wall", "shadow") else emptyList()) + listOf("bars", "font_display", "font_text", "font_label")
+    private val choiceOpts: List<Opt> get() = when {
+        choiceKey == "preset" -> Presets.all.map { Opt(it.id, it.name) }
+        Choices.isFont(choiceKey) -> listOf(Opt("", "Same as Font")) + Choices.fonts
+        else -> Choices.of(choiceKey)
+    }
+    /** The id of the choice in force (a font role with none is the empty id), or null for the presets, which have no current one. */
+    private val choiceCurrent: String? get() = if (choiceKey == "preset") null else style[choiceKey] ?: if (Choices.isFont(choiceKey)) "" else null
+
+    private fun appearance(key: Key): Action = move(key, appearanceKeys.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { choiceKey = appearanceKeys[selected]; enter(Screen.CHOICE, choiceOpts.indexOfFirst { it.id == choiceCurrent }.coerceAtLeast(0)); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
+    }
+
+    private fun choice(key: Key): Action = move(key, choiceOpts.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+            val o = choiceOpts[selected]
+            val a: Action = if (choiceKey == "preset") {
+                Presets.byId(o.id)?.let { theme = it.theme; menuStyle = it.menuStyle; style = it.style }
+                Action.SavePreset(o.id)
+            } else { style = style.with(choiceKey, o.id.ifEmpty { null }); Action.SaveOption(choiceKey, o.id) }
+            leave(); a
+        }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -1098,7 +1135,7 @@ class LauncherModel(
     }
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
-    private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
+    private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
         Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)

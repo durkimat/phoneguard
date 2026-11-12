@@ -33,7 +33,12 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
     private inner class Canvas2(context: Context) : View(context), Pen {
         private val typefaces = HashMap<String, Typeface>()
-        private var sizeScale = 1f
+        /** The typeface and choice for each role (clock, text, labels), set at the start of every draw. */
+        private val faces = arrayOfNulls<Typeface>(3)
+        private val choices = Array(3) { Fonts.byId(null) }
+        private fun scaleOf(role: Int) = choices[role].let { when (role) { DISPLAY -> it.display; LABEL -> it.label; else -> it.text } }
+        override var style = Style()
+        override var night = false
         private var downY = 0f
         private var downX = 0f
         private var lastX = 0f
@@ -41,10 +46,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private var dragged = false
 
         private fun load(id: String): Typeface = try {
-            when (id) {
-                "sans" -> Typeface.SANS_SERIF
-                "vt323" -> Typeface.createFromAsset(context.assets, "fonts/VT323-Regular.ttf")
-                "pixelify" -> Typeface.createFromAsset(context.assets, "fonts/PixelifySans.ttf")
+            val f = Fonts.byId(id)
+            when {
+                f.asset != null -> Typeface.createFromAsset(context.assets, "fonts/" + f.asset)
+                f.id == "sans" -> Typeface.SANS_SERIF
                 else -> Typeface.MONOSPACE
             }
         } catch (_: Exception) { Typeface.MONOSPACE }
@@ -88,15 +93,30 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
         }
 
+        private var lastTrace = ""
+        /**
+         * Debug builds say what is on screen (screen, row, how many screens are behind it, layout, number of rows, look) to logcat
+         * under the tag PGState, once per change and never any row text, so `rig/journey.py` can walk the phone and check it.
+         */
+        private fun trace(m: LauncherModel) {
+            if (!io.github.durkimat.phoneguard.BuildConfig.DEBUG) return
+            val s = "screen=${m.screen} sel=${m.selected} depth=${m.depth} layout=${m.layout} rows=${m.rows.size} theme=${m.theme} skin=${this@PaintedSkin.id} menu=${m.menuStyle} notice=${m.notice != null}"
+            if (s != lastTrace) { lastTrace = s; android.util.Log.d("PGState", s) }
+        }
+
         override fun onDraw(c: Canvas) {
             val m = model ?: return
             val i = info ?: return
             val u = width / 480f
+            trace(m)
             val t = Themes.byId(m.theme)
             lcd = t.lcd; ink = t.ink; accent = m.accent ?: t.accent; fill.color = ink; stroke.color = ink
             val f = if (t.font != null && m.font == Fonts.DEFAULT) t.font else Fonts.byId(m.font).id
-            p.typeface = typefaces.getOrPut(f) { load(f) }
-            sizeScale = if (f == "vt323") 1.3f else 1f
+            style = m.style; night = android.graphics.Color.luminance(t.lcd) < 0.5f
+            for (r in 0..2) {
+                val id = (when (r) { DISPLAY -> style.fontDisplay; LABEL -> style.fontLabel; else -> style.fontText } ?: f).let { Fonts.byId(it).id }
+                choices[r] = Fonts.byId(id); faces[r] = typefaces.getOrPut(id) { load(id) }
+            }
             c.drawColor(lcd)
             chrome.background(this, c, t, m, u)
             statusLine(c, i, u)
@@ -124,9 +144,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             chrome.endContent(this, c, m, u)
         }
 
-        override fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean, align: Paint.Align, color: Int) {
-            p.textSize = size * sizeScale * u; p.isFakeBoldText = bold; p.textAlign = align; p.color = color
-            c.drawText(s, x * u, y * u, p)
+        override fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean, align: Paint.Align, color: Int, role: Int) {
+            val fc = choices[role]
+            p.typeface = faces[role] ?: Typeface.MONOSPACE
+            p.textSize = size * scaleOf(role) * u; p.isFakeBoldText = bold; p.textAlign = align; p.color = color
+            p.letterSpacing = if (role == DISPLAY) fc.tracking else 0f
+            c.drawText(if (role == LABEL && fc.caps) s.uppercase() else s, x * u, y * u, p)
+            p.letterSpacing = 0f
         }
 
         private fun statusLine(c: Canvas, i: HomeInfo, u: Float) {
@@ -206,11 +230,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val cy = 606f
             if (left.isNotEmpty()) {
                 arrow(c, 22f, cy, -1, u)
-                text(c, left, 46f, 614f, 30f, u, bold = true)
+                text(c, left, 46f, 614f, 30f, u, bold = true, role = LABEL)
             }
             if (right.isNotEmpty()) {
                 arrow(c, 458f, cy, 1, u)
-                text(c, right, 434f, 614f, 30f, u, bold = true, align = Paint.Align.RIGHT)
+                text(c, right, 434f, 614f, 30f, u, bold = true, align = Paint.Align.RIGHT, role = LABEL)
             }
         }
 
@@ -240,7 +264,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val cx = m.badgeX(n, i.badges.size)
                 if (b.kind == BadgeKind.MUSIC) { badgeIcon(c, b.kind, cx, 512f, u); return@forEachIndexed } // a symbol only, no count
                 val label = if (b.count > 99) "99+" else b.count.toString()
-                p.textSize = 36f * sizeScale * u; p.isFakeBoldText = true
+                p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 36f * scaleOf(TEXT) * u; p.isFakeBoldText = true
                 val tw = p.measureText(label) / u
                 val left = cx - (44f + 10f + tw) / 2
                 badgeIcon(c, b.kind, left + 22f, 512f, u)
@@ -339,7 +363,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun weatherStrip(c: Canvas, w: WeatherData, u: Float) {
             // centred: symbol and temperature as one group, the rain note under it
             val temp = "${w.temp}°"
-            p.textSize = 46f * sizeScale * u; p.isFakeBoldText = true
+            p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 46f * scaleOf(TEXT) * u; p.isFakeBoldText = true
             val tw = p.measureText(temp) / u
             val left = 240f - (62f + 14f + tw) / 2
             weatherIcon(c, w.icon, left + 31f, 392f, 62f, u)
@@ -413,11 +437,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val lit = (sp.level[i] * blocks).toInt()
                 for (b in 0 until blocks) {
                     val y = bottom - (b + 1) * pitch
-                    if (b < lit) c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill)
+                    if (b < lit) { fill.color = if (style.bars == "grad") Palette.climb(night, b / (blocks - 1f)) else ink; c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill); fill.color = ink }
                     else stroke.also { it.strokeWidth = 1 * u }.let { if (b == 0) c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, it) }
                 }
                 val pk = (sp.peak[i] * blocks).toInt().coerceIn(0, blocks - 1)
-                if (pk >= lit && sp.peak[i] > 0.05f) { val y = bottom - (pk + 1) * pitch; fill.color = accent; c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill); fill.color = ink }
+                if (style.bars != "none" && pk >= lit && sp.peak[i] > 0.05f) { val y = bottom - (pk + 1) * pitch; fill.color = when (style.bars) { "same" -> ink; "grad" -> Palette.climb(night, pk / (blocks - 1f)); else -> accent }; c.drawRect(x * u, y * u, (x + barW) * u, (y + blockH) * u, fill); fill.color = ink }
             }
             if (live) postInvalidateDelayed(70)
         }
@@ -426,11 +450,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
          * A line that fits is drawn plainly. A longer one rests at its start, then scrolls left as a loop: a gap follows the end
          * and the start comes back in behind it, so when the scroll stops the line is exactly where it began (no jump).
          */
-        override fun marquee(c: Canvas, s0: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean, color: Int, center: Boolean) {
+        override fun marquee(c: Canvas, s0: String, x: Float, y: Float, size: Float, room: Float, u: Float, bold: Boolean, color: Int, center: Boolean, role: Int) {
             var s = s0
-            if (measureBold(s, size) > room * 3) s = ellipsize(s, room * 3, size) // never longer than three screens
-            val w = measureBold(s, size)
-            if (w <= room) { if (center) text(c, s, x + room / 2, y, size, u, bold = bold, align = Paint.Align.CENTER, color = color) else text(c, s, x, y, size, u, bold = bold, color = color); return }
+            if (measureBold(s, size, role) > room * 3) s = ellipsize(s, room * 3, size) // never longer than three screens
+            val w = measureBold(s, size, role)
+            if (w <= room) { if (center) text(c, s, x + room / 2, y, size, u, bold = bold, align = Paint.Align.CENTER, color = color, role = role) else text(c, s, x, y, size, u, bold = bold, color = color, role = role); return }
             val travel = w - room
             val speed = 90f // pixels a second
             val rest = 1500L
@@ -443,7 +467,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 else -> travel - (t - 2 * rest - moveMs) / 1000f * speed
             }.coerceIn(0f, travel)
             c.save(); c.clipRect(x * u, (y - size * 1.1f) * u, (x + room) * u, (y + size * 0.4f) * u)
-            text(c, s, x - off, y, size, u, bold = bold, color = color)
+            text(c, s, x - off, y, size, u, bold = bold, color = color, role = role)
             c.restore()
             postInvalidateDelayed(60)
         }
@@ -456,7 +480,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             titleText(c, s, u)
         }
 
-        private fun titleText(c: Canvas, s: String, u: Float) = marquee(c, s, 20f, 85f, 30f, 440f, u, bold = true, color = lcd, center = true)
+        private fun titleText(c: Canvas, s: String, u: Float) = marquee(c, s, 20f, 85f, 30f, 440f, u, bold = true, color = lcd, center = true, role = LABEL)
 
         private fun noteScreen(c: Canvas, m: LauncherModel, u: Float) {
             titleBar(c, m.title, u)
@@ -520,7 +544,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
-            text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER)
+            text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
             text(c, i.date, 240f, 332f, 36f, u, align = Paint.Align.CENTER)
             badges(c, i, u)
             softKeys(c, i.softLeft, model?.softKeys?.second ?: i.softRight, u) // the model knows whether the right key is Music or Contacts
@@ -543,13 +567,14 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val room = style?.room ?: 440f
                 val label = ellipsize(prefix + row, room, 32f)
                 if (idx == m.selected) {
-                    c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill)
-                    marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = lcd)
+                    val sel = chrome.selection(this)
+                    fill.color = sel?.first ?: ink; c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill); fill.color = ink
+                    marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = sel?.second ?: lcd)
                 } else text(c, label, tx, top + 42f, 32f, u)
                 chrome.rowExtras(this, c, m, idx, top, idx == m.selected, u)
                 // the Music menu shows what each provider is doing: a play triangle while it plays, two bars while it is paused
                 m.rowMarks.getOrNull(idx)?.takeIf { it > 0 }?.let { mark ->
-                    val cy = top + 27f; val col = if (idx == m.selected) lcd else ink
+                    val cy = top + 27f; val col = if (idx == m.selected) (chrome.selection(this)?.second ?: lcd) else ink
                     p.color = col
                     if (mark == 2) { val t = android.graphics.Path().apply { moveTo(432f * u, (cy - 11) * u); lineTo(454f * u, cy * u); lineTo(432f * u, (cy + 11) * u); close() }; c.drawPath(t, p.also { it.style = Paint.Style.FILL }) }
                     else { c.drawRect(434f * u, (cy - 11) * u, 441f * u, (cy + 11) * u, p.also { it.style = Paint.Style.FILL }); c.drawRect(447f * u, (cy - 11) * u, 454f * u, (cy + 11) * u, p) }
@@ -575,8 +600,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val on = idx == m.selected
                 val inset = chrome.gridInset // a window frame sits at the edge, so its tiles step in
                 val tile = RectF((x + inset) * u, y * u, (x + GRID_TILE_W - inset) * u, (y + GRID_TILE_H) * u)
-                if (on) c.drawRect(tile, fill) else c.drawRect(tile, stroke)
-                PixelIcons.draw(c, m.iconFor(item), (x + (GRID_TILE_W - 64f) / 2) * u, (y + (GRID_TILE_H - 64f) / 2) * u, 4f * u, if (on) lcd else ink, if (on) ink else lcd)
+                val sel = if (on) chrome.selection(this) else null
+                if (on) { fill.color = sel?.first ?: ink; c.drawRect(tile, fill); fill.color = ink } else c.drawRect(tile, stroke)
+                val icon = m.iconFor(item)
+                val fg = if (on) sel?.second ?: lcd else ink; val bg = if (on) sel?.first ?: ink else lcd
+                PixelIcons.draw(c, icon, (x + (GRID_TILE_W - 64f) / 2) * u, (y + (GRID_TILE_H - 64f) / 2) * u, 4f * u, fg, bg, chrome.iconFill(this, icon, on) ?: fg)
             }
             val rows = (m.items.size + GRID_COLS - 1) / GRID_COLS
             if (rows > GRID_ROWS) { // a thin bar on the right edge shows there are more rows to scroll to
@@ -592,10 +620,9 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private val BODY = 28f
 
         private val mp = Paint(Paint.ANTI_ALIAS_FLAG)
-        private fun bodyPaint(): Paint {
-            val f = Fonts.byId(model?.font).id
-            mp.typeface = typefaces.getOrPut(f) { load(f) }
-            mp.textSize = BODY * (if (f == "vt323") 1.3f else 1f)
+        private fun bodyPaint(role: Int = TEXT): Paint {
+            mp.typeface = faces[role] ?: Typeface.MONOSPACE
+            mp.textSize = BODY * scaleOf(role); mp.letterSpacing = 0f
             return mp
         }
 
@@ -646,7 +673,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         /** Cuts a long line to fit the screen, ending in "..." (previews of messages are often longer than one line). */
         override fun ellipsize(s: String, room: Float, size: Float): String {
-            val paint = bodyPaint(); paint.textSize = size * (if (Fonts.byId(model?.font).id == "vt323") 1.3f else 1f); paint.isFakeBoldText = true
+            val paint = bodyPaint(); paint.textSize = size * scaleOf(TEXT); paint.isFakeBoldText = true
             val fits = paint.measureText(s) <= room
             if (fits) { paint.isFakeBoldText = false; return s }
             var t = s
@@ -655,9 +682,9 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             return "$t..."
         }
 
-        override fun measureBold(s: String, size: Float): Float {
-            val paint = bodyPaint(); paint.textSize = size * (if (Fonts.byId(model?.font).id == "vt323") 1.3f else 1f); paint.isFakeBoldText = true
-            val w = paint.measureText(s); paint.isFakeBoldText = false
+        override fun measureBold(s: String, size: Float, role: Int): Float {
+            val paint = bodyPaint(role); paint.textSize = size * scaleOf(role); paint.isFakeBoldText = true
+            val w = paint.measureText(if (role == LABEL && choices[role].caps) s.uppercase() else s); paint.isFakeBoldText = false
             return w
         }
 
@@ -733,7 +760,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val paint = bodyPaint()
             paint.textSize = size
             while (paint.measureText(big) > 440f && size > 30f) { size -= 4f; paint.textSize = size }
-            text(c, big, 464f, 270f, size / (if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f), u, bold = true, align = Paint.Align.RIGHT)
+            text(c, big, 464f, 270f, size / scaleOf(TEXT), u, bold = true, align = Paint.Align.RIGHT)
             stroke.strokeWidth = 2 * u; c.drawLine(16 * u, 296 * u, 464 * u, 296 * u, stroke)
             text(c, "*   + - x /", 16f, 360f, 26f, u)
             text(c, "#   decimal point", 16f, 400f, 26f, u)
@@ -872,7 +899,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             var size = 84f
             val paint = bodyPaint(); paint.textSize = size
             while (paint.measureText(n) > 440f && size > 30f) { size -= 4f; paint.textSize = size }
-            text(c, n, 464f, 300f, size / (if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f), u, bold = true, align = Paint.Align.RIGHT)
+            text(c, n, 464f, 300f, size / scaleOf(TEXT), u, bold = true, align = Paint.Align.RIGHT)
             m.dialName?.let { text(c, it, 464f, 350f, 30f, u, align = Paint.Align.RIGHT) }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
@@ -880,7 +907,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun callScreen(c: Canvas, m: LauncherModel, u: Float) {
             val call = m.call ?: return
             val who = call.name ?: call.number.ifBlank { "Unknown" }
-            val scale = if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f
+            val scale = scaleOf(TEXT)
             fun fitted(s: String, start: Float): Float {
                 var size = start; val paint = bodyPaint(); paint.textSize = size * scale; paint.isFakeBoldText = true
                 while (paint.measureText(s) > 440f && size > 24f) { size -= 2f; paint.textSize = size * scale }
@@ -931,7 +958,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     text(c, "with country code, no plus", 240f, 186f, 24f, u, align = Paint.Align.CENTER)
                     var size = 52f; val paint = bodyPaint(); paint.textSize = size
                     while (paint.measureText(m.waPairNumber) > 440f && size > 28f) { size -= 4f; paint.textSize = size }
-                    text(c, m.waPairNumber + "_", 240f, 300f, size / (if (Fonts.byId(m.font).id == "vt323") 1.3f else 1f), u, bold = true, align = Paint.Align.CENTER)
+                    text(c, m.waPairNumber + "_", 240f, 300f, size / scaleOf(TEXT), u, bold = true, align = Paint.Align.CENTER)
                     text(c, "e.g. 447700900123", 240f, 360f, 24f, u, align = Paint.Align.CENTER)
                 }
             }
