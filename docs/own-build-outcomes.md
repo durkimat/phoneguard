@@ -41,6 +41,7 @@ Possibly revived: flight mode via the proper privileged API (owner's call); FM r
 | NFC service loops every 15 s (no NFC chip) | Yes | Leave the NFC package and features out of the image (disable-user did not stop it; uninstall did) | High | Untested |
 | **Unlock (PIN) screen does not match the theme** | Likely | See D below | Medium | Untested |
 | **White screen after unlock; stock launcher flashes** | Likely | See D below | Medium-high | Untested |
+| Treble app crash at first boot (`QtiAudio.startup`, ClassNotFoundException `vendor.qti.hardware.radio.am...IQcRilAudio`) | Seen on baseline 2026-11-12 (2 FATALs at 20:40, then no recurrence). Qualcomm-only code in TrebleDroid's app; Dumber ships `me.phh.qcrilam`. Probably harmless; check it does not repeat, else remove or disable the check | Medium | Observed |
 | Launcher ANR on boot/update | Already fixed in the app | Evaluation moved off the main thread | High | Fixed in app, re-check on new ROM |
 | SMS default-app gap | Yes | Preset the default SMS role holder | Medium-high | Untested |
 | Self-update | Works already; cleaner with signed OTA | Later | High | n/a |
