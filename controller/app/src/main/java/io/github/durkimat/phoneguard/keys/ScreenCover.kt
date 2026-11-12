@@ -50,9 +50,9 @@ class ScreenCover(private val svc: AccessibilityService) {
         private val p = Paint(Paint.ANTI_ALIAS_FLAG)
         fun set(l: List<String>, a: String, b: String) { lines = l; left = a; right = b; invalidate() }
         override fun onDraw(cv: Canvas) {
-            val prefs = c.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
-            val t = Themes.byId(prefs.getString("theme", Themes.DEFAULT))
-            val font = Fonts.byId(prefs.getString("font", Fonts.DEFAULT)).id
+            val look = io.github.durkimat.phoneguard.launcher.Look.current(c)
+            val t = look.colours()
+            val font = Fonts.byId(look.font).id
             p.color = t.lcd; cv.drawRect(0f, 0f, width.toFloat(), height.toFloat(), p)
             p.color = t.ink
             p.typeface = try {

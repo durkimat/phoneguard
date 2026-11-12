@@ -14,11 +14,12 @@ import io.github.durkimat.phoneguard.launcher.KeyMap
 import io.github.durkimat.phoneguard.launcher.LauncherData
 import io.github.durkimat.phoneguard.launcher.LauncherModel
 import io.github.durkimat.phoneguard.launcher.NokiaSkin
+import io.github.durkimat.phoneguard.launcher.PaintedSkin
 import io.github.durkimat.phoneguard.launcher.Themes
 
 /** The call screen: the same Nokia look as the launcher, shown over the lock screen. It owns no logic of its own. */
 class CallActivity : Activity() {
-    private val skin = NokiaSkin()
+    private lateinit var skin: PaintedSkin
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
     private val tick = object : Runnable { override fun run() { redraw(); ui.postDelayed(this, 1_000) } }
@@ -30,8 +31,9 @@ class CallActivity : Activity() {
         setShowWhenLocked(true); setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val prefs = createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
-        model.theme = prefs.getString("theme", Themes.DEFAULT) ?: Themes.DEFAULT
-        model.font = prefs.getString("font", Fonts.DEFAULT) ?: Fonts.DEFAULT
+        val look = io.github.durkimat.phoneguard.launcher.Look.current(this)
+        model.theme = look.theme; model.font = look.font; model.accent = look.accent
+        skin = if (look.skin == "mac") io.github.durkimat.phoneguard.launcher.MacSkin() else NokiaSkin()
         model.speakerShown = prefs.getBoolean("speaker", true)
         setContentView(skin.create(this))
         CallState.listen(listener)

@@ -165,11 +165,42 @@ def build_config(child: dict, now_ms: int, options: dict | None = None) -> dict:
     cfg["keepRunning"] = sorted(str(x) for x in child.get("keep_running", DEFAULT_KEEP_RUNNING))
     cfg["notesHide"] = sorted(str(x) for x in child.get("notes_hide", []))
     cfg["pinned"] = [str(x) for x in child.get("pinned", [])]
+    look = {LOOK_KEYS[k]: v for k, v in (child.get("look") or {}).items() if k in LOOK_KEYS and v}
+    if look:  # what the parent chose for how the phone looks; anything left out is the phone's own choice
+        cfg["look"] = look
     if child.get("override") in modes:
         cfg["override"] = child["override"]
     digest = hashlib.sha1(json.dumps(cfg, sort_keys=True).encode()).hexdigest()[:12]
     cfg["version"] = int(digest, 16)
     return cfg
+
+
+# The phone's look: what a parent may choose (the ids are the phone's own: Themes, Fonts and MenuStyles in the launcher).
+LOOK_THEMES = ("green", "grey", "amber", "orange", "mac", "macdark")
+LOOK_FONTS = ("mono", "sans", "vt323", "pixelify")
+LOOK_MENUS = ("list", "grid")
+LOOK_KEYS = {"theme": "theme", "font": "font", "menu_style": "menuStyle", "accent": "accent"}
+
+
+def clean_look(v) -> dict | None:
+    """Check a look the parent chose. Empty or missing entries mean "leave it to the phone"; nothing at all means no look (None)."""
+    if v is None:
+        return None
+    if not isinstance(v, dict):
+        raise ValueError("look must be an object")
+    out: dict = {}
+    for k, val in v.items():
+        if k not in LOOK_KEYS:
+            raise ValueError(f"look has no setting {k!r}")
+        if val in (None, ""):
+            continue
+        ok = {"theme": LOOK_THEMES, "font": LOOK_FONTS, "menu_style": LOOK_MENUS}.get(k)
+        if ok is not None and val not in ok:
+            raise ValueError(f"look {k} {val!r} is not one of {', '.join(ok)}")
+        if k == "accent" and not (isinstance(val, str) and len(val) == 7 and val[0] == "#" and all(ch in "0123456789abcdefABCDEF" for ch in val[1:])):
+            raise ValueError("look accent must be a colour like #D42A1E")
+        out[k] = val
+    return out or None
 
 
 def cfg_hash(cfg: dict) -> str:
