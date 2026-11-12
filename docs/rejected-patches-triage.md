@@ -59,7 +59,7 @@ FILE-GONE: build 0001, core 0011, core 0012 (target code no longer exists). IN-H
 
 ## Update 2026-11-12: kernel evidence (`/archive/phone-backups/phone-state-20261112/`)
 
-- Kernel 4.19.191, built 4 Aug 2026 (so not the original Qin stock kernel; most likely Dumber's rebuild, and our flash does not touch boot, so we keep it). cgroup v2 is mounted next to v1; BPF is present (CONFIG_BPF, BPF_SYSCALL, BPF_JIT, CGROUP_BPF =y, bpffs mounted); DM_DEFAULT_KEY, DM_VERITY, FS_ENCRYPTION, F2FS are on.
+- Kernel 4.19.191, built 4 Aug 2026 (identical to Qin's own stock kernel (see own-build-viability.md section 16); our flash does not touch boot, so we keep it). cgroup v2 is mounted next to v1; BPF is present (CONFIG_BPF, BPF_SYSCALL, BPF_JIT, CGROUP_BPF =y, bpffs mounted); DM_DEFAULT_KEY, DM_VERITY, FS_ENCRYPTION, F2FS are on.
 - So the cgroup (core 0020) and no-bpf (bpf 0001, Connectivity 0003) patches in group A are now **unlikely to be needed**: the first-boot and mobile-data risk drops. Unconfirmed: which BPF programs are loaded (adb shell is not root).
 - Bluetooth: the vendor BT HAL (bluetooth-1-1) and the system-side `system.bt-audio-hal` are running on the Dumber image; A2DP source is enabled. No sysbta property was set, so Dumber uses the normal route as well.
 - Dependency to remember: our "own" system image runs on Dumber's boot/kernel and the stock vendor. A fully independent build would also need our own kernel/boot image.
