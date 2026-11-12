@@ -251,3 +251,11 @@ Other test-key places:
 - IMS on Dumber's image: volte_imsm_93, volte_md_status and wfca services running; persist.vendor.mtk.volte.enable=1, persist.vendor.mtk.wfc.enable=0 (Wi-Fi calling OFF), persist.dbg.volte_avail_ovr=1 (VoLTE forced available), persist.dbg.wfc_avail_ovr=0, sys.phh.stock_mtk_ims=false.
 - At the time of the check telephony.registry showed voice and data OUT_OF_SERVICE, no operator, empty cell info (SIM absent or no signal then; to confirm).
 - Our own baseline already contains TrebleDroid's MediaTek IMS overlays (treble-overlay-mtk-ims, treble-overlay-telephony-mtk-ims), so the framework side is pointed at com.mediatek.ims; what is missing is the com.mediatek.ims APK itself and its jars/permissions.
+
+## 16. Kernel and boot images vs the original (checked 2026-11-12, read-only)
+
+- Our phone's boot_a, dtbo_a, vendor_boot_a and init_boot_a are byte-identical (sha256 re-checked) to those in Nooch's retail Qin J36 stock Android 13 dump (build 5337BQ.J35.A1.AND13.VGA.CN.MV3224.P0.20260804, user/release-keys). So the kernel is **Qin's own stock kernel**, not a Dumber rebuild, and Dumber's flash left boot untouched. (The earlier note in the triage doc saying "most likely Dumber's rebuild" was wrong.)
+- Qin's boot image: header v2 (Android 12 launch format), kernel 4.19.191 gzip (clang 11.0.1), gzip ramdisk, AVB footer, cmdline `bootopt=64S3,32N2,64N2 buildvariant=user`, os_version A12 patch 2024-07. init_boot and vendor_boot are empty (all zero): the Android 12 vendor uses the ramdisk in boot. boot_b is empty too.
+- The original Qin firmware backup of our own phone (stock_backup.zip, 6 Nov) holds only super and identity partitions, no boot image, so "earliest from our phone" is not available; the J36 dump is the earliest reference we have, and it matches.
+- Tool: `build/tools/bootinfo.py` (read-only boot header, cmdline, kernel version, ramdisk, AVB footer).
+- The `metadata` partition is all zeros in every dump we have (ours twice, the original backup, Nooch's). It is probably unused on this device. That weakens my earlier statement that userdata and metadata must be restored as a pair; it does no harm to restore it.
