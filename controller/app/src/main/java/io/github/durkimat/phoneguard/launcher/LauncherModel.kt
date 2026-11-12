@@ -8,7 +8,7 @@ package io.github.durkimat.phoneguard.launcher
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -43,6 +43,26 @@ object Themes {
     const val DEFAULT = "green"
     fun byId(id: String?): Theme = all.firstOrNull { it.id == id } ?: all.first { it.id == DEFAULT }
 }
+
+/** How the main menu is drawn: a plain list, or a grid of pixel icons with the chosen name underneath. */
+data class MenuStyle(val id: String, val name: String)
+
+object MenuStyles {
+    val all = listOf(MenuStyle("list", "List"), MenuStyle("grid", "Grid"))
+    const val DEFAULT = "list"
+}
+
+/** How a screen's entries are laid out. The model tells every skin, so key handling and drawing always agree. */
+enum class Layout { LIST, GRID, CUSTOM }
+const val GRID_COLS = 3
+/** Rows of tiles on screen at once; more rows scroll vertically. */
+const val GRID_ROWS = 3
+// The grid on the 480 by 640 design grid: where it starts and how big a tile is.
+const val GRID_LEFT = 10f
+const val GRID_TOP = 108f
+const val GRID_TILE_W = 148f
+const val GRID_TILE_H = 128f
+const val GRID_GAP = 8f
 
 /** A typeface choice. The skin maps the id to a real typeface. */
 data class FontChoice(val id: String, val name: String)
@@ -94,6 +114,7 @@ sealed class Action {
     /** The user chose a theme: the activity saves it and redraws. */
     data class SaveTheme(val id: String) : Action()
     data class SaveFont(val id: String) : Action()
+    data class SaveMenuStyle(val id: String) : Action()
     data class SavePredictive(val on: Boolean) : Action()
     data class SaveSpeaker(val shown: Boolean) : Action()
     /** Start linking WhatsApp: this is the account's phone number (digits, with country code). */
@@ -215,6 +236,8 @@ class LauncherModel(
     var theme: String = Themes.DEFAULT
 
     var font: String = Fonts.DEFAULT
+    /** [MenuStyles]: the main menu as a list or as a grid of icons. */
+    var menuStyle: String = MenuStyles.DEFAULT
 
     /** The phone's contacts, sorted by name. The activity fills this in. */
     var contacts: List<Contact> = emptyList()
@@ -224,7 +247,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -356,6 +379,7 @@ class LauncherModel(
         Screen.SETTINGS -> "Settings"
         Screen.THEME -> "Theme"
         Screen.FONT -> "Font"
+        Screen.MENUSTYLE -> "Menu style"
         Screen.CONTACTS -> "Contacts"
         Screen.CONTACT -> contact?.name ?: "Contact"
         Screen.MESSAGES -> "Messages"
@@ -471,6 +495,7 @@ class LauncherModel(
         Screen.SETTINGS -> settingsRows
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
+        Screen.MENUSTYLE -> MenuStyles.all.map { it.name + if (it.id == menuStyle) " *" else "" }
         Screen.CONTACTS -> contacts.map { it.name }
         Screen.CONTACT -> (contact?.numbers ?: emptyList()).map { "Call $it" } + "Message"
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
@@ -498,7 +523,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -538,6 +563,7 @@ class LauncherModel(
         Screen.SETTINGS -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
         Screen.FONT -> fonts(key, digit)
+        Screen.MENUSTYLE -> menuStyles(key, digit)
         Screen.CONTACTS -> contactList(key, digit)
         Screen.CONTACT -> contactDetail(key, digit)
         Screen.MESSAGES -> messagesMenu(key, digit)
@@ -987,6 +1013,7 @@ class LauncherModel(
             when (settingsRows.getOrNull(selected)) {
                 "Theme" -> enter(Screen.THEME, Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0))
                 "Font" -> enter(Screen.FONT, Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0))
+                "Menu style" -> enter(Screen.MENUSTYLE, MenuStyles.all.indexOfFirst { it.id == menuStyle }.coerceAtLeast(0))
                 "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
                 "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
                 "Sound test" -> { screen = Screen.SOUNDTEST; selected = 0 }
@@ -997,6 +1024,14 @@ class LauncherModel(
             }
             out
         }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
+    }
+
+    private fun menuStyles(key: Key, digit: Int): Action = move(key, MenuStyles.all.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { menuStyle = MenuStyles.all[selected].id; leave(); Action.SaveMenuStyle(menuStyle) }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -1045,10 +1080,57 @@ class LauncherModel(
     }
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
-    private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
+    private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
         Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
+
+    /** The screens a skin draws by hand; everything else is a list of rows. */
+    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL)
+
+    /** How the current screen is laid out. On a grid the D-pad moves in four directions, so Left and Right stop being soft-key aliases. */
+    val layout: Layout get() = when {
+        screen == Screen.MENU && menuStyle == "grid" && items.isNotEmpty() -> Layout.GRID
+        screen in customScreens -> Layout.CUSTOM
+        else -> Layout.LIST
+    }
+
+    private var gridTop = 0
+
+    /** The first row of tiles on screen when [visible] rows fit: it moves only as far as needed to keep the chosen tile in view. */
+    fun gridFirstRow(visible: Int = GRID_ROWS): Int {
+        val rows = (items.size + GRID_COLS - 1) / GRID_COLS
+        val row = selected / GRID_COLS
+        if (row < gridTop) gridTop = row else if (row > gridTop + visible - 1) gridTop = row - visible + 1
+        gridTop = gridTop.coerceIn(0, (rows - visible).coerceAtLeast(0))
+        return gridTop
+    }
+
+    /** Where a D-pad press takes the highlight on a grid of [n] tiles: Left and Right step through them in order, Up and Down move a row (wrapping within the column). */
+    internal fun gridNeighbour(sel: Int, n: Int, key: Key): Int = when (key) {
+        Key.LEFT -> (sel - 1 + n) % n
+        Key.RIGHT -> (sel + 1) % n
+        Key.DOWN -> if ((sel / GRID_COLS + 1) * GRID_COLS < n) minOf(sel + GRID_COLS, n - 1) else sel % GRID_COLS
+        Key.UP -> if (sel >= GRID_COLS) sel - GRID_COLS else { val bottom = ((n - 1) / GRID_COLS) * GRID_COLS + sel % GRID_COLS; if (bottom < n) bottom else bottom - GRID_COLS }
+        else -> sel
+    }
+
+    /** The name of the pixel icon that stands for a menu entry; entries without a picture of their own share a plain window. */
+    fun iconFor(item: MenuItem): String = when {
+        item.pkg == MUSIC_PKG -> "music"
+        item.pkg == CAMERA_PKG || item.pkg in CAMERA_APPS -> "camera"
+        item.pkg == APPS_PKG || item.pkg == RUNNING_PKG -> "apps"
+        item.pkg == GAMES_PKG -> "games"
+        item.pkg == CALC_PKG -> "calculator"
+        item.pkg == LOGSET_PKG || item.pkg == SETTINGS_PKG -> "settings"
+        item.pkg == NOTES_PKG -> "notes"
+        item.pkg == WEATHER_PKG -> "weather"
+        item.pkg == CALLLOG_PKG || item.pkg == dialerApp -> "calls"
+        item.pkg == messagesApp -> "messages"
+        item.pkg == contactsApp -> "contacts"
+        item.pkg.contains("whatsapp", ignoreCase = true) -> "chat"
+        else -> "app"
+    }
 
     private var listTop = 0
     private var listScreen: Screen? = null
@@ -1063,7 +1145,7 @@ class LauncherModel(
 
     /** A swipe moved the list by this many rows (positive shows later rows). True if anything moved. */
     fun scrollBy(deltaRows: Int): Boolean {
-        if (screen !in rowScreens || screen in noTouch) return false
+        if (screen !in rowScreens || screen in noTouch || layout == Layout.GRID) return false
         listFirst(LIST_VISIBLE)
         val n = (listTop + deltaRows).coerceIn(0, (rows.size - LIST_VISIBLE).coerceAtLeast(0))
         if (n == listTop) return false
@@ -1092,6 +1174,13 @@ class LauncherModel(
         if (screen == Screen.HOME) {
             if (y in 345f..440f) return openWeather()
             if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
+            return Action.None
+        }
+        if (layout == Layout.GRID) { // a tile is chosen by touching it
+            val col = ((x - GRID_LEFT) / (GRID_TILE_W + GRID_GAP)).toInt()
+            val row = ((y - GRID_TOP) / (GRID_TILE_H + GRID_GAP)).toInt()
+            val idx = (gridFirstRow() + row) * GRID_COLS + col
+            if (y >= GRID_TOP && x >= GRID_LEFT && col in 0 until GRID_COLS && row in 0 until GRID_ROWS && idx in items.indices) { selected = idx; return onKey(Key.OK) }
             return Action.None
         }
         if (screen in rowScreens && y >= 104f) {
@@ -1633,7 +1722,19 @@ class LauncherModel(
         else -> Action.None
     }
 
-    private fun menu(key: Key, digit: Int): Action = when (key) {
+    private fun menu(key: Key, digit: Int): Action = if (layout == Layout.GRID) menuGrid(key, digit) else menuList(key, digit)
+
+    /** The grid: the D-pad moves in four directions; OK and the left key open the entry, the right key and End go home. */
+    private fun menuGrid(key: Key, digit: Int): Action = when (key) {
+        Key.UP, Key.DOWN, Key.LEFT, Key.RIGHT -> { selected = gridNeighbour(selected, items.size, key); Action.Redraw }
+        Key.OK, Key.SOFT_LEFT -> open(items.getOrNull(selected))
+        Key.SOFT_RIGHT, Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> openCallLog(Screen.MENU)
+        Key.DIGIT -> { val i = if (digit == 0) 9 else digit - 1; items.getOrNull(i)?.let { selected = i; open(it) } ?: Action.None }
+        else -> Action.None
+    }
+
+    private fun menuList(key: Key, digit: Int): Action = when (key) {
         Key.UP -> if (items.isEmpty()) Action.None else { selected = (selected - 1 + items.size) % items.size; Action.Redraw }
         Key.DOWN -> if (items.isEmpty()) Action.None else { selected = (selected + 1) % items.size; Action.Redraw }
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(items.getOrNull(selected))
