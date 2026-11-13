@@ -88,7 +88,12 @@ object Mail {
     fun sent(c: Context) = store(c).headers(true)
     fun unread(c: Context) = inbox(c).count { it.unread }
     fun lastSync(c: Context) = store(c).lastSync
-    fun stale(c: Context, maxAgeMs: Long = 15 * 60_000L) = System.currentTimeMillis() - lastSync(c) > maxAgeMs
+    /** The last time a check was tried, successful or not, so a phone with no connection does not retry at every look. */
+    @Volatile private var lastAttempt = 0L
+    fun stale(c: Context, maxAgeMs: Long = 15 * 60_000L): Boolean {
+        val now = System.currentTimeMillis()
+        return now - lastSync(c) > maxAgeMs && now - lastAttempt > 5 * 60_000L
+    }
 
     /** Signs in with the new account and, if it works, keeps it. Returns "" or a short reason. */
     fun setup(c: Context, a: MailAccount, password: String): String = try {
@@ -104,6 +109,7 @@ object Mail {
     fun sync(c: Context): String = try {
         val p = provider(c)
         val s = store(c)
+        lastAttempt = System.currentTimeMillis()
         if (p == null) "No account" else {
         val inbox = p.inbox(HEADERS); val sent = try { p.sent(HEADERS) } catch (_: MailException) { s.headers(true) }
         s.saveHeaders(false, inbox); s.saveHeaders(true, sent); s.prune(); s.lastSync = System.currentTimeMillis(); ""

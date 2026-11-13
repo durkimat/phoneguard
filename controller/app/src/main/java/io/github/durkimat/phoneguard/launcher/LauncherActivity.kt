@@ -103,6 +103,8 @@ class LauncherActivity : Activity() {
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
+        // mail is looked at when the launcher comes to the front, at most every 15 minutes, and never in a mode that hides it (School)
+        if (LauncherData.musicShown(this) && io.github.durkimat.phoneguard.mail.Mail.account(this) != null) mailSync(false)
         // debug builds only: `am start -S -n ... --es pg_mail_demo 1` sets up the made-up mailbox so the mail screens can be tried without an account
         if (io.github.durkimat.phoneguard.BuildConfig.DEBUG && intent?.getStringExtra("pg_mail_demo") != null) {
             intent.removeExtra("pg_mail_demo")
