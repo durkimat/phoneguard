@@ -4,6 +4,11 @@ PG_IMS := vendor/phoneguard/ims/proprietary
 # Other apps that go into the image (TT9 keypad input): vendor/phoneguard/apps
 $(call inherit-product-if-exists, vendor/phoneguard/apps/apps.mk)
 
+PRODUCT_PACKAGES += MtkCarrierConfig
+
+# Properties the stock-based IMS stack expects (TrebleDroid's stock MTK IMS convention).
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.mtk_ims_support=1 persist.mtk_epdg_support=1
+
 PRODUCT_PACKAGES += ImsService MtkGbaService MtkTelephonyAssist MtkCapCtrl mediatek-res \
     mediatek-ims-extension-plugin mediatek-wfo-legacy mediatek-services \
     mediatek-carrier-config-manager mediatek-common mediatek-framework mediatek-ims-base mediatek-ims-common \

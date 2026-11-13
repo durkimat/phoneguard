@@ -6,6 +6,8 @@ android_app_import { name: "ImsService", apk: "proprietary/system/priv-app/ImsSe
 android_app_import { name: "MtkGbaService", apk: "proprietary/system/priv-app/MtkGbaService/MtkGbaService.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
 android_app_import { name: "MtkTelephonyAssist", apk: "proprietary/system/priv-app/MtkTelephonyAssist/MtkTelephonyAssist.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
 android_app_import { name: "MtkCapCtrl", apk: "proprietary/system/priv-app/MtkCapCtrl/MtkCapCtrl.apk", privileged: true, certificate: "platform", dex_preopt: { enabled: false }, }
+// Stock's MediaTek CarrierConfig (same package com.android.carrierconfig as AOSP's, minSdk 33): carries the per-carrier IMS/VoLTE/data settings the AOSP app lacks.
+android_app_import { name: "MtkCarrierConfig", apk: "proprietary/system/system_ext/priv-app/MtkCarrierConfig/MtkCarrierConfig.apk", privileged: true, certificate: "platform", system_ext_specific: true, overrides: ["CarrierConfig"], dex_preopt: { enabled: false }, }
 android_app_import { name: "mediatek-res", apk: "proprietary/system/app/mediatek-res/mediatek-res.apk", certificate: "platform", dex_preopt: { enabled: false }, }
 
 // Jars that stock puts on the boot classpath (it ships boot-*.vdex for these): dex-only jars.
