@@ -260,7 +260,47 @@ def head_geo(P, hx, hy):
     return dict(f=f, k2=k2, k=k, fx=f * 30, sgn=1 if f > 0 else -1, rx=Q["headW"] * (0.56 + 0.44 * k2), ry=Q["headH"])
 
 
+def draw_head_profile(sc, P, hx, hy):
+    """Side view: a real profile outline (forehead, nose, lips, chin), not a squashed front face."""
+    f = P["f"]; p = abs(f); sgn = 1 if f > 0 else -1
+    ws = clamp((p - 0.4) / 0.6, 0, 1); D = Q["headW"] * 0.98 * lerp(0.62, 1, ws); ry = Q["headH"]
+    pt = lambda u, v: (hx + sgn * u * D, hy + v * ry)
+    mir = lambda q: (hx + sgn * (q[0] - hx), q[1])
+    back = [mir(contour(hx, hy, D, ry, th)) for th in range(100, 261, 8)]
+    face = [pt(.62, -.80), pt(.80, -.50), pt(.78, -.36), pt(1.12, -.02), pt(.88, .08), pt(.92, .19), pt(.87, .28), pt(.90, .37), pt(.86, .62), pt(.64, .92)]
+    sc.poly(back + [pt(.3, -.97)] + face, fill=TEAL, stroke=TEAL_D, w=3)
+    ex, ey_ = pt(-.05, .05)
+    sc.ellipse(ex, ey_, 8, 12, fill=TEAL, stroke=TEAL_D, w=2)
+    sc.rrect(ex - 3.5, ey_ + 2, 7, 14, 3.5, fill=EARBUD)
+    if Q["beard"]:
+        band = [pt(.90, .32), pt(.86, .62), pt(.64, .92), pt(.30, .95), pt(-.10, .80), pt(-.12, .40), pt(.05, .58), pt(.35, .72), pt(.60, .62), pt(.76, .44)]
+        sc.poly(band, fill=BEARD, a=0.95)
+        for u, v in ((.1, .72), (.3, .84), (.5, .82), (.68, .70), (.8, .52), (.0, .6)):
+            q = pt(u, v); sc.circle(q[0], q[1], 1.5, fill=HAIR, a=0.7)
+    if Q["moustache"]:
+        q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 6, fill=BEARD)
+    q = pt(.86, .30); r_ = pt(.66, .27); m_ = pt(.76, .32)
+    sc.pline([q, m_, r_], 2.5, FEAT)
+    lh = Q["lensH"]; yy = hy - 12
+    lx = pt(.66, 0)[0]
+    a1 = pt(.58, 0)[0]; a2 = pt(-.02, 0)[0]
+    sc.line(a1, yy - 4, a2, hy - 8, max(Q["frameW"] * 0.8, 3), GLASS)
+    sc.rrect(lx - 6, yy - lh / 2, 12, lh, min(Q["lensR"], 6), fill=LENS, stroke=GLASS, w=Q["frameW"])
+    sc.circle(lx + sgn * 2, yy + 1, Q["eyeDot"], fill=EYEDOT)
+    sc.line(pt(.50, 0)[0], yy - lh / 2 - 9, pt(.80, 0)[0], yy - lh / 2 - 12, 4.5, BROW)
+    N = int(Q["tufts"]); tops = []; hl = Q["hairline"]
+    for i in range(N + 1):
+        th = 160 + 160 * i / N
+        bxp, byp = contour(hx, hy, D + 1, ry + 1, th); a = math.radians(th); c, s_ = math.cos(a), math.sin(a)
+        ht = ((6 if i % 2 == 0 else 20 + 12 * abs(math.sin(i * 1.9))) + (8 if 0.55 <= i / N <= 0.9 else 0)) * Q["tuftH"]; lean = Q["lean"]
+        q = ((bxp + (c + lean * (-s_)) * ht * 0.9, byp + (s_ + lean * c) * ht) if i % 2 else (bxp + c * ht * 0.4, byp + s_ * ht * 0.4))
+        tops.append(mir(q))
+    hair_line = [pt(.66, -.74), pt(.42, -.56 * hl), pt(.10, -.42 * hl), pt(-.22, -.20), pt(-.44, .06), pt(-.56, .22)]
+    sc.poly(tops + hair_line, fill=HAIR, stroke=TEAL_D, w=3)
+
+
 def draw_head(sc, P, hx, hy):
+    if abs(P["f"]) >= 0.4: return draw_head_profile(sc, P, hx, hy)
     g = head_geo(P, hx, hy); f, k2, k, fx, sgn, rx, ry = g["f"], g["k2"], g["k"], g["fx"], g["sgn"], g["rx"], g["ry"]
     cont = lambda th, ix=0, iy=0, c=hx: contour(c, hy, rx - ix, ry - iy, th)
     sc.poly([cont(t) for t in range(0, 360, 8)], fill=TEAL, stroke=TEAL_D, w=3)

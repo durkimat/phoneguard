@@ -151,7 +151,39 @@ const RIG = (() => {
       sc.poly([[sx - a, -10], [sx + a, -10], [sx + b, FLOOR + 4], [sx - b, FLOOR + 4]], { fill: "#fff3d0", a: 0.05 * k }); }
     for (let i = 0; i < 5; i++) sc.ellipse(sx, FLOOR + 4, 150 - i * 24, 27 - i * 4, { fill: "#fff3d0", a: 0.08 * k });
   }
+  function drawHeadProfile(sc, Q, P, hx, hy) {
+    const f = P.f, p = Math.abs(f), sgn = f > 0 ? 1 : -1;
+    const ws = clamp((p - 0.4) / 0.6, 0, 1), D = Q.headW * 0.98 * lerp(0.62, 1, ws), ry = Q.headH;
+    const pt = (u, v) => [hx + sgn * u * D, hy + v * ry], mir = q => [hx + sgn * (q[0] - hx), q[1]];
+    const back = []; for (let th = 100; th < 261; th += 8) back.push(mir(contour(Q, hx, hy, D, ry, th)));
+    const face = [pt(.62, -.80), pt(.80, -.50), pt(.78, -.36), pt(1.12, -.02), pt(.88, .08), pt(.92, .19), pt(.87, .28), pt(.90, .37), pt(.86, .62), pt(.64, .92)];
+    sc.poly(back.concat([pt(.3, -.97)], face), { fill: C.TEAL, stroke: C.TEAL_D, w: 3 });
+    const [ex, ey_] = pt(-.05, .05);
+    sc.ellipse(ex, ey_, 8, 12, { fill: C.TEAL, stroke: C.TEAL_D, w: 2 });
+    sc.rrect(ex - 3.5, ey_ + 2, 7, 14, 3.5, { fill: C.EARBUD });
+    if (Q.beard) {
+      sc.poly([pt(.90, .32), pt(.86, .62), pt(.64, .92), pt(.30, .95), pt(-.10, .80), pt(-.12, .40), pt(.05, .58), pt(.35, .72), pt(.60, .62), pt(.76, .44)], { fill: C.BEARD, a: 0.95 });
+      for (const [u, v] of [[.1, .72], [.3, .84], [.5, .82], [.68, .70], [.8, .52], [.0, .6]]) { const q = pt(u, v); sc.circle(q[0], q[1], 1.5, { fill: C.HAIR, a: 0.7 }); }
+    }
+    if (Q.moustache) { const q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 6, { fill: C.BEARD }); }
+    sc.pline([pt(.86, .30), pt(.76, .32), pt(.66, .27)], 2.5, C.FEAT);
+    const lh = Q.lensH, yy = hy - 12, lx = pt(.66, 0)[0], a1 = pt(.58, 0)[0], a2 = pt(-.02, 0)[0];
+    sc.line(a1, yy - 4, a2, hy - 8, Math.max(Q.frameW * 0.8, 3), C.GLASS);
+    sc.rrect(lx - 6, yy - lh / 2, 12, lh, Math.min(Q.lensR, 6), { fill: C.LENS, stroke: C.GLASS, w: Q.frameW });
+    sc.circle(lx + sgn * 2, yy + 1, Q.eyeDot, { fill: C.EYEDOT });
+    sc.line(pt(.50, 0)[0], yy - lh / 2 - 9, pt(.80, 0)[0], yy - lh / 2 - 12, 4.5, C.BROW);
+    const N = Math.floor(Q.tufts), tops = [], hl = Q.hairline;
+    for (let i = 0; i <= N; i++) {
+      const th = 160 + 160 * i / N, bp = contour(Q, hx, hy, D + 1, ry + 1, th), a = rad(th), c = Math.cos(a), s_ = Math.sin(a);
+      const ht = ((i % 2 === 0 ? 6 : 20 + 12 * Math.abs(Math.sin(i * 1.9))) + (0.55 <= i / N && i / N <= 0.9 ? 8 : 0)) * Q.tuftH, lean = Q.lean;
+      const q = i % 2 ? [bp[0] + (c + lean * (-s_)) * ht * 0.9, bp[1] + (s_ + lean * c) * ht] : [bp[0] + c * ht * 0.4, bp[1] + s_ * ht * 0.4];
+      tops.push(mir(q));
+    }
+    const hairLine = [pt(.66, -.74), pt(.42, -.56 * hl), pt(.10, -.42 * hl), pt(-.22, -.20), pt(-.44, .06), pt(-.56, .22)];
+    sc.poly(tops.concat(hairLine), { fill: C.HAIR, stroke: C.TEAL_D, w: 3 });
+  }
   function drawHead(sc, Q, P, hx, hy) {
+    if (Math.abs(P.f) >= 0.4) return drawHeadProfile(sc, Q, P, hx, hy);
     const g = headGeo(Q, P), { f, k2, k, fx, sgn, rx, ry } = g;
     const cont = th => contour(Q, hx, hy, rx, ry, th);
     const hp = []; for (let t = 0; t < 360; t += 8) hp.push(cont(t));
