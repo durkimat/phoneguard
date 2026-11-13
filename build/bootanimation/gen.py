@@ -30,7 +30,7 @@ PARAMS = dict(
     lensW=1.0, lensH=40, lensR=8, frameW=5, glassCol="#1b1b1f",
     hairCol="#a7a59e", tufts=22, tuftH=1.0, lean=-0.35, hairline=1.0,
     skin="#f0c9a6", beard=True, beardCol="#7a7266", beardOpen=24, moustache=True, mouthW=14, smileD=7, noseSize=1.0, eyeDot=3.6,
-    coatCol="#8a4a28", coatLen=138, flare=34, collarH=1.0, buttons=4, pockets=True, scarfCol="#f26a1b",
+    coatCol="#8a4a28", coatLen=138, flare=34, collarH=1.0, collarW=0, buttons=4, pockets=True, scarfCol="#f26a1b",
     irisCol="#6f8f45", ringCol="#a9792f", magR=46,
     lineCol="#3a2a20", legCol="#2a3340", bg="#070a0f", spot=True, spotAmt=1.0)
 Q = dict(PARAMS)
@@ -350,8 +350,8 @@ def draw_collar(sc, P, bob, hx, hy, rx):
     g = coat_geo(P, bob); k2, x, bw, top = g["k2"], g["x"], g["bw"], g["top"]
     for s_ in (-1, 1):
         if k2 < 0.3 and s_ == -(1 if P["f"] > 0 else -1): continue
-        up = 30 * (Q["collarH"] - 1)
-        wing = [(x + s_ * 12, top - 16), (x + s_ * (bw / 2 + 8), top + 8), (x + s_ * (rx + 18), hy + 8 - up), (x + s_ * (rx + 8), hy - 16 - up), (x + s_ * (rx - 12), hy - 2 - up * 0.6)]
+        up = 60 * (Q["collarH"] - 1); cw = Q["collarW"]
+        wing = [(x + s_ * 12, top - 16), (x + s_ * (bw / 2 + 8 + cw * 0.5), top + 8), (x + s_ * (rx + 18 + cw), hy + 8 - up), (x + s_ * (rx + 8 + cw), hy - 16 - up), (x + s_ * (rx - 12), hy - 2 - up * 0.6)]
         sc.poly(wing, fill=COAT, stroke=COAT_D, w=3)
         sc.pline([(x + s_ * (bw / 2 - 2), top + 4), (x + s_ * (rx + 6), hy - 6)], 2.5, "#c98a5a", a=0.8)
 
