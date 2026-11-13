@@ -54,6 +54,22 @@ object LauncherData {
     /** True when the mode in force offers the themed camera. */
     fun cameraAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).camera
 
+    private var nextCache: Pair<Long, String> = 0L to ""
+    /** "15:00 Dentist": the next timed event today, or the first event tomorrow ("Tmrw 09:00 Football"); empty when there is none. Looked up at most once a minute. */
+    private fun nextUp(c: Context, now: Long): String {
+        if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
+        val text = try {
+            if (c.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) != android.content.pm.PackageManager.PERMISSION_GRANTED) "" else {
+                val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
+                val ev = io.github.durkimat.phoneguard.calendar.AndroidCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(2), z))
+                val next = io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, 2, z).firstOrNull { !it.event.allDay && it.event.end > now }
+                if (next == null) "" else io.github.durkimat.phoneguard.calendar.Cal.agendaRow(next, today, z).let { r -> if (next.day == today) r.removePrefix("Today ") else r }
+            }
+        } catch (_: Exception) { "" }
+        nextCache = now to text
+        return text
+    }
+
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
         // our own WhatsApp screens are in Messages: the real app is only offered in the menu when it is the one in use
@@ -161,6 +177,7 @@ object LauncherData {
                 Badge(BadgeKind.WHATSAPP, if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
                 Badge(BadgeKind.MISSED, missedCalls(c)),
                 Badge(BadgeKind.NOTES, io.github.durkimat.phoneguard.notes.Notes.count()),
+                Badge(BadgeKind.MAIL, if (musicShown(c)) io.github.durkimat.phoneguard.mail.Mail.unread(c) else 0),
                 Badge(BadgeKind.MUSIC, if (musicShown(c) && musicPlaying(c)) 1 else 0),
             ).filter { it.count > 0 }.let { debugBadges ?: it },
             batteryPct = if (level >= 0) level * 100 / scale else 0,
@@ -168,6 +185,7 @@ object LauncherData {
             signalBars = signal(c),
             softLeft = "Menu",
             softRight = "Contacts",
+            nextUp = nextUp(c, now),
             wifi = wifiState(c),
             bt = bluetoothState(c),
             data = dataState(c),

@@ -575,7 +575,7 @@ class LauncherModel(
         Screen.FORM -> form?.rowsOf?.invoke()?.map { it.text } ?: emptyList()
         Screen.CALMONTH, Screen.EVENT, Screen.MAILMSG -> emptyList()
         Screen.MAILBOX -> mailBoxRows
-        Screen.MAILLIST -> mailList.map { (if (it.unread && !mailSentBox) "* " else "") + (if (mailSentBox) it.to.ifBlank { it.from } else it.from) + ": " + it.subject }.ifEmpty { listOf(mailStatus.ifBlank { "No mail" }) }
+        Screen.MAILLIST -> mailList.map { (if (it.unread && !mailSentBox) "* " else "") + (if (mailSentBox) it.to.ifBlank { it.from } else it.from).let { n -> if (n.length > 12) n.take(11) + "." else n } + ": " + it.subject }.ifEmpty { listOf(mailStatus.ifBlank { "No mail" }) }
         Screen.MAILMENU -> mailMenuRows
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
@@ -1332,6 +1332,7 @@ class LauncherModel(
         BadgeKind.WHATSAPP -> { threadWa = true; enter(Screen.WHATSAPP, waConvos.indexOfFirst { it.unread > 0 }.coerceAtLeast(0)); if (waLinked) Action.WaOpen else Action.Redraw }
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
         BadgeKind.NOTES -> { enter(Screen.NOTES); Action.Redraw }
+        BadgeKind.MAIL -> { mailSentBox = false; enter(Screen.MAILLIST, mailInbox.indexOfFirst { it.unread }.coerceAtLeast(0)); Action.MailSync(false) }
         BadgeKind.MUSIC -> { provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
     }
 
@@ -2201,7 +2202,7 @@ class LauncherModel(
     private val Mail_DEMO = "@demo.local"
 }
 
-enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES, MUSIC }
+enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES, MUSIC, MAIL }
 data class Badge(val kind: BadgeKind, val count: Int)
 
 /** The battery page: level, charging, a rough time left, today's screen time and the apps that used it most. */
@@ -2220,6 +2221,8 @@ data class HomeInfo(
     val signalBars: Int,
     val softLeft: String,
     val softRight: String,
+    /** The next event today or tomorrow ("15:00 Dentist"), or empty. */
+    val nextUp: String = "",
     /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
     val wifi: Int = -1,
     /** Bluetooth: -1 not shown, 0 on but nothing connected (drawn faint), 1 a device is connected, 2 switched off (faint with a slash). */
