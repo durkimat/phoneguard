@@ -17,7 +17,7 @@ const RIG = (() => {
     skin: "#f0c9a6", beard: true, beardAmt: 0.25, beardCol: "#7a7266", beardOpen: 24, moustache: true, mouthW: 14, smileD: 7, noseSize: 1.0, eyeDot: 3.6,
     coatCol: "#8a4a28", coatLen: 138, flare: 34, collarH: 1.0, collarW: 0, buttons: 4, pockets: true, scarfCol: "#f26a1b",
     irisCol: "#6f8f45", ringCol: "#a9792f", magR: 46,
-    lineCol: "#3a2a20", legCol: "#2a3340", bg: "#070a0f", spot: true, spotAmt: 1.0 };
+    lineCol: "#3a2a20", legCol: "#2a3340", bg: "#070a0f", spot: true, spotAmt: 1.0, fadeSec: 1.0 };
 
   const lerp = (a, b, u) => a + (b - a) * u;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

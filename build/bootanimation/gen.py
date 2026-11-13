@@ -32,7 +32,7 @@ PARAMS = dict(
     skin="#f0c9a6", beard=True, beardAmt=0.25, beardCol="#7a7266", beardOpen=24, moustache=True, mouthW=14, smileD=7, noseSize=1.0, eyeDot=3.6,
     coatCol="#8a4a28", coatLen=138, flare=34, collarH=1.0, collarW=0, buttons=4, pockets=True, scarfCol="#f26a1b",
     irisCol="#6f8f45", ringCol="#a9792f", magR=46,
-    lineCol="#3a2a20", legCol="#2a3340", bg="#070a0f", spot=True, spotAmt=1.0)
+    lineCol="#3a2a20", legCol="#2a3340", bg="#070a0f", spot=True, spotAmt=1.0, fadeSec=1.0)
 Q = dict(PARAMS)
 
 
@@ -527,6 +527,19 @@ if __name__ == "__main__":
         for st in ("none", "outline", "accent", "flat", "tint"):
             STYLE = None if st == "none" else st
             for t in (2.0, 5.4, 24.0): render_png(t, os.path.join(sys.argv[2], "%s_%04.1f.png" % (st, t)))
+    elif cmd == "bootzip":
+        import zipfile, tempfile, shutil
+        out = sys.argv[2]; w_, h_ = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (W, H)
+        tmp = tempfile.mkdtemp(prefix="bootanim-"); n = int(T * FPS)
+        for i in range(n):
+            png = os.path.join(tmp, "%04d.png" % i); render_png(i / FPS, png)
+            subprocess.run(["convert", png, "-resize", "%dx%d!" % (w_, h_), "-colors", "128", "-dither", "None", "PNG8:" + png], check=True)
+        fade = max(1, int(round(Q["fadeSec"] * FPS)))
+        desc = "%d %d %d\nf 0 0 part0 %d %s\n" % (w_, h_, FPS, fade, Q["bg"])
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:                             # Android needs the entries stored, not compressed
+            z.writestr("desc.txt", desc)
+            for i in range(n): z.write(os.path.join(tmp, "%04d.png" % i), "part0/%04d.png" % i)
+        shutil.rmtree(tmp); print("wrote", out, os.path.getsize(out), "bytes,", n, "frames; desc.txt:\n" + desc)
     elif cmd == "frames":
         os.makedirs(sys.argv[2], exist_ok=True)
         for i in range(int(T * FPS)): render_png(i / FPS, os.path.join(sys.argv[2], "f%04d.png" % i))

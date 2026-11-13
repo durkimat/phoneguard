@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 build/bootanimation/mockup-*.html
+build/bootanimation/*.zip
+build/bootanimation/*.gif
+build/bootanimation/draft*.png

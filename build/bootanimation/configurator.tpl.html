@@ -11,6 +11,8 @@
   main { max-width:560px; margin:0 auto; padding:0 16px 40px; }
   header { position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0 8px; border-bottom:1px solid var(--line); }
   h1 { font-size:17px; margin:0 0 6px; }
+  #frame { position:relative; width:100%; max-width:250px; margin:0 auto; }
+  #fadeov { position:absolute; inset:0; opacity:0; pointer-events:none; border-radius:11px; }
   #phone { width:100%; max-width:250px; aspect-ratio:480/640; margin:0 auto; border:5px solid #000; border-radius:16px; overflow:hidden; box-shadow:0 0 0 1px var(--line); }
   #cap { text-align:center; color:var(--acc); font-weight:600; min-height:1.4em; margin:6px 0 2px; font-size:13px; }
   .row { display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
@@ -34,7 +36,7 @@
 <main>
   <header>
     <h1>Boot animation tweaker</h1>
-    <div id="phone"></div>
+    <div id="frame"><div id="phone"></div><div id="fadeov"></div></div>
     <div id="cap"></div>
     <div class="row">
       <button id="play">Pause</button>
@@ -47,6 +49,7 @@
       <button data-t="7.0">Dance C</button>
       <button data-t="19.5">Walk (2)</button>
       <button data-t="23.0">Eye</button>
+      <button id="ready">Phone is ready</button>
       <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
     </div>
   </header>
@@ -90,7 +93,7 @@ const SPEC = [
   ["Magnified eye", [
     ["irisCol", "Eye colour", "color"], ["ringCol", "Ring colour", "color"], ["magR", "Lens size", "range", 36, 58, 1]]],
   ["Style and stage", [
-    ["lineCol", "Outline colour", "color"], ["legCol", "Trousers", "color"], ["bg", "Background", "color"], ["spot", "Spotlight", "check"], ["spotAmt", "Spotlight strength", "range", 0, 2, 0.05]]]
+    ["fadeSec", "Fade-out length (s)", "range", 0.3, 3, 0.1], ["lineCol", "Outline colour", "color"], ["legCol", "Trousers", "color"], ["bg", "Background", "color"], ["spot", "Spotlight", "check"], ["spotAmt", "Spotlight strength", "range", 0, 2, 0.05]]]
 ];
 const D = RIG.defaults;
 let Q = Object.assign({}, D);
@@ -140,11 +143,24 @@ function draw(force) {
   cap.textContent = RIG.pose(t).cap || "";
   scrub.value = t; timeEl.textContent = t.toFixed(1) + " s";
 }
+let fade = null;                       // set when "Phone is ready" is pressed: the animation keeps playing while fading out
+const fadeov = document.getElementById("fadeov"), readyBtn = document.getElementById("ready");
+function resetFade() { fade = null; fadeov.style.opacity = 0; readyBtn.textContent = "Phone is ready"; }
 function tick(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
-  if (playing) { t = (t + dt * parseFloat(speed.value)) % RIG.T; draw(false); }
+  if (playing) {
+    const adv = dt * parseFloat(speed.value);
+    t = (t + adv) % RIG.T;
+    if (fade) { fade.el += adv; const u = Math.min(1, fade.el / Q.fadeSec); fadeov.style.opacity = u; fadeov.style.background = Q.bg;
+      if (u >= 1) { playing = false; cap.textContent = "Faded out: the lock screen or launcher takes over here"; readyBtn.textContent = "Restart"; document.getElementById("play").textContent = "Play"; fade.done = true; return requestAnimationFrame(tick); } }
+    draw(false);
+  }
   requestAnimationFrame(tick);
 }
+readyBtn.onclick = () => {
+  if (fade && fade.done) { resetFade(); t = 0; playing = true; document.getElementById("play").textContent = "Pause"; draw(true); return; }
+  if (!fade) { fade = { el: 0, done: false }; playing = true; document.getElementById("play").textContent = "Pause"; readyBtn.textContent = "Fading..."; }
+};
 document.getElementById("play").onclick = e => { playing = !playing; e.target.textContent = playing ? "Pause" : "Play"; };
 scrub.oninput = () => { t = parseFloat(scrub.value); draw(true); };
 document.querySelectorAll("button[data-t]").forEach(b => b.onclick = () => { t = parseFloat(b.dataset.t); playing = false; document.getElementById("play").textContent = "Play"; draw(true); });
