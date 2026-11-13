@@ -1239,6 +1239,8 @@ class LauncherModel(
         item.pkg == CALC_PKG -> "calculator"
         item.pkg == LOGSET_PKG || item.pkg == SETTINGS_PKG -> "settings"
         item.pkg == NOTES_PKG -> "notes"
+        item.pkg == MAIL_PKG -> "mail"
+        item.pkg == CALENDAR_PKG -> "calendar"
         item.pkg == WEATHER_PKG -> "weather"
         item.pkg == CALLLOG_PKG || item.pkg == dialerApp -> "calls"
         item.pkg == messagesApp -> "messages"

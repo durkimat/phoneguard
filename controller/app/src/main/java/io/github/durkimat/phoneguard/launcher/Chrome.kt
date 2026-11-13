@@ -82,7 +82,7 @@ object Palette {
     /** The colour of an icon's filled part in the colourful look. */
     fun iconColour(night: Boolean, icon: String): Int = of(night).let {
         when (icon) {
-            "music", "alarm", "radio" -> it.red
+            "music", "alarm", "radio", "calendar" -> it.red
             "calls", "settings", "camera" -> it.teal
             "contacts", "calculator", "notes" -> it.amber
             "games", "apps" -> it.purple
