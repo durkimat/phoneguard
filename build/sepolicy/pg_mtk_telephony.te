@@ -245,5 +245,65 @@ get_prop(system_server, system_mtk_debug_mtk_aee_prop)
 get_prop(system_server, system_mtk_persist_aee_prop)
 get_prop(system_server, system_mtk_power_off_alarm_test_prop)
 
+# MediaTek binder services the phone domains publish/use (stock labels them in system_ext_service_contexts).
+type aal_service, service_manager_type;
+type camerapostalgo_service, service_manager_type;
+type cta_networkdatacontroller_service, service_manager_type;
+type gas_srv_service, service_manager_type;
+type mtk_advcamserver_service, service_manager_type;
+type mtk_anrmanager_service, service_manager_type;
+type mtk_autoboot_service, service_manager_type;
+type mtk_carrierexpress_service, service_manager_type;
+type mtk_connmetrics_service, service_manager_type;
+type mtk_data_shaping_service, service_manager_type;
+type mtk_duraspeed_service, service_manager_type;
+type mtk_gwsd_service, service_manager_type;
+type mtk_permrecords_service, service_manager_type;
+type mtk_phonesubinfo_service, service_manager_type;
+type mtk_radio_service, service_manager_type;
+type mtk_registry_service, service_manager_type;
+type mtk_simphonebook_service, service_manager_type;
+type mtk_vodata_service, service_manager_type;
+type ppl_agent_service, service_manager_type;
+type printer_sdk_service, service_manager_type;
+type tee_service, service_manager_type;
+type teei_ifaa_service, service_manager_type;
+type teeregistry_service, service_manager_type;
+type vtservice_service, service_manager_type;
+allow platform_app mtk_advcamserver_service:service_manager find;
+allow platform_app mtk_radio_service:service_manager find;
+allow platform_app mtk_connmetrics_service:service_manager find;
+allow platform_app aal_service:service_manager find;
+allow platform_app camerapostalgo_service:service_manager find;
+allow platform_app cta_networkdatacontroller_service:service_manager find;
+allow platform_app printer_sdk_service:service_manager find;
+add_service(radio, mtk_registry_service)
+add_service(radio, mtk_radio_service)
+add_service(radio, mtk_phonesubinfo_service)
+add_service(radio, mtk_simphonebook_service)
+allow radio vtservice_service:service_manager find;
+allow radio ppl_agent_service:service_manager find;
+allow radio aal_service:service_manager find;
+add_service(radio, mtk_gwsd_service)
+allow radio cta_networkdatacontroller_service:service_manager find;
+add_service(radio, mtk_vodata_service)
+add_service(radio, mtk_carrierexpress_service)
+add_service(system_app, mtk_carrierexpress_service)
+add_service(system_app, cta_networkdatacontroller_service)
+add_service(system_app, printer_sdk_service)
+allow system_server aal_service:service_manager find;
+allow system_server gas_srv_service:service_manager find;
+add_service(system_server, mtk_connmetrics_service)
+allow system_server mtk_radio_service:service_manager find;
+add_service(system_server, mtk_permrecords_service)
+add_service(system_server, mtk_anrmanager_service)
+add_service(system_server, mtk_data_shaping_service)
+allow system_server tee_service:service_manager find;
+allow system_server teeregistry_service:service_manager find;
+add_service(system_server, mtk_duraspeed_service)
+add_service(system_server, mtk_autoboot_service)
+allow system_server printer_sdk_service:service_manager find;
+add_service(system_app, teei_ifaa_service)
+
 # SMS-ready flag set by the vendor RIL daemon (labelled vendor_default_prop here; stock allows it through its own policy).
 set_prop(rild, vendor_default_prop)
