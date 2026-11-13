@@ -12,6 +12,8 @@ PRODUCT_PACKAGES += MtkCarrierConfig privapp_whitelist_com.android.carrierconfig
 
 # Properties the stock-based IMS stack expects (TrebleDroid's stock MTK IMS convention).
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.mtk_ims_support=1 persist.mtk_epdg_support=1
+# AOSP ImsManager reports VoLTE/VT/WFC "not available by platform" (no device overlay, carrier config false); these debug overrides make it return true. Test image: see docs.
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.dbg.volte_avail_ovr=1 persist.dbg.vt_avail_ovr=1 persist.dbg.wfc_avail_ovr=1
 
 PRODUCT_PACKAGES += ImsService MtkGbaService MtkTelephonyAssist MtkCapCtrl mediatek-res \
     mediatek-ims-extension-plugin mediatek-wfo-legacy mediatek-services \
