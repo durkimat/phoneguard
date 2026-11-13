@@ -9,6 +9,7 @@ Usage:
   gen.py html OUT.html          write the player
   gen.py png  OUTDIR T [T...]   render PNGs of the given times (seconds)
   gen.py frames OUTDIR          render every frame as PNG (final pipeline)
+Add `--params settings.json` (the text from the browser tweaker) to any command to use those look settings.
 """
 import math, os, subprocess, sys, json
 
@@ -21,6 +22,23 @@ COAT = "#8a4a28"; COAT_D = "#5c2f18"; SCARF = "#f26a1b"; SCARF_D = "#b84a0d"
 HAIR = "#a7a59e"; BEARD = "#7a7266"; GLASS = "#17171a"; EARBUD = "#2b3f95"
 LEG = "#232a32"; SKIN = "#dcae92"; BRASS = "#6b4b2a"
 FEAT = "#8a5a3c"; BUTTON = "#3a2212"; SMILE = "#ffffff"; LENS = "#fefefe"; EYEDOT = "#14323a"; BROW = HAIR
+
+
+# every look setting lives here; the browser configurator uses the same names and defaults
+PARAMS = dict(
+    headW=64, headH=70, headN=3.4, taper=0.22,
+    lensW=1.0, lensH=40, lensR=8, frameW=5, glassCol="#1b1b1f",
+    hairCol="#a7a59e", tufts=22, tuftH=1.0, lean=-0.35, hairline=1.0,
+    skin="#f0c9a6", beard=True, beardCol="#7a7266", beardOpen=24, moustache=True, mouthW=14, smileD=7, noseSize=1.0, eyeDot=3.6,
+    coatCol="#8a4a28", coatLen=138, flare=34, collarH=1.0, buttons=4, pockets=True, scarfCol="#f26a1b",
+    irisCol="#6f8f45", ringCol="#a9792f", magR=46,
+    lineCol="#3a2a20", legCol="#2a3340", bg="#070a0f", spot=True, spotAmt=1.0)
+Q = dict(PARAMS)
+
+
+def set_params(d):
+    global Q
+    Q = dict(PARAMS); Q.update({k: v for k, v in d.items() if k in PARAMS}); return Q
 
 
 def lerp(a, b, u): return a + (b - a) * u
@@ -47,7 +65,7 @@ class Scene:
     def svg(s):
         f = lambda v: ("%.1f" % v).rstrip("0").rstrip(".")
         out = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="100%%" height="100%%">' % (W, H),
-               '<rect width="%d" height="%d" fill="%s"/>' % (W, H, BG)]
+               '<rect width="%d" height="%d" fill="%s"/>' % (W, H, Q["bg"])]
         for kind, p, fill, stroke, w, a, cap in s.final():
             st = ' fill="%s"' % fill if fill else ' fill="none"'
             if stroke: st += ' stroke="%s" stroke-width="%s" stroke-linecap="round" stroke-linejoin="round"' % (stroke, f(w))
@@ -63,7 +81,7 @@ class Scene:
         return "".join(out)
 
     def mvg(s):
-        o = ["viewbox 0 0 %d %d" % (W, H), "fill %s" % BG, "rectangle 0,0 %d,%d" % (W, H), "stroke-linecap round", "stroke-linejoin round"]
+        o = ["viewbox 0 0 %d %d" % (W, H), "fill %s" % Q["bg"], "rectangle 0,0 %d,%d" % (W, H), "stroke-linecap round", "stroke-linejoin round"]
         for kind, p, fill, stroke, w, a, cap in s.final():
             o.append("fill %s" % (rgba(fill, a) if fill else "none"))
             o.append("stroke %s" % (rgba(stroke, a) if stroke else "none"))
@@ -107,11 +125,18 @@ STYLES["skin"] = final_style(GREEN, "#f0c9a6", "#1b1b1f", "#22342b")            
 STYLES["greenface"] = final_style("#1a7a49", GREEN, "#1b1b1f", "#073042", lens=("#ffffff", 0.9), feat="#0a4a2c")   # Android-green face
 STYLES["flat"] = final_style("#3a2a20", "#f0c9a6", "#1b1b1f", "#22342b", legfill="#2a3340")                     # flat illustration, brown ink
 STYLES["final"] = STYLES["skin"]
-STYLE = "final"   # set by the caller; None = the original full-colour look
+STYLE = "param"   # set by the caller; None = the original full-colour look
+
+
+def param_style():
+    st = final_style(Q["lineCol"], Q["skin"], Q["glassCol"], "#22342b", legfill=Q["legCol"])
+    st["recolor"] = {COAT: Q["coatCol"], SCARF: Q["scarfCol"], HAIR: Q["hairCol"], BEARD: Q["beardCol"]}
+    st["tubea"] = Q["coatCol"]
+    return st
 
 
 def restyle(op):
-    st = STYLES.get(STYLE) if STYLE else None
+    st = (param_style() if STYLE == "param" else STYLES.get(STYLE)) if STYLE else None
     kind, p, fill, stroke, w, a, cap = op
     if stroke == TUBEA:                                                                  # sleeve core
         return (kind, p, None, st["tubea"] if st and st.get("tubea") else BG, w, 1.0, cap) if st and st.get("tube") else None
@@ -123,12 +148,13 @@ def restyle(op):
     tiny = kind == "ellipse" and p[2] < 3 and fill and not stroke
     if tiny:
         c = st["fill"].get(fill, fill) or st["dot"]
+        c = st.get("recolor", {}).get(c, c)
         return (kind, p, c if fill != WHITE else WHITE, None, 0, 1.0, cap)
     nf, ns, nw, na = fill, stroke, w, a
     if fill:
         nf = st["fill"][fill] if fill in st["fill"] else fill
         if isinstance(nf, tuple): nf, na = nf
-        elif nf is None: nf = BG
+        elif nf is None: nf = Q["bg"]
         elif "fillalpha" in st and fill in st["fill"]: na = st["fillalpha"]
         if not stroke and fill in st["fillstroke"]: ns, nw = st["fillstroke"][fill], st["minw"]
     if stroke:
@@ -136,6 +162,7 @@ def restyle(op):
     if st["opaque"] and fill in st["fill"] and na < 1 and "fillalpha" not in st: na = 1.0
     if stroke and fill is None and kind in ("line", "pline"):
         na = a
+    nf = st.get("recolor", {}).get(nf, nf)
     return (kind, p, nf, ns, nw, na, cap)
 
 
@@ -211,8 +238,8 @@ def arc(cx, cy, rx, ry, a0, a1, n=14):
 
 
 def draw_spot(sc, P, t):
-    if P["spot"] <= 0: return
-    sx = clamp(pose(t - 0.15)["x"], -60, 540); k = P["spot"]
+    if P["spot"] <= 0 or not Q["spot"]: return
+    sx = clamp(pose(t - 0.15)["x"], -60, 540); k = P["spot"] * Q["spotAmt"]
     for i in range(5):
         a, b = 8 + i * 3, 66 + i * 15
         sc.poly([(sx - a, -10), (sx + a, -10), (sx + b, FLOOR + 4), (sx - b, FLOOR + 4)], fill="#fff3d0", a=0.05 * k)
@@ -220,7 +247,8 @@ def draw_spot(sc, P, t):
         sc.ellipse(sx, FLOOR + 4, 150 - i * 24, 27 - i * 4, fill="#fff3d0", a=0.08 * k)
 
 
-def contour(cx, cy, rx, ry, th, n=3.4, taper=0.22):
+def contour(cx, cy, rx, ry, th):
+    n, taper = Q["headN"], Q["taper"]
     c, s_ = math.cos(math.radians(th)), math.sin(math.radians(th))
     x = rx * math.copysign(abs(c) ** (2 / n), c) * (1 - taper * max(0, s_) ** 2)
     y = ry * math.copysign(abs(s_) ** (2 / n), s_)
@@ -229,7 +257,7 @@ def contour(cx, cy, rx, ry, th, n=3.4, taper=0.22):
 
 def head_geo(P, hx, hy):
     f = P["f"]; k2 = math.sqrt(max(0, 1 - f * f)); k = 0.15 + 0.85 * k2
-    return dict(f=f, k2=k2, k=k, fx=f * 30, sgn=1 if f > 0 else -1, rx=64 * (0.56 + 0.44 * k2), ry=70)
+    return dict(f=f, k2=k2, k=k, fx=f * 30, sgn=1 if f > 0 else -1, rx=Q["headW"] * (0.56 + 0.44 * k2), ry=Q["headH"])
 
 
 def draw_head(sc, P, hx, hy):
@@ -244,48 +272,51 @@ def draw_head(sc, P, hx, hy):
         sc.rrect(ex - 3.5 + s_ * 1.5, hy + 8, 7, 14, 3.5, fill=EARBUD)
     # beard: a band along the jaw with an open window for the mouth, moustache over it
     bx = hx + fx * 0.3
-    outer = [contour(bx, hy, rx - 2, ry - 2, th) for th in range(14, 167, 8)]
-    inner = [(hx + fx + (9 + 25 * k) * math.cos(math.radians(th)), hy + 26 + 24 * math.sin(math.radians(th))) for th in range(166, 13, -8)]
-    sc.poly(outer + inner, fill=BEARD, a=0.95)
-    for i in range(7):
-        a = math.radians(32 + i * 19); px, py = contour(bx, hy, rx - 9, ry - 9, math.degrees(a))
-        sc.circle(px, py, 1.5, fill=HAIR, a=0.7)
-    sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 6.5, fill=BEARD)
+    if Q["beard"]:
+        outer = [contour(bx, hy, rx - 2, ry - 2, th) for th in range(14, 167, 8)]
+        inner = [(hx + fx + (9 + 25 * k) * math.cos(math.radians(th)), hy + 26 + Q["beardOpen"] * math.sin(math.radians(th))) for th in range(166, 13, -8)]
+        sc.poly(outer + inner, fill=BEARD, a=0.95)
+        for i in range(7):
+            a = math.radians(32 + i * 19); px, py = contour(bx, hy, rx - 9, ry - 9, math.degrees(a))
+            sc.circle(px, py, 1.5, fill=HAIR, a=0.7)
+    if Q["moustache"]: sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 6.5, fill=BEARD)
     # nose: a single hooked line
     nx = hx + fx * 1.1
-    sc.pline([(nx - 2 * k, hy - 4), (nx - 5 * k - 2 * abs(f) * 4, hy + 13), (nx + 5 + 9 * abs(f) * sgn, hy + 16)], 3, FEAT)
+    ns_ = Q["noseSize"]
+    sc.pline([(nx - 2 * k * ns_, hy - 4), (nx - (5 * k + 2 * abs(f) * 4) * ns_, hy + 13 * ns_ - (ns_ - 1) * 4), (nx + (5 + 9 * abs(f) * sgn) * ns_, hy + 16 * ns_ - (ns_ - 1) * 4)], 3, FEAT)
     # smile
-    mw = 14 * k + 3; mx = hx + fx
+    mw = Q["mouthW"] * k + 3; mx = hx + fx
     top = [(mx - mw + 2 * mw * i / 10, hy + 36) for i in range(11)]
-    bot = [(mx - mw + 2 * mw * i / 10, hy + 36 + 7 * (1 - ((i - 5) / 5) ** 2)) for i in range(11)]
+    bot = [(mx - mw + 2 * mw * i / 10, hy + 36 + Q["smileD"] * (1 - ((i - 5) / 5) ** 2)) for i in range(11)]
     sc.poly(top + bot[::-1], fill=SMILE, stroke=FEAT, w=2.5)
     # glasses
-    ey = hy - 12; lw = 22 + 32 * k
+    ey = hy - 12; lw = (22 + 32 * k) * Q["lensW"]; lh = Q["lensH"]
     offs = lw / 2 + 4 * k
     for s_ in (-1, 1):
         ex = hx + fx + s_ * offs
         al = 1.0 if s_ != -sgn else clamp((0.78 - abs(f)) / 0.3, 0, 1)
         if al <= 0: continue
-        sc.rrect(ex - lw / 2, ey - 20, lw, 40, 8, fill=LENS, stroke=GLASS, w=5, a=al)
+        sc.rrect(ex - lw / 2, ey - lh / 2, lw, lh, min(Q["lensR"], lw / 2, lh / 2), fill=LENS, stroke=GLASS, w=Q["frameW"], a=al)
         gx, gy = P["gaze"] if P["mode"] == "look" else ((0.5 * sgn if abs(f) > 0.5 else 0), 0)
-        sc.circle(ex + gx * 3 * k + sgn * abs(f) * 2, ey + gy * 2, 3.6, fill=EYEDOT, a=al)
-        sc.line(ex - lw / 2 + 1, ey - 29, ex + lw / 2 - 1, ey - 32 - (2 if s_ == 1 else 0), 4.5, BROW, a=al)
-    if k > 0.35: sc.line(hx + fx - 5 * k, ey - 8, hx + fx + 5 * k, ey - 8, 5, GLASS, a=clamp((k - .35) * 3, 0, 1))
+        sc.circle(ex + gx * 3 * k + sgn * abs(f) * 2, ey + gy * 2, Q["eyeDot"], fill=EYEDOT, a=al)
+        sc.line(ex - lw / 2 + 1, ey - lh / 2 - 9, ex + lw / 2 - 1, ey - lh / 2 - 12 - (2 if s_ == 1 else 0), 4.5, BROW, a=al)
+    if k > 0.35: sc.line(hx + fx - 5 * k, ey - 8, hx + fx + 5 * k, ey - 8, Q["frameW"], GLASS, a=clamp((k - .35) * 3, 0, 1))
     if abs(f) > 0.35: sc.line(hx + fx - sgn * (lw / 2 + offs), ey - 6, hx - sgn * (rx - 4), hy + 0, 4, GLASS, a=clamp((abs(f) - .35) * 2, 0, 1))
     # hair: a full swept mass, spikier at the front, with a hairline across the forehead
     top_pts = []
-    N = 22
+    N = int(Q["tufts"])
     for i in range(N + 1):
         th = 188 + 164 * i / N
         bxp, byp = contour(bx, hy, rx + 1, ry + 1, th)
         a = math.radians(th); c, s_ = math.cos(a), math.sin(a)
-        ht = (6 if i % 2 == 0 else 20 + 12 * abs(math.sin(i * 1.9))) + (8 if 5 <= i <= 12 else 0)
-        lean = -0.35
+        ht = ((6 if i % 2 == 0 else 20 + 12 * abs(math.sin(i * 1.9))) + (8 if 0.22 <= i / N <= 0.56 else 0)) * Q["tuftH"]
+        lean = Q["lean"]
         if i % 2: top_pts.append((bxp + (c + lean * (-s_)) * ht * 0.9, byp + (s_ + lean * c) * ht))
         else: top_pts.append((bxp + c * ht * 0.4, byp + s_ * ht * 0.4))
     w_ = rx * 0.98; hxc = bx
-    hairline = [(hxc + w_ * 0.97, hy - 2), (hxc + w_ * 0.86, hy - 30), (hxc + w_ * 0.55, hy - 46), (hxc + w_ * 0.2, hy - 50),
-                (hxc - w_ * 0.2, hy - 52), (hxc - w_ * 0.55, hy - 47), (hxc - w_ * 0.86, hy - 30), (hxc - w_ * 0.97, hy - 2)]
+    hl = Q["hairline"]
+    hairline = [(hxc + w_ * 0.97, hy - 2), (hxc + w_ * 0.86, hy - 30 * hl), (hxc + w_ * 0.55, hy - 46 * hl), (hxc + w_ * 0.2, hy - 50 * hl),
+                (hxc - w_ * 0.2, hy - 52 * hl), (hxc - w_ * 0.55, hy - 47 * hl), (hxc - w_ * 0.86, hy - 30 * hl), (hxc - w_ * 0.97, hy - 2)]
     sc.poly(top_pts + hairline, fill=HAIR, stroke=TEAL_D, w=3)
 
 
@@ -297,28 +328,30 @@ def coat_geo(P, bob):
 def draw_coat(sc, P, bob):
     g = coat_geo(P, bob); f, k2, x, bw, top, sway = g["f"], g["k2"], g["x"], g["bw"], g["top"], g["sway"]
     sc.ellipse(x, FLOOR + 3, 52, 8, fill="#000000", a=0.45)
-    hemw = bw / 2 + 34 * (0.35 + 0.65 * k2)
+    L_ = Q["coatLen"]; hemw = bw / 2 + Q["flare"] * (0.35 + 0.65 * k2)
     xl, xr = x - hemw - sway * 0.6, x + hemw - sway * 0.6                              # hem trails the walking direction
-    left = [(x - bw / 2 + 16, top), (x - bw / 2, top + 20), (x - bw / 2 - 3, top + 68), (xl, top + 138)]
-    right = [(xr, top + 138), (x + bw / 2 + 3, top + 68), (x + bw / 2, top + 20), (x + bw / 2 - 16, top)]
-    hem = [(lerp(xl, xr, i / 10), top + 138 + 9 * math.sin(math.pi * i / 10) + sway * 0.35 * (i / 10 - 0.5) * 2) for i in range(1, 10)]
+    left = [(x - bw / 2 + 16, top), (x - bw / 2, top + 20), (x - bw / 2 - 3, top + 68), (xl, top + L_)]
+    right = [(xr, top + L_), (x + bw / 2 + 3, top + 68), (x + bw / 2, top + 20), (x + bw / 2 - 16, top)]
+    hem = [(lerp(xl, xr, i / 10), top + L_ + 9 * math.sin(math.pi * i / 10) + sway * 0.35 * (i / 10 - 0.5) * 2) for i in range(1, 10)]
     sc.poly(left + hem + right, fill=COAT, stroke=COAT_D, w=3)
     if k2 > 0.4:                                                                         # front opening, buttons, pockets
         cxx = x + f * 22
-        sc.line(cxx, top + 16, cxx + sway * 0.1, top + 140, 2.5, "#c98a5a", a=k2)
-        for i in range(4):
-            by = top + 34 + i * 27
+        sc.line(cxx, top + 16, cxx + sway * 0.1, top + L_ + 2, 2.5, "#c98a5a", a=k2)
+        nb = int(Q["buttons"])
+        for i in range(nb):
+            by = top + 34 + i * ((L_ - 57) / max(nb - 1, 1))
             sc.circle(cxx, by, 6.5, fill=BUTTON, stroke="#e2b27c", w=2, a=k2)
             sc.circle(cxx, by, 1.6, fill="#e2b27c", a=k2)
         for s_ in (-1, 1):
-            sc.rrect(x + s_ * bw * 0.3 - 11, top + 84, 22, 20, 5, stroke="#c98a5a", w=2, a=k2)
+            if Q["pockets"]: sc.rrect(x + s_ * bw * 0.3 - 11, top + 84, 22, 20, 5, stroke="#c98a5a", w=2, a=k2)
 
 
 def draw_collar(sc, P, bob, hx, hy, rx):
     g = coat_geo(P, bob); k2, x, bw, top = g["k2"], g["x"], g["bw"], g["top"]
     for s_ in (-1, 1):
         if k2 < 0.3 and s_ == -(1 if P["f"] > 0 else -1): continue
-        wing = [(x + s_ * 12, top - 16), (x + s_ * (bw / 2 + 8), top + 8), (x + s_ * (rx + 18), hy + 8), (x + s_ * (rx + 8), hy - 16), (x + s_ * (rx - 12), hy - 2)]
+        up = 30 * (Q["collarH"] - 1)
+        wing = [(x + s_ * 12, top - 16), (x + s_ * (bw / 2 + 8), top + 8), (x + s_ * (rx + 18), hy + 8 - up), (x + s_ * (rx + 8), hy - 16 - up), (x + s_ * (rx - 12), hy - 2 - up * 0.6)]
         sc.poly(wing, fill=COAT, stroke=COAT_D, w=3)
         sc.pline([(x + s_ * (bw / 2 - 2), top + 4), (x + s_ * (rx + 6), hy - 6)], 2.5, "#c98a5a", a=0.8)
 
@@ -360,7 +393,7 @@ def draw_arms_and_lens(sc, P, hx, hy, bob):
         r = HANDS["rest"]; tgt[-1] = (sh[-1][0] + r[0], sh[-1][1] + r[1]); tgt[1] = (sh[1][0] + r[2], sh[1][1] + r[3])
     lens = None
     if P["carry"]:
-        mag = P["mag"]; R = lerp(30, 46, mag)
+        mag = P["mag"]; R = lerp(Q["magR"] * 30 / 46, Q["magR"], mag)
         ex, ey = hx + 32, hy - 12                                                        # the eye being magnified
         raised_c = (ex, ey); raised_h = (ex + 30, ey + 56)
         walk_h = tgt[1]; carry_c = (walk_h[0] + d * 6, walk_h[1] - 58)
@@ -386,8 +419,8 @@ def draw_arms_and_lens(sc, P, hx, hy, bob):
             sc.ellipse(cx, cy + 2, 31, max(ry, 0.8), fill="#f4f1ea", stroke="#4a3b32", w=2)
             if P["blink"] < 0.75:
                 ix, iy = cx + gx * 12, cy + 2 + gy * 6
-                sc.circle(ix, iy, min(13, ry + 2), fill="#6f8f45", stroke="#3f4f22", w=2)
-                sc.circle(ix, iy, min(8.5, ry), fill="#a9792f", a=0.85)
+                sc.circle(ix, iy, min(13, ry + 2), fill=Q["irisCol"], stroke="#3f4f22", w=2)
+                sc.circle(ix, iy, min(8.5, ry), fill=Q["ringCol"], a=0.85)
                 sc.circle(ix, iy, 5.2, fill="#0d1a17"); sc.circle(ix - 4, iy - 4, 2.2, fill="#ffffff")
             sc.pline(arc(cx, cy + 2, 33, 20 * (1 - P["blink"]) + 1, 200, 340, 10), 4, "#4a3b32")
             for i in range(3): sc.line(cx + 33 + i * 1.5, cy + 4 + i * 6, cx + 40, cy - 4 + i * 8, 2, "#8d6a58", a=0.7)   # crow's feet
@@ -407,7 +440,7 @@ def build(t):
     else: bob = 0
     sway = math.sin(P["du"] * math.pi / 0.8) * 3 if P["mode"] == "dance" else 0
     P = dict(P); P["x"] += sway
-    hx, hy = P["x"] + P["f"] * 8, 250 + bob
+    hx, hy = P["x"] + P["f"] * 8, 320 - Q["headH"] + bob
     g_ = head_geo(P, hx, hy)
     draw_legs(sc, P, bob); draw_coat(sc, P, bob); draw_collar(sc, P, bob, hx, hy, g_['rx']); draw_scarf(sc, P, bob); draw_head(sc, P, hx, hy); draw_arms_and_lens(sc, P, hx, hy, bob)
     return sc, P
@@ -433,6 +466,9 @@ def write_html(out):
 
 
 if __name__ == "__main__":
+    if "--params" in sys.argv:                                  # settings copied from the browser tweaker
+        i = sys.argv.index("--params"); set_params(json.load(open(sys.argv[i + 1]))); del sys.argv[i:i + 2]
+    STYLE = "param"
     cmd = sys.argv[1]
     if cmd == "html": write_html(sys.argv[2])
     elif cmd == "png":

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boot animation tweaker</title>
+<style>
+  :root { --bg:#10161c; --pane:#17202a; --fg:#e8eef2; --mut:#8fa0ab; --acc:#00e0c6; --line:#243040; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui,sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:0 16px 40px; }
+  header { position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0 8px; border-bottom:1px solid var(--line); }
+  h1 { font-size:17px; margin:0 0 6px; }
+  #phone { width:100%; max-width:250px; aspect-ratio:480/640; margin:0 auto; border:5px solid #000; border-radius:16px; overflow:hidden; box-shadow:0 0 0 1px var(--line); }
+  #cap { text-align:center; color:var(--acc); font-weight:600; min-height:1.4em; margin:6px 0 2px; font-size:13px; }
+  .row { display:flex; gap:8px; align-items:center; margin:6px 0; flex-wrap:wrap; }
+  button, select, textarea { background:#1b2733; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font:inherit; }
+  button:active { background:#25384a; }
+  input[type=range] { accent-color:var(--acc); }
+  #scrub { flex:1; min-width:120px; }
+  #time { color:var(--mut); font-variant-numeric:tabular-nums; min-width:4.5em; text-align:right; font-size:13px; }
+  details { background:var(--pane); border:1px solid var(--line); border-radius:10px; margin:10px 0; }
+  summary { padding:10px 12px; font-weight:600; cursor:pointer; }
+  .ctl { display:grid; grid-template-columns:7.5em 1fr 3.8em; gap:8px; align-items:center; padding:5px 12px; }
+  .ctl label { color:var(--mut); font-size:13px; }
+  .ctl output { text-align:right; font-variant-numeric:tabular-nums; font-size:13px; }
+  .ctl input[type=color] { width:44px; height:28px; padding:0; border:1px solid var(--line); border-radius:6px; background:none; }
+  .ctl input[type=checkbox] { width:20px; height:20px; accent-color:var(--acc); }
+  textarea { width:100%; height:120px; font:12px/1.3 ui-monospace,monospace; }
+  .hint { color:var(--mut); font-size:12px; margin:4px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Boot animation tweaker</h1>
+    <div id="phone"></div>
+    <div id="cap"></div>
+    <div class="row">
+      <button id="play">Pause</button>
+      <input id="scrub" type="range" min="0" max="35" step="0.05" value="0">
+      <span id="time">0.0 s</span>
+    </div>
+    <div class="row">
+      <button data-t="2.5">Walk</button>
+      <button data-t="5.4">Dance Y</button>
+      <button data-t="7.0">Dance C</button>
+      <button data-t="19.5">Walk (2)</button>
+      <button data-t="23.0">Eye</button>
+      <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+    </div>
+  </header>
+
+  <div id="panels"></div>
+
+  <details open>
+    <summary>Settings (copy this to send me)</summary>
+    <div style="padding:0 12px 12px">
+      <textarea id="json" spellcheck="false"></textarea>
+      <div class="row">
+        <button id="copy">Copy</button>
+        <button id="apply">Apply pasted settings</button>
+        <button id="reset">Reset to defaults</button>
+      </div>
+      <p class="hint" id="msg">Only the settings that differ from the defaults are listed.</p>
+    </div>
+  </details>
+</main>
+
+<script>
+/*RIG*/
+</script>
+<script>
+const SPEC = [
+  ["Head", [
+    ["headW", "Width", "range", 50, 80, 1], ["headH", "Height", "range", 55, 85, 1],
+    ["headN", "Squareness", "range", 2, 5, 0.1], ["taper", "Jaw taper", "range", 0, 0.45, 0.01], ["skin", "Skin tone", "color"]]],
+  ["Glasses", [
+    ["lensW", "Lens width", "range", 0.7, 1.4, 0.01], ["lensH", "Lens height", "range", 28, 54, 1],
+    ["lensR", "Roundness", "range", 0, 27, 1], ["frameW", "Frame thickness", "range", 2, 9, 0.5], ["glassCol", "Frame colour", "color"]]],
+  ["Hair", [
+    ["hairCol", "Colour", "color"], ["tufts", "Number of spikes", "range", 8, 40, 1], ["tuftH", "Spike height", "range", 0.3, 2, 0.05],
+    ["lean", "Lean", "range", -0.9, 0.9, 0.05], ["hairline", "Hairline height", "range", 0.4, 1.4, 0.05]]],
+  ["Beard and face", [
+    ["beard", "Beard", "check"], ["beardCol", "Beard colour", "color"], ["beardOpen", "Beard opening", "range", 14, 36, 1], ["moustache", "Moustache", "check"],
+    ["mouthW", "Mouth width", "range", 6, 26, 1], ["smileD", "Smile depth", "range", 1, 14, 1], ["noseSize", "Nose size", "range", 0.5, 1.8, 0.05], ["eyeDot", "Eye size", "range", 2, 6, 0.1]]],
+  ["Coat and scarf", [
+    ["coatCol", "Coat colour", "color"], ["coatLen", "Coat length", "range", 100, 170, 1], ["flare", "Hem flare", "range", 8, 70, 1],
+    ["collarH", "Collar height", "range", 0.3, 2.2, 0.05], ["buttons", "Buttons", "range", 2, 6, 1], ["pockets", "Pockets", "check"], ["scarfCol", "Scarf colour", "color"]]],
+  ["Magnified eye", [
+    ["irisCol", "Eye colour", "color"], ["ringCol", "Ring colour", "color"], ["magR", "Lens size", "range", 36, 58, 1]]],
+  ["Style and stage", [
+    ["lineCol", "Outline colour", "color"], ["legCol", "Trousers", "color"], ["bg", "Background", "color"], ["spot", "Spotlight", "check"], ["spotAmt", "Spotlight strength", "range", 0, 2, 0.05]]]
+];
+const D = RIG.defaults;
+let Q = Object.assign({}, D);
+let t = 0, playing = true, last = performance.now(), lastShown = -1;
+const phone = document.getElementById("phone"), cap = document.getElementById("cap"), scrub = document.getElementById("scrub");
+const timeEl = document.getElementById("time"), speed = document.getElementById("speed"), json = document.getElementById("json"), msg = document.getElementById("msg");
+const inputs = {};
+
+function fmt(v, step) { const d = step < 1 ? (step < 0.1 ? 2 : 1) : 0; return Number(v).toFixed(d); }
+SPEC.forEach(([name, items], gi) => {
+  const det = document.createElement("details"); if (gi < 3) det.open = true;
+  det.innerHTML = "<summary>" + name + "</summary>";
+  items.forEach(([key, label, type, min, max, step]) => {
+    const row = document.createElement("div"); row.className = "ctl";
+    const lab = document.createElement("label"); lab.textContent = label; row.appendChild(lab);
+    const inp = document.createElement("input"), out = document.createElement("output");
+    if (type === "range") { inp.type = "range"; inp.min = min; inp.max = max; inp.step = step; inp.value = Q[key]; out.textContent = fmt(Q[key], step); }
+    else if (type === "color") { inp.type = "color"; inp.value = Q[key]; out.textContent = ""; }
+    else { inp.type = "checkbox"; inp.checked = !!Q[key]; out.textContent = ""; }
+    inp.addEventListener("input", () => {
+      Q[key] = type === "range" ? parseFloat(inp.value) : type === "color" ? inp.value : inp.checked;
+      if (type === "range") out.textContent = fmt(Q[key], step);
+      changed();
+    });
+    inputs[key] = { inp, out, type, step };
+    row.appendChild(inp); row.appendChild(out); det.appendChild(row);
+  });
+  document.getElementById("panels").appendChild(det);
+});
+
+function syncControls() {
+  for (const k in inputs) { const c = inputs[k];
+    if (c.type === "check") c.inp.checked = !!Q[k]; else c.inp.value = Q[k];
+    if (c.type === "range") c.out.textContent = fmt(Q[k], c.step); }
+}
+function diff() { const o = {}; for (const k in D) if (Q[k] !== D[k]) o[k] = Q[k]; return o; }
+function changed() {
+  json.value = JSON.stringify(diff(), null, 1);
+  try { localStorage.setItem("boot-tweaks", JSON.stringify(diff())); } catch (e) {}
+  draw(true);
+}
+function draw(force) {
+  const tt = Math.round(t * 30) / 30;
+  if (!force && tt === lastShown) return;
+  lastShown = tt;
+  phone.innerHTML = RIG.svg(t, Q);
+  cap.textContent = RIG.pose(t).cap || "";
+  scrub.value = t; timeEl.textContent = t.toFixed(1) + " s";
+}
+function tick(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (playing) { t = (t + dt * parseFloat(speed.value)) % RIG.T; draw(false); }
+  requestAnimationFrame(tick);
+}
+document.getElementById("play").onclick = e => { playing = !playing; e.target.textContent = playing ? "Pause" : "Play"; };
+scrub.oninput = () => { t = parseFloat(scrub.value); draw(true); };
+document.querySelectorAll("button[data-t]").forEach(b => b.onclick = () => { t = parseFloat(b.dataset.t); playing = false; document.getElementById("play").textContent = "Play"; draw(true); });
+document.getElementById("reset").onclick = () => { Q = Object.assign({}, D); syncControls(); changed(); msg.textContent = "Back to the defaults."; };
+document.getElementById("apply").onclick = () => {
+  try { const o = JSON.parse(json.value || "{}"); Q = Object.assign({}, D); for (const k in o) if (k in D) Q[k] = o[k]; syncControls(); changed(); msg.textContent = "Applied."; }
+  catch (e) { msg.textContent = "That is not valid settings text: " + e.message; }
+};
+document.getElementById("copy").onclick = () => {
+  json.select();
+  try { (navigator.clipboard ? navigator.clipboard.writeText(json.value) : Promise.reject()).then(() => msg.textContent = "Copied.", () => { document.execCommand("copy"); msg.textContent = "Copied."; }); }
+  catch (e) { try { document.execCommand("copy"); msg.textContent = "Copied."; } catch (e2) { msg.textContent = "Select the text and copy it by hand."; } }
+};
+try { const saved = JSON.parse(localStorage.getItem("boot-tweaks") || "{}"); for (const k in saved) if (k in D) Q[k] = saved[k]; } catch (e) {}
+syncControls(); json.value = JSON.stringify(diff(), null, 1); draw(true);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
