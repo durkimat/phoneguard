@@ -29,7 +29,7 @@ PARAMS = dict(
     headW=64, headH=70, headN=3.4, taper=0.22,
     lensW=1.0, lensH=40, lensR=8, frameW=5, glassCol="#1b1b1f",
     hairCol="#a7a59e", tufts=22, tuftH=1.0, lean=-0.35, hairline=1.0,
-    skin="#f0c9a6", beard=True, beardCol="#7a7266", beardOpen=24, moustache=True, mouthW=14, smileD=7, noseSize=1.0, eyeDot=3.6,
+    skin="#f0c9a6", beard=True, beardAmt=0.25, beardCol="#7a7266", beardOpen=24, moustache=True, mouthW=14, smileD=7, noseSize=1.0, eyeDot=3.6,
     coatCol="#8a4a28", coatLen=138, flare=34, collarH=1.0, collarW=0, buttons=4, pockets=True, scarfCol="#f26a1b",
     irisCol="#6f8f45", ringCol="#a9792f", magR=46,
     lineCol="#3a2a20", legCol="#2a3340", bg="#070a0f", spot=True, spotAmt=1.0)
@@ -274,11 +274,15 @@ def draw_head_profile(sc, P, hx, hy):
     sc.rrect(ex - 3.5, ey_ + 2, 7, 14, 3.5, fill=EARBUD)
     if Q["beard"]:
         band = [pt(.90, .32), pt(.86, .62), pt(.64, .92), pt(.30, .95), pt(-.10, .80), pt(-.12, .40), pt(.05, .58), pt(.35, .72), pt(.60, .62), pt(.76, .44)]
-        sc.poly(band, fill=BEARD, a=0.95)
-        for u, v in ((.1, .72), (.3, .84), (.5, .82), (.68, .70), (.8, .52), (.0, .6)):
-            q = pt(u, v); sc.circle(q[0], q[1], 1.5, fill=HAIR, a=0.7)
+        amt = Q["beardAmt"]
+        sc.poly(band, fill=BEARD, a=0.10 + 0.6 * amt)
+        cl = [(.0, .6), (.1, .72), (.3, .84), (.5, .82), (.68, .70), (.8, .52)]; n_ = int(6 + 14 * amt)
+        for i in range(n_):
+            w_ = (len(cl) - 1) * i / max(n_ - 1, 1); j = min(int(w_), len(cl) - 2); fr = w_ - j
+            u = lerp(cl[j][0], cl[j + 1][0], fr); v = lerp(cl[j][1], cl[j + 1][1], fr) + (0.05 if i % 2 else -0.04)
+            q = pt(u, v); sc.circle(q[0], q[1], 1.5, fill=BEARD, a=0.8)
     if Q["moustache"]:
-        q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 6, fill=BEARD)
+        q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 5, fill=BEARD, a=0.25 + 0.6 * Q["beardAmt"])
     q = pt(.86, .30); r_ = pt(.66, .27); m_ = pt(.76, .32)
     sc.pline([q, m_, r_], 2.5, FEAT)
     lh = Q["lensH"]; yy = hy - 12
@@ -315,11 +319,13 @@ def draw_head(sc, P, hx, hy):
     if Q["beard"]:
         outer = [contour(bx, hy, rx - 2, ry - 2, th) for th in range(14, 167, 8)]
         inner = [(hx + fx + (9 + 25 * k) * math.cos(math.radians(th)), hy + 26 + Q["beardOpen"] * math.sin(math.radians(th))) for th in range(166, 13, -8)]
-        sc.poly(outer + inner, fill=BEARD, a=0.95)
-        for i in range(7):
-            a = math.radians(32 + i * 19); px, py = contour(bx, hy, rx - 9, ry - 9, math.degrees(a))
-            sc.circle(px, py, 1.5, fill=HAIR, a=0.7)
-    if Q["moustache"]: sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 6.5, fill=BEARD)
+        amt = Q["beardAmt"]
+        sc.poly(outer + inner, fill=BEARD, a=0.10 + 0.6 * amt)
+        n_ = int(6 + 14 * amt)
+        for i in range(n_):
+            r_ = 9 if i % 2 else 17; px, py = contour(bx, hy, rx - r_, ry - r_, 24 + 132 * i / max(n_ - 1, 1))
+            sc.circle(px, py, 1.5, fill=BEARD, a=0.8)
+    if Q["moustache"]: sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 5.5, fill=BEARD, a=0.25 + 0.6 * Q["beardAmt"])
     # nose: a single hooked line
     nx = hx + fx * 1.1
     ns_ = Q["noseSize"]

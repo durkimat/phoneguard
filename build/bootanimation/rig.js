@@ -14,7 +14,7 @@ const RIG = (() => {
     headW: 64, headH: 70, headN: 3.4, taper: 0.22,
     lensW: 1.0, lensH: 40, lensR: 8, frameW: 5, glassCol: "#1b1b1f",
     hairCol: "#a7a59e", tufts: 22, tuftH: 1.0, lean: -0.35, hairline: 1.0,
-    skin: "#f0c9a6", beard: true, beardCol: "#7a7266", beardOpen: 24, moustache: true, mouthW: 14, smileD: 7, noseSize: 1.0, eyeDot: 3.6,
+    skin: "#f0c9a6", beard: true, beardAmt: 0.25, beardCol: "#7a7266", beardOpen: 24, moustache: true, mouthW: 14, smileD: 7, noseSize: 1.0, eyeDot: 3.6,
     coatCol: "#8a4a28", coatLen: 138, flare: 34, collarH: 1.0, collarW: 0, buttons: 4, pockets: true, scarfCol: "#f26a1b",
     irisCol: "#6f8f45", ringCol: "#a9792f", magR: 46,
     lineCol: "#3a2a20", legCol: "#2a3340", bg: "#070a0f", spot: true, spotAmt: 1.0 };
@@ -162,10 +162,15 @@ const RIG = (() => {
     sc.ellipse(ex, ey_, 8, 12, { fill: C.TEAL, stroke: C.TEAL_D, w: 2 });
     sc.rrect(ex - 3.5, ey_ + 2, 7, 14, 3.5, { fill: C.EARBUD });
     if (Q.beard) {
-      sc.poly([pt(.90, .32), pt(.86, .62), pt(.64, .92), pt(.30, .95), pt(-.10, .80), pt(-.12, .40), pt(.05, .58), pt(.35, .72), pt(.60, .62), pt(.76, .44)], { fill: C.BEARD, a: 0.95 });
-      for (const [u, v] of [[.1, .72], [.3, .84], [.5, .82], [.68, .70], [.8, .52], [.0, .6]]) { const q = pt(u, v); sc.circle(q[0], q[1], 1.5, { fill: C.HAIR, a: 0.7 }); }
+      sc.poly([pt(.90, .32), pt(.86, .62), pt(.64, .92), pt(.30, .95), pt(-.10, .80), pt(-.12, .40), pt(.05, .58), pt(.35, .72), pt(.60, .62), pt(.76, .44)], { fill: C.BEARD, a: 0.10 + 0.6 * Q.beardAmt });
+      const cl = [[.0, .6], [.1, .72], [.3, .84], [.5, .82], [.68, .70], [.8, .52]], n_ = Math.floor(6 + 14 * Q.beardAmt);
+      for (let i = 0; i < n_; i++) {
+        const w_ = (cl.length - 1) * i / Math.max(n_ - 1, 1), j = Math.min(Math.floor(w_), cl.length - 2), fr = w_ - j;
+        const u = lerp(cl[j][0], cl[j + 1][0], fr), v = lerp(cl[j][1], cl[j + 1][1], fr) + (i % 2 ? 0.05 : -0.04), q = pt(u, v);
+        sc.circle(q[0], q[1], 1.5, { fill: C.BEARD, a: 0.8 });
+      }
     }
-    if (Q.moustache) { const q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 6, { fill: C.BEARD }); }
+    if (Q.moustache) { const q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 5, { fill: C.BEARD, a: 0.25 + 0.6 * Q.beardAmt }); }
     sc.pline([pt(.86, .30), pt(.76, .32), pt(.66, .27)], 2.5, C.FEAT);
     const lh = Q.lensH, yy = hy - 12, lx = pt(.66, 0)[0], a1 = pt(.58, 0)[0], a2 = pt(-.02, 0)[0];
     sc.line(a1, yy - 4, a2, hy - 8, Math.max(Q.frameW * 0.8, 3), C.GLASS);
@@ -198,10 +203,12 @@ const RIG = (() => {
     if (Q.beard) {
       const outer = []; for (let th = 14; th < 167; th += 8) outer.push(contour(Q, bx, hy, rx - 2, ry - 2, th));
       const inner = []; for (let th = 166; th > 13; th -= 8) inner.push([hx + fx + (9 + 25 * k) * Math.cos(rad(th)), hy + 26 + Q.beardOpen * Math.sin(rad(th))]);
-      sc.poly(outer.concat(inner), { fill: C.BEARD, a: 0.95 });
-      for (let i = 0; i < 7; i++) { const a = 32 + i * 19, p = contour(Q, bx, hy, rx - 9, ry - 9, a); sc.circle(p[0], p[1], 1.5, { fill: C.HAIR, a: 0.7 }); }
+      const amt = Q.beardAmt;
+      sc.poly(outer.concat(inner), { fill: C.BEARD, a: 0.10 + 0.6 * amt });
+      const n_ = Math.floor(6 + 14 * amt);
+      for (let i = 0; i < n_; i++) { const r_ = i % 2 ? 9 : 17, p = contour(Q, bx, hy, rx - r_, ry - r_, 24 + 132 * i / Math.max(n_ - 1, 1)); sc.circle(p[0], p[1], 1.5, { fill: C.BEARD, a: 0.8 }); }
     }
-    if (Q.moustache) sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 6.5, { fill: C.BEARD });
+    if (Q.moustache) sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 5.5, { fill: C.BEARD, a: 0.25 + 0.6 * Q.beardAmt });
     const nx = hx + fx * 1.1, ns = Q.noseSize;
     sc.pline([[nx - 2 * k * ns, hy - 4], [nx - (5 * k + 2 * Math.abs(f) * 4) * ns, hy + 13 * ns - (ns - 1) * 4], [nx + (5 + 9 * Math.abs(f) * sgn) * ns, hy + 16 * ns - (ns - 1) * 4]], 3, C.FEAT);
     const mw = Q.mouthW * k + 3, mx = hx + fx, top = [], bot = [];
