@@ -1,0 +1,13 @@
+# repo: device/phh/treble
+diff --git a/board-base.mk b/board-base.mk
+--- a/board-base.mk
++++ b/board-base.mk
+@@ -13,3 +13,8 @@ BOARD_ROOT_EXTRA_SYMLINKS := $(filter-out $(BOARD_ROOT_EXTRA_SYMLINKS),/mnt/vendor/persist:/persist)
+ 
+ # Phone Guard: Lineage soong variables/namespaces are normally pulled in by a Lineage device's BoardConfig; the Treble device has none
+ -include vendor/lineage/config/BoardConfigSoong.mk
++
++# Phone Guard: our own boot animation (Lineage's bootanimation.zip module installs this file instead of its default)
++ifneq ($(wildcard vendor/phoneguard/branding/bootanimation.zip),)
++TARGET_BOOTANIMATION := vendor/phoneguard/branding/bootanimation.zip
++endif
