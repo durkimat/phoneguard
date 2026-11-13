@@ -122,7 +122,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             statusLine(c, i, u)
             chrome.beginContent(this, c, u)
             when (m.screen) {
-                Screen.HOME -> { home(c, i, u); m.weather?.let { w -> weatherStrip(c, w, u) } }
+                Screen.HOME -> { home(c, i, u); if (i.nextUp.isNotBlank()) text(c, fit(i.nextUp, 440f, 26f), 240f, 396f, 26f, u, align = Paint.Align.CENTER); m.weather?.let { w -> weatherStrip(c, w, u) } }
                 Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.BATTERY -> batteryScreen(c, m, u)
                 Screen.NOTE -> noteScreen(c, m, u)
@@ -303,6 +303,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     stroke.strokeWidth = 7 * u
                     c.drawLine((cx - 4) * u, (cy - 15) * u, (cx + 20) * u, (cy - 19) * u, stroke)
                     stroke.strokeWidth = 3 * u
+                }
+                BadgeKind.MAIL -> { // an envelope: a box with the flap folded down to a point
+                    c.drawRect((cx - 20) * u, (cy - 12) * u, (cx + 20) * u, (cy + 14) * u, stroke)
+                    c.drawLine((cx - 20) * u, (cy - 12) * u, cx * u, (cy + 4) * u, stroke); c.drawLine((cx + 20) * u, (cy - 12) * u, cx * u, (cy + 4) * u, stroke)
                 }
                 BadgeKind.NOTES -> { // a bell
                     val bell = android.graphics.Path().apply {
