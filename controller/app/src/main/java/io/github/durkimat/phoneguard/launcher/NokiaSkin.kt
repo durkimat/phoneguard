@@ -128,7 +128,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 Screen.NOTE -> noteScreen(c, m, u)
                 Screen.MUSIC -> musicScreen(c, m, u)
                 Screen.THREAD -> thread(c, m, u)
-                Screen.EVENT -> page(c, m, u)
+                Screen.EVENT, Screen.MAILMSG -> page(c, m, u)
                 Screen.CALMONTH -> calMonth(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
