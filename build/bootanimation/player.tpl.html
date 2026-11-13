@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Boot animation mock-up</title>
+<style>
+  :root { --bg:#10161c; --fg:#e8eef2; --mut:#8fa0ab; --acc:#00e0c6; --line:#243040; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui,sans-serif; }
+  main { max-width:520px; margin:0 auto; padding:16px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p.note { color:var(--mut); margin:0 0 12px; font-size:13px; }
+  #phone { width:100%; max-width:360px; aspect-ratio:480/640; margin:0 auto; border:6px solid #000; border-radius:18px; overflow:hidden; background:#070a0f; box-shadow:0 0 0 1px var(--line); }
+  #cap { text-align:center; min-height:1.6em; margin:10px 0 4px; color:var(--acc); font-weight:600; }
+  .row { display:flex; gap:10px; align-items:center; margin:8px 0; }
+  button, select { background:#1b2733; color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 14px; font:inherit; }
+  input[type=range] { flex:1; accent-color:var(--acc); }
+  #time { color:var(--mut); font-variant-numeric:tabular-nums; min-width:5.5em; text-align:right; }
+  .legend { color:var(--mut); font-size:13px; margin-top:12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Boot animation mock-up</h1>
+  <p class="note">Draft 1, generic first pass. Screen shape 480 x 640, 35 s loop. Sequence 1 (0 to 16 s) then sequence 2 (17 to 34 s).</p>
+  <div id="phone"></div>
+  <div id="cap"></div>
+  <div class="row">
+    <button id="play">Pause</button>
+    <input id="scrub" type="range" min="0" value="0" step="1">
+    <span id="time">0.0 s</span>
+  </div>
+  <div class="row">
+    <label for="speed">Speed</label>
+    <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+  </div>
+  <p class="legend">On the phone, Android ends the animation when the system is ready, so a quick boot may never reach sequence 2.</p>
+</main>
+<script>
+const FRAMES = /*FRAMES*/[];
+const CAPS = /*CAPS*/[];
+const FPS = /*FPS*/15;
+const phone = document.getElementById('phone'), cap = document.getElementById('cap');
+const scrub = document.getElementById('scrub'), time = document.getElementById('time');
+const playBtn = document.getElementById('play'), speed = document.getElementById('speed');
+scrub.max = FRAMES.length - 1;
+let pos = 0, playing = true, last = performance.now();
+function show(i) {
+  i = Math.max(0, Math.min(FRAMES.length - 1, Math.floor(i)));
+  phone.innerHTML = FRAMES[i];
+  cap.textContent = CAPS[i] || '';
+  scrub.value = i;
+  time.textContent = (i / FPS).toFixed(1) + ' s';
+}
+function tick(now) {
+  const dt = (now - last) / 1000; last = now;
+  if (playing) { pos += dt * FPS * parseFloat(speed.value); if (pos >= FRAMES.length) pos -= FRAMES.length; show(pos); }
+  requestAnimationFrame(tick);
+}
+playBtn.onclick = () => { playing = !playing; playBtn.textContent = playing ? 'Pause' : 'Play'; };
+scrub.oninput = () => { pos = parseFloat(scrub.value); show(pos); };
+show(0);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
