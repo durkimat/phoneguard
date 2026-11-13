@@ -109,7 +109,7 @@ object Cal {
         return out.sortedWith(compareBy<AgendaItem>({ it.day }, { !it.event.allDay }, { it.event.start }, { it.event.title }))
     }
     fun agendaRow(i: AgendaItem, today: LocalDate, z: ZoneId): String =
-        dayLabel(i.day, today, true) + " " + (if (i.event.allDay) "All day" else clock(i.event.start, z)) + "  " + i.event.title.ifBlank { "(no title)" }
+        dayLabel(i.day, today, true) + (if (i.event.allDay) "  " else " " + clock(i.event.start, z) + " ") + i.event.title.ifBlank { "(no title)" }
 
     /** The 42 days of a month grid, a week to a row from Monday. */
     fun monthCells(year: Int, month: Int): List<LocalDate> {

@@ -33,9 +33,9 @@ class CalendarTest {
 
     @Test fun agendaIsInOrderAndLabelsDays() {
         val rows = Cal.agenda(events(), d13, 90, z).map { Cal.agendaRow(it, d13, z) }
-        assertEquals("Today 15:00  Dentist", rows[0])
-        assertTrue(rows[1].startsWith("Tmrw 09:00"))
-        assertTrue(rows.any { it.startsWith("Mon 16 All day  Half term") } || rows.any { it.contains("Half term") })
+        assertEquals("Today 15:00 Dentist", rows[0])
+        assertTrue(rows[1].startsWith("Tmrw 09:00 Football"))
+        assertTrue(rows.contains("Mon 16  Half term"))
         assertEquals(1 + 1 + 5 + 1, rows.size) // dentist, football, five days of half term, term dates
     }
 
