@@ -14,7 +14,7 @@ class JourneyTest {
         MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
         MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(WEATHER_PKG, "Weather"), MenuItem(GAMES_PKG, "Games"),
         MenuItem(APPS_PKG, "Apps"), MenuItem(CALC_PKG, "Calculator"), MenuItem(MUSIC_PKG, "Music"), MenuItem(SETTINGS_PKG, "Settings"),
-        MenuItem(LOGSET_PKG, "Logs"), MenuItem(RUNNING_PKG, "Running"), MenuItem(CALENDAR_PKG, "Calendar"),
+        MenuItem(LOGSET_PKG, "Logs"), MenuItem(RUNNING_PKG, "Running"), MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(MAIL_PKG, "Email"),
     )
 
     private class Setup(val menuStyle: String, val whatsApp: Boolean, val theme: String = "green", val linked: Boolean = whatsApp) {
@@ -38,6 +38,9 @@ class JourneyTest {
         it.running = listOf(RunningApp("a.b", "Maps", "busy"))
         it.spSignedIn = true
         it.nowMs = { 1_794_000_000_000L }
+        it.mailConfig = io.github.durkimat.phoneguard.mail.MailAccount("kid@gmail.com", imapHost = "imap.gmail.com", smtpHost = "smtp.gmail.com")
+        it.mailInbox = listOf(io.github.durkimat.phoneguard.mail.MailHeader(5, "Mum", "mum@x.org", "kid@gmail.com", "Tea tonight?", 1_000_000, true), io.github.durkimat.phoneguard.mail.MailHeader(4, "Dad", "dad@x.org", "kid@gmail.com", "Lift home", 900_000, false))
+        it.mailSent = listOf(io.github.durkimat.phoneguard.mail.MailHeader(1, "Mum", "mum@x.org", "mum@x.org", "Re: Tea", 800_000, false))
         val t = 1_794_000_000_000L
         it.calWritable = listOf(io.github.durkimat.phoneguard.calendar.CalInfo(1, "Phone", "Phone Guard", true))
         it.calEvents = listOf(
@@ -66,7 +69,7 @@ class JourneyTest {
     private class Map(val seen: LinkedHashMap<Snap, List<Press>>, val crashes: List<String>)
 
     /** Breadth first over (screen, row, depth), keeping the shortest key path to each. */
-    private fun explore(s: Setup, levels: Int = 7, cap: Int = 6000): Map {
+    private fun explore(s: Setup, levels: Int = 8, cap: Int = 9000): Map {
         val seen = LinkedHashMap<Snap, List<Press>>()
         val crashes = ArrayList<String>()
         val start = phone(s)

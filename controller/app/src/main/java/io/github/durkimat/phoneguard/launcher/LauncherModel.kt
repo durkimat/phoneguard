@@ -4,6 +4,9 @@ import io.github.durkimat.phoneguard.calendar.AgendaItem
 import io.github.durkimat.phoneguard.calendar.Cal
 import io.github.durkimat.phoneguard.calendar.CalEvent
 import io.github.durkimat.phoneguard.calendar.CalInfo
+import io.github.durkimat.phoneguard.mail.MailAccount
+import io.github.durkimat.phoneguard.mail.MailHeader
+import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 
 /**
  * The launcher's behaviour, with no drawing and no Android classes, so it is unit tested and any skin
@@ -13,7 +16,7 @@ import io.github.durkimat.phoneguard.calendar.CalInfo
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -86,6 +89,7 @@ const val LOGSET_PKG = "pg:logset"
 const val MUSIC_PKG = "pg:music"
 const val NOTES_PKG = "pg:notes"
 const val CALENDAR_PKG = "pg:calendar"
+const val MAIL_PKG = "pg:mail"
 const val RUNNING_PKG = "pg:running"
 val CAMERA_APPS = setOf("org.lineageos.aperture", "com.android.camera2", "org.lineageos.snap", "com.android.camera")
 const val WEATHER_PKG = "pg:weather"
@@ -212,6 +216,14 @@ sealed class Action {
     data class CalLoad(val from: Long, val to: Long) : Action()
     data class CalSave(val event: CalEvent) : Action()
     data class CalDelete(val id: Long) : Action()
+    /** Mail: check the server (force: even if checked lately), fetch a message's text, send, mark read or unread, delete, sign in with a new account, forget the account. */
+    data class MailSync(val force: Boolean) : Action()
+    data class MailFetch(val sent: Boolean, val uid: Long) : Action()
+    data class MailSend(val to: List<String>, val subject: String, val body: String) : Action()
+    data class MailSeen(val uid: Long, val seen: Boolean) : Action()
+    data class MailDelete(val sent: Boolean, val uid: Long) : Action()
+    data class MailSetup(val account: MailAccount, val password: String) : Action()
+    object MailRemove : Action()
 }
 
 class LauncherModel(
@@ -459,6 +471,10 @@ class LauncherModel(
         Screen.CALMONTH -> Cal.monthName(calDay.monthValue) + " " + calDay.year
         Screen.EVENT -> "Event"
         Screen.FORM -> form?.title ?: "Edit"
+        Screen.MAILBOX -> "Email"
+        Screen.MAILLIST -> if (mailSentBox) "Sent" else "Inbox"
+        Screen.MAILMSG -> "Message"
+        Screen.MAILMENU -> "Options"
         else -> "Menu"
     }
 
@@ -495,6 +511,7 @@ class LauncherModel(
         Screen.CALENDAR -> "Options" to "Back"
         Screen.CALMONTH -> "Open" to "Back"
         Screen.EVENT -> "Options" to "Back"
+        Screen.MAILMSG -> "Options" to "Back"
         Screen.FORM -> (form?.primary ?: "Save") to "Back"
         Screen.INBOX -> "Open" to "Back"
         Screen.WHATSAPP -> (if (waLinked) "Open" else "Link") to "Back"
@@ -556,7 +573,10 @@ class LauncherModel(
         Screen.CALMENU -> listOf("Add event", "Month view", "Go to today")
         Screen.EVMENU -> evMenuRows
         Screen.FORM -> form?.rowsOf?.invoke()?.map { it.text } ?: emptyList()
-        Screen.CALMONTH, Screen.EVENT -> emptyList()
+        Screen.CALMONTH, Screen.EVENT, Screen.MAILMSG -> emptyList()
+        Screen.MAILBOX -> mailBoxRows
+        Screen.MAILLIST -> mailList.map { (if (it.unread && !mailSentBox) "* " else "") + (if (mailSentBox) it.to.ifBlank { it.from } else it.from) + ": " + it.subject }.ifEmpty { listOf(mailStatus.ifBlank { "No mail" }) }
+        Screen.MAILMENU -> mailMenuRows
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
 
@@ -567,7 +587,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -634,6 +654,10 @@ class LauncherModel(
         Screen.EVENT -> eventKey(key)
         Screen.EVMENU -> evMenuKey(key)
         Screen.FORM -> formKey(key)
+        Screen.MAILBOX -> mailBoxKey(key)
+        Screen.MAILLIST -> mailListKey(key)
+        Screen.MAILMSG -> mailMsgKey(key)
+        Screen.MAILMENU -> mailMenuKey(key)
     }
 
     private fun callScreen(key: Key, digit: Int): Action {
@@ -1053,6 +1077,7 @@ class LauncherModel(
         item.pkg == RUNNING_PKG -> { enter(Screen.RUNNING); Action.Redraw }
         item.pkg == NOTES_PKG -> { enter(Screen.NOTES); Action.Redraw }
         item.pkg == CALENDAR_PKG -> openCalendar()
+        item.pkg == MAIL_PKG -> openMail()
         item.pkg == WEATHER_PKG -> { enter(Screen.WEATHER); Action.Redraw }
         item.pkg == GAMES_PKG -> { enter(Screen.GAMES); Action.Redraw }
         item.pkg == APPS_PKG -> { enter(Screen.APPS); Action.Redraw }
@@ -1167,7 +1192,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
@@ -1176,7 +1201,7 @@ class LauncherModel(
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
     /** The screens a skin draws by hand; everything else is a list of rows. */
-    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL, Screen.CALMONTH, Screen.EVENT)
+    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL, Screen.CALMONTH, Screen.EVENT, Screen.MAILMSG)
 
     /** How the current screen is laid out. On a grid the D-pad moves in four directions, so Left and Right stop being soft-key aliases. */
     val layout: Layout get() = when {
@@ -2021,6 +2046,159 @@ class LauncherModel(
     private var writeDone: ((String) -> Action)? = null
     private var writeExact = false
     private val exactTyping: Boolean get() = writeWifi != null || writeExact
+
+    // ---- Mail
+    /** The address of the account that is set up, or null; the headers kept on the phone; and a short line about the last check. */
+    var mailConfig: MailAccount? = null
+    val mailAccount: String? get() = mailConfig?.address
+    var mailInbox: List<MailHeader> = emptyList()
+    var mailSent: List<MailHeader> = emptyList()
+    var mailStatus = ""
+    private var mailSentBox = false
+    private var mailOpen: MailHeader? = null
+    private var mailConfirm = false
+    private var removeConfirm = false
+    private val mailList: List<MailHeader> get() = if (mailSentBox) mailSent else mailInbox
+    private val mailUnread: Int get() = mailInbox.count { it.unread }
+
+    private fun openMail(): Action { enter(Screen.MAILBOX); return Action.MailSync(false) }
+
+    private val mailBoxRows: List<String> get() =
+        if (mailAccount == null) listOf("Set up email")
+        else listOf("Inbox" + (if (mailUnread > 0) " ($mailUnread)" else ""), "Sent", "Write message", "Check mail now" + (if (mailStatus.isNotBlank()) " - $mailStatus" else ""), "Account")
+
+    private fun mailBoxKey(key: Key): Action = move(key, mailBoxRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
+            mailAccount == null -> { pushForm(accountForm()); Action.Redraw }
+            selected == 0 || selected == 1 -> { mailSentBox = selected == 1; enter(Screen.MAILLIST); Action.Redraw }
+            selected == 2 -> { pushForm(composeForm("", "", "")); Action.Redraw }
+            selected == 3 -> { mailStatus = "Checking..."; Action.MailSync(true) }
+            else -> { pushForm(accountForm()); Action.Redraw }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun mailListKey(key: Key): Action = move(key, maxOf(1, mailList.size)) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> mailList.getOrNull(selected)?.let { openMessage(it) } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun mailWhen(ms: Long): String {
+        val t = java.time.Instant.ofEpochMilli(ms).atZone(zone)
+        return if (t.toLocalDate() == today) Cal.clock(ms, zone) else t.dayOfMonth.toString() + " " + Cal.monthName(t.monthValue).take(3) + " " + Cal.clock(ms, zone)
+    }
+
+    private fun openMessage(h: MailHeader): Action {
+        mailOpen = h; mailConfirm = false; scroll = 0
+        pageHead = (if (mailSentBox) "To " + h.to.ifBlank { h.from } else h.from) + "  " + mailWhen(h.date)
+        pageBody = h.subject + "\n\nLoading..."
+        enter(Screen.MAILMSG)
+        if (h.unread && !mailSentBox) mailInbox = mailInbox.map { if (it.uid == h.uid) it.copy(unread = false) else it }
+        return Action.MailFetch(mailSentBox, h.uid)
+    }
+
+    /** The text of the open message arrived (or could not be fetched). */
+    fun setMailBody(uid: Long, text: String) {
+        val h = mailOpen ?: return
+        if (h.uid == uid && screen in setOf(Screen.MAILMSG, Screen.MAILMENU)) pageBody = h.subject + "\n\n" + text
+    }
+
+    private fun mailMsgKey(key: Key): Action {
+        val lines = wrapper(pageBody).size
+        return when (key) {
+            Key.DOWN -> if (scroll + pageLines < lines) { scroll += pageLines; Action.Redraw } else Action.None
+            Key.UP -> if (scroll > 0) { scroll = (scroll - pageLines).coerceAtLeast(0); Action.Redraw } else Action.None
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> { mailConfirm = false; enter(Screen.MAILMENU); Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private val mailMenuRows: List<String> get() = when {
+        mailConfirm -> listOf("Yes, delete it", "No")
+        mailSentBox -> listOf("Delete")
+        else -> listOf("Reply", "Delete", "Mark unread")
+    }
+
+    private fun mailMenuKey(key: Key): Action = move(key, mailMenuRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+            val h = mailOpen
+            val row = mailMenuRows[selected.coerceIn(0, mailMenuRows.size - 1)]
+            when {
+                h == null -> Action.None
+                row == "Reply" -> { openForm(composeForm(h.addr, if (h.subject.startsWith("Re:", true)) h.subject else "Re: " + h.subject, "")); Action.Redraw }
+                row == "Delete" -> { mailConfirm = true; selected = 1; Action.Redraw }
+                row == "Yes, delete it" -> { leaveTo(Screen.MAILLIST, 0); val sent = mailSentBox; if (sent) mailSent = mailSent.filter { it.uid != h.uid } else mailInbox = mailInbox.filter { it.uid != h.uid }; notice = "Deleted"; Action.MailDelete(sent, h.uid) }
+                row == "No" -> { mailConfirm = false; selected = 1; Action.Redraw }
+                else -> { // Mark unread
+                    leaveTo(Screen.MAILLIST, 0); mailInbox = mailInbox.map { if (it.uid == h.uid) it.copy(unread = true) else it }; notice = "Marked unread"; Action.MailSeen(h.uid, false)
+                }
+            }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (mailConfirm) { mailConfirm = false; selected = 1 } else leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    /** Pushes a form on top of this screen (Back returns here), unlike [openForm], which takes this screen's place. */
+    private fun pushForm(f: Form) { form = f; enter(Screen.FORM) }
+
+    private fun composeForm(to0: String, subject0: String, body0: String): Form {
+        var to = to0; var subject = subject0; var body = body0
+        val rows: () -> List<FormRow> = { listOf(
+            FormRow("To", { to.ifBlank { "-" } }, { to = it.trim() }, { to }, exact = true),
+            FormRow("Subject", { subject.ifBlank { "-" } }, { subject = it }, { subject }),
+            FormRow("Message", { body.lineSequence().firstOrNull().orEmpty().take(18).ifBlank { "-" } }, { body = it }, { body }),
+        ) }
+        return Form("Write message", "Send", rows) {
+            val rcpt = to.split(',', ';', ' ').map { it.trim() }.filter { it.isNotEmpty() }
+            when {
+                rcpt.isEmpty() || rcpt.any { !it.contains('@') } -> { notice = "Check the To address"; Action.Redraw }
+                body.isBlank() -> { notice = "Write a message first"; Action.Redraw }
+                else -> {
+                    leaveTo(if (trail.any { it.screen == Screen.MAILLIST }) Screen.MAILLIST else Screen.MAILBOX, 0); notice = "Sending..."
+                    Action.MailSend(rcpt, subject.ifBlank { "(no subject)" }, body)
+                }
+            }
+        }
+    }
+
+    private fun accountForm(): Form {
+        var address = mailAccount ?: ""; var password = ""; var name = ""; var imap = ""; var smtp = ""
+        removeConfirm = false
+        val known: () -> Boolean = { MailPresets.forAddress(address) != null || address.endsWith(Mail_DEMO) }
+        val rows: () -> List<FormRow> = { buildList {
+            if (mailAccount == null) add(FormRow("Address", { address.ifBlank { "-" } }, { address = it.trim() }, { address }, exact = true))
+            else add(FormRow("Account", { address }))
+            add(FormRow("Password", { if (password.isEmpty()) "-" else "*".repeat(password.length.coerceAtMost(16)) }, { password = it }, { password }, exact = true))
+            if (mailAccount == null && address.contains('@') && !known()) {
+                add(FormRow("IMAP server", { imap.ifBlank { MailPresets.guess(address)?.imapHost ?: "-" } }, { imap = it.trim() }, { imap.ifBlank { MailPresets.guess(address)?.imapHost ?: "" } }, exact = true))
+                add(FormRow("SMTP server", { smtp.ifBlank { MailPresets.guess(address)?.smtpHost ?: "-" } }, { smtp = it.trim() }, { smtp.ifBlank { MailPresets.guess(address)?.smtpHost ?: "" } }, exact = true))
+            }
+            if (mailAccount == null) add(FormRow("Your name", { name.ifBlank { "-" } }, { name = it }, { name }))
+            if (mailAccount != null) add(FormRow(if (removeConfirm) "Press again to remove" else "Remove account", run = { if (removeConfirm) { removeConfirm = false; leaveTo(Screen.MAILBOX, 0); notice = "Account removed"; Action.MailRemove } else { removeConfirm = true; Action.Redraw } }))
+        } }
+        return Form(if (mailAccount == null) "Set up email" else "Account", "Save", rows) {
+            val a = address.trim()
+            val base = mailConfig?.takeIf { it.address == a } ?: MailPresets.forAddress(a) ?: if (a.endsWith(Mail_DEMO)) MailAccount(a, imapHost = "demo", smtpHost = "demo") else MailPresets.guess(a)
+            when {
+                mailAccount != null && password.isEmpty() -> { leaveTo(Screen.MAILBOX, 0); Action.Redraw }
+                base == null -> { notice = "Enter your email address"; Action.Redraw }
+                password.isEmpty() && !a.endsWith(Mail_DEMO) -> { notice = "Enter the password"; Action.Redraw }
+                else -> {
+                    val acct = base.copy(name = name.trim(), imapHost = imap.ifBlank { base.imapHost }, smtpHost = smtp.ifBlank { base.smtpHost })
+                    leaveTo(Screen.MAILBOX, 0); mailStatus = "Signing in..."
+                    Action.MailSetup(acct, password)
+                }
+            }
+        }
+    }
+    private val Mail_DEMO = "@demo.local"
 }
 
 enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES, MUSIC }
