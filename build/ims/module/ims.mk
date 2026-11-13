@@ -4,7 +4,8 @@ PG_IMS := vendor/phoneguard/ims/proprietary
 # Other apps that go into the image (TT9 keypad input): vendor/phoneguard/apps
 $(call inherit-product-if-exists, vendor/phoneguard/apps/apps.mk)
 
-PRODUCT_PACKAGES += MtkCarrierConfig
+# The AOSP CarrierConfig module pulled in this allowlist via `required`; replacing the app drops it, so install it explicitly (grants READ_PRIVILEGED_PHONE_STATE to com.android.carrierconfig).
+PRODUCT_PACKAGES += MtkCarrierConfig privapp_whitelist_com.android.carrierconfig
 
 # Properties the stock-based IMS stack expects (TrebleDroid's stock MTK IMS convention).
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.mtk_ims_support=1 persist.mtk_epdg_support=1
