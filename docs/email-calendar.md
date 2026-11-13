@@ -8,6 +8,8 @@ Replaces the one-line "Email: future feature" note in BACKLOG.md. Design only; n
 - Email **sends and receives**. No sender controls or parent filtering for now.
 - No attachments and no HTML formatting for now (HTML mail is shown as plain text, remote images never loaded).
 - Sync delay of **15 minutes** is fine. It may become configurable, but it must follow the radio-sleep design ([radios-per-mode.md](radios-per-mode.md)).
+- **Credentials (decided 2026-11-13):** MVP types the app password on the phone with T9 (a one-off). Later: a **QR code** shown on the phone or scanned from another device so setup is easy; the HA parent console may offer it too but is never required.
+- **Calendar v1 includes editing** (add, change, delete events), not just viewing.
 - Defaults agreed: Email is **hidden in School**; the Calendar stays visible there (it doubles as a timetable).
 - Gmail first, but the UI and the back end are provider-independent.
 
@@ -27,12 +29,13 @@ Rejected for now: Gmail REST API (Gmail-only, restricted-scope verification), em
 - **Delete** moves to the provider's Trash, never expunge.
 - New-mail notice and sound follow the Sound profile design (not yet written).
 
-## Calendar back end
-Order of build:
-1. **ICS URL provider** (read-only, own parser such as ical4j). Google's secret iCal address needs no sign-in, so Gmail calendars work on day one. Recurrence expansion is the main work.
-2. **Android calendar store provider** (`CalendarContract`): reads whatever any sync app has put there (DAVx5, ICSx5), so write-back and CalDAV come "free" without our own sync code. Check the own-build image includes the calendar provider.
-3. **CalDAV provider** (read/write) only if write-back is wanted and 2 is not enough.
-Assumed: read-only in v1 (add-event is phase 4). Confirm.
+## Calendar back end (editing in v1)
+An ICS feed cannot be written to, so v1 needs a writable store. Chosen: the **Android calendar store (`CalendarContract`)** as the main provider, read and write.
+- **Writable sync**: a sync app fills and syncs the store; we edit through `CalendarContract` and the sync app pushes changes back. **DAVx5** (CalDAV, including Google via its own sign-in) is the candidate; it is GPL-3 but a separate installed app, so no licence issue for us. To verify on the own build: it installs and syncs without Play services, and Google sign-in works on microG.
+- **Local calendar**: a calendar on the device only (no sync) works with no extra app. Useful as the fallback and for tests.
+- **ICS subscription provider** (read-only, ical4j or similar) for calendars we only want to see (school terms, sports fixtures). Read-only calendars show no edit options.
+- **Own CalDAV provider** is only needed if DAVx5 proves unsuitable. Google's CalDAV needs OAuth, so it would not be first.
+Edit rules for v1: edits apply to the whole series (no "this event only" exceptions yet); delete asks for confirmation.
 
 ## UI (simple elements only; existing launcher chrome and keys)
 ### Email
@@ -44,25 +47,26 @@ Assumed: read-only in v1 (add-event is phase 4). Confirm.
 ### Calendar
 - **Agenda** (default): list with day header rows, then rows of time and title; extras = place.
 - **Month**: GRID layout, 7 columns, dots under days with events; D-pad moves, Select opens the day.
-- **Event**: callout with title, time, place, notes.
+- **Event**: callout with title, time, place, notes; Options = Edit, Delete.
 - Home screen: a "Next up" line and reminder notices.
-- Later: add-event form built from list rows, each opening a small picker.
+- **Edit / add event (v1)**: a form made of list rows, each opening a small picker: Title (T9), Date, Start, End (or Duration), All day, Place, Repeat (none, daily, weekly, monthly, yearly), Reminder. Save = left soft key; Options on an event = Edit, Delete. A calendar is chosen when more than one is writable.
 ### Modes
 - School: Email hidden (and its sync not run), Calendar visible and read-only. Per-mode visibility uses the existing mode app-visibility mechanism, so the parent can change it.
 - Sync respects "Radios sleep when locked", Wi-Fi/data intent, and any mode with live location.
 
 ## Phases
-0. Spike when the phone is back on: IMAP login with an app password on the own build, TLS/CA trust, timing of a poll inside a check-in window; confirm the calendar provider is present.
-1. Calendar: ICS provider, store, Agenda, Month, Event, home "Next up".
-2. Email receive: account setup, store, Inbox, Message, badge, sync in windows, unlock sync.
-3. Email send: compose/reply, queue, Sent/Drafts.
-4. Extras: CalendarContract provider, OAuth providers, add event, configurable poll interval.
+0. Spike when the phone is back on: IMAP login with an app password on the own build, TLS/CA trust, timing of a poll inside a check-in window; confirm the calendar provider is present; try DAVx5 (install, sync, Google sign-in on microG).
+1. Calendar: `CalendarContract` provider (read and write), local calendar, Agenda, Month, Event, edit/add/delete form, home "Next up".
+2. Calendar extras: ICS subscriptions (read-only).
+3. Email receive: account setup (T9 password), store, Inbox, Message, badge, sync in windows, unlock sync.
+4. Email send: compose/reply, queue, Sent/Drafts.
+5. Extras: QR-code setup, OAuth providers, configurable poll interval, single-instance recurring edits, optional parent-console setup.
 Each phase adds golden navigation tests, journey tests (JourneyTest setups) and a walker pass.
 
 ## Open questions
-- **Credential entry without HA.** An app password is long; typing it with T9 is painful, and the old rule was "no passwords typed on the phone". Options: a parent enters it once at setup via adb/a setup screen with a full keyboard; scan a QR code from the parent's phone or PC; a small local web page served on the LAN during setup. Needs a decision.
+- Does DAVx5 (or another sync app) work on the own build with Google, without Play services? If not, fall back to our own CalDAV provider, which needs OAuth for Google.
 - Where credentials live: Android Keystore-wrapped storage, never in the config JSON.
+- QR design: phone shows a QR for a one-off page, or scans one from a laptop; decide in phase 5.
 - Threading (conversation view) deferred; plain list first.
-- Is read-only calendar OK for v1?
 - Number of days kept and a mailbox size cap (storage on this phone is small).
 - Per-account parent visibility of mail: none now; revisit if needed.
