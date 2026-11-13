@@ -1,6 +1,15 @@
 # Email and calendar (design v1, 2026-11-13)
 
-Replaces the one-line "Email: future feature" note in BACKLOG.md. Design only; nothing is built.
+Replaces the one-line "Email: future feature" note in BACKLOG.md.
+
+## Status (2026-11-13 evening): phases 1 and 3 to 4 built, untested against a real account
+Built and unit tested (276 tests): the calendar (Android calendar store, agenda, month, event page, add/edit/delete form, home "Next up" line), the email engine (own IMAP and SMTP clients, MIME reader, on-phone store, password sealed with the Android Keystore), the mail screens (Email menu, Inbox, Sent, message, reply/write, account set-up/remove) and the home envelope badge with unread count. The IMAP/SMTP code is tested against a fake server in `ImapTest`; **it has never talked to a real provider**. Not built: ICS subscriptions, QR set-up, OAuth providers, push or timed background polling (mail is checked when the launcher comes to the front, at most every 15 minutes and 5 minutes after a failure; never in School), attachments, threading, single-occurrence edits of repeating events.
+Code: `calendar/` (Cal.kt, AndroidCalendar.kt), `mail/` (Imap.kt, Smtp.kt, Mime.kt, MailTypes.kt, MailStore.kt), `launcher/Form.kt` (the generic form), the Calendar/Mail blocks at the end of `LauncherModel.kt`.
+
+## Trying it on the phone
+Debug builds only: `adb shell am start -S -n io.github.durkimat.phoneguard/.launcher.LauncherActivity --es pg_mail_demo 1` sets up a made-up mailbox (an account ending @demo.local) so every mail screen can be tried with no account.
+Calendar permission is granted by `Enforcer` for device-owner phones; otherwise `adb shell pm grant io.github.durkimat.phoneguard android.permission.READ_CALENDAR` (and WRITE_CALENDAR).
+A real Gmail account: Menu > Email > Set up email: the address, then an **app password** (Google account > Security > 2-step verification > App passwords), typed with the keypad. `*` types symbols in the Address/Password boxes (1 gives . - _ @). Sign-in errors are shown as a short line.
 
 ## Decisions (owner, 2026-11-13)
 - Assume **no Family Link constraints**. Email works with an ordinary external provider and nothing else in the way.
