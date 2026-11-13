@@ -40,11 +40,14 @@ class Scene:
     def pline(s, pts, w, col, a=1.0): s._a("pline", pts, None, col, w, a)
     def rrect(s, x, y, w_, h_, r, fill=None, stroke=None, w=0, a=1.0): s._a("rrect", (x, y, w_, h_, r), fill, stroke, w, a)
 
+    def final(s):
+        return [r for r in (restyle(op) for op in s.ops) if r]
+
     def svg(s):
         f = lambda v: ("%.1f" % v).rstrip("0").rstrip(".")
         out = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="100%%" height="100%%">' % (W, H),
                '<rect width="%d" height="%d" fill="%s"/>' % (W, H, BG)]
-        for kind, p, fill, stroke, w, a, cap in s.ops:
+        for kind, p, fill, stroke, w, a, cap in s.final():
             st = ' fill="%s"' % fill if fill else ' fill="none"'
             if stroke: st += ' stroke="%s" stroke-width="%s" stroke-linecap="round" stroke-linejoin="round"' % (stroke, f(w))
             if a < 1: st += ' opacity="%s"' % f2(a)
@@ -60,7 +63,7 @@ class Scene:
 
     def mvg(s):
         o = ["viewbox 0 0 %d %d" % (W, H), "fill %s" % BG, "rectangle 0,0 %d,%d" % (W, H), "stroke-linecap round", "stroke-linejoin round"]
-        for kind, p, fill, stroke, w, a, cap in s.ops:
+        for kind, p, fill, stroke, w, a, cap in s.final():
             o.append("fill %s" % (rgba(fill, a) if fill else "none"))
             o.append("stroke %s" % (rgba(stroke, a) if stroke else "none"))
             o.append("stroke-width %.2f" % w)
@@ -71,6 +74,51 @@ class Scene:
             elif kind == "rrect":
                 x, y, w_, h_, r = p; o.append("roundrectangle %.1f,%.1f %.1f,%.1f %.1f,%.1f" % (x, y, x + w_, y + h_, r, r))
         return "\n".join(o)
+
+
+GREEN = "#3ddc84"; ORANGE = "#ff8a3d"; NAVY = "#073042"; WHITE = "#ffffff"
+_BODY = [TEAL, COAT, SCARF, HAIR, LEG, SKIN, BEARD, EARBUD, BRASS, "#10161c", "#2bbfaa", "#f4f1ea", "#7fa793", WHITE, "#ffffff"]
+
+# a style maps the base colours to a look; None selects the original (full colour) look
+STYLES = {
+    "outline": dict(minw=3, fill={c: None for c in _BODY}, stroke={c: GREEN for c in (TEAL_D, GLASS, HAIR, BRASS, COAT_D, SCARF_D, LEG, "#8d6a58", "#4a3b32", "#3d5d4e", "#1d2a2d", COAT)},
+                    fillstroke={c: GREEN for c in _BODY}, dot=GREEN, opaque=True, drop_shine=True, tube=True),
+    "accent": dict(minw=3, fill={c: None for c in _BODY}, stroke={TEAL_D: GREEN, GLASS: WHITE, HAIR: GREEN, BRASS: ORANGE, COAT_D: GREEN, SCARF_D: ORANGE, LEG: GREEN, "#8d6a58": GREEN, "#4a3b32": GREEN, "#3d5d4e": GREEN, "#1d2a2d": WHITE, COAT: GREEN},
+                    fillstroke={**{c: GREEN for c in _BODY}, SCARF: ORANGE, EARBUD: "#7d92ff"}, dot=GREEN, opaque=True, drop_shine=True, tube=True),
+    "flat": dict(minw=2, fill={TEAL: GREEN, COAT: "#27b86b", LEG: "#27b86b", HAIR: "#d9f5e5", SKIN: "#d9f5e5", BEARD: "#1b7f4a", "#2bbfaa": "#27b86b", BRASS: "#27b86b"},
+                  stroke={TEAL_D: NAVY, GLASS: NAVY, COAT_D: NAVY, SCARF_D: "#c4520f", LEG: NAVY, BRASS: NAVY, "#1d2a2d": NAVY, "#4a3b32": NAVY},
+                  fillstroke={}, dot="#d9f5e5", opaque=True, drop_shine=False),
+    "tint": dict(minw=3, fill={c: GREEN for c in _BODY}, fillalpha=0.12, stroke={c: GREEN for c in (TEAL_D, GLASS, HAIR, BRASS, COAT_D, SCARF_D, LEG, "#8d6a58", "#4a3b32", "#3d5d4e", "#1d2a2d", COAT)},
+                  fillstroke={c: GREEN for c in _BODY}, dot=GREEN, opaque=False, drop_shine=True, tube=True),
+}
+TUBE = "#abcdef"
+STYLE = None   # set by the caller; None = the original full-colour look
+
+
+def restyle(op):
+    st = STYLES.get(STYLE) if STYLE else None
+    kind, p, fill, stroke, w, a, cap = op
+    if stroke == TUBE:                                                                   # inner core of an outlined limb
+        return (kind, p, None, BG, w, 1.0, cap) if st and st.get("tube") else None
+    if not st: return op
+    if fill == "#fff3d0" or fill == "#000000" or fill == "#cfeff0": return op            # spotlight, shadow, glass tint
+    if fill == WHITE and a < 0.3: return None if st["drop_shine"] else op                 # shine / lens tint
+    tiny = kind == "ellipse" and p[2] < 3 and fill and not stroke
+    if tiny:
+        c = st["fill"].get(fill, fill) or st["dot"]
+        return (kind, p, c if fill != WHITE else WHITE, None, 0, 1.0, cap)
+    nf, ns, nw, na = fill, stroke, w, a
+    if fill:
+        nf = st["fill"][fill] if fill in st["fill"] else fill
+        if nf is None: nf = BG
+        elif "fillalpha" in st and fill in st["fill"]: na = st["fillalpha"]
+        if not stroke and fill in st["fillstroke"]: ns, nw = st["fillstroke"][fill], st["minw"]
+    if stroke:
+        ns = st["stroke"].get(stroke, stroke); nw = max(w, st["minw"])
+    if st["opaque"] and fill in st["fill"] and na < 1 and "fillalpha" not in st: na = 1.0
+    if stroke and fill is None and kind in ("line", "pline"):
+        na = a
+    return (kind, p, nf, ns, nw, na, cap)
 
 
 def f2(v): return ("%.2f" % v).rstrip("0").rstrip(".")
@@ -158,7 +206,6 @@ def draw_head(sc, P, hx, hy):
     f = P["f"]; k2 = math.sqrt(max(0, 1 - f * f)); k = 0.15 + 0.85 * k2; fx = f * 36
     sgn = 1 if f > 0 else -1
     sc.ellipse(hx, hy, 64, 56, fill=TEAL, stroke=TEAL_D, w=3)
-    sc.ellipse(hx - 14 + fx * .5, hy - 30, 20, 11, fill="#ffffff", a=0.18)           # shine on the bald dome
     # beard: band between the jaw and an inner opening that shifts with the turn
     bx = hx + fx * 0.3
     outer = arc(bx, hy, 61, 53, 18, 162); inner = arc(hx + fx, hy + 8, 8 + 33 * k, 27, 162, 18)
@@ -172,13 +219,11 @@ def draw_head(sc, P, hx, hy):
         sc.circle(ex, hy + 6, 9, fill=TEAL, stroke=TEAL_D, w=2)
         sc.rrect(ex - 4 + s_ * 1, hy + 4, 8, 17, 4, fill=EARBUD)
     # hair: thin band at the sides, tufts on top
-    band_o = arc(hx + fx * 0.4, hy, 63 * (0.5 + 0.5 * k2) + 8 * (1 - k2) * 0, 56, 195, 345, 24)
-    ang = [195 + 150 * i / 24 for i in range(25)]
-    band_i = []
-    for a in reversed(ang):
-        w = 5 + 17 * math.cos(math.radians(a)) ** 2
-        band_i.append((hx + fx * 0.4 + (63 - w) * (0.5 + 0.5 * k2) * math.cos(math.radians(a)), hy + (56 - w) * math.sin(math.radians(a))))
+    hxc = hx + fx * 0.4
+    band_o = arc(hxc, hy, 64 * (0.5 + 0.5 * k2), 57, 192, 348, 26)
+    band_i = arc(hxc + fx * 0.15, hy - 8, 49 * (0.5 + 0.5 * k2), 27, 348, 192, 26)          # hairline across the forehead
     sc.poly(band_o + band_i, fill=HAIR)
+    sc.pline(arc(hxc + fx * 0.15, hy - 8, 49 * (0.5 + 0.5 * k2), 27, 215, 325, 12), 2.5, GLASS if STYLE is None else TEAL_D, a=0.5)
     for i in range(13):
         a = math.radians(195 + 150 * i / 12); c, s_ = math.cos(a), math.sin(a)
         bxp = hx + fx * 0.4 + 62 * c * (0.5 + 0.5 * k2); byp = hy + 54 * s_
@@ -234,6 +279,7 @@ def draw_legs(sc, P, bob):
             fx_ = hx + s_ * 4 * k2; fy = FLOOR
         kx, ky = (hx + fx_) / 2 + d * 3, (hy + fy) / 2 - 2
         sc.pline([(hx, hy), (kx, ky), (fx_, fy - 6)], 13, LEG)
+        sc.pline([(hx, hy), (kx, ky), (fx_, fy - 6)], 7, TUBE)
         sc.ellipse(fx_ + d * 6 * abs(f) * 0 + (d * 7 if abs(f) > 0.5 else 0), fy - 3, 15 if abs(f) > .5 else 12, 7, fill="#10161c", stroke=LEG, w=2)
 
 
@@ -261,7 +307,7 @@ def draw_arms_and_lens(sc, P, hx, hy, bob):
     for s_ in (-1, 1):
         e, h = ik(sh[s_][0], sh[s_][1], tgt[s_][0], tgt[s_][1], 64, s_)
         sc.pline([sh[s_], e, h], 13, COAT, a=1.0)
-        sc.pline([sh[s_], e, h], 13, COAT_D, a=0.0)
+        sc.pline([sh[s_], e, h], 7, TUBE)
         sc.circle(h[0], h[1], 8, fill=TEAL, stroke=TEAL_D, w=2)
     if lens:
         (cx, cy), R, (hx_, hy_) = lens
@@ -327,6 +373,11 @@ if __name__ == "__main__":
     elif cmd == "png":
         os.makedirs(sys.argv[2], exist_ok=True)
         for t in sys.argv[3:]: render_png(float(t), os.path.join(sys.argv[2], "t%05.2f.png" % float(t)))
+    elif cmd == "styles":
+        os.makedirs(sys.argv[2], exist_ok=True)
+        for st in ("none", "outline", "accent", "flat", "tint"):
+            STYLE = None if st == "none" else st
+            for t in (2.0, 5.4, 24.0): render_png(t, os.path.join(sys.argv[2], "%s_%04.1f.png" % (st, t)))
     elif cmd == "frames":
         os.makedirs(sys.argv[2], exist_ok=True)
         for i in range(int(T * FPS)): render_png(i / FPS, os.path.join(sys.argv[2], "f%04d.png" % i))
