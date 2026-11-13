@@ -1,0 +1,38 @@
+# repo: frameworks/opt/telephony
+diff --git a/src/java/com/android/internal/telephony/SubscriptionController.java b/src/java/com/android/internal/telephony/SubscriptionController.java
+--- a/src/java/com/android/internal/telephony/SubscriptionController.java
++++ b/src/java/com/android/internal/telephony/SubscriptionController.java
+@@ -55,4 +55,33 @@
+         }
+         return subId;
+     }
++
++    /*
++     * Phone Guard: MediaTek's Android 13 telephony helpers (com.mediatek.telephony / MtkTelephonyAssist, and the
++     * Mtk telephony-common classes) still call these methods of the old SubscriptionController. Android 14 moved
++     * them to SubscriptionManagerService, which this stub class already points at, so forward to it.
++     */
++    public int getDefaultDataSubId() {
++        return getSubscriptionManagerService().getDefaultDataSubId();
++    }
++
++    public int getSlotIndex(int subId) {
++        return getSubscriptionManagerService().getSlotIndex(subId);
++    }
++
++    public int getDefaultSubId() {
++        return getSubscriptionManagerService().getDefaultSubId();
++    }
++
++    public int getDefaultVoiceSubId() {
++        return getSubscriptionManagerService().getDefaultVoiceSubId();
++    }
++
++    public int getDefaultSmsSubId() {
++        return getSubscriptionManagerService().getDefaultSmsSubId();
++    }
++
++    public int getPhoneId(int subId) {
++        return getSubscriptionManagerService().getPhoneId(subId);
++    }
+ }

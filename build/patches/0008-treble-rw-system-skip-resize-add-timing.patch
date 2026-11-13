@@ -4,9 +4,9 @@ diff --git a/rw-system.sh b/rw-system.sh
 +++ b/rw-system.sh
 @@ -1,5 +1,7 @@
  #!/system/bin/sh
-+log -t pgtime "rw-system start up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.start "$(cut -d" " -f1 /proc/uptime)"
  
-+log -t pgtime "rw-system L3 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L3 "$(cut -d" " -f1 /proc/uptime)"
  if [ -z "$debug" ] && [ -f /cache/phh-log ];then
  	mkdir -p /cache/phh
  	debug=1 exec sh -x "$(readlink -f -- "$0")" > /cache/phh/logs 2>&1
@@ -14,7 +14,7 @@ diff --git a/rw-system.sh b/rw-system.sh
  vndk="$(getprop persist.sys.vndk)"
  [ -z "$vndk" ] && vndk="$(getprop ro.vndk.version |grep -oE '^[0-9]+')"
  
-+log -t pgtime "rw-system L58 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L58 "$(cut -d" " -f1 /proc/uptime)"
  if [ "$vndk" = 26 ];then
  	resetprop_phh ro.vndk.version 26
  fi
@@ -22,7 +22,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      fi
  }
  
-+log -t pgtime "rw-system L149 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L149 "$(cut -d" " -f1 /proc/uptime)"
  changeKeylayout() {
      mpk="/mnt/phh/keylayout"
      cp -a /system/usr/keylayout /mnt/phh/keylayout
@@ -30,7 +30,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      fi
  }
  
-+log -t pgtime "rw-system L344 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L344 "$(cut -d" " -f1 /proc/uptime)"
  if [ "$(getprop ro.product.vendor.manufacturer)" = motorola ] && getprop ro.vendor.product.name |grep -qE '^lima';then
      for l in lib lib64;do
          for f in mt6771 lima;do
@@ -48,7 +48,7 @@ diff --git a/rw-system.sh b/rw-system.sh
  	fi
  done
  
-+log -t pgtime "rw-system L403 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L403 "$(cut -d" " -f1 /proc/uptime)"
  if [ "$foundFingerprint" = false ];then
      mount -o bind system/phh/empty /system/etc/permissions/android.hardware.fingerprint.xml
  fi
@@ -56,7 +56,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      chown system:9015 /sys/devices/soc/soc:fpc_fpc1020/irq_cnt
  fi
  
-+log -t pgtime "rw-system L455 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L455 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.vendor.build.fingerprint | grep -q -i \
      -e xiaomi/clover -e xiaomi/wayne -e xiaomi/sakura \
      -e xiaomi/nitrogen -e xiaomi/whyred -e xiaomi/platina \
@@ -64,7 +64,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop  ro.audio.ignore_effects true
  fi
  
-+log -t pgtime "rw-system L500 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L500 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.vendor.build.fingerprint | grep -iq \
  	-e bq/Aquaris_M10 ; then
  	setprop ro.surface_flinger.primary_display_orientation ORIENTATION_90
@@ -72,7 +72,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop persist.sys.radio.ussd.fix true
  done
  
-+log -t pgtime "rw-system L559 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L559 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.vendor.build.fingerprint | grep -iq -e iaomi/cactus -e iaomi/cereus; then
      setprop debug.stagefright.omx_default_rank.sw-audio 1
      setprop debug.stagefright.omx_default_rank 0
@@ -80,7 +80,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop debug.sf.latch_unsignaled 1
  fi
  
-+log -t pgtime "rw-system L607 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L607 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.vendor.build.fingerprint | grep -iq -e xiaomi/daisy; then
      setprop debug.sf.latch_unsignaled 1
      setprop debug.sf.enable_hwc_vds 1
@@ -88,7 +88,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      mount -o bind /system/phh/libnfc-nci-huawei.conf /system/etc/libnfc-nci.conf
  fi
  
-+log -t pgtime "rw-system L655 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L655 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.vendor.build.fingerprint | grep -qE -e ".*(crown|star)[q2]*lte.*" -e ".*(SC-0[23]K|SCV3[89]).*" && [ "$vndk" -lt 28 ]; then
      for f in /vendor/lib/libfloatingfeature.so /vendor/lib64/libfloatingfeature.so; do
          [ ! -f "$f" ] && continue
@@ -96,7 +96,7 @@ diff --git a/rw-system.sh b/rw-system.sh
  	mount -o bind /mnt/phh/empty_dir /vendor/etc/audio || true
  fi
  
-+log -t pgtime "rw-system L701 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L701 "$(cut -d" " -f1 /proc/uptime)"
  for f in /vendor/lib{,64}/hw/com.qti.chi.override.so /vendor/lib{,64}/libVD*;do
      [ ! -f $f ] && continue
      # shellcheck disable=SC2010
@@ -104,7 +104,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      mount /vendor/etc/audio/ZS590KS/audio_policy_configuration_ZS590KS.xml /vendor/etc/audio/sku_$sku/audio_policy_configuration.xml
  fi
  
-+log -t pgtime "rw-system L775 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L775 "$(cut -d" " -f1 /proc/uptime)"
  setprop ctl.stop console
  copyprop() {
      p="$(getprop "$2")"
@@ -112,7 +112,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      mount -o bind /mnt/phh/xbin /system/xbin
  fi
  
-+log -t pgtime "rw-system L842 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L842 "$(cut -d" " -f1 /proc/uptime)"
  for abi in "" 64;do
      f=/vendor/lib$abi/libstagefright_foundation.so
      if [ -f "$f" ];then
@@ -120,7 +120,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop persist.sys.phh.radio.use_old_mnc_format true
  fi
  
-+log -t pgtime "rw-system L921 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L921 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.build.overlay.deviceid |grep -qE '^RMX';then
      resetprop_phh ro.vendor.gsi.build.flavor byPass
      setprop oppo.camera.packname com.oppo.engineermode.camera
@@ -128,7 +128,7 @@ diff --git a/rw-system.sh b/rw-system.sh
          -e razer/cheryl ; then
      setprop media.settings.xml "/vendor/etc/media_profiles_vendor.xml"
  fi
-+log -t pgtime "rw-system L968 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L968 "$(cut -d" " -f1 /proc/uptime)"
  resetprop_phh service.adb.root 0
  
  # This is for Samsung Galaxy devices with HBM FOD
@@ -136,7 +136,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop persist.sys.phh.mainkeys 0
  fi
  
-+log -t pgtime "rw-system L1013 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L1013 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.build.overlay.deviceid |grep -iq -e RMX2185 -e RMX1941 -e RMX1945 -e RMX1943 -e RMX1942;then
      setprop persist.sys.overlay.devinputjack true
  fi
@@ -144,7 +144,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop persist.sys.fp.fod.size.width_height 186,186
  fi
  
-+log -t pgtime "rw-system L1058 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L1058 "$(cut -d" " -f1 /proc/uptime)"
  setprop vendor.display.res_switch_en 1
  
  if getprop ro.bionic.cpu_variant |grep -q kryo300;then
@@ -152,7 +152,7 @@ diff --git a/rw-system.sh b/rw-system.sh
      setprop ctl.stop aptouch
  fi
  
-+log -t pgtime "rw-system L1103 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L1103 "$(cut -d" " -f1 /proc/uptime)"
  if getprop ro.vendor.build.fingerprint | grep -iq -e GOME/GOME_U9; then
      cp -a /system/etc/smartpa_params /mnt/phh/smartpa_params
      cp /system/phh/gome/fs16xx_01s_left.preset /mnt/phh/smartpa_params/fs16xx_01s_left.preset
@@ -160,7 +160,7 @@ diff --git a/rw-system.sh b/rw-system.sh
  	setprop persist.sys.qcom-brightness 4095
  fi
  
-+log -t pgtime "rw-system L1150 up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.L1150 "$(cut -d" " -f1 /proc/uptime)"
  mount -o bind /mnt/phh/empty_dir /vendor/app/qti-logkit
  mount -o bind /mnt/phh/empty_dir /vendor/app/qti-logkit-lite
  
@@ -169,5 +169,5 @@ diff --git a/rw-system.sh b/rw-system.sh
      resetprop_phh ro.surface_flinger.primary_display_orientation ORIENTATION_0
  fi
 +
-+log -t pgtime "rw-system end up=$(cut -d" " -f1 /proc/uptime)"
++setprop debug.pgtime.end "$(cut -d" " -f1 /proc/uptime)"
 \ No newline at end of file
