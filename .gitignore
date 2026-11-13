@@ -6,3 +6,4 @@ build/bootanimation/*.zip
 build/bootanimation/*.gif
 build/bootanimation/draft*.png
 build/branding/
+build/apps/*.apk
