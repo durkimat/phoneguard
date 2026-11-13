@@ -1,0 +1,19 @@
+# Boot timing probe (docs/boot-timing-checklist.md): records the uptime (seconds) at the start of each init stage as
+# properties debug.pgtime.<stage>, readable after boot with: getprop | grep pgtime
+# vndk.rc runs the real rw-system.sh in `post-fs`; this file sorts before it, so "post-fs" is the time just before it.
+on early-init
+    exec - root -- /system/bin/rw-system.sh pgmark s1-early-init
+on init
+    exec - root -- /system/bin/rw-system.sh pgmark s2-init
+on early-fs
+    exec - root -- /system/bin/rw-system.sh pgmark s3-early-fs
+on post-fs
+    exec - root -- /system/bin/rw-system.sh pgmark s4-post-fs
+on late-fs
+    exec - root -- /system/bin/rw-system.sh pgmark s5-late-fs
+on post-fs-data
+    exec - root -- /system/bin/rw-system.sh pgmark s6-post-fs-data
+on zygote-start
+    exec - root -- /system/bin/rw-system.sh pgmark s7-zygote-start
+on boot
+    exec - root -- /system/bin/rw-system.sh pgmark s8-boot
