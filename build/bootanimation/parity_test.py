@@ -10,7 +10,7 @@ ctx.eval(open(os.path.join(here, "rig.js")).read().replace("if (typeof module", 
 SETS = [{}, dict(lensR=18, lensW=1.2, lensH=46, tufts=28, tuftH=1.4, lean=0.4, hairline=0.8, beard=True, beardAmt=0.7, moustache=True, coatLen=160, flare=50,
                  collarH=1.6, collarW=22, buttons=3, pockets=False, headN=2.4, headW=70, headH=64, noseSize=1.4, mouthW=20, smileD=10, bg="#101820", skin="#c68e6b",
                  coatCol="#556b2f", scarfCol="#2255cc", hairCol="#5a3b22", irisCol="#3366aa", spot=False)]
-TIMES = [0.5, 2.0, 4.5, 5.4, 6.2, 8.0, 10.6, 13.0, 16.5, 19.0, 21.5, 22.6, 24.0, 26.0, 28.0, 29.2, 30.5, 33.0]
+TIMES = [0.5, 2.0, 4.2, 4.5, 4.7, 11.5, 11.8, 21.3, 21.6, 29.65, 5.4, 6.2, 8.0, 10.6, 13.0, 16.5, 19.0, 21.5, 22.6, 24.0, 26.0, 28.0, 29.2, 30.5, 33.0]
 bad = 0
 for Qs in SETS:
     gen.STYLE = "param"; gen.set_params(Qs)

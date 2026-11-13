@@ -260,110 +260,111 @@ def head_geo(P, hx, hy):
     return dict(f=f, k2=k2, k=k, fx=f * 30, sgn=1 if f > 0 else -1, rx=Q["headW"] * (0.56 + 0.44 * k2), ry=Q["headH"])
 
 
-def draw_head_profile(sc, P, hx, hy):
-    """Side view: a real profile outline (forehead, nose, lips, chin), not a squashed front face."""
-    f = P["f"]; p = abs(f); sgn = 1 if f > 0 else -1
-    ws = clamp((p - 0.4) / 0.6, 0, 1); D = Q["headW"] * 0.98 * lerp(0.62, 1, ws); ry = Q["headH"]
-    pt = lambda u, v: (hx + sgn * u * D, hy + v * ry)
-    mir = lambda q: (hx + sgn * (q[0] - hx), q[1])
-    back = [mir(contour(hx, hy, D, ry, th)) for th in range(100, 261, 8)]
-    face = [pt(.62, -.80), pt(.80, -.50), pt(.78, -.36), pt(1.12, -.02), pt(.88, .08), pt(.92, .19), pt(.87, .28), pt(.90, .37), pt(.86, .62), pt(.64, .92)]
-    sc.poly(back + [pt(.3, -.97)] + face, fill=TEAL, stroke=TEAL_D, w=3)
-    ex, ey_ = pt(-.05, .05)
-    sc.ellipse(ex, ey_, 8, 12, fill=TEAL, stroke=TEAL_D, w=2)
-    sc.rrect(ex - 3.5, ey_ + 2, 7, 14, 3.5, fill=EARBUD)
-    if Q["beard"]:
-        band = [pt(.90, .32), pt(.86, .62), pt(.64, .92), pt(.30, .95), pt(-.10, .80), pt(-.12, .40), pt(.05, .58), pt(.35, .72), pt(.60, .62), pt(.76, .44)]
-        amt = Q["beardAmt"]
-        sc.poly(band, fill=BEARD, a=0.10 + 0.6 * amt)
-        cl = [(.0, .6), (.1, .72), (.3, .84), (.5, .82), (.68, .70), (.8, .52)]; n_ = int(6 + 14 * amt)
-        for i in range(n_):
-            w_ = (len(cl) - 1) * i / max(n_ - 1, 1); j = min(int(w_), len(cl) - 2); fr = w_ - j
-            u = lerp(cl[j][0], cl[j + 1][0], fr); v = lerp(cl[j][1], cl[j + 1][1], fr) + (0.05 if i % 2 else -0.04)
-            q = pt(u, v); sc.circle(q[0], q[1], 1.5, fill=BEARD, a=0.8)
-    if Q["moustache"]:
-        q = pt(.82, .16); sc.ellipse(q[0], q[1], 11, 5, fill=BEARD, a=0.25 + 0.6 * Q["beardAmt"])
-    q = pt(.86, .30); r_ = pt(.66, .27); m_ = pt(.76, .32)
-    sc.pline([q, m_, r_], 2.5, FEAT)
-    lh = Q["lensH"]; yy = hy - 12
-    lx = pt(.66, 0)[0]
-    a1 = pt(.58, 0)[0]; a2 = pt(-.02, 0)[0]
-    sc.line(a1, yy - 4, a2, hy - 8, max(Q["frameW"] * 0.8, 3), GLASS)
-    sc.rrect(lx - 6, yy - lh / 2, 12, lh, min(Q["lensR"], 6), fill=LENS, stroke=GLASS, w=Q["frameW"])
-    sc.circle(lx + sgn * 2, yy + 1, Q["eyeDot"], fill=EYEDOT)
-    sc.line(pt(.50, 0)[0], yy - lh / 2 - 9, pt(.80, 0)[0], yy - lh / 2 - 12, 4.5, BROW)
-    N = int(Q["tufts"]); tops = []; hl = Q["hairline"]
-    for i in range(N + 1):
-        th = 160 + 160 * i / N
-        bxp, byp = contour(hx, hy, D + 1, ry + 1, th); a = math.radians(th); c, s_ = math.cos(a), math.sin(a)
-        ht = ((6 if i % 2 == 0 else 20 + 12 * abs(math.sin(i * 1.9))) + (8 if 0.55 <= i / N <= 0.9 else 0)) * Q["tuftH"]; lean = Q["lean"]
-        q = ((bxp + (c + lean * (-s_)) * ht * 0.9, byp + (s_ + lean * c) * ht) if i % 2 else (bxp + c * ht * 0.4, byp + s_ * ht * 0.4))
-        tops.append(mir(q))
-    hair_line = [pt(.66, -.74), pt(.42, -.56 * hl), pt(.10, -.42 * hl), pt(-.22, -.20), pt(-.44, .06), pt(-.56, .22)]
-    sc.poly(tops + hair_line, fill=HAIR, stroke=TEAL_D, w=3)
+def resample(pts, n):
+    d = [0.0]
+    for i in range(1, len(pts)): d.append(d[-1] + math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]))
+    tot = d[-1] or 1.0; out = []; j = 0
+    for i in range(n):
+        tg = tot * i / (n - 1)
+        while j < len(pts) - 2 and d[j + 1] < tg: j += 1
+        sg = (d[j + 1] - d[j]) or 1.0; u = (tg - d[j]) / sg
+        out.append((lerp(pts[j][0], pts[j + 1][0], u), lerp(pts[j][1], pts[j + 1][1], u)))
+    return out
+
+
+def mix(A, B, u): return [(lerp(a[0], b[0], u), lerp(a[1], b[1], u)) for a, b in zip(A, B)]
 
 
 def draw_head(sc, P, hx, hy):
-    if abs(P["f"]) >= 0.4: return draw_head_profile(sc, P, hx, hy)
-    g = head_geo(P, hx, hy); f, k2, k, fx, sgn, rx, ry = g["f"], g["k2"], g["k"], g["fx"], g["sgn"], g["rx"], g["ry"]
-    cont = lambda th, ix=0, iy=0, c=hx: contour(c, hy, rx - ix, ry - iy, th)
-    sc.poly([cont(t) for t in range(0, 360, 8)], fill=TEAL, stroke=TEAL_D, w=3)
-    # ears and earbuds (the far ear is hidden in profile)
-    for s_ in (-1, 1):
-        if k2 < 0.3 and s_ == -sgn: continue
-        ex = hx + s_ * (rx + 3) if k2 > 0.3 else hx - sgn * 6
+    """One head that turns continuously: outline, hair and stubble morph between the front and side views;
+    glasses, ears, nose and mouth are placed by rotating them round the head (yaw)."""
+    f = P["f"]; p = abs(f); sgn = 1 if f >= 0 else -1; th = p * math.pi / 2; S, Cc = math.sin(th), math.cos(th)
+    rx, ry = Q["headW"], Q["headH"]; D = rx * 0.98; N = int(Q["tufts"]); hl = Q["hairline"]
+    pL = lambda u, v: (hx + u * D, hy + v * ry)
+    mir = lambda q: (hx + sgn * (q[0] - hx), q[1])
+    # --- silhouette: front outline <-> profile outline, matched point by point
+    f1 = [contour(hx, hy, rx, ry, t) for t in range(270, 451, 6)]
+    f2 = [contour(hx, hy, rx, ry, t) for t in range(90, 271, 6)]
+    face = [pL(0, -1), pL(.3, -.97), pL(.62, -.80), pL(.78, -.58), pL(.76, -.22), pL(1.12, .23), pL(.88, .28), pL(.92, .39), pL(.87, .50), pL(.90, .60), pL(.86, .84), pL(.62, 1.0)]
+    backs = [pL(.62, 1.0)] + [contour(hx, hy, D, ry, t) for t in range(100, 271, 8)]
+    if sgn > 0: p1, p2 = face, backs
+    else: p1, p2 = [mir(q) for q in backs][::-1], [mir(q) for q in face][::-1]
+    K = 60
+    sil = mix(resample(f1, K) + resample(f2, K), resample(p1, K) + resample(p2, K), p)
+    sc.poly(sil, fill=TEAL, stroke=TEAL_D, w=3)
+    # --- ears with the earbud seated inside (the ear turning away goes behind the head)
+    Re = rx + 3
+    for phi in (-95, 95):
+        ang = th + math.radians(phi)
+        if math.cos(ang) < -0.1: continue
+        ex = hx + sgn * Re * math.sin(ang)
         sc.ellipse(ex, hy + 6, 8, 12, fill=TEAL, stroke=TEAL_D, w=2)
-        sc.rrect(ex - 3.5 + s_ * 1.5, hy + 8, 7, 14, 3.5, fill=EARBUD)
-    # beard: a band along the jaw with an open window for the mouth, moustache over it
-    bx = hx + fx * 0.3
+        sc.rrect(ex - 3, hy + 3, 6, 10, 3, fill=EARBUD)
+    # --- stubble: a band along the lower part of the outline
     if Q["beard"]:
-        outer = [contour(bx, hy, rx - 2, ry - 2, th) for th in range(14, 167, 8)]
-        inner = [(hx + fx + (9 + 25 * k) * math.cos(math.radians(th)), hy + 26 + Q["beardOpen"] * math.sin(math.radians(th))) for th in range(166, 13, -8)]
-        amt = Q["beardAmt"]
-        sc.poly(outer + inner, fill=BEARD, a=0.10 + 0.6 * amt)
-        n_ = int(6 + 14 * amt)
-        for i in range(n_):
-            r_ = 9 if i % 2 else 17; px, py = contour(bx, hy, rx - r_, ry - r_, 24 + 132 * i / max(n_ - 1, 1))
-            sc.circle(px, py, 1.5, fill=BEARD, a=0.8)
-    if Q["moustache"]: sc.ellipse(hx + fx * 1.05, hy + 27, 22 * k + 6, 5.5, fill=BEARD, a=0.25 + 0.6 * Q["beardAmt"])
-    # nose: a single hooked line
-    nx = hx + fx * 1.1
-    ns_ = Q["noseSize"]
-    sc.pline([(nx - 2 * k * ns_, hy - 4), (nx - (5 * k + 2 * abs(f) * 4) * ns_, hy + 13 * ns_ - (ns_ - 1) * 4), (nx + (5 + 9 * abs(f) * sgn) * ns_, hy + 16 * ns_ - (ns_ - 1) * 4)], 3, FEAT)
-    # smile
-    mw = Q["mouthW"] * k + 3; mx = hx + fx
+        run = [i for i, q in enumerate(sil) if q[1] > hy + 34]
+        if len(run) > 3:
+            outer = [sil[i] for i in range(run[0], run[-1] + 1)]
+            off = max(2.0, 36 - 0.9 * Q["beardOpen"]); inner = []
+            for q in outer:
+                dx, dy = hx - q[0], hy - q[1]; d_ = math.hypot(dx, dy) or 1.0
+                inner.append((q[0] + dx / d_ * off, q[1] + dy / d_ * off))
+            amt = Q["beardAmt"]
+            sc.poly(outer + inner[::-1], fill=BEARD, a=0.10 + 0.6 * amt)
+            n_ = int(6 + 14 * amt)
+            for j in range(n_):
+                r = (len(outer) - 1) * j / max(n_ - 1, 1); i0 = min(int(r), len(outer) - 2); fr = r - i0
+                w_ = 0.3 if j % 2 else 0.65
+                ox, oy = lerp(outer[i0][0], outer[i0 + 1][0], fr), lerp(outer[i0][1], outer[i0 + 1][1], fr)
+                ix, iy = lerp(inner[i0][0], inner[i0 + 1][0], fr), lerp(inner[i0][1], inner[i0 + 1][1], fr)
+                sc.circle(lerp(ox, ix, w_), lerp(oy, iy, w_), 1.5, fill=BEARD, a=0.8)
+    # --- moustache, nose, mouth
+    if Q["moustache"]:
+        sc.ellipse(hx + sgn * 0.85 * D * S, hy + 27, 28 * Cc + 11 * S, 5.5, fill=BEARD, a=0.25 + 0.6 * Q["beardAmt"])
+    if p < 0.5:
+        nx = hx + sgn * 0.9 * D * S; ns_ = Q["noseSize"]
+        sc.pline([(nx - 2 * ns_, hy - 4), (nx - (5 + 2 * p * 4) * ns_, hy + 13 * ns_ - (ns_ - 1) * 4), (nx + (5 + 9 * p) * ns_, hy + 16 * ns_ - (ns_ - 1) * 4)], 3, FEAT)
+    mw = (Q["mouthW"] + 3) * Cc + 7 * S; mx = hx + sgn * 0.86 * D * S; md = Q["smileD"] * Cc + 2.5 * S
     top = [(mx - mw + 2 * mw * i / 10, hy + 36) for i in range(11)]
-    bot = [(mx - mw + 2 * mw * i / 10, hy + 36 + Q["smileD"] * (1 - ((i - 5) / 5) ** 2)) for i in range(11)]
+    bot = [(mx - mw + 2 * mw * i / 10, hy + 36 + md * (1 - ((i - 5) / 5) ** 2)) for i in range(11)]
     sc.poly(top + bot[::-1], fill=SMILE, stroke=FEAT, w=2.5)
-    # glasses
-    ey = hy - 12; lw = (22 + 32 * k) * Q["lensW"]; lh = Q["lensH"]
-    offs = lw / 2 + 4 * k
+    # --- glasses
+    lh = Q["lensH"]; ey = hy - 12; lw0 = 54 * Q["lensW"]; offs0 = lw0 / 2 + 4
+    Rl = max(rx * 1.0, offs0 + 6); phl = math.asin(min(offs0 / Rl, 0.99)); lw = max(lw0 * Cc, 6)
+    centres = {}
     for s_ in (-1, 1):
-        ex = hx + fx + s_ * offs
-        al = 1.0 if s_ != -sgn else clamp((0.78 - abs(f)) / 0.3, 0, 1)
-        if al <= 0: continue
-        sc.rrect(ex - lw / 2, ey - lh / 2, lw, lh, min(Q["lensR"], lw / 2, lh / 2), fill=LENS, stroke=GLASS, w=Q["frameW"], a=al)
-        gx, gy = P["gaze"] if P["mode"] == "look" else ((0.5 * sgn if abs(f) > 0.5 else 0), 0)
-        sc.circle(ex + gx * 3 * k + sgn * abs(f) * 2, ey + gy * 2, Q["eyeDot"], fill=EYEDOT, a=al)
-        sc.line(ex - lw / 2 + 1, ey - lh / 2 - 9, ex + lw / 2 - 1, ey - lh / 2 - 12 - (2 if s_ == 1 else 0), 4.5, BROW, a=al)
-    if k > 0.35: sc.line(hx + fx - 5 * k, ey - 8, hx + fx + 5 * k, ey - 8, Q["frameW"], GLASS, a=clamp((k - .35) * 3, 0, 1))
-    if abs(f) > 0.35: sc.line(hx + fx - sgn * (lw / 2 + offs), ey - 6, hx - sgn * (rx - 4), hy + 0, 4, GLASS, a=clamp((abs(f) - .35) * 2, 0, 1))
-    # hair: a full swept mass, spikier at the front, with a hairline across the forehead
-    top_pts = []
-    N = int(Q["tufts"])
-    for i in range(N + 1):
-        th = 188 + 164 * i / N
-        bxp, byp = contour(bx, hy, rx + 1, ry + 1, th)
-        a = math.radians(th); c, s_ = math.cos(a), math.sin(a)
-        ht = ((6 if i % 2 == 0 else 20 + 12 * abs(math.sin(i * 1.9))) + (8 if 0.22 <= i / N <= 0.56 else 0)) * Q["tuftH"]
-        lean = Q["lean"]
-        if i % 2: top_pts.append((bxp + (c + lean * (-s_)) * ht * 0.9, byp + (s_ + lean * c) * ht))
-        else: top_pts.append((bxp + c * ht * 0.4, byp + s_ * ht * 0.4))
-    w_ = rx * 0.98; hxc = bx
-    hl = Q["hairline"]
-    hairline = [(hxc + w_ * 0.97, hy - 2), (hxc + w_ * 0.86, hy - 30 * hl), (hxc + w_ * 0.55, hy - 46 * hl), (hxc + w_ * 0.2, hy - 50 * hl),
-                (hxc - w_ * 0.2, hy - 52 * hl), (hxc - w_ * 0.55, hy - 47 * hl), (hxc - w_ * 0.86, hy - 30 * hl), (hxc - w_ * 0.97, hy - 2)]
-    sc.poly(top_pts + hairline, fill=HAIR, stroke=TEAL_D, w=3)
+        ang = th + s_ * phl
+        if math.cos(ang) < 0.1: continue
+        cx = hx + sgn * Rl * math.sin(ang); centres[s_] = cx
+        sc.rrect(cx - lw / 2, ey - lh / 2, lw, lh, min(Q["lensR"], lw / 2, lh / 2), fill=LENS, stroke=GLASS, w=Q["frameW"])
+        gx, gy = P["gaze"] if P["mode"] == "look" else (0, 0)
+        if lw > 14 or p > 0.5: sc.circle(cx + gx * 3 * Cc + sgn * S * 2, ey + gy * 2, Q["eyeDot"], fill=EYEDOT)
+        wb = max(lw, 16)
+        sc.line(cx - wb / 2 + 1, ey - lh / 2 - 9, cx + wb / 2 - 1, ey - lh / 2 - 12 - (2 if s_ == 1 else 0), 4.5, BROW)
+    if Cc > 0.35 and len(centres) == 2:
+        bxm = hx + sgn * Rl * S
+        sc.line(bxm - 5 * Cc, ey - 8, bxm + 5 * Cc, ey - 8, Q["frameW"], GLASS, a=clamp((Cc - .35) * 3, 0, 1))
+    if p > 0.35:
+        for s_, cx in centres.items():
+            if s_ == -1 or len(centres) == 1:
+                ear_x = hx + sgn * Re * math.sin(th - math.radians(95))
+                sc.line(cx - sgn * lw / 2, ey - 4, ear_x, hy - 8, max(Q["frameW"] * 0.8, 3), GLASS, a=clamp((p - .35) * 2, 0, 1))
+    # --- hair: tufts + hairline, front outline <-> side outline
+    def tuft(front, i):
+        c0, c1 = (188, 352) if front else (160, 320); t_ = c0 + (c1 - c0) * i / N
+        bp = contour(hx, hy, (rx if front else D) + 1, ry + 1, t_)
+        a = math.radians(t_); c, s_ = math.cos(a), math.sin(a)
+        cl = (0.22 <= i / N <= 0.56) if front else (0.55 <= i / N <= 0.9)
+        ht = ((6 if i % 2 == 0 else 20 + 12 * abs(math.sin(i * 1.9))) + (8 if cl else 0)) * Q["tuftH"]; lean = Q["lean"]
+        return ((bp[0] + (c + lean * (-s_)) * ht * 0.9, bp[1] + (s_ + lean * c) * ht) if i % 2 else (bp[0] + c * ht * 0.4, bp[1] + s_ * ht * 0.4))
+    ft = [tuft(True, i) for i in range(N + 1)]
+    w_ = rx * 0.98
+    fh = [(hx + w_ * 0.97, hy - 2), (hx + w_ * 0.86, hy - 30 * hl), (hx + w_ * 0.55, hy - 46 * hl), (hx + w_ * 0.2, hy - 50 * hl),
+          (hx - w_ * 0.2, hy - 52 * hl), (hx - w_ * 0.55, hy - 47 * hl), (hx - w_ * 0.86, hy - 30 * hl), (hx - w_ * 0.97, hy - 2)]
+    pt_ = [tuft(False, i) for i in range(N + 1)]
+    ph_ = [pL(.74, -.62 * hl), pL(.55, -.66 * hl), pL(.30, -.60 * hl), pL(.05, -.46 * hl), pL(-.22, -.28), pL(-.42, -.08), pL(-.52, .08), pL(-.56, .20)]
+    if sgn < 0: pt_ = [mir(q) for q in pt_][::-1]; ph_ = [mir(q) for q in ph_][::-1]
+    sc.poly(mix(ft + fh, pt_ + ph_, p), fill=HAIR, stroke=TEAL_D, w=3)
 
 
 def coat_geo(P, bob):
