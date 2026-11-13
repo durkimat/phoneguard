@@ -1,4 +1,4 @@
 // Third-party apps that go into the image as they are (docs/apps-in-image.md lists source, version and checksum).
 // Not re-signed: the author's signature stays so updates from the same source keep working.
 
-android_app_import { name: "TT9", apk: "tt9.apk", presigned: true, dex_preopt: { enabled: false }, }
+android_app_import { name: "TT9", apk: "tt9.apk", presigned: true, preprocessed: true, dex_preopt: { enabled: false }, }
