@@ -40,6 +40,7 @@ class LauncherActivity : Activity() {
     private var lockedLook: Set<String> = emptySet()
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
+    private val calendar by lazy { io.github.durkimat.phoneguard.calendar.AndroidCalendar(this) }
     private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
 
     private val changes = object : BroadcastReceiver() {
@@ -662,10 +663,25 @@ class LauncherActivity : Activity() {
                 if (r == "Message sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
                 model.notify(r); invalidate(D.CONVOS or D.INFO); refresh()
             }
+            is Action.CalLoad -> Thread {
+                val ev = calendar.events(a.from, a.to)
+                var cals = calendar.calendars().filter { it.writable }
+                if (cals.isEmpty() && checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED) { calendar.ensureWritable(); cals = calendar.calendars().filter { it.writable } }
+                ui.post { model.calEvents = ev; model.calWritable = cals; refresh() }
+            }.start()
+            is Action.CalSave -> Thread { try { calendar.save(a.event) } catch (e: Exception) { ui.post { model.notify("Not saved") } }; calReload() }.start()
+            is Action.CalDelete -> Thread { try { calendar.delete(a.id) } catch (_: Exception) { }; calReload() }.start()
             Action.ForgetWords -> { io.github.durkimat.phoneguard.whatsapp.LearnedStore.forget(this); model.notify("Forgotten"); refresh() }
             Action.CallKey -> { model.startDial(""); refresh() } // the green key anywhere in our screens: our dial pad, never the stock dialler
             else -> {} // the call actions belong to the call screen
         }
+    }
+
+    /** Reads the calendar again for the window the model last asked for, and redraws. */
+    private fun calReload() {
+        val (from, to) = model.calRange
+        val ev = calendar.events(from, to)
+        ui.post { model.calEvents = ev; refresh() }
     }
 
     private fun remoteVolumeStep(up: Boolean): Pair<Int, String>? {

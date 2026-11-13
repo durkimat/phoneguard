@@ -60,11 +60,11 @@ object LauncherData {
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
-    private val builtIn = setOf(MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+    private val builtIn = setOf(CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
 
     /**
      * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts, the apps a parent pinned,
@@ -78,7 +78,7 @@ object LauncherData {
         val others = apps - core.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
         val hasLogs = all.any { it.pkg in setOf(CALLLOG_PKG, NOTES_PKG, SETTINGS_PKG) }
-        return core + pins + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
+        return core + pins + one(CALENDAR_PKG) + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
             one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + (if (hasLogs) listOf(MenuItem(LOGSET_PKG, "Logs & Settings")) else emptyList())
     }
 
