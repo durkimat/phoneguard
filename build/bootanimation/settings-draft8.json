@@ -1,0 +1,20 @@
+{
+ "headW": 58,
+ "headH": 75,
+ "headN": 2.4,
+ "taper": 0.45,
+ "lensW": 0.87,
+ "lensH": 35,
+ "tuftH": 1.1,
+ "lean": -0.5,
+ "hairline": 1.3,
+ "beardAmt": 0.35,
+ "beardOpen": 28,
+ "mouthW": 23,
+ "smileD": 14,
+ "noseSize": 1.25,
+ "coatCol": "#994000",
+ "coatLen": 129,
+ "flare": 30,
+ "collarH": 0
+}
