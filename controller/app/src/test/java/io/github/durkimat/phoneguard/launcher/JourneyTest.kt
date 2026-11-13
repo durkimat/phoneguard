@@ -14,7 +14,7 @@ class JourneyTest {
         MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
         MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(WEATHER_PKG, "Weather"), MenuItem(GAMES_PKG, "Games"),
         MenuItem(APPS_PKG, "Apps"), MenuItem(CALC_PKG, "Calculator"), MenuItem(MUSIC_PKG, "Music"), MenuItem(SETTINGS_PKG, "Settings"),
-        MenuItem(LOGSET_PKG, "Logs"), MenuItem(RUNNING_PKG, "Running"),
+        MenuItem(LOGSET_PKG, "Logs"), MenuItem(RUNNING_PKG, "Running"), MenuItem(CALENDAR_PKG, "Calendar"),
     )
 
     private class Setup(val menuStyle: String, val whatsApp: Boolean, val theme: String = "green", val linked: Boolean = whatsApp) {
@@ -37,6 +37,13 @@ class JourneyTest {
         it.btOn = true; it.btDevs = listOf(BtDev("AA:BB", "Speaker", true, false), BtDev("CC:DD", "Watch", false, false))
         it.running = listOf(RunningApp("a.b", "Maps", "busy"))
         it.spSignedIn = true
+        it.nowMs = { 1_794_000_000_000L }
+        val t = 1_794_000_000_000L
+        it.calWritable = listOf(io.github.durkimat.phoneguard.calendar.CalInfo(1, "Phone", "Phone Guard", true))
+        it.calEvents = listOf(
+            io.github.durkimat.phoneguard.calendar.CalEvent(1, 1, "Dentist", t + 3_600_000L, t + 7_200_000L, place = "High St"),
+            io.github.durkimat.phoneguard.calendar.CalEvent(2, 2, "Term dates", t + 90_000_000L, t + 93_600_000L, writable = false),
+        )
         it.spPlaylists = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:pl:1", "Mix", "20 songs"))
         it.spResults = listOf(io.github.durkimat.phoneguard.music.SpItem("spotify:tr:1", "Song", "Band"))
         it.spDevices = listOf(io.github.durkimat.phoneguard.music.SpDevice("d1", "Kitchen", "Speaker", false, 50))
@@ -117,7 +124,8 @@ class JourneyTest {
         for ((s, e) in explored) for ((snap, path) in e.seen) {
             val m = replay(s, path)
             var n = 0
-            while (m.screen != Screen.HOME && n < snap.depth + 6) { m.press(Press(Key.SOFT_RIGHT)); n++ }
+            val typed = if (m.screen == Screen.WRITE) m.writeText.length else 0 // Back deletes typed text a character at a time
+            while (m.screen != Screen.HOME && n < snap.depth + 6 + typed) { m.press(Press(Key.SOFT_RIGHT)); n++ }
             if (m.screen != Screen.HOME) bad += "$s: ${fmt(path)} (${snap.screen}) is stuck on ${m.screen} after $n Backs"
         }
         assertTrue("screens Back cannot leave:\n" + bad.take(25).joinToString("\n"), bad.isEmpty())

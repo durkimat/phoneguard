@@ -128,6 +128,8 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 Screen.NOTE -> noteScreen(c, m, u)
                 Screen.MUSIC -> musicScreen(c, m, u)
                 Screen.THREAD -> thread(c, m, u)
+                Screen.EVENT -> page(c, m, u)
+                Screen.CALMONTH -> calMonth(c, m, u)
                 Screen.WRITE -> write(c, m, u)
                 Screen.CALC -> calc(c, m, u)
                 Screen.GAMEHELP -> gameHelp(c, m, u)
@@ -653,6 +655,48 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         /** Splits text into lines that fit the screen width in the current font. Called by the model. */
         fun wrap(text: String): List<String> = spans(text).map { text.substring(it.first, it.last + 1) }
 
+        /** An event or a mail: a head line, then the text scrolled a page at a time. */
+        private fun page(c: Canvas, m: LauncherModel, u: Float) {
+            titleBar(c, m.title, u)
+            text(c, fit(m.pageHead, 448f, 24f), 16f, 134f, 24f, u, bold = true)
+            val lines = wrap(m.pageBody)
+            lines.drop(m.scroll).take(m.pageLines).forEachIndexed { n, s -> text(c, s, 16f, 176f + n * 36f, BODY, u) }
+            if (m.scroll > 0) arrowV(c, 456f, 150f, -1, u)
+            if (m.scroll + m.pageLines < lines.size) arrowV(c, 456f, 548f, 1, u)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** A month of days with a dot under each that has an event, the chosen day inverted, and that day's events underneath. */
+        private fun calMonth(c: Canvas, m: LauncherModel, u: Float) {
+            titleBar(c, m.title, u)
+            val cells = io.github.durkimat.phoneguard.calendar.Cal.monthCells(m.calDay.year, m.calDay.monthValue)
+            val busy = HashSet<java.time.LocalDate>()
+            for (e in m.calEvents) {
+                var d = maxOf(io.github.durkimat.phoneguard.calendar.Cal.startDate(e, m.zone), cells.first()); val end = minOf(io.github.durkimat.phoneguard.calendar.Cal.endDate(e, m.zone), cells.last())
+                while (!d.isAfter(end)) { busy += d; d = d.plusDays(1) }
+            }
+            val faint = (ink and 0x00FFFFFF) or (0x66 shl 24)
+            val cw = 64f; val x0 = 16f; val gy = 138f; val rh = 48f
+            listOf("M", "T", "W", "T", "F", "S", "S").forEachIndexed { i, s -> text(c, s, x0 + i * cw + cw / 2, 128f, 22f, u, bold = true, align = Paint.Align.CENTER) }
+            val sel = chrome.selection(this)
+            for (n in 0 until 42) {
+                val d = cells[n]; val x = x0 + (n % 7) * cw; val y = gy + (n / 7) * rh
+                val isSel = d == m.calDay
+                if (isSel) { fill.color = sel?.first ?: ink; c.drawRect((x + 2) * u, y * u, (x + cw - 2) * u, (y + rh - 2) * u, fill); fill.color = ink }
+                val tc = if (isSel) (sel?.second ?: lcd) else if (d.monthValue != m.calDay.monthValue) faint else ink
+                text(c, "" + d.dayOfMonth, x + cw / 2, y + 30f, 26f, u, bold = d == m.today, align = Paint.Align.CENTER, color = tc)
+                if (d in busy) { fill.color = tc; c.drawRect((x + cw / 2 - 4) * u, (y + 36f) * u, (x + cw / 2 + 4) * u, (y + 42f) * u, fill); fill.color = ink }
+                if (d == m.today && !isSel) { stroke.strokeWidth = 2 * u; c.drawRect((x + 2) * u, y * u, (x + cw - 2) * u, (y + rh - 2) * u, stroke) }
+            }
+            val list = io.github.durkimat.phoneguard.calendar.Cal.eventsOn(m.calEvents, m.calDay, m.zone)
+            val top = gy + 6 * rh + 24f
+            text(c, io.github.durkimat.phoneguard.calendar.Cal.dayLabel(m.calDay, m.today), 16f, top, 24f, u, bold = true)
+            if (list.isEmpty()) text(c, "No events", 16f, top + 32f, 24f, u, color = faint)
+            list.take(3).forEachIndexed { i, e -> text(c, fit(io.github.durkimat.phoneguard.calendar.Cal.time(e, m.zone) + "  " + e.title.ifBlank { "(no title)" }, 448f, 24f), 16f, top + 32f + i * 30f, 24f, u) }
+            if (list.size > 3) text(c, "+" + (list.size - 3) + " more", 464f, top, 22f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
         private fun thread(c: Canvas, m: LauncherModel, u: Float) {
             val convo = m.openConvo ?: return
             val msg = m.shownMsg ?: return
@@ -719,7 +763,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     text(c, field, 16f, 85f, 30f, u, bold = true, color = lcd)
                 }
             } else {
-                text(c, if (m.writeSearch) "Search" else if (m.writeWifi != null) "Password: " + m.writeWifi!!.ssid else "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
+                text(c, m.writeHead ?: if (m.writeSearch) "Search" else if (m.writeWifi != null) "Password: " + m.writeWifi!!.ssid else "To: " + m.writeLabel.ifBlank { m.writeTo }, 16f, 85f, 30f, u, bold = true)
                 stroke.strokeWidth = 2 * u; c.drawLine(0f, 99 * u, width.toFloat(), 99 * u, stroke)
             }
             val body = m.writeText

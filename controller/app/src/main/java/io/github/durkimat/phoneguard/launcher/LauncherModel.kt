@@ -1,5 +1,10 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.phoneguard.calendar.AgendaItem
+import io.github.durkimat.phoneguard.calendar.Cal
+import io.github.durkimat.phoneguard.calendar.CalEvent
+import io.github.durkimat.phoneguard.calendar.CalInfo
+
 /**
  * The launcher's behaviour, with no drawing and no Android classes, so it is unit tested and any skin
  * can sit on top of it. A skin shows [screen], [items] and [selected], and tells the model which key
@@ -8,7 +13,7 @@ package io.github.durkimat.phoneguard.launcher
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -80,6 +85,7 @@ const val CAMERA_PKG = "pg:camera"
 const val LOGSET_PKG = "pg:logset"
 const val MUSIC_PKG = "pg:music"
 const val NOTES_PKG = "pg:notes"
+const val CALENDAR_PKG = "pg:calendar"
 const val RUNNING_PKG = "pg:running"
 val CAMERA_APPS = setOf("org.lineageos.aperture", "com.android.camera2", "org.lineageos.snap", "com.android.camera")
 const val WEATHER_PKG = "pg:weather"
@@ -202,6 +208,10 @@ sealed class Action {
     data class PlaceCall(val number: String) : Action()
     /** Send this text message. */
     data class Send(val to: String, val body: String) : Action()
+    /** Load the calendar's events for this window (epoch ms), save one, or delete one (the activity does it and refills the model). */
+    data class CalLoad(val from: Long, val to: Long) : Action()
+    data class CalSave(val event: CalEvent) : Action()
+    data class CalDelete(val id: Long) : Action()
 }
 
 class LauncherModel(
@@ -371,7 +381,7 @@ class LauncherModel(
     private var compStart = 0
     private var compLen = 0
     private val modes: List<String> get() =
-        if (writeWifi != null) listOf("abc", "ABC", "123") // a password is typed exactly: no word prediction, no capital after a full stop
+        if (exactTyping) listOf("abc", "ABC", "123") // a password is typed exactly: no word prediction, no capital after a full stop
         else if (predictor != null && predictiveOn) listOf("T9 Abc", "T9 abc", "T9 ABC", "Abc", "abc", "ABC", "123") else listOf("Abc", "abc", "ABC", "123")
     /** The characters being typed as a word, which the skin underlines until the word is accepted. */
     val composingRange: IntRange? get() = if (seq.isEmpty()) null else compStart until (compStart + compLen)
@@ -444,6 +454,11 @@ class LauncherModel(
         Screen.DIAL -> "Call"
         Screen.CALLMENU -> "Options"
         Screen.CALL -> "Call"
+        Screen.CALENDAR -> "Calendar"
+        Screen.CALMENU, Screen.EVMENU -> "Options"
+        Screen.CALMONTH -> Cal.monthName(calDay.monthValue) + " " + calDay.year
+        Screen.EVENT -> "Event"
+        Screen.FORM -> form?.title ?: "Edit"
         else -> "Menu"
     }
 
@@ -477,12 +492,16 @@ class LauncherModel(
             CallPhase.ACTIVE -> "Options" to "End"
             else -> "" to ""
         }
+        Screen.CALENDAR -> "Options" to "Back"
+        Screen.CALMONTH -> "Open" to "Back"
+        Screen.EVENT -> "Options" to "Back"
+        Screen.FORM -> (form?.primary ?: "Save") to "Back"
         Screen.INBOX -> "Open" to "Back"
         Screen.WHATSAPP -> (if (waLinked) "Open" else "Link") to "Back"
         Screen.WAPAIR -> (if (waLinked) "" else if (waCode != null) "New code" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
         Screen.CHAT -> (if (selected == 0) "Reply" else "Read") to "Back"
-        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else "Send") to "Clear"
+        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeHead != null) "Done" else "Send") to "Clear"
         else -> "Select" to "Back"
     }
 
@@ -533,6 +552,11 @@ class LauncherModel(
             val who = if (!it.mine && it.sender.isNotBlank()) NameStyle.short(it.sender, waNameStyle) + ": " else ""
             (if (it.mine) "> " else "< ") + who + it.body.lineSequence().firstOrNull().orEmpty()
         }
+        Screen.CALENDAR -> agenda.map { Cal.agendaRow(it, today, zone) }.ifEmpty { listOf("No events") }
+        Screen.CALMENU -> listOf("Add event", "Month view", "Go to today")
+        Screen.EVMENU -> evMenuRows
+        Screen.FORM -> form?.rowsOf?.invoke()?.map { it.text } ?: emptyList()
+        Screen.CALMONTH, Screen.EVENT -> emptyList()
         Screen.THREAD, Screen.WRITE, Screen.HOME -> emptyList()
     }
 
@@ -543,7 +567,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -604,6 +628,12 @@ class LauncherModel(
         Screen.DIAL -> dial(key, digit)
         Screen.CALL -> callScreen(key, digit)
         Screen.CALLMENU -> callMenu(key, digit)
+        Screen.CALENDAR -> calendarKey(key)
+        Screen.CALMENU -> calMenuKey(key)
+        Screen.CALMONTH -> calMonthKey(key, digit)
+        Screen.EVENT -> eventKey(key)
+        Screen.EVMENU -> evMenuKey(key)
+        Screen.FORM -> formKey(key)
     }
 
     private fun callScreen(key: Key, digit: Int): Action {
@@ -825,7 +855,7 @@ class LauncherModel(
 
     private fun startWrite(to: String, back: Screen, label: String = "", wa: Boolean = false): Action {
         writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1; commit()
-        writeWa = wa; writeLabel = label; writeSearch = false; writeRadio = false; writeWifi = null
+        writeWa = wa; writeLabel = label; writeSearch = false; writeRadio = false; writeWifi = null; writeHead = null; writeDone = null; writeExact = false
         writeField = if (to.isEmpty()) 0 else 1
         screen = Screen.WRITE
         return Action.Redraw
@@ -858,7 +888,7 @@ class LauncherModel(
         Key.UP -> { commit(); writeField = 0; Action.Redraw }
         Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
         Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
-        Key.OK, Key.SOFT_LEFT -> { commit(); if (writeWifi != null) { val n = writeWifi!!; screen = Screen.WIFI; selected = 0; writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; resFromFind = true; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; screen = Screen.RADIORES; selected = 0; Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
+        Key.OK, Key.SOFT_LEFT -> { commit(); writeDone?.let { f -> writeDone = null; writeHead = null; screen = writeBack; return f(writeText.trim()) }; if (writeWifi != null) { val n = writeWifi!!; screen = Screen.WIFI; selected = 0; writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; resFromFind = true; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; screen = Screen.RADIORES; selected = 0; Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = if (writeWa) Action.SendWa(writeTo, writeText.trim()) else Action.Send(writeTo, writeText.trim())
             leaveTo(Screen.MESSAGES, 0); notice = "Message sent"
             a
@@ -869,7 +899,7 @@ class LauncherModel(
             writeText.isEmpty() -> leaveWrite()
             else -> Action.None
         }
-        Key.CALL -> if (writeTo.isNotBlank()) Action.Call(writeTo) else Action.None
+        Key.CALL -> if (writeTo.isNotBlank() && writeHead == null) Action.Call(writeTo) else Action.None
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -937,7 +967,7 @@ class LauncherModel(
     private fun typeKey(d: Int, now: Long) {
         if (writeText.length >= 480) return
         if (modeName == "123" && d <= 9) { insert(d.toString()); lastDigit = -1; return }
-        val set = (if (writeWifi != null && d == 10) PW_SYMBOLS else if (writeWifi != null && d == 1) "1.-_@" else tapChars[d]) ?: return
+        val set = (if (exactTyping && d == 10) PW_SYMBOLS else if (exactTyping && d == 1) "1.-_@" else tapChars[d]) ?: return
         if (d == lastDigit && now - lastAt <= 1000 && cursor > 0) {
             tapIdx = (tapIdx + 1) % set.length
             val ch = style(set[tapIdx], writeText.substring(0, cursor - 1))
@@ -1022,6 +1052,7 @@ class LauncherModel(
         item.pkg == MUSIC_PKG -> { enter(Screen.MUSICMENU); Action.Redraw }
         item.pkg == RUNNING_PKG -> { enter(Screen.RUNNING); Action.Redraw }
         item.pkg == NOTES_PKG -> { enter(Screen.NOTES); Action.Redraw }
+        item.pkg == CALENDAR_PKG -> openCalendar()
         item.pkg == WEATHER_PKG -> { enter(Screen.WEATHER); Action.Redraw }
         item.pkg == GAMES_PKG -> { enter(Screen.GAMES); Action.Redraw }
         item.pkg == APPS_PKG -> { enter(Screen.APPS); Action.Redraw }
@@ -1136,7 +1167,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
@@ -1145,7 +1176,7 @@ class LauncherModel(
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
     /** The screens a skin draws by hand; everything else is a list of rows. */
-    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL)
+    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL, Screen.CALMONTH, Screen.EVENT)
 
     /** How the current screen is laid out. On a grid the D-pad moves in four directions, so Left and Right stop being soft-key aliases. */
     val layout: Layout get() = when {
@@ -1803,6 +1834,193 @@ class LauncherModel(
         Key.DIGIT -> { val i = if (digit == 0) 9 else digit - 1; items.getOrNull(i)?.let { selected = i; open(it) } ?: Action.None }
         else -> Action.None
     }
+
+    // ---- Calendar
+    var zone: java.time.ZoneId = java.time.ZoneId.systemDefault()
+    /** The clock, so a test can say what time it is. */
+    var nowMs: () -> Long = { System.currentTimeMillis() }
+    val today: java.time.LocalDate get() = java.time.Instant.ofEpochMilli(nowMs()).atZone(zone).toLocalDate()
+    /** The occurrences the activity loaded after a [Action.CalLoad], the window they cover, and the calendars an event may be added to. */
+    var calEvents: List<CalEvent> = emptyList()
+    var calRange: Pair<Long, Long> = 0L to 0L
+    var calWritable: List<CalInfo> = emptyList()
+    /** The day the agenda starts at (null: today) and the day highlighted in the month. */
+    var calFrom: java.time.LocalDate? = null
+    var calDay: java.time.LocalDate = java.time.LocalDate.now()
+    private var shown: CalEvent? = null
+    private var evConfirm = false
+    var form: Form? = null
+        private set
+    /** The page screens (an event, a mail) show a head line and a body, scrolled by [scroll]. */
+    var pageHead = ""
+        private set
+    var pageBody = ""
+        private set
+    val agenda: List<AgendaItem> get() = Cal.agenda(calEvents, calFrom ?: today, 90, zone)
+    val calShown: CalEvent? get() = shown
+
+    private fun calLoad(center: java.time.LocalDate): Action {
+        val from = Cal.dayStart(center.minusDays(60), zone); val to = Cal.dayStart(center.plusDays(240), zone)
+        calRange = from to to
+        return Action.CalLoad(from, to)
+    }
+    /** Asks for more events when [day] is near or outside the window already loaded. */
+    private fun calNeeds(day: java.time.LocalDate): Action? {
+        val t = Cal.dayStart(day, zone)
+        return if (t < calRange.first + 14 * 86_400_000L || t > calRange.second - 14 * 86_400_000L) calLoad(day) else null
+    }
+    private fun openCalendar(): Action { calFrom = null; calDay = today; enter(Screen.CALENDAR); return calLoad(today) }
+
+    private fun calendarKey(key: Key): Action {
+        val items = agenda
+        return move(key, maxOf(1, items.size)) ?: when (key) {
+            Key.OK -> items.getOrNull(selected)?.let { showEvent(it.event) } ?: Action.None
+            Key.LEFT, Key.SOFT_LEFT -> { enter(Screen.CALMENU); Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun showEvent(e: CalEvent): Action {
+        shown = e; evConfirm = false; scroll = 0
+        pageHead = Cal.when_(e, zone)
+        pageBody = listOf(e.title.ifBlank { "(no title)" }, if (e.place.isBlank()) "" else "At " + e.place,
+            if (e.repeat.isBlank()) "" else Cal.repeatName(e.repeat), e.notes).filter { it.isNotBlank() }.joinToString("\n\n")
+        enter(Screen.EVENT)
+        return Action.Redraw
+    }
+
+    private fun calMenuKey(key: Key): Action = move(key, 3) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
+            0 -> { openForm(eventForm(Cal.newEvent(calFrom ?: today, nowMs(), zone, calWritable.firstOrNull()?.id ?: 0))); Action.Redraw }
+            1 -> { screen = Screen.CALMONTH; calDay = calFrom ?: today; selected = 0; calNeeds(calDay) ?: Action.Redraw }
+            else -> { calFrom = null; leave(); selected = 0; Action.Redraw }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun calMonthKey(key: Key, digit: Int): Action {
+        fun go(d: java.time.LocalDate): Action { calDay = d; return calNeeds(d) ?: Action.Redraw }
+        return when (key) {
+            Key.UP -> go(calDay.minusDays(7))
+            Key.DOWN -> go(calDay.plusDays(7))
+            Key.LEFT -> go(calDay.minusDays(1))
+            Key.RIGHT -> go(calDay.plusDays(1))
+            Key.STAR -> go(calDay.minusMonths(1))
+            Key.POUND -> go(calDay.plusMonths(1))
+            Key.DIGIT -> if (digit == 0) go(today) else Action.None
+            Key.OK, Key.SOFT_LEFT -> { leave(); calFrom = calDay; selected = 0; Action.Redraw }
+            Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun eventKey(key: Key): Action {
+        val lines = wrapper(pageBody).size
+        return when (key) {
+            Key.DOWN -> if (scroll + pageLines < lines) { scroll += pageLines; Action.Redraw } else Action.None
+            Key.UP -> if (scroll > 0) { scroll = (scroll - pageLines).coerceAtLeast(0); Action.Redraw } else Action.None
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> { evConfirm = false; enter(Screen.EVMENU); Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private val evMenuRows: List<String> get() = when {
+        shown?.writable != true -> listOf("Read only calendar")
+        evConfirm -> listOf("Yes, delete it", "No")
+        else -> listOf("Edit", "Delete")
+    }
+
+    private fun evMenuKey(key: Key): Action = move(key, evMenuRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+            val e = shown
+            when {
+                e == null || !e.writable -> Action.None
+                evConfirm -> if (selected == 0) { leaveTo(Screen.CALENDAR, 0); notice = "Deleted"; Action.CalDelete(e.id) } else { evConfirm = false; selected = 1; Action.Redraw }
+                selected == 0 -> { openForm(eventForm(if (e.repeat.isNotBlank() && e.seriesStart > 0) e.copy(start = e.seriesStart, end = e.seriesEnd) else e)); Action.Redraw }
+                else -> { evConfirm = true; selected = 1; Action.Redraw }
+            }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (evConfirm) { evConfirm = false; selected = 1 } else leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    /** Shows a form in place of the screen that opened it, so Back returns to where that was. */
+    private fun openForm(f: Form) { form = f; screen = Screen.FORM; selected = 0 }
+
+    private fun formKey(key: Key): Action {
+        val f = form ?: run { goHome(); return Action.Redraw }
+        val rs = f.rowsOf()
+        selected = selected.coerceIn(0, (rs.size - 1).coerceAtLeast(0))
+        val r = rs.getOrNull(selected)
+        fun step(dir: Int, big: Boolean): Action { val s = r?.onStep ?: return Action.None; s(dir, big); return Action.Redraw }
+        return move(key, rs.size) ?: when (key) {
+            Key.OK -> when {
+                r == null -> Action.None
+                r.onText != null -> startText(r.label, r.initial(), Screen.FORM, r.exact) { t -> r.onText.invoke(t); Action.Redraw }
+                r.run != null -> r.run.invoke()
+                r.onStep != null && r.okStep -> step(1, false)
+                else -> Action.None
+            }
+            Key.LEFT -> step(-1, false)
+            Key.RIGHT -> step(1, false)
+            Key.STAR -> step(-1, true)
+            Key.POUND -> step(1, true)
+            Key.SOFT_LEFT -> f.onPrimary()
+            Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    /** The edit form for an event (a new one has id 0): title, when, repeat, reminder, place, notes. Save is the left soft key. */
+    private fun eventForm(e0: CalEvent): Form {
+        var e = e0
+        fun day(d: java.time.LocalDate) = Cal.dayName(d) + " " + d.dayOfMonth + " " + Cal.monthName(d.monthValue).take(3)
+        fun brief(s: String) = if (s.isBlank()) "None" else s.lineSequence().first().take(18)
+        val rows: () -> List<FormRow> = {
+            buildList {
+                add(FormRow("Title", { brief(e.title).let { if (e.title.isBlank()) "-" else it } }, { e = e.copy(title = it) }, { e.title }))
+                add(FormRow("Date", { day(Cal.startDate(e, zone)) }, onStep = { d, big -> e = Cal.shiftDays(e, (if (big) 7L else 1L) * d, zone) }))
+                if (e.allDay) add(FormRow("Last day", { day(Cal.endDate(e, zone)) }, onStep = { d, big -> e = Cal.shiftLastDay(e, (if (big) 7L else 1L) * d) }))
+                else {
+                    add(FormRow("Starts", { Cal.clock(e.start, zone) }, onStep = { d, big -> e = Cal.shiftTime(e, (if (big) 60L else 15L) * d) }))
+                    add(FormRow("Ends", { Cal.clock(e.end, zone) }, onStep = { d, big -> e = Cal.shiftEnd(e, (if (big) 60L else 15L) * d) }))
+                }
+                add(FormRow("All day", { if (e.allDay) "Yes" else "No" }, onStep = { _, _ -> e = if (e.allDay) Cal.toTimed(e, zone) else Cal.toAllDay(e, zone) }, okStep = true))
+                add(FormRow("Repeat", { Cal.repeatName(e.repeat) }, onStep = { d, _ -> e = e.copy(repeat = Cal.stepRepeat(e.repeat, d)) }))
+                add(FormRow("Reminder", { Cal.reminderName(e.reminder) }, onStep = { d, _ -> e = e.copy(reminder = Cal.stepReminder(e.reminder, d)) }))
+                add(FormRow("Place", { brief(e.place) }, { e = e.copy(place = it) }, { e.place }))
+                add(FormRow("Notes", { brief(e.notes) }, { e = e.copy(notes = it) }, { e.notes }))
+                if (e.id == 0L && calWritable.size > 1) add(FormRow("Calendar", { calWritable.firstOrNull { it.id == e.calId }?.name ?: calWritable.first().name },
+                    onStep = { d, _ -> val i = calWritable.indexOfFirst { it.id == e.calId }.coerceAtLeast(0); e = e.copy(calId = calWritable[(i + d + calWritable.size) % calWritable.size].id) }))
+            }
+        }
+        return Form(if (e0.id == 0L) "New event" else "Edit event", "Save", rows) {
+            if (e.title.isBlank()) { notice = "Enter a title"; Action.Redraw }
+            else { val out = e; leaveTo(Screen.CALENDAR, 0); notice = "Saved"; Action.CalSave(out) }
+        }
+    }
+
+    /** Types some text on the write screen, filled with [initial], and runs [done] with it when the owner presses Done. */
+    fun startText(head: String, initial: String, back: Screen, exact: Boolean = false, done: (String) -> Action): Action {
+        startWrite("-", back)
+        writeHead = head; writeDone = done; writeExact = exact
+        writeText = initial; cursor = initial.length
+        return Action.Redraw
+    }
+    var writeHead: String? = null
+        private set
+    private var writeDone: ((String) -> Action)? = null
+    private var writeExact = false
+    private val exactTyping: Boolean get() = writeWifi != null || writeExact
 }
 
 enum class BadgeKind { SMS, WHATSAPP, MISSED, NOTES, MUSIC }
