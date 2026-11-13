@@ -19,3 +19,10 @@ Also note whether the very first boot after a flash is slower than a later reboo
 - Android's animation starts about 10 to 20 s after kernel time 0, so the extra time is before the kernel: look at LK and the preloader.
 - The animation starts about a minute after kernel time 0, so the kernel or early init is slow: look at the gaps from step 4.
 - Note: the warning staying on screen does not prove LK is still running. LK's last frame stays up until the kernel's display driver takes over.
+
+## Result so far (2026-11-13)
+Owner's stopwatch on the current (baseline + BT fix) image: Qin logo 1 s, unlocked warning 1.5 s, screen black 69 s, boot animation 80 s, login 101 s. The owner remembers no such wait on the Dumber firmware.
+
+From the baseline warm-reboot log (`/archive/phone-backups/flash-run-20261112/boot2-after-reboot.log`): logd starts at about 9 s of kernel time, but `boot_progress_start` (zygote) is at 62 s. The log has a 47 s gap straight after TrebleDroid's `rw-system.sh` runs `resize2fs /dev/tmp-phh` (rw-system.sh lines 353-366: remount `/` rw, create `/dev/tmp-phh`, `resize2fs`, remount ro). That script is run by init synchronously (`exec - root -- /system/bin/rw-system.sh`, vndk.rc), so a slow step in it delays the whole boot, including SurfaceFlinger, so the bootloader frame stays on screen. The earlier bootloader (LK) logs show 3 to 8 s, so LK is not the problem.
+
+Not yet confirmed: which command in rw-system.sh is slow. The PC session was asked (read-only) for `dmesg` `waiting took` lines, `ro.boottime.*` and boot_progress. If rw-system.sh is confirmed, apply `build/patches-pending/0008-treble-skip-system-resize-at-boot.patch` (disables that block), rebuild, and re-time.
