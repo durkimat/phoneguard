@@ -23,7 +23,10 @@ Last updated 2026-11-14 (images up to ims21).
 - [ ] Phone Guard first-run flow as a system app: it may ask for runtime permissions (SMS, contacts, location, BT, mic...). Pre-granting them in the image is a to-do.
 - [ ] T9 input (TT9) selected and working in Phone Guard text fields.
 - [ ] Lock screen / PIN, and the white flash after unlock (known problem to fix).
-- [ ] Bluetooth pairing and audio (B1): never re-tested on our image since the baseline fix (patch 0005).
+- [ ] Bluetooth pairing and audio to a real speaker/headset (B1 blocker): the adapter works (checked), a real pairing + music + call audio over BT has not been tried on our image.
+- [x] Camera: opens and saves a photo (PC session, ims21). Check picture quality and the dithered preview yourself.
+- [ ] Join Wi-Fi (the phone sees your home network; needs the password), then Wi-Fi calling test.
+- [ ] Email and Calendar: set up one real account / calendar (menu shows both since 0.3.1).
 - [ ] Boot: Qin logo -> warning -> animation timing and the fade-out when ready (stopwatch).
 - [ ] Hard keys and the keypad behave (F2 key etc.).
 
