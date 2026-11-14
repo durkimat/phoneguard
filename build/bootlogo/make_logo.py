@@ -15,7 +15,10 @@ os.makedirs(out, exist_ok=True)
 P0 = dict(x=240, f=0, dir=-1, walk=0, mode="look", du=None, mag=0, carry=False, gaze=(0, 0), blink=0, spot=1, cap="")
 gen.pose = lambda t: dict(P0)
 sc, _ = gen.build(0)
-S, TY = 1.35, -112                                             # scale the character up; feet near the bottom, head near the top
+def arg(name, default):
+    return float(sys.argv[sys.argv.index(name) + 1]) if name in sys.argv else default
+S, TY = arg("--scale", 1.35), arg("--ty", -112)                  # 1.0 / 0 = exactly the size and place the character has in the boot animation
+DYS = arg("--dy", 0)                                            # move the lettering down by this many pixels
 lines = sc.mvg().split("\n")
 mvg = "\n".join(lines[:3] + ["translate %.1f,%.1f" % (240 - 240 * S, TY), "scale %.3f,%.3f" % (S, S)] + lines[3:])
 open(os.path.join(out, "base.mvg"), "w").write(mvg)
@@ -24,7 +27,7 @@ subprocess.run(["convert", "-size", "480x640", "xc:" + gen.Q["bg"], "-draw", "@"
 
 def text_layer(path, font, size, fill, stroke, sw, y1, y2, dy=0):
     """DADDY and BOT as two centred lines on a transparent 480x640 canvas; each line is auto-fitted (caption:) into its own box so it never leaves the screen"""
-    boxes = (("DADDY", 404, 104, 300 + dy), ("BOT", 330, 136, 418 + dy))
+    boxes = (("DADDY", 404, 104, 300 + dy + DYS), ("BOT", 330, 136, 418 + dy + DYS))
     cmd = ["convert", "-size", "480x640", "xc:none"]
     for word, w, h, y in boxes:
         cmd += ["(", "-size", "%dx%d" % (w - 2 * sw, h - 2 * sw), "-background", "none", "-font", os.path.join(fonts, font), "-fill", fill, "-stroke", stroke, "-strokewidth", str(sw),
@@ -40,7 +43,9 @@ V = [  # name, font, sizes (line1, line2), fill, stroke, strokewidth, y1, y2, ex
     ("E-sci-fi-teal",    "Orbitron[wght].ttf",       (112, 160), "none", "#35e0c8", 4, 290, 405, None),
     ("F-retro-future",   "Audiowide-Regular.ttf",    (118, 170), "none", "#f4f1ea", 4, 285, 400, "#3ddc84"),
 ]
-if "--filled" in sys.argv:        # option A (Press Start 2P), filled with translucent colour
+if "--a3" in sys.argv:             # the chosen look: option A, translucent fill with a white outline
+    V = [("DaddyBot-logo", "PressStart2P-Regular.ttf", (0, 0), "rgba(255,255,255,0.40)", "rgba(255,255,255,0.95)", 3, 0, 0, None)]
+elif "--filled" in sys.argv:        # option A (Press Start 2P), filled with translucent colour
     F = "PressStart2P-Regular.ttf"
     V = [("A1-fill35",   F, (0, 0), "rgba(255,255,255,0.35)", "none", 1, 0, 0, None),
          ("A2-fill55",   F, (0, 0), "rgba(255,255,255,0.55)", "none", 1, 0, 0, None),
@@ -59,5 +64,7 @@ for name, font, size, fill, stroke, sw, y1, y2, shadow in V:
     cmd += [lay, "-composite", comp]
     subprocess.run(cmd, check=True); names.append(comp)
 sheet = os.path.join(out, "daddybot-options-filled.png" if "--filled" in sys.argv else "daddybot-options.png")
+if "--a3" in sys.argv:
+    print("wrote", names[0]); sys.exit(0)
 subprocess.run(["montage"] + names + ["-tile", "3x2", "-geometry", "400x533+8+8", "-background", "#1a1a1a", "-label", "%t", sheet], check=True)
 print("wrote", sheet)
