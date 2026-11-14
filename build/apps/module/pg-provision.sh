@@ -12,6 +12,11 @@ finish() {
   timeout 20 cmd settings put global device_provisioned 1
   timeout 20 cmd settings put secure user_setup_complete 1
   timeout 20 cmd package disable-user --user 0 org.lineageos.setupwizard
+  # No stock lock screen while there is no PIN (a PIN set later brings the PIN pad back at once: SystemUI patch 0012).
+  timeout 20 cmd lock_settings set-disabled true
+  # Phone Guard look for the system UI (PIN pad, shade, Settings): dark theme and a green colour seed (3DDC84, the boot-animation green).
+  timeout 20 cmd uimode night yes
+  timeout 20 cmd settings put secure theme_customization_overlay_packages '{"android.theme.customization.color_source":"preset","android.theme.customization.system_palette":"3DDC84","android.theme.customization.accent_color":"3DDC84","_applied_timestamp":1}'
   timeout 20 cmd activity start-activity --user 0 -n $PKG/.MainActivity
   # A wiped phone has mobile data off; Phone Guard manages it per mode afterwards. `cmd phone data enable` only works once the SIM
   # subscription exists (23 s or more after boot), so retry until a mobile_data<subId>=1 setting appears (max ~5 min).

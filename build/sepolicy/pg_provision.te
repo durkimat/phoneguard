@@ -6,7 +6,7 @@ init_daemon_domain(pg_provision)
 binder_use(pg_provision)
 binder_call(pg_provision, system_server)
 allow pg_provision servicemanager:service_manager list;
-allow pg_provision { device_policy_service package_service activity_service settings_service radio_service }:service_manager find;
+allow pg_provision { device_policy_service package_service activity_service settings_service radio_service lock_settings_service uimode_service }:service_manager find;
 allow pg_provision shell_exec:file rx_file_perms;
 allow pg_provision toolbox_exec:file rx_file_perms;
 allow pg_provision system_file:file rx_file_perms;
