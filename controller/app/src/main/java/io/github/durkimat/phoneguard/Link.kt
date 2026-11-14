@@ -133,16 +133,41 @@ object Link {
     }
 
     /** The parent released this phone: put everything back and give up device owner. */
-    private fun release(c: Context) {
-        Log.log(c, "release requested by Home Assistant")
+    private fun release(c: Context) = releaseWith(c) { clear(c) }
+
+    internal fun releaseWith(c: Context, forget: () -> Unit) {
+        Log.log(c, "release requested by the parent")
         LockdownEnforcer.releaseAll(c)
         Enforcer.restoreEverything(c)
-        clear(c)
+        forget()
         Store.clearConfig(c); Store.setBoost(c, null)
         try { Dpm.dpm(c).clearDeviceOwnerApp(c.packageName) } catch (e: Exception) { Log.log(c, "release failed: ${e.message}") }
     }
 
-    private fun payload(c: Context, cfgh: String): JSONObject {
+    /**
+     * What a sync reply does, shared with the Cloudflare link: new config (through [transform], which may open sealed secrets), the parent's
+     * boost on this phone's clock, a release command, then re-evaluate. [setCfgh] remembers the opaque config hash to echo next time.
+     */
+    internal fun applyShared(c: Context, rp: JSONObject, serverT: Long, transform: (JSONObject) -> JSONObject, setCfgh: (String) -> Unit, forget: () -> Unit): String {
+        var what = "ok"
+        val cfg = rp.optJSONObject("cfg") ?: rp.optJSONObject("config")
+        if (cfg != null) { Store.setConfig(c, transform(cfg).toString()); setCfgh(rp.optString("cfgh")); what = "config updated" }
+        else if (rp.optBoolean("unchanged")) what = "unchanged"
+        val b = rp.optJSONObject("boost")
+        Store.setBoost(c, if (b == null) null else Boost(b.getString("mode"), b.getLong("until") - serverT + Clock.now()))
+        val cmds = rp.optJSONArray("cmds") ?: JSONArray()
+        for (i in 0 until cmds.length()) {
+            if (cmds.getJSONObject(i).optString("type") == "release") { releaseWith(c, forget); return "RELEASED by parent" }
+        }
+        Controller.evaluate(c, "sync")
+        AppInstaller.processSoon(c)
+        return what
+    }
+
+    /** Reports handed to the parent are cleared only after a reply that was verified and applied. */
+    internal fun commitReports(c: Context) { PowerLog.commit(c); IdleReaper.commit(c); AppInstaller.commit(c); LocationReporter.commit(c) }
+
+    internal fun payload(c: Context, cfgh: String): JSONObject {
         PowerLog.sample(c, "sync", force = true)
         val cfg = Store.config(c)
         val boost = Store.boost(c)

@@ -12,6 +12,7 @@ import io.github.durkimat.phoneguard.Clock
 import io.github.durkimat.phoneguard.Controller
 import io.github.durkimat.phoneguard.Dpm
 import io.github.durkimat.phoneguard.Keys
+import io.github.durkimat.phoneguard.Link
 import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.Store
 import io.github.durkimat.phoneguard.Wire
@@ -92,10 +93,10 @@ object WorkerLink {
             when (val st = r.optString("status")) {
                 "pending" -> "waiting"
                 "confirmed" -> {
-                    val rp = verifyReply(c, r.getJSONObject("reply"), s.getString("nonce", "")!!) ?: return "failed: reply not trusted"
+                    val (rp, t) = verifyReply(c, r.getJSONObject("reply"), s.getString("nonce", "")!!) ?: return "failed: reply not trusted"
                     val did = rp.getString("did")
                     s.edit().putString("did", did).putLong("ctr", 0).putInt("cfgVersion", 0).remove("pairingId").apply()
-                    applyConfig(c, rp)
+                    applyConfig(c, rp, t)
                     Log.log(c, "companion: PAIRED did=$did")
                     schedulePoll(c, 5_000)
                     "paired"
@@ -115,14 +116,14 @@ object WorkerLink {
         val ctr = s.getLong("ctr", 0) + 1
         s.edit().putLong("ctr", ctr).apply() // persist first: a counter is never reused, even if the reply is lost
         val n = Wire.nonce()
-        val p = state(c).toString()
+        val p = Link.payload(c, s.getString("cfgh", "").orEmpty()).toString()
         val env = JSONObject().put("v", V).put("did", did).put("ctr", ctr).put("n", n).put("p", p)
             .put("s", Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, p).toByteArray(Charsets.UTF_8)))
         val result = try {
             val reply = JSONObject(http(host, "POST", "/api/sync", env.toString()))
-            val rp = verifyReply(c, reply, n) ?: throw IllegalStateException("reply not trusted")
+            val (rp, t) = verifyReply(c, reply, n) ?: throw IllegalStateException("reply not trusted")
             s.edit().putLong("lastSync", System.currentTimeMillis()).putInt("failures", 0).apply()
-            applyConfig(c, rp).also { s.edit().putString("lastResult", it).apply() }
+            applyConfig(c, rp, t).also { s.edit().putString("lastResult", it).apply(); Link.commitReports(c) }
         } catch (e: Exception) {
             val f = s.getInt("failures", 0) + 1
             s.edit().putInt("failures", f).putString("lastResult", "FAILED ${e.javaClass.simpleName}: ${e.message}").apply()
@@ -136,18 +137,8 @@ object WorkerLink {
         return result
     }
 
-    /** What the phone tells the server (shown on the parent page); lean on purpose. */
-    private fun state(c: Context): JSONObject {
-        val cfg = Store.config(c)
-        val eff = io.github.durkimat.phoneguard.core.Engine.effective(cfg, Store.boost(c), Clock.now())
-        val bm = c.getSystemService(BatteryManager::class.java)
-        return JSONObject().put("cfgVersion", sp(c).getInt("cfgVersion", 0)).put("mode", eff.modeId)
-            .put("owner", Dpm.isOwner(c)).put("battery", bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
-            .put("version", BuildConfig.VERSION_NAME).put("tz", TimeZone.getDefault().id).put("clock", Clock.now())
-    }
-
     /** Signature, device id and echoed nonce must all check out against the pinned server key; returns the signed payload. */
-    private fun verifyReply(c: Context, reply: JSONObject, nonce: String): JSONObject? {
+    private fun verifyReply(c: Context, reply: JSONObject, nonce: String): Pair<JSONObject, Long>? {
         val s = sp(c)
         val did = reply.optString("did"); val p = reply.optString("p")
         if (reply.optString("n") != nonce) return null
@@ -156,17 +147,13 @@ object WorkerLink {
         val key = s.getString("serverKey", "").orEmpty()
         val msg = CompanionCrypto.serverMessage(reply.optInt("v"), did, nonce, reply.optLong("t"), p)
         if (!CompanionCrypto.verify(key, msg, reply.optString("s"))) return null
-        return JSONObject(p)
+        return JSONObject(p) to reply.optLong("t")
     }
 
-    private fun applyConfig(c: Context, rp: JSONObject): String {
+    private fun applyConfig(c: Context, rp: JSONObject, serverT: Long): String {
         val v = rp.optInt("configVersion", 0)
-        val cfg = rp.optJSONObject("config")
-        if (cfg == null) return if (rp.optBoolean("unchanged")) "unchanged (v$v)" else "ok"
-        Store.setConfig(c, withOpenedSecrets(c, cfg).toString())
-        sp(c).edit().putInt("cfgVersion", v).apply()
-        Controller.evaluate(c, "companion sync")
-        return "config updated (v$v)"
+        val what = Link.applyShared(c, rp, serverT, { withOpenedSecrets(c, it) }, { sp(c).edit().putString("cfgh", it).putInt("cfgVersion", v).apply() }, { forget(c); EncKey.delete() })
+        return "$what (v$v)"
     }
 
     /**
