@@ -1,0 +1,29 @@
+# repo: frameworks/base
+diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+index e719489d4e08..5d146059c9c6 100644
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+@@ -1944,6 +1944,11 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
+                         + ", mPowerGestureIntercepted = " + mPowerGestureIntercepted);
+             }
+             notifyStartedWakingUp();
++            // Phone Guard: waking a locked secure device shows the PIN pad at once (see handleShow).
++            if (mShowing && mLockPatternUtils.isSecure(mSelectedUserInteractor.getSelectedUserId())
++                    && android.os.SystemProperties.getBoolean("persist.sys.pg.bouncer_on_show", false)) {
++                mHandler.post(() -> mKeyguardViewControllerLazy.get().showPrimaryBouncer(true));
++            }
+         }
+         mUiEventLogger.logWithInstanceIdAndPosition(
+                 BiometricUnlockController.BiometricUiEvent.STARTED_WAKING_UP,
+@@ -2916,6 +2921,11 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
+                 // Handled directly in StatusBarKeyguardViewManager if enabled.
+                 mKeyguardViewControllerLazy.get().show(options);
+             }
++            // Phone Guard: keypad phone, touchscreen disabled: go straight to the PIN pad instead of waiting for a swipe.
++            if (!showUnlocked && mLockPatternUtils.isSecure(currentUser)
++                    && android.os.SystemProperties.getBoolean("persist.sys.pg.bouncer_on_show", false)) {
++                mHandler.post(() -> mKeyguardViewControllerLazy.get().showPrimaryBouncer(true));
++            }
+ 
+ 
+             resetKeyguardDonePendingLocked();

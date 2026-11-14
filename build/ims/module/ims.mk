@@ -48,3 +48,6 @@ PRODUCT_PACKAGE_OVERLAYS += vendor/phoneguard/overlay
 # No on-screen navigation bar (keypad phone; Phone Guard draws its own soft keys). Proven alternative if this does not hide it:
 # cmd overlay enable com.android.internal.systemui.navbar.gestural; cmd overlay enable org.lineageos.overlay.customization.navbar.nohint; settings put secure navigation_mode 2
 PRODUCT_PRODUCT_PROPERTIES += persist.sys.phh.mainkeys=1   # TrebleDroid sets it to 0 in the system build.prop (duplicate = build error); product build.prop loads last and wins. vndk.rc copies it into qemu.hw.mainkeys
+
+# Lock screen (patch 0012): straight to the PIN pad on show/wake; the pad takes digits from the hardware keypad.
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.pg.bouncer_on_show=1
