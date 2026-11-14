@@ -16,8 +16,6 @@ PRODUCT_COPY_FILES += \
     vendor/phoneguard/apps/pg-provision.sh:system/system_ext/bin/pg-provision.sh \
     vendor/phoneguard/apps/pg-provision.rc:system/system_ext/etc/init/pg-provision.rc
 
-# FM radio (stock MediaTek app + libfmjni, talks to /dev/fm of the stock kernel).
+# FM radio: Lineage ships MediaTek-derived FMRadio (packages/apps/FMRadio, platform-signed with our key, with its own libfmjni and allowlist).
+# (The stock Qin FMRadio.apk + libfmjni are kept as a fallback in /archive/phone-backups/own-build-inputs/fmradio-stock-20261114, see docs/fm-radio.md.)
 PRODUCT_PACKAGES += FMRadio
-PRODUCT_COPY_FILES += \
-    vendor/phoneguard/apps/fm/libfmjni.so:system/lib64/libfmjni.so \
-    vendor/phoneguard/apps/privapp-permissions-fmradio.xml:system/etc/permissions/privapp-permissions-fmradio.xml
