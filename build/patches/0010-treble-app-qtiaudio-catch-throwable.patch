@@ -1,0 +1,23 @@
+# repo: treble_app
+diff --git a/app/src/main/java/me/phh/treble/app/QtiAudio.kt b/app/src/main/java/me/phh/treble/app/QtiAudio.kt
+--- a/app/src/main/java/me/phh/treble/app/QtiAudio.kt
++++ b/app/src/main/java/me/phh/treble/app/QtiAudio.kt
+@@ -37,14 +37,14 @@
+                 try {
+                     val svc = vendor.qti.hardware.radio.am.V1_0.IQcRilAudio.getService(slot)
+                     isQualcommDevice = true
+                     Log.d("PHH", "isQualcommDevice set by vendor.qti.hardware.radio.am HIDL")
+-                } catch (e: Exception) {
++                } catch (e: Throwable) {
+                     Log.d("PHH", "Failed setting vendor.qti.hardware.radio.am $slot cb $e")
+                 }
+ 
+                 try {
+                     val svc = vendor.qti.qcril.am.V1_0.IQcRilAudio.getService(slot)
+                     isQualcommDevice = true
+                     Log.d("PHH", "isQualcommDevice set by vendor.qti.qcril.am HIDL")
+-                } catch (e: Exception) {
++                } catch (e: Throwable) {
+                     Log.d("PHH", "Failed setting vendor.qti.hardware.radio.am $slot cb $e")
+                 }
+             }
