@@ -1,14 +1,24 @@
 # repo: frameworks/base
 diff --git a/data/keyboards/Generic.kl b/data/keyboards/Generic.kl
-index f9347ee6ea09..d4fc95f04e44 100644
+index f9347ee6ea09..7d8b1cb610de 100644
 --- a/data/keyboards/Generic.kl
 +++ b/data/keyboards/Generic.kl
-@@ -189,6 +189,8 @@ key 166   MEDIA_STOP
+@@ -189,6 +189,9 @@ key 166   MEDIA_STOP
  key 167   MEDIA_RECORD
  key 168   MEDIA_REWIND
  key 169   CALL
-+# Qin J35/J36 keypad (mtk-kpd): the green call key is Linux scancode 231 (KEY_SEND), the star key 227 (KEY_STAR), the OK key 352 (KEY_OK); the stock firmware maps them, Generic.kl did not, so Android dropped them
++# Qin J35/J36 keypad (mtk-kpd): the stock firmware maps scancodes 231 (call, KEY_SEND), 227 (star, KEY_STAR) and 352 (OK, KEY_OK); Generic.kl did not, so Android dropped those keys
 +key 231   CALL
++key 227   STAR
  # key 170 "KEY_ISO"
  key 171   MUSIC
  key 172   HOME
+@@ -308,7 +311,7 @@ key 331   STYLUS_BUTTON_PRIMARY
+ key 332   STYLUS_BUTTON_SECONDARY
+ 
+ 
+-# key 352 "KEY_OK"
++key 352   DPAD_CENTER
+ key 353   DPAD_CENTER
+ # key 354 "KEY_GOTO"
+ # key 355 "KEY_CLEAR"
