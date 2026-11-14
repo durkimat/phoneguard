@@ -5,8 +5,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct fm_fake_channel;
-struct fm_fake_channel_t;
+struct fm_fake_channel { int freq; int rssi_th; int reserve; };
+struct fm_fake_channel_t { int size; struct fm_fake_channel *chan; };   /* the seek code reads ->size even when there are no fake channels */
+static struct fm_fake_channel_t no_fake_channels = { 0, NULL };
 
 struct CUST_cfg_ds {          /* must match jni/fmr/fmr.h */
     int16_t chip;
@@ -34,6 +35,6 @@ int CUST_get_cfg(struct CUST_cfg_ds *cfg)
     cfg->scan_sort = 0;       /* FM_SCAN_SORT_NON */
     cfg->short_ana_sup = 1;   /* MT6631 can switch to its short (built-in) antenna, used when no wired headset is plugged */
     cfg->rssi_th_l2 = 0x01BD; /* FMR_MR_TH */
-    cfg->fake_chan = NULL;
+    cfg->fake_chan = &no_fake_channels;   /* never NULL: FMR_Seek_TuneCheck dereferences it (tombstone on ims30) */
     return 0;
 }
