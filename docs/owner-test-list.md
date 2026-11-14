@@ -22,7 +22,7 @@ Last updated 2026-11-14 (images up to ims21).
 - [ ] No setup wizard on a freshly wiped phone; Phone Guard is device owner (Settings > Security shows "managed").
 - [ ] Phone Guard first-run flow as a system app: it may ask for runtime permissions (SMS, contacts, location, BT, mic...). Pre-granting them in the image is a to-do.
 - [ ] T9 input (TT9) selected and working in Phone Guard text fields.
-- [ ] Lock screen / PIN, and the white flash after unlock (known problem to fix).
+- [x] PIN panel with correct/incorrect PIN (0.3.5): works well. [ ] Also try it under the other themes (Classic Mac, dark), the Back key (Clear) on ims34, and the hand-over after the boot animation (no white screen / status bar, 0.3.6+).
 - [ ] Bluetooth pairing and audio to a real speaker/headset (B1 blocker): the adapter works (checked), a real pairing + music + call audio over BT has not been tried on our image.
 - [x] Camera: opens and saves a photo (PC session, ims21). Check picture quality and the dithered preview yourself.
 - [ ] Join Wi-Fi (the phone sees your home network; needs the password), then Wi-Fi calling test.
