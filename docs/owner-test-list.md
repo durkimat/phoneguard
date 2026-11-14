@@ -30,7 +30,8 @@ Last updated 2026-11-14 (images up to ims21).
 - [ ] Boot: Qin logo -> warning -> animation timing and the fade-out when ready (stopwatch).
 - [ ] Hard keys and the keypad behave (F2 key etc.).
 
-## FM radio (when the app launches: ims26/ims27)
+## FM radio (works in software since ims31: you already heard noise on the speaker)
+- [ ] Retest in a different place (outdoors/window) and with the USB-C headphones/analog headset: do real stations come in? (seek stops so far were probably noise)
 - [ ] With the PC's USB cable left in (needed for adb and flashing; it may act as an antenna by coupling), the PC session reports tune/seek/RSSI in short-antenna mode.
 - [ ] Manual test with the USB-C headphones plugged in at the right moment (they are digital; check whether the FM chip or the audio path accepts them at all and whether anything is heard); try the app's speaker/headset switch.
 - [ ] If there is a 3.5 mm socket or an analog adapter, the long (wired) antenna mode is the normal case: try it.
