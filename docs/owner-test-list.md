@@ -30,6 +30,11 @@ Last updated 2026-11-14 (images up to ims21).
 - [ ] Boot: Qin logo -> warning -> animation timing and the fade-out when ready (stopwatch).
 - [ ] Hard keys and the keypad behave (F2 key etc.).
 
+## FM radio (when the app launches: ims26/ims27)
+- [ ] With the PC's USB cable left in (needed for adb and flashing; it may act as an antenna by coupling), the PC session reports tune/seek/RSSI in short-antenna mode.
+- [ ] Manual test with the USB-C headphones plugged in at the right moment (they are digital; check whether the FM chip or the audio path accepts them at all and whether anything is heard); try the app's speaker/headset switch.
+- [ ] If there is a 3.5 mm socket or an analog adapter, the long (wired) antenna mode is the normal case: try it.
+
 ## Things to decide
 - [ ] Phone Guard signing: privileged app on its own release key (recommended, docs/integration-plan.md) vs platform key.
 - [ ] Should Phone Guard's own call screen replace the stock Dialer/Messages or sit alongside?
