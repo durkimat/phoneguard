@@ -1,5 +1,7 @@
 # Licensing and redistribution notes (2026-11-14)
 
+**Update 2026-11-14 (owner's decision):** the image **is now published** as a GitHub release, [image-20261114](https://github.com/durkimat/phoneguard/releases/tag/image-20261114) (`system.img.gz` + `SHA256SUMS`), for owners of the J36 and personal use, while the TrebleDroid and Qin/MediaTek licence questions are being answered. It contains the 27 proprietary files described above. **To withdraw:** delete the release (or its assets) on GitHub Releases; copies already downloaded cannot be recalled. Release notes: [releases/image-20261114.md](releases/image-20261114.md).
+
 Not legal advice. This records what was checked, so the open questions in the backlog are concrete.
 
 ## What our image is made of

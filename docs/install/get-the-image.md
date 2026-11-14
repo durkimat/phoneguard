@@ -1,25 +1,37 @@
 # Get the image and check it (step 3)
 
-The image kit is a folder with:
+The image is published as a **release on this repository's GitHub page** (releases whose name starts with `image-`). It is two files:
 
-- `system.img`, the Phone Guard system (about 2.3 GB),
-- optionally a helper script (`flash-system-only.sh` updates the system and keeps the user data),
-- `SHA256SUMS`, a list of checksums.
+- `system.img.gz`, the Phone Guard system, compressed (the unpacked image is about 2.3 GB),
+- `SHA256SUMS`, the checksums.
 
-## Where to get it
+> **Please read:** the image contains files from Qin and MediaTek and parts of TrebleDroid whose licences are still being clarified (see [licensing](../licensing.md)). It is provided for owners of the phone, for personal use, as a convenience while that is sorted out. It may be withdrawn or replaced. Please do not re-upload it elsewhere.
 
-- **Today:** ask the project owner for the kit. The image is not a public download yet because it contains vendor files whose redistribution is still being checked (see [licensing](../licensing.md)).
-- **Or build it yourself** from this repository: the recipe is in `build/` and [own-build-viability](../own-build-viability.md). You need a Linux machine with about 300 GB free disk and several hours.
-- **Later:** a download link will be here once the licensing is settled.
+## The easy way: let the installer fetch it
 
-## Check it
+The installer downloads the newest image release, unpacks it, checks it and flashes it in one go (it asks before writing anything):
 
-Put all the files in one folder, open a terminal there and run:
+```bash
+cd installer
+node pg-install.mjs all --download --kit ~/phoneguard-kit
+```
+
+To only download and check it, without touching a phone: `node pg-install.mjs download --kit ~/phoneguard-kit`. You need about 5 GB of free disk space.
+
+## By hand
+
+1. Open the repository's **Releases** page, find the newest release whose name starts with `image-` and download `system.img.gz` and `SHA256SUMS` into one folder.
+2. Unpack it (Windows: 7-Zip; Linux and macOS: `gunzip -k system.img.gz`).
+3. Check it:
 
 ```bash
 sha256sum -c SHA256SUMS            # macOS: shasum -a 256 -c SHA256SUMS
 ```
 
-Every line must say `OK`. If one does not, download the kit again; do not flash a file that fails its check.
+Every line must say `OK`. If one does not, download again; do not flash a file that fails its check.
+
+## Or build it yourself
+
+For people comfortable with Linux and a very large build: [build-it-yourself](../build-it-yourself.md).
 
 Next: [flash it](flash.md).

@@ -9,7 +9,7 @@ Manage a child's keypad phone (Qin J36) from your own phone, or from Home Assist
 - **Family edition:** a small private companion in your own free Cloudflare account (`companion/`), set up with a guided tool. No Home Assistant, no service run by this project.
 - **Home Assistant edition:** a custom integration (`ha/`) that owns the timetable and shows each phone as a device.
 
-The phone image is not publicly downloadable yet (vendor files, see [docs/licensing.md](docs/licensing.md)); design notes are in [SPEC.md](SPEC.md) and [BACKLOG.md](BACKLOG.md).
+The phone image is published as a [GitHub release](https://github.com/durkimat/phoneguard/releases/tag/image-20261114) for owners of the J36 (personal use, licences still being clarified, may be withdrawn: see [docs/licensing.md](docs/licensing.md)); design notes are in [SPEC.md](SPEC.md) and [BACKLOG.md](BACKLOG.md).
 
 ## Quick start (family phone)
 
