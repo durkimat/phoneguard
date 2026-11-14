@@ -367,7 +367,7 @@ class LauncherModel(
     /** The text of the message being read (for tests and the skin). */
     fun convoText(): String = shownMsg?.body ?: ""
     private val messagesRows: List<String> get() =
-        if (waEnabled) listOf("Inbox", "WhatsApp" + if (waLinked && waUnread > 0) " ($waUnread)" else "", "Write message") else listOf("Inbox", "Write message")
+        if (waEnabled) listOf("Inbox", "Write message", "WhatsApp" + if (waLinked && waUnread > 0) " ($waUnread)" else "") else listOf("Inbox", "Write message")
 
     var writeTo = ""
         private set
@@ -778,7 +778,7 @@ class LauncherModel(
     /** Row 0 is the SMS inbox; with WhatsApp linked row 1 is WhatsApp and the last row writes a text. */
     private fun messageEntry(row: Int): Action = when {
         row == 0 -> { enter(Screen.INBOX); Action.Redraw }
-        waEnabled && row == 1 -> { enter(Screen.WHATSAPP); threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
+        waEnabled && row == 2 -> { enter(Screen.WHATSAPP); threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
         else -> { threadWa = false; startWrite("", Screen.MESSAGES, wa = false) }
     }
 

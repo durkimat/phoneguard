@@ -198,7 +198,7 @@ class LauncherModelTest {
 
     @Test fun backFromTheChatListGoesToWhereItCameFrom() {
         val sms = msgs(); open(sms); sms.onKey(Key.OK); sms.onKey(Key.OK); sms.onKey(Key.SOFT_RIGHT); assertEquals(Screen.INBOX, sms.screen)
-        val w = wa(); open(w); w.onKey(Key.DIGIT, 2); w.onKey(Key.OK); w.onKey(Key.SOFT_RIGHT); assertEquals(Screen.WHATSAPP, w.screen)
+        val w = wa(); open(w); w.onKey(Key.DIGIT, 3); w.onKey(Key.OK); w.onKey(Key.SOFT_RIGHT); assertEquals(Screen.WHATSAPP, w.screen)
     }
 
     @Test fun conversationScrollsLongMessagesThenMovesToTheNextMessage() {
@@ -482,13 +482,13 @@ class LauncherModelTest {
 
     @Test fun whatsAppAppearsInTheMessagesMenuWithItsUnreadCount() {
         val m = wa(); open(m)
-        assertEquals(listOf("Inbox", "WhatsApp (2)", "Write message"), m.rows)
+        assertEquals(listOf("Inbox", "Write message", "WhatsApp (2)"), m.rows)
         val plain = msgs(); open(plain); assertEquals(listOf("Inbox", "Write message"), plain.rows) // not linked: nothing changes
     }
 
     @Test fun openingWhatsAppListsChatsAndReadingMarksThemRead() {
         val m = wa(); open(m)
-        assertEquals(Action.WaOpen, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.WHATSAPP, m.screen)
+        assertEquals(Action.WaOpen, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WHATSAPP, m.screen)
         assertEquals(listOf("* Mum", "Family"), m.rows)
         assertEquals(Action.WaRead("447700900111"), m.onKey(Key.OK))
         assertEquals(Screen.CHAT, m.screen); assertEquals("Mum", m.title); assertEquals("Reply", m.rows[0]); assertEquals("< [photo] pasta", m.rows[1])
@@ -498,7 +498,7 @@ class LauncherModelTest {
     }
 
     @Test fun replyingInAWhatsAppChatSendsThroughWhatsApp() {
-        val m = wa(); open(m); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
+        val m = wa(); open(m); m.onKey(Key.DIGIT, 3); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.SOFT_LEFT)
         assertEquals(Screen.WRITE, m.screen); assertEquals(true, m.writeWa); assertEquals("Mum", m.writeLabel); assertEquals("447700900111", m.writeTo)
         m.onKey(Key.DIGIT, 6, 0)
         assertEquals(Action.SendWa("447700900111", "M"), m.onKey(Key.OK)) // key 6 is "m" (capital at the start)
@@ -518,15 +518,15 @@ class LauncherModelTest {
     }
 
     @Test fun numberKeysPickChatsAndGroupsOpenLikePeople() {
-        val m = wa(); open(m); m.onKey(Key.DIGIT, 2)
+        val m = wa(); open(m); m.onKey(Key.DIGIT, 3)
         assertEquals(Action.WaRead("g12036311"), m.onKey(Key.DIGIT, 2))
         assertEquals("Family", m.title)
     }
 
     @Test fun notLinkedOffersToLinkAndTheCodeScreenWalksThroughIt() {
         val m = msgs(); m.waEnabled = true; m.waLinked = false; open(m)
-        assertEquals(listOf("Inbox", "WhatsApp", "Write message"), m.rows)
-        assertEquals(Action.Redraw, m.onKey(Key.DIGIT, 2)); assertEquals(Screen.WHATSAPP, m.screen); assertEquals(listOf("Link account"), m.rows)
+        assertEquals(listOf("Inbox", "Write message", "WhatsApp"), m.rows)
+        assertEquals(Action.Redraw, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WHATSAPP, m.screen); assertEquals(listOf("Link account"), m.rows)
         assertEquals("Link" to "Back", m.softKeys)
         m.onKey(Key.OK); assertEquals(Screen.WAPAIR, m.screen)
         assertEquals(Action.None, m.onKey(Key.OK)) // too short to send
@@ -576,7 +576,7 @@ class LauncherModelTest {
         m.waEnabled = true; m.waLinked = true
         m.waConvos = listOf(Convo("g1", "Family", listOf(Msg("see you at six", 1000, false, "Karen Durkin"), Msg("ok", 2000, true), Msg("who is up", 3000, false, "John Paul Smith")), 0))
         // the default is first and last initials
-        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK) // menu, Messages, WhatsApp, the Family chat
+        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3); m.onKey(Key.OK) // menu, Messages, WhatsApp, the Family chat
         assertEquals(Screen.CHAT, m.screen)
         assertEquals(listOf("Reply", "< JS: who is up", "> ok", "< KD: see you at six"), m.rows)
         // choose another style: Settings > WhatsApp > Names in lists
@@ -592,7 +592,7 @@ class LauncherModelTest {
 
     @Test fun readingAMessageStillShowsTheFullNameAndOnlyTheText() {
         val m = wa(); m.waConvos = listOf(Convo("g1", "Family", listOf(Msg("see you at six", 1000, false, "Karen Durkin")), 0))
-        open(m); m.onKey(Key.DIGIT, 2); m.onKey(Key.OK); m.onKey(Key.DIGIT, 2) // the first message
+        open(m); m.onKey(Key.DIGIT, 3); m.onKey(Key.OK); m.onKey(Key.DIGIT, 2) // the first message
         assertEquals(Screen.THREAD, m.screen); assertEquals("see you at six", m.convoText()); assertEquals("Karen Durkin", m.shownMsg?.sender)
     }
 

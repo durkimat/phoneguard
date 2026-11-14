@@ -30,15 +30,15 @@ class NavigationDataTest {
     private val cases = listOf(
         Case("inbox", path = "OK DOWN OK OK"),
         Case("inboxFromBadge", setup = badge(BadgeKind.SMS)),
-        Case("whatsapp", path = "OK DOWN OK DOWN OK"),
+        Case("whatsapp", path = "OK DOWN OK DOWN*2 OK"),
         Case("whatsappFromBadge", setup = badge(BadgeKind.WHATSAPP)),
-        Case("pairFromWhatsapp", path = "OK DOWN OK DOWN OK OK"),
+        Case("pairFromWhatsapp", path = "OK DOWN OK DOWN*2 OK OK"),
         Case("waSettings", path = "OK DOWN*10 OK DOWN*8 OK"),
         Case("pairFromWaSettings", path = "OK DOWN*10 OK DOWN*8 OK OK"),
         Case("waNames", linked = true, path = "OK DOWN*10 OK DOWN*8 OK DOWN OK"),
         Case("running", path = "OK DOWN*11 OK DOWN*3 OK"),
-        Case("sentMessage", path = "OK DOWN OK DOWN*2 OK D5 DOWN D2 OK"),
-        Case("writeBack", path = "OK DOWN OK DOWN*2 OK"),
+        Case("sentMessage", path = "OK DOWN OK DOWN OK D5 DOWN D2 OK"),
+        Case("writeBack", path = "OK DOWN OK DOWN OK"),
         Case("sentFromChat", setup = { it.convos = listOf(Convo("0700", "Mum", listOf(Msg("hi", 1, false)), 0)) }, path = "OK DOWN OK OK OK OK OK D5 OK"),
     )
 
@@ -62,7 +62,7 @@ class NavigationDataTest {
         const val GOLDEN_BACK = """
 inbox: INBOX -SOFT_RIGHT-> MESSAGES/0
 inboxFromBadge: INBOX -SOFT_RIGHT-> HOME/0
-whatsapp: WHATSAPP -SOFT_RIGHT-> MESSAGES/1
+whatsapp: WHATSAPP -SOFT_RIGHT-> MESSAGES/2
 whatsappFromBadge: WHATSAPP -SOFT_RIGHT-> HOME/0
 pairFromWhatsapp: WAPAIR -SOFT_RIGHT-> WHATSAPP/0
 waSettings: WASET -SOFT_RIGHT-> SETTINGS/8
@@ -70,7 +70,7 @@ pairFromWaSettings: WAPAIR -SOFT_RIGHT-> WASET/0
 waNames: WANAMES -SOFT_RIGHT-> WASET/1
 running: RUNNING -SOFT_RIGHT-> LOGSET/3
 sentMessage: MESSAGES -SOFT_RIGHT-> MENU/1
-writeBack: WRITE -SOFT_RIGHT-> MESSAGES/2
+writeBack: WRITE -SOFT_RIGHT-> MESSAGES/1
 sentFromChat: MESSAGES -SOFT_RIGHT-> MENU/1
 """
         const val GOLDEN_END = """
