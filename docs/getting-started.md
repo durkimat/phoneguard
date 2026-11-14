@@ -73,7 +73,7 @@ fastboot getvar is-userspace                      # must say: is-userspace: yes
 fastboot resize-logical-partition system_a <size of system.img in bytes>
 fastboot flash system_a system.img                # takes several minutes; do not unplug
 fastboot erase userdata
-fastboot erase md_udc                             # this phone's /metadata partition (plain `fastboot erase metadata` and `-w` do not do it here)
+fastboot erase md_udc                             # this phone's /metadata partition (on this phone `fastboot -w` does nothing, and /metadata is `md_udc`)
 fastboot reboot
 ```
 
