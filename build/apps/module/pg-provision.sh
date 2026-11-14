@@ -13,7 +13,14 @@ finish() {
   timeout 20 cmd settings put secure user_setup_complete 1
   timeout 20 cmd package disable-user --user 0 org.lineageos.setupwizard
   timeout 20 cmd activity start-activity --user 0 -n $PKG/.MainActivity
-  timeout 20 cmd phone data enable      # a wiped phone has mobile data off; Phone Guard manages it per mode afterwards
+  # A wiped phone has mobile data off; Phone Guard manages it per mode afterwards. `cmd phone data enable` only works once the SIM
+  # subscription exists (23 s or more after boot), so retry until a mobile_data<subId>=1 setting appears (max ~5 min).
+  j=0
+  while [ $j -lt 20 ]; do
+    timeout 20 cmd phone data enable >/dev/null 2>&1
+    if timeout 20 cmd settings list global 2>/dev/null | grep -qE '^mobile_data[0-9]+=1'; then break; fi
+    sleep 15; j=$((j+1))
+  done
   say "provisioned, wizard disabled"
 }
 i=0
