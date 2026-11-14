@@ -37,3 +37,8 @@ PRODUCT_COPY_FILES += \
     $(PG_IMS)/system/lib64/libccci_util_sys.so:system/lib64/libccci_util_sys.so \
     $(PG_IMS)/system/lib64/lib_remote_simlock.so:system/lib64/lib_remote_simlock.so \
     $(PG_IMS)/system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so:system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so
+
+# Sign with our own keys when build.sh staged them (docs/signing-keys.md); otherwise the AOSP test keys are used.
+ifneq ($(wildcard vendor/phoneguard/keys/releasekey.pk8),)
+PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/phoneguard/keys/releasekey
+endif
