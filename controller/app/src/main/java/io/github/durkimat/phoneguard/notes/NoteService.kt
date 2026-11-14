@@ -11,7 +11,22 @@ import io.github.durkimat.phoneguard.Log
  */
 class NoteService : NotificationListenerService() {
     override fun onListenerConnected() { refresh() }
-    override fun onNotificationPosted(sbn: StatusBarNotification) { handle(sbn) }
+    override fun onNotificationPosted(sbn: StatusBarNotification) { detect(sbn); handle(sbn) }
+
+    /**
+     * The pop-up detector: every notification that is posted is logged (who, which channel, how loud: no message text), so a notice that
+     * would interrupt the screen shows up in the log instead of waiting for someone to see it. System packages also log their title,
+     * because that is how a new system notice is recognised.
+     */
+    private fun detect(sbn: StatusBarNotification) {
+        try {
+            val n = sbn.notification
+            val imp = currentRanking.let { r -> val rk = android.service.notification.NotificationListenerService.Ranking(); if (r.getRanking(sbn.key, rk)) rk.importance else -1 }
+            val sys = sbn.packageName == "android" || sbn.packageName.startsWith("com.android.") || sbn.packageName == "com.google.android.permissioncontroller"
+            val title = if (sys) " title=" + (n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().take(60)) else ""
+            Log.log(this, "notice: ${sbn.packageName} id=${sbn.id} channel=${n.channelId} cat=${n.category} importance=$imp$title")
+        } catch (e: Exception) { Log.log(this, "notice detector: ${e.javaClass.simpleName}") }
+    }
     override fun onNotificationRemoved(sbn: StatusBarNotification) { Notes.remove(sbn.key) }
 
     private fun refresh() {

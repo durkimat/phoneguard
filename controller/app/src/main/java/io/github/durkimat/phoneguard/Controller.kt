@@ -69,7 +69,7 @@ object Controller {
         Enforcer.applyRestrictions(app, cfg); lap("restrict")
         Enforcer.protectProcesses(app); lap("protect")
         Enforcer.setGray(app, eff.gray); lap("gray")
-        LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app)); lap("lockdown")
+        NoPopups.baseline(app); LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app)); lap("lockdown")
         LocationLock.set(app, off = eff.location == "off"); lap("loclock")
         LocationReporter.apply(app, eff.location, eff.locEvery); lap("locrep")
         // notifications: on or off for this mode, and the apps HA hides; run the current ones through the rules again when that changed

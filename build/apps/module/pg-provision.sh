@@ -16,6 +16,9 @@ finish() {
   timeout 20 cmd lock_settings set-disabled true
   # Phone Guard look for the system UI (PIN pad, shade, Settings): dark theme and a green colour seed (3DDC84, the boot-animation green).
   timeout 20 cmd uimode night yes
+  # No pop-ups baseline (Phone Guard re-applies both at every evaluation): no heads-up banners, no crash/ANR boxes.
+  timeout 20 cmd settings put global heads_up_notifications_enabled 0
+  timeout 20 cmd settings put global hide_error_dialogs 1
   timeout 20 cmd settings put secure theme_customization_overlay_packages '{"android.theme.customization.color_source":"preset","android.theme.customization.system_palette":"3DDC84","android.theme.customization.accent_color":"3DDC84","_applied_timestamp":1}'
   timeout 20 cmd activity start-activity --user 0 -n $PKG/.MainActivity
   # A wiped phone has mobile data off; Phone Guard manages it per mode afterwards. `cmd phone data enable` only works once the SIM

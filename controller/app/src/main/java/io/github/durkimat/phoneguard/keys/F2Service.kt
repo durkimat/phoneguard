@@ -98,6 +98,7 @@ class F2Service : AccessibilityService() {
             }
             if (pairing && p != packageName) { pairing = false; cover.hide() } // the dialog went away by itself
             // pop-ups and the system's own windows do not count as the app in front
+            if (p.isNotEmpty() && p != packageName) Log.log(this, "window: $p/${event.className}") // the pop-up detector: any other app's or the system's window that comes to the front
             if (p.isNotEmpty() && p != "android" && p != "com.android.systemui") frontPkg = p
         }
     }

@@ -51,7 +51,7 @@ object LockdownEnforcer {
         RotationLock.set(c, false)
         LocationLock.set(c, false)
         LockScreenNotes.set(c, false)
-        HeadsUp.set(c, false)
+        NoPopups.release(c)
     }
 }
 
@@ -209,6 +209,36 @@ object HeadsUp {
             }
         } catch (e: Exception) { Log.log(c, "heads-up setting: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
     }
+}
+
+/** Crash and "isn't responding" boxes are never shown (nothing on a keypad phone could answer them). */
+object ErrorDialogs {
+    private const val KEY = "hide_error_dialogs"
+    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("errordialogs", Context.MODE_PRIVATE)
+
+    fun set(c: Context, hidden: Boolean) {
+        try {
+            val r = c.contentResolver
+            val p = prefs(c)
+            if (hidden) {
+                if (!p.contains("was")) p.edit().putInt("was", Settings.Global.getInt(r, KEY, 0)).apply()
+                if (Settings.Global.getInt(r, KEY, 0) != 1) Settings.Global.putInt(r, KEY, 1)
+            } else if (p.contains("was")) {
+                Settings.Global.putInt(r, KEY, p.getInt("was", 0))
+                p.edit().remove("was").apply()
+            }
+        } catch (e: Exception) { Log.log(c, "error dialogs setting: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
+    }
+}
+
+/**
+ * The catch-all "no pop-ups" baseline (docs/no-popups.md), applied at every evaluation whatever the mode or config: no heads-up banners and
+ * no crash boxes. (The image sets the same two settings at first boot and patches the system's own device-admin location notice away;
+ * the detector in NoteService/F2Service logs whatever still appears, so leaks are found by looking at the log, not by the owner.)
+ */
+object NoPopups {
+    fun baseline(c: Context) { HeadsUp.set(c, off = true); ErrorDialogs.set(c, hidden = true) }
+    fun release(c: Context) { HeadsUp.set(c, false); ErrorDialogs.set(c, false) }
 }
 
 /** A keypad phone has no sideways mode: keep the screen upright while the Nokia screens are in use, and put the setting back after. */
