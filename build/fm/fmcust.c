@@ -32,7 +32,7 @@ int CUST_get_cfg(struct CUST_cfg_ds *cfg)
     cfg->max_scan_num = 40;
     cfg->seek_lev = 0x0301;   /* FMR_RSSI_TH_LONG: long (wired headphone) antenna */
     cfg->scan_sort = 0;       /* FM_SCAN_SORT_NON */
-    cfg->short_ana_sup = 0;
+    cfg->short_ana_sup = 1;   /* MT6631 can switch to its short (built-in) antenna, used when no wired headset is plugged */
     cfg->rssi_th_l2 = 0x01BD; /* FMR_MR_TH */
     cfg->fake_chan = NULL;
     return 0;

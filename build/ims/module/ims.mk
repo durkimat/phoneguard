@@ -51,3 +51,6 @@ PRODUCT_PRODUCT_PROPERTIES += persist.sys.phh.mainkeys=1   # TrebleDroid sets it
 
 # Lock screen (patch 0012): straight to the PIN pad on show/wake; the pad takes digits from the hardware keypad.
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.pg.bouncer_on_show=1
+
+# FM radio: run without wired headphones (short/built-in antenna mode) while the antenna question is tested: patch 0014 + libfmcust short_ana_sup.
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += persist.sys.pg.fm_builtin_antenna=1

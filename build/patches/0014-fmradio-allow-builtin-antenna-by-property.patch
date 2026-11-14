@@ -1,0 +1,16 @@
+# repo: packages/apps/FMRadio
+diff --git a/src/com/android/fmradio/FmUtils.java b/src/com/android/fmradio/FmUtils.java
+index a24f9f8..9780805 100644
+--- a/src/com/android/fmradio/FmUtils.java
++++ b/src/com/android/fmradio/FmUtils.java
+@@ -291,6 +291,9 @@ public class FmUtils {
+     }
+ 
+     public static boolean hasBuiltInFmAntennaSupport() {
+-        return SystemProperties.get("ro.vendor.builtin_fm_antenna_support").equals("1");
++        // Phone Guard: persist.sys.pg.fm_builtin_antenna=1 lets the FM chip run without a wired headset (short/built-in antenna mode,
++        // for example with a USB cable or the board antenna); ro.vendor.builtin_fm_antenna_support is unreadable for this app (no sepolicy label).
++        return SystemProperties.get("ro.vendor.builtin_fm_antenna_support").equals("1")
++                || SystemProperties.get("persist.sys.pg.fm_builtin_antenna").equals("1");
+     }
+ }
