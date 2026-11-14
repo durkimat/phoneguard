@@ -1,6 +1,6 @@
 # repo: frameworks/base
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
-index e719489d4e08..6956f21ce7d7 100644
+index e719489d4e08..f92f11c01139 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
 @@ -1944,6 +1944,11 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
@@ -27,7 +27,18 @@ index e719489d4e08..6956f21ce7d7 100644
  
  
              resetKeyguardDonePendingLocked();
-@@ -3694,6 +3704,16 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
+@@ -3068,7 +3078,9 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
+ 
+         // It's possible that the device was unlocked (via BOUNCER) while dozing. It's time to
+         // wake up.
+-        if (mAodShowing) {
++        // Phone Guard: only when the keyguard really was showing. With the lock screen disabled (no PIN) a hide request while dozing woke the
++        // screen again every few seconds after each timeout (an endless light-up/dim/off cycle that also drained the battery).
++        if (mAodShowing && mShowing) {
+             mPM.wakeUp(mSystemClock.uptimeMillis(), PowerManager.WAKE_REASON_GESTURE,
+                     "com.android.systemui:BOUNCER_DOZING");
+         }
+@@ -3694,6 +3706,16 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
              }
              mBootCompleted = true;
              adjustStatusBarLocked(false, true);

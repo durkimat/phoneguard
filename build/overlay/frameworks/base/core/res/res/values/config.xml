@@ -3,4 +3,7 @@
      SMS stays with the AOSP Messages app (Phone Guard's Messages screens read and send through it). -->
 <resources>
     <string name="config_defaultDialer" translatable="false">io.github.durkimat.phoneguard</string>
+    <!-- No doze / always-on display on this keypad phone: the screen simply turns off at the timeout. (With the lock screen disabled, SystemUI woke the dozing screen again every few seconds: an endless light-up/dim/off cycle.) -->
+    <string name="config_dozeComponent" translatable="false"></string>
+    <bool name="config_dozeAlwaysOnDisplayAvailable">false</bool>
 </resources>
