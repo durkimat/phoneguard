@@ -14,5 +14,7 @@ Source: `/archive/phone-backups/qin-j35-20261110/partitions/lk_a.bin` (and lk_b.
 
 ## Risk and procedure
 - Writing `lk_a`/`lk_b` is the riskiest operation on this phone (a bad LK = no boot; recovery only by mtkclient in BROM mode, which works here because secure boot is off: `fastboot getvar secure` = no). docs/recovery-guide.md lists lk as "never write" by default, so this needs the owner's explicit go-ahead and the restore kit at hand.
-- Patch ONE slot first (lk_b is only used if the preloader selects it: check how the slot is chosen before relying on it as a fallback), keep both originals (in qin-j35-20261110/partitions), verify sha256 after writing, and keep the phone connected to the PC with mtkclient ready.
+- **There is NO fallback slot: `lk_b.bin` in the 2026-11-10 backup is entirely zeros** (nothing in it), so the phone boots from lk_a alone. A bad lk_a = no boot until mtkclient (BROM mode) writes the original back. The unit's mtkclient state shows BROM access works (`sbc`/`sla`/`daa` all false, i.e. no secure boot, flashmode XFLASH), and the original lk_a.bin is backed up at qin-j35-20261110/partitions/lk_a.bin (sha256 to be recorded before flashing).
+- Procedure: back up the phone's CURRENT lk_a (compare with the backup), flash the patched lk_a with mtkclient in BROM mode (the phone off, USB connected, owner present), verify by reading back, reboot; keep the restore command ready.
+- Prepared patch (nothing flashed): `build/tools/patch_lk_warning.py lk_a.bin OUT.bin` blanks the three orange-state strings (81 bytes, same size). It does not remove the 5 s wait.
 - The logo replacement (separate, `logo` partition) is independent and does not touch LK.
