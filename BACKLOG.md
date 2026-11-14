@@ -1107,3 +1107,6 @@ Screen lights up, dims, goes off, repeats: the same symptom as before. The ims37
 - Setup tool v1 is a desktop app (Windows/Linux/macOS) and does NOT flash in v1. Model is J36 only (not J35).
 - Address and token reach the phone by QR code (the phone scans it), with a typed short code as the fallback. Phone Guard therefore needs a camera QR scan plus typed-code entry on the enrol screen. Keep the `pg-enrol.json` push as the dev/test route.
 - Details in `~/HA/plan-phone-guard-two-editions.md` section 14.
+
+### Status line wording with a boost (PC session observation, 2026-11-14)
+The status page and notification read "Night + boost until Sun 07:00" when a Day boost of 20 minutes is active. `Controller.evaluate` builds it as `<mode name> + boost` and `until` = `Engine.nextChange(...)`, which looks like the next scheduled change, not the boost end. Better: "Night, boosted to Day until 20:20" (name the boosted mode and the boost's own end), then the next scheduled change. Check what `nextChange` returns when a boost is active before changing; shared with the HA path, so keep the HA wording in step.
