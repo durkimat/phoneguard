@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.Log
 /**
  * The PIN screen in the phone's own theme. Android's real lock screen (which keeps the data encrypted and checks the PIN) keeps running
  * underneath and keeps getting every key; this panel stands over it in the launcher's colours and font, showing the PIN as stars,
- * with Clear (the Back key: the lock screen clears its entry too) and Emergency (press twice: calls 999). It never sees the PIN's digits as
+ * with Clear (the Back key: the lock screen clears its entry too) and Emergency (press twice: calls 112). It never sees the PIN's digits as
  * anything but a count, and it checks nothing: when the real lock screen unlocks, the panel goes away. If this service is off, Android's
  * own pad simply shows.
  */
@@ -95,15 +95,15 @@ class PinCover(private val svc: AccessibilityService, private val cover: ScreenC
         }, 1_300)
     }
 
-    /** Emergency calls must stay possible from the lock screen: two presses within four seconds dial 999. */
+    /** Emergency calls must stay possible from the lock screen: two presses within four seconds dial 112 (the EU number, which also reaches the UK emergency services). */
     private fun emergency() {
         val now = System.currentTimeMillis()
         if (sosAt != 0L && now - sosAt < 4_000) {
             sosAt = 0
-            try { svc.getSystemService(TelecomManager::class.java).placeCall(Uri.fromParts("tel", "999", null), null) }
+            try { svc.getSystemService(TelecomManager::class.java).placeCall(Uri.fromParts("tel", "112", null), null) }
             catch (e: Exception) { Log.log(svc, "emergency call: ${e.javaClass.simpleName}") }
         } else {
-            sosAt = now; note = "Press again to call 999"; render()
+            sosAt = now; note = "Press again to call 112"; render()
             ui.postDelayed({ if (note.startsWith("Press again")) { note = ""; render() } }, 4_000)
         }
     }
