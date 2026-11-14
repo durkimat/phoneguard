@@ -54,17 +54,33 @@ object LauncherData {
     /** True when the mode in force offers the themed camera. */
     fun cameraAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).camera
 
+    private var nextCache: Pair<Long, String> = 0L to ""
+    /** "15:00 Dentist": the next timed event today, or the first event tomorrow ("Tmrw 09:00 Football"); empty when there is none. Looked up at most once a minute. */
+    private fun nextUp(c: Context, now: Long): String {
+        if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
+        val text = try {
+            if (c.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) != android.content.pm.PackageManager.PERMISSION_GRANTED) "" else {
+                val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
+                val ev = io.github.durkimat.phoneguard.calendar.AndroidCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(2), z))
+                val next = io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, 2, z).firstOrNull { !it.event.allDay && it.event.end > now }
+                if (next == null) "" else io.github.durkimat.phoneguard.calendar.Cal.agendaRow(next, today, z).let { r -> if (next.day == today) r.removePrefix("Today ") else r }
+            }
+        } catch (_: Exception) { "" }
+        nextCache = now to text
+        return text
+    }
+
     fun items(c: Context): List<MenuItem> {
         val pm = c.packageManager
         // our own WhatsApp screens are in Messages: the real app is only offered in the menu when it is the one in use
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + listOf(MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(MAIL_PKG, "Email")) else emptyList()) + listOf(MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
-    private val builtIn = setOf(MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+    private val builtIn = setOf(MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
 
     /**
      * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts, the apps a parent pinned,
@@ -78,7 +94,7 @@ object LauncherData {
         val others = apps - core.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
         val hasLogs = all.any { it.pkg in setOf(CALLLOG_PKG, NOTES_PKG, SETTINGS_PKG) }
-        return core + pins + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
+        return core + pins + one(MAIL_PKG) + one(CALENDAR_PKG) + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
             one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + (if (hasLogs) listOf(MenuItem(LOGSET_PKG, "Logs & Settings")) else emptyList())
     }
 
@@ -161,6 +177,7 @@ object LauncherData {
                 Badge(BadgeKind.WHATSAPP, if (io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c) && !useRealWhatsApp(c)) io.github.durkimat.phoneguard.whatsapp.WhatsApp.store(c).unreadTotal() else 0),
                 Badge(BadgeKind.MISSED, missedCalls(c)),
                 Badge(BadgeKind.NOTES, io.github.durkimat.phoneguard.notes.Notes.count()),
+                Badge(BadgeKind.MAIL, if (musicShown(c)) io.github.durkimat.phoneguard.mail.Mail.unread(c) else 0),
                 Badge(BadgeKind.MUSIC, if (musicShown(c) && musicPlaying(c)) 1 else 0),
             ).filter { it.count > 0 }.let { debugBadges ?: it },
             batteryPct = if (level >= 0) level * 100 / scale else 0,
@@ -168,6 +185,7 @@ object LauncherData {
             signalBars = signal(c),
             softLeft = "Menu",
             softRight = "Contacts",
+            nextUp = nextUp(c, now),
             wifi = wifiState(c),
             bt = bluetoothState(c),
             data = dataState(c),

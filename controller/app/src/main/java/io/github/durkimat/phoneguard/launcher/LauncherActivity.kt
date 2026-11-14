@@ -40,6 +40,7 @@ class LauncherActivity : Activity() {
     private var lockedLook: Set<String> = emptySet()
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
+    private val calendar by lazy { io.github.durkimat.phoneguard.calendar.AndroidCalendar(this) }
     private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
 
     private val changes = object : BroadcastReceiver() {
@@ -102,6 +103,13 @@ class LauncherActivity : Activity() {
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
+        // mail is looked at when the launcher comes to the front, at most every 15 minutes, and never in a mode that hides it (School)
+        if (LauncherData.musicShown(this) && io.github.durkimat.phoneguard.mail.Mail.account(this) != null) mailSync(false)
+        // debug builds only: `am start -S -n ... --es pg_mail_demo 1` sets up the made-up mailbox so the mail screens can be tried without an account
+        if (io.github.durkimat.phoneguard.BuildConfig.DEBUG && intent?.getStringExtra("pg_mail_demo") != null) {
+            intent.removeExtra("pg_mail_demo")
+            Thread { io.github.durkimat.phoneguard.mail.Mail.setup(this, io.github.durkimat.phoneguard.mail.MailAccount("demo@demo.local", imapHost = "demo", smtpHost = "demo"), ""); ui.post { mailPush(); refresh() } }.start()
+        }
         if (leftKeyPending) { leftKeyPending = false; perform(model.onKey(Key.SOFT_LEFT, -1)) }
         registerReceiver(changes, IntentFilter().apply {
             addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED); addAction(android.bluetooth.BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED); addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
@@ -662,10 +670,56 @@ class LauncherActivity : Activity() {
                 if (r == "Message sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
                 model.notify(r); invalidate(D.CONVOS or D.INFO); refresh()
             }
+            is Action.MailSync -> mailSync(a.force)
+            is Action.MailFetch -> Thread { val t = io.github.durkimat.phoneguard.mail.Mail.body(this, a.sent, a.uid); ui.post { model.setMailBody(a.uid, t); mailPush(); refresh() } }.start()
+            is Action.MailSend -> Thread {
+                val e = io.github.durkimat.phoneguard.mail.Mail.send(this, a.to, a.subject, a.body)
+                ui.post { model.notify(if (e.isEmpty()) "Message sent" else "Not sent: " + e.take(30)); if (e.isEmpty()) mailSync(true) else refresh() }
+            }.start()
+            is Action.MailSeen -> Thread { io.github.durkimat.phoneguard.mail.Mail.setSeen(this, a.uid, a.seen); ui.post { mailPush(); refresh() } }.start()
+            is Action.MailDelete -> Thread { val e = io.github.durkimat.phoneguard.mail.Mail.delete(this, a.sent, a.uid); ui.post { if (e.isNotEmpty()) model.notify("Not deleted: " + e.take(24)); mailPush(); refresh() } }.start()
+            is Action.MailSetup -> Thread {
+                val e = io.github.durkimat.phoneguard.mail.Mail.setup(this, a.account, a.password)
+                ui.post { model.mailStatus = ""; mailPush(); model.notify(if (e.isEmpty()) "Signed in" else e.take(60)); if (e.isEmpty()) mailSync(true) else refresh() }
+            }.start()
+            Action.MailRemove -> { io.github.durkimat.phoneguard.mail.Mail.remove(this); mailPush(); refresh() }
+            is Action.CalLoad -> Thread {
+                val ev = calendar.events(a.from, a.to)
+                var cals = calendar.calendars().filter { it.writable }
+                if (cals.isEmpty() && checkSelfPermission(android.Manifest.permission.WRITE_CALENDAR) == android.content.pm.PackageManager.PERMISSION_GRANTED) { calendar.ensureWritable(); cals = calendar.calendars().filter { it.writable } }
+                ui.post { model.calEvents = ev; model.calWritable = cals; refresh() }
+            }.start()
+            is Action.CalSave -> Thread { try { calendar.save(a.event) } catch (e: Exception) { ui.post { model.notify("Not saved") } }; calReload() }.start()
+            is Action.CalDelete -> Thread { try { calendar.delete(a.id) } catch (_: Exception) { }; calReload() }.start()
             Action.ForgetWords -> { io.github.durkimat.phoneguard.whatsapp.LearnedStore.forget(this); model.notify("Forgotten"); refresh() }
             Action.CallKey -> { model.startDial(""); refresh() } // the green key anywhere in our screens: our dial pad, never the stock dialler
             else -> {} // the call actions belong to the call screen
         }
+    }
+
+    private var mailBusy = false
+    /** Puts what the phone has kept of the mail (small files) into the model. */
+    private fun mailPush() {
+        val m = io.github.durkimat.phoneguard.mail.Mail
+        model.mailConfig = m.account(this); model.mailInbox = m.inbox(this); model.mailSent = m.sent(this)
+    }
+    /** Shows the kept mail at once, then checks the server if it has been a while (or [force]) and nothing else is checking. */
+    private fun mailSync(force: Boolean) {
+        mailPush()
+        val m = io.github.durkimat.phoneguard.mail.Mail
+        if (m.account(this) == null || mailBusy || (!force && !m.stale(this))) { refresh(); return }
+        mailBusy = true; model.mailStatus = "Checking..."; refresh()
+        Thread {
+            val e = m.sync(this)
+            ui.post { mailBusy = false; mailPush(); model.mailStatus = e; if (force) model.notify(if (e.isEmpty()) "Mail checked" else e.take(40)); refresh() }
+        }.start()
+    }
+
+    /** Reads the calendar again for the window the model last asked for, and redraws. */
+    private fun calReload() {
+        val (from, to) = model.calRange
+        val ev = calendar.events(from, to)
+        ui.post { model.calEvents = ev; refresh() }
     }
 
     private fun remoteVolumeStep(up: Boolean): Pair<Int, String>? {
