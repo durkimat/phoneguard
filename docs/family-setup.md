@@ -46,7 +46,7 @@ npm start
 
 ## The setup wizard
 
-The wizard shows a progress bar along the top ("Step 3 of 6"). It does everything it can by itself. Where it cannot, it hands over with a link and exact values to copy. Optional steps have a **Skip** button, and you can do them later from your parent page.
+The wizard shows a progress bar along the top ("Step 3 of 7"). It does everything it can by itself. Where it cannot, it hands over with a link and exact values to copy. Optional steps have a **Skip** button, and you can do them later from your parent page.
 
 ### Step 1: Cloudflare
 
@@ -103,7 +103,18 @@ Spotify does not let tools create developer apps or add users for you, so this s
 
 The sign-in key is locked in your browser so that only the child's phone can open it. The phone collects it at its next check-in. If you skipped this step, do it later from your parent page: **Timetable and settings**, then the Spotify box.
 
-### Step 6: Finish
+### Step 6 (optional): WhatsApp
+
+This lets the child's phone read and send WhatsApp messages through its own simple screens, with only the people you choose. Messages stay on the phone. The phone becomes a "linked device" of one WhatsApp account, like WhatsApp Web, so you need the smartphone that has that WhatsApp account (the child's own number, or yours). You can **Skip** this step and do it later.
+
+1. **On the child's phone** open Messages, then WhatsApp. It asks for **Your WhatsApp number**: type it with the country code and no plus (for example `447700900123`) and press **Get code**. The phone shows a code.
+2. **On the smartphone that has that WhatsApp account** open WhatsApp, then Settings (or the three dots), **Linked devices**, **Link a device**, **Link with phone number instead**, and type the code. WhatsApp cannot be opened straight onto that screen, so the wizard shows a QR code: scan it with the smartphone's camera to open the same steps there, with a button that opens WhatsApp.
+3. The child's phone says **Linked**, and the wizard ticks once the phone has told your companion (at its next check-in, up to 15 minutes, or press **Sync now** on the phone).
+4. **Choose who the child may message.** Nobody is allowed until you do. Type one per line: a phone number with country code and no plus, or `g:` and a group's name (`g:Family`), or tick "Allow everyone". You can change this later on the parent page under the phone's **WhatsApp** section.
+
+WhatsApp can lapse a linked device if the main smartphone has not been online for about two weeks; if messages stop, link again from step 1. The same steps are on your parent page at `/guide#whatsapp`.
+
+### Step 7: Finish
 
 A summary shows what is done and what you skipped, with how to do each skipped part later, plus a button to open your parent page.
 
@@ -133,6 +144,7 @@ Open a phone from your parent page. Each section opens and closes; every control
 | **Phone restrictions** | Factory reset, safe mode, date and time, adding users, VPN and other Android settings the phone may block. |
 | **WhatsApp**, **Radio stations**, **Apps on the Nokia menu**, **Weather place**, **Look of the phone** | Who WhatsApp may talk to and how fast, your station list, which apps are in the main menu and which notifications are cleared, the weather location, and the phone's theme, fonts and colours. |
 | **Spotify** | Connect or disconnect (see above). |
+| **Location history** | Where the phone has been over the last week (you choose 1 to 14 days, or off), played back on a map: pick a day and press Play. Quiet stretches such as school or home play fast and journeys play slowly so movements are easy to follow; the stops list ("Stayed 08:19 to 15:03") jumps to each stay. Positions are kept only in your Cloudflare account and can be cleared at any time. Location must be switched on for a mode first (Mode settings, Location). |
 | **Screen time**, **Battery and power saver** | What the phone reported: app time per day, battery use by screen, mode, location and Wi-Fi, and what the power saver closed. The latest position is shown at the top with a map link. |
 | **Updates and removals** | Switch on updating Phone Guard from here, check GitHub for the newest release, update a phone, and see waiting and finished jobs. |
 | **Manage this phone** | Rename, copy timetable, holiday, restrictions, mode settings or WhatsApp from another phone (app lists are never copied), release the phone (it gives up control) or forget it. |
@@ -175,5 +187,6 @@ Other everyday jobs:
 * Sign-in to Cloudflare uses a key you create from a link rather than a "Sign in" button (*not yet*).
 * If you lose your private link, there is no recovery flow yet (*not yet*): re-run setup to create a new companion and pair the phones again.
 * Changes reach a phone at its next check-in, about 15 minutes (Home Assistant could nudge a phone with a notification; Cloudflare has no push yet).
-* Email, calendar and WhatsApp setup are planned; Spotify and the timetable work today.
+* Email and calendar setup are planned; the timetable, Spotify and WhatsApp linking work today (WhatsApp is a guided hand-off).
+* Location history has no named places (home, school) or alerts yet; they are planned.
 * A packaged download for Windows, Linux and macOS is planned; today you run it with Node.js.

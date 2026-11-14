@@ -66,7 +66,7 @@ const server = http.createServer(async (req, res) => {
       return alive ? json(200, { host: family.host }) : json(502, { error: "That companion did not answer. It may have been deleted from Cloudflare." });
     }
     if (!family) return json(409, { error: "Set up or resume first." });
-    if (req.method === "GET" && p === "/info") return json(200, { host: family.host, link: parentLink(), parentQr: await QRCode.toString(parentLink(), { type: "svg", margin: 1 }), redirectUri: `https://${family.host}/spotify/callback`, guide: `https://${family.host}/guide` });
+    if (req.method === "GET" && p === "/info") return json(200, { host: family.host, link: parentLink(), parentQr: await QRCode.toString(parentLink(), { type: "svg", margin: 1 }), redirectUri: `https://${family.host}/spotify/callback`, guide: `https://${family.host}/guide`, waGuide: `https://${family.host}/guide#whatsapp`, waQr: await QRCode.toString(`https://${family.host}/guide#whatsapp`, { type: "svg", margin: 1 }) });
     if (req.method === "POST" && p === "/enrol") { const e = await newEnrolment(family.host, family.adminToken, fetch, base()); return json(200, { address: e.typed.address, code: e.typed.code, expires: e.expires, qr: await QRCode.toString(e.qr, { type: "svg", margin: 1 }) }); }
     if (req.method === "GET" && p === "/pairings") { const r = await wk("/pairings"); return json(r.status, r.ok ? r.body.map(({ id, model, app, created }) => ({ id, model, app, created })) : r.body); }   // the 4 digits are NOT passed on: the parent types what the phone shows
     if (req.method === "POST" && p === "/approve") { const r = await wk(`/pairings/${encodeURIComponent(body.id)}/confirm`, "POST", { match: String(body.match ?? "") }); return json(r.status, r.body); }
@@ -75,6 +75,10 @@ const server = http.createServer(async (req, res) => {
       if (!/^[0-9a-f]{32}$/i.test(body.clientId ?? "")) return json(400, { error: "A Client ID is 32 letters and numbers." });
       const r = await wk("/options", "POST", { spotify_client_id: body.clientId.trim().toLowerCase() }); if (!r.ok) return json(r.status, r.body);
       return json(200, { link: parentLink(`&spotify=${encodeURIComponent(body.did)}`) });
+    }
+    if (req.method === "POST" && p === "/whatsapp-allowed") {
+      const allowed = (Array.isArray(body.allowed) ? body.allowed : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 200);
+      const r = await wk(`/devices/${encodeURIComponent(body.did)}/child`, "POST", { patch: { whatsapp: { all: Boolean(body.all), allowed } } }); return json(r.status, r.body);
     }
     if (req.method === "GET" && p === "/spotify-status") { const c = await wk(`/devices/${encodeURIComponent(url.searchParams.get("did") ?? "")}/config`); return json(200, { connected: Boolean(c.ok && c.body.config?.secrets?.["spotify.refresh"]), clientId: c.ok ? c.body.config?.spotifyClientId ?? "" : "" }); }
   } catch (e) { return json(500, { error: e.message }); }

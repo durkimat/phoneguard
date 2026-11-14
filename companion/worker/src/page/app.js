@@ -4,10 +4,11 @@ import { enrolPayload } from "/enrol.js";
 import { exchangeCode, storeRefreshToken } from "/spotify.js";
 import { h, ago, left } from "/ui.js";
 import { phoneScreen } from "/phone.js";
+import { trackScreen } from "/track-view.js";
 
 const $app = document.getElementById("app");
 
-let key = null, deepSpotify = null;
+let key = null, deepSpotify = null, onHome = false;   // the quiet refresh below only runs on the home view
 try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
 
 async function api(path, method = "GET", body) {
@@ -20,6 +21,7 @@ async function api(path, method = "GET", body) {
 
 
 async function render() {
+  onHome = true;
   $app.replaceChildren();
   if (!key) return $app.append(signIn());
   try {
@@ -51,6 +53,7 @@ function waitingView(list) {
 }
 
 function showRecovery(k) {
+  onHome = false;
   $app.replaceChildren(h("h2", {}, "Phone approved"), h("p", {}, "Write down this recovery key and keep it somewhere safe. It is shown only once and lets you take back control if you lose this page."), h("div", { class: "key" }, k), h("button", { class: "pri", on: { click: render } }, "I have saved it"));
 }
 
@@ -61,7 +64,7 @@ function phonesView(list) {
     h("button", { on: { click: () => open(d.did) } }, "Open"))));
 }
 
-async function open(did) { try { await phoneScreen({ api, back: render, app: $app }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
+async function open(did) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
 
 async function spotifyCallback() {
   $app.replaceChildren(h("p", { class: "mut" }, "Finishing the Spotify sign-in..."));
@@ -76,4 +79,4 @@ async function spotifyCallback() {
 }
 
 if (location.pathname === "/spotify/callback") { if (key) spotifyCallback(); else $app.append(signIn()); } else render();
-setInterval(() => { if (key && document.visibilityState === "visible" && $app.querySelector("h2")?.textContent !== "Phone approved" && !$app.querySelector("details") && !$app.querySelector("textarea") && !document.activeElement?.matches("input,select")) render(); }, 15000);
+setInterval(() => { if (key && onHome && document.visibilityState === "visible" && !document.activeElement?.matches("input,select,textarea")) render(); }, 15000);

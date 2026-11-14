@@ -163,6 +163,14 @@ export function mergeFix(rt, fixes) {
   const num = (x) => typeof x === "number" && Number.isFinite(x);
   for (const f of fixes) if (Array.isArray(f) && f.length >= 5 && f.slice(0, 4).every(num) && f[1] >= -90 && f[1] <= 90 && f[2] >= -180 && f[2] <= 180 && f[3] >= 0 && f[0] > (rt.fix?.[0] ?? 0)) rt.fix = f.slice(0, 6);
 }
+// The valid positions in a report, oldest first: [time ms, lat, lon, accuracy m, provider, mode].
+export function validFixes(fixes) {
+  if (!Array.isArray(fixes)) return [];
+  const num = (x) => typeof x === "number" && Number.isFinite(x);
+  return fixes.filter((f) => Array.isArray(f) && f.length >= 5 && f.slice(0, 4).every(num) && f[1] >= -90 && f[1] <= 90 && f[2] >= -180 && f[2] <= 180 && f[3] >= 0 && f[0] > 0)
+    .map((f) => [Math.trunc(f[0]), Math.round(f[1] * 1e5) / 1e5, Math.round(f[2] * 1e5) / 1e5, Math.round(f[3]), String(f[4] ?? "").slice(0, 12), String(f[5] ?? "").slice(0, 24)]).sort((a, b) => a[0] - b[0]);
+}
+
 export function mergeUsage(rt, usage) {
   if (!usage || typeof usage !== "object" || Array.isArray(usage)) return;
   const store = (rt.usage ??= {});

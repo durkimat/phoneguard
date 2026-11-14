@@ -10,7 +10,7 @@ The companion is the backend a Family phone talks to when there is no Home Assis
 | `worker/src/family.js` | Durable Object `Family` (SQLite): pairings, devices, sync, parent actions |
 | `worker/src/hub/` | the Home Assistant hub ported to JavaScript: `schedule.js` (settings to phone config), `hub.js` (parent actions, sync merging), `power.js`, `store.js` |
 | `worker/src/crypto.js`, `seal.js` | WebCrypto helpers; sealed credentials |
-| `worker/src/page/` | parent page (vanilla JS): `app.js` (shell), `phone.js` (one phone's controls), `ui.js`, `timetable.js`, `spotify.js`, `enrol.js`, `look-options.js`, `guide.html` |
+| `worker/src/page/` | parent page (vanilla JS): `app.js` (shell), `phone.js` (one phone's controls), `track-view.js` and `track.js` (location history map and playback maths), `ui.js`, `timetable.js`, `spotify.js`, `enrol.js`, `look-options.js`, `guide.html` |
 | `worker/schema/profile.schema.json` | the profile document (JSON Schema); validated in the Worker with precompiled Ajv code |
 | `worker/PROTOCOL-DRAFT.md` | pairing, sync, QR and typed-code formats, sealed secrets |
 | `worker/test/` | `vectors.json` (shared test vectors for any client or backend) and the test suites |
@@ -22,7 +22,7 @@ The companion is the backend a Family phone talks to when there is no Home Assis
 cd companion/worker && npm install
 node scripts/build-page.mjs        # regenerate src/page-assets.js after editing src/page/*
 rm -rf .wrangler/state && npm run dev &     # local Worker on :8787
-npm test                            # vectors, timetable, schedule, hub, spotify, enrol, protocol (protocol needs the dev server)
+npm test                            # vectors, timetable, schedule, hub, track, spotify, enrol, protocol (protocol needs the dev server)
 cd ../setup-tool && npm run bootstrap && npm test
 ```
 

@@ -20,7 +20,8 @@ export class Family extends DurableObject {
       CREATE TABLE IF NOT EXISTS pairings (id TEXT PRIMARY KEY, token TEXT, pub TEXT, enc_pub TEXT, model TEXT, app TEXT, nonce TEXT, match TEXT, created INTEGER, status TEXT, did TEXT);
       CREATE TABLE IF NOT EXISTS devices (did TEXT PRIMARY KEY, pub TEXT, enc_pub TEXT, model TEXT, app TEXT, ctr INTEGER DEFAULT 0, last_seen INTEGER, state TEXT, recovery_hash TEXT, created INTEGER);
       CREATE TABLE IF NOT EXISTS config (did TEXT PRIMARY KEY, version INTEGER, body TEXT, hash TEXT);
-      CREATE TABLE IF NOT EXISTS hub (did TEXT PRIMARY KEY, child TEXT, rt TEXT)`);
+      CREATE TABLE IF NOT EXISTS hub (did TEXT PRIMARY KEY, child TEXT, rt TEXT);
+      CREATE TABLE IF NOT EXISTS fixes (did TEXT, t INTEGER, lat REAL, lon REAL, acc INTEGER, prov TEXT, mode TEXT, PRIMARY KEY (did, t))`);
     try { this.sql.exec("ALTER TABLE config ADD COLUMN hash TEXT"); } catch { /* column exists */ }
   }
 
@@ -29,6 +30,13 @@ export class Family extends DurableObject {
   options() { const r = this.sql.exec("SELECT v FROM meta WHERE k='options'").toArray()[0]; return r ? JSON.parse(r.v) : {}; }
   setOptions(o) { this.sql.exec("INSERT OR REPLACE INTO meta VALUES ('options', ?)", JSON.stringify(o)); }
   latest() { const r = this.sql.exec("SELECT v FROM meta WHERE k='latest'").toArray()[0]; return r ? JSON.parse(r.v) : null; }
+  /** Days of location history to keep (0 switches the history off; the newest position is still shown). */
+  historyDays() { const d = this.options().history_days; return Number.isInteger(d) ? d : 7; }
+  storeFixes(did, loc, now) {
+    const days = this.historyDays(); if (days <= 0) return;
+    for (const f of H.validFixes(loc)) if (f[0] >= now - days * 86400_000) this.sql.exec("INSERT OR IGNORE INTO fixes VALUES (?,?,?,?,?,?,?)", did, ...f);
+    this.sql.exec("DELETE FROM fixes WHERE did=? AND t < ?", did, now - days * 86400_000);
+  }
   load(did) { const r = this.sql.exec("SELECT child, rt FROM hub WHERE did=?", did).toArray()[0]; return r ? { ch: JSON.parse(r.child), rt: JSON.parse(r.rt) } : null; }
   save(did, h) { this.sql.exec("INSERT OR REPLACE INTO hub VALUES (?,?,?)", did, JSON.stringify(h.ch), JSON.stringify(h.rt)); }
 
@@ -125,13 +133,14 @@ export class Family extends DurableObject {
       this.sql.exec("UPDATE devices SET ctr=?, last_seen=?, state=? WHERE did=?", ctr, now, JSON.stringify(state).slice(0, 4000), did);
       const h = this.load(did) ?? { ch: S.defaultChild(d.model || "Phone"), rt: H.newRuntime() };
       H.mergeSync(h.ch, h.rt, full ? payload : { state: payload }, now);
+      if (full) this.storeFixes(did, payload.loc, now);
       const row = this.refreshConfig(did, h, now), boost = H.activeBoost(h.rt, now), cmds = [];
       if (h.rt.release) { cmds.push({ type: "release" }); }
       const haveHash = typeof payload.cfgh === "string" ? payload.cfgh : null, haveVersion = Number.isInteger(state.cfgVersion) ? state.cfgVersion : null;
       const unchanged = haveHash != null ? haveHash === row.hash : haveVersion != null && haveVersion >= row.version;
       h.rt.cfgh = row.hash; this.save(did, h);
       const out = { configVersion: row.version, cfgh: row.hash, boost, cmds, ...(unchanged ? { unchanged: true } : { config: row.cfg, cfg: row.cfg }) };
-      if (cmds.length) { this.sql.exec("DELETE FROM devices WHERE did=?", did); this.sql.exec("DELETE FROM config WHERE did=?", did); this.sql.exec("DELETE FROM hub WHERE did=?", did); }   // released: the phone is no longer ours
+      if (cmds.length) { for (const t of ["devices", "config", "hub", "fixes"]) this.sql.exec(`DELETE FROM ${t} WHERE did=?`, did); }   // released: the phone is no longer ours
       return json(await this.reply(did, n, out));
     }
 
@@ -141,6 +150,7 @@ export class Family extends DurableObject {
       const o = this.options();
       for (const [k, val] of Object.entries(body)) {
         if (k === "spotify_client_id") { const c = String(val ?? "").trim().toLowerCase(); if (c && !/^[0-9a-f]{32}$/.test(c)) return json({ error: "a Spotify Client ID is 32 letters and digits (0 to 9 and a to f)" }, 400); c ? (o[k] = c) : delete o[k]; }
+        else if (k === "history_days") { if (![0, 1, 3, 7, 14].includes(val)) return json({ error: "history_days must be 0, 1, 3, 7 or 14" }, 400); o[k] = val; if (val === 0) this.sql.exec("DELETE FROM fixes"); else this.sql.exec("DELETE FROM fixes WHERE t < ?", Date.now() - val * 86400_000); }
         else if (k === "updates_enabled") { if (typeof val !== "boolean") return json({ error: "updates_enabled must be true or false" }, 400); val ? (o[k] = true) : delete o[k]; }
         else return json({ error: `unknown option '${k}'` }, 400);
       }
@@ -174,6 +184,13 @@ export class Family extends DurableObject {
       const now = Date.now(), h = this.load(did), opts = this.options();
       if (sub === "enckey" && m === "GET") return json({ encKey: dev.enc_pub });
       if (sub === "config" && m === "GET") { const r = this.refreshConfig(did, h, now); return json({ version: r.version, config: r.cfg }); }
+      if (sub === "track" && m === "GET") {
+        const from = Number(url.searchParams.get("from")) || 0, to = Number(url.searchParams.get("to")) || Date.now() + 1, max = Math.min(Number(url.searchParams.get("max")) || 4000, 8000);
+        const rows = this.sql.exec("SELECT t, lat, lon, acc, prov, mode FROM fixes WHERE did=? AND t>=? AND t<=? ORDER BY t", did, from, to).toArray().map((r) => [r.t, r.lat, r.lon, r.acc, r.prov, r.mode]);
+        const step = Math.max(1, Math.ceil(rows.length / max)), points = rows.filter((_, i) => i % step === 0 || i === rows.length - 1);
+        const span = this.sql.exec("SELECT MIN(t) a, MAX(t) b, COUNT(*) n FROM fixes WHERE did=?", did).toArray()[0];
+        return json({ points, thinned: step > 1, retention_days: this.historyDays(), stored: span.n, first: span.a, last: span.b });
+      }
       if (sub === "view" && m === "GET") { const v = H.view(h.ch, h.rt, opts, this.latest(), now); this.save(did, h); return json(v); }
       if (m !== "POST") return json({ error: "not found" }, 404);
       const done = (extra = {}) => { this.save(did, h); const r = this.refreshConfig(did, h, now); return json({ ok: true, version: r.version, ...extra }); };
@@ -193,8 +210,9 @@ export class Family extends DurableObject {
         if (sub === "copy") { const src = this.load(String(body.from)); if (!src || body.from === did) throw new Error("choose a different phone to copy from"); const parts = H.copySettings(src.ch, h.ch, body.parts ?? [], now, opts); return done({ copied: parts }); }
         if (sub === "rename") { const name = String(body.name ?? "").trim().slice(0, 60); if (!name) throw new Error("a name is needed"); H.updateChild(h.ch, { name, person: body.person ?? h.ch.person }, now, opts); return done(); }
         if (sub === "secret") { const name = String(body.name ?? ""); if (!/^[a-z][a-z0-9_.]{0,39}$/.test(name)) throw new Error("bad secret name"); if (body.sealed == null) { delete h.ch.secrets?.[name]; } else { const x = body.sealed; if (x?.alg !== "ECDH-P256+HKDF-SHA256+AES-256-GCM" || typeof x.epk !== "string" || typeof x.ct !== "string") throw new Error("not a sealed secret"); (h.ch.secrets ??= {})[name] = x; } return done(); }
+        if (sub === "track/clear") { this.sql.exec("DELETE FROM fixes WHERE did=?", did); return json({ ok: true }); }
         if (sub === "release") { h.rt.release = true; this.save(did, h); return json({ ok: true }); }
-        if (sub === "forget") { for (const t of ["devices", "config", "hub"]) this.sql.exec(`DELETE FROM ${t} WHERE did=?`, did); return json({ ok: true }); }
+        if (sub === "forget") { for (const t of ["devices", "config", "hub", "fixes"]) this.sql.exec(`DELETE FROM ${t} WHERE did=?`, did); return json({ ok: true }); }
       } catch (e) { return json({ error: e.message }, 400); }
     }
     return json({ error: "not found" }, 404);

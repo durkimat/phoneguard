@@ -153,6 +153,22 @@ const e2 = (await api("POST", "/api/enrol/new", { parent: true })).body;
 for (let i = 0; i < 3; i++) await api("POST", "/api/pair", { body: { token: e2.token, pub: "not-a-key", nonce } });
 assert.equal((await api("POST", "/api/pair", { body: { token: e2.token, pub: pubB64, nonce } })).status, 429); ok("a token allows only a few tries");
 
+console.log("Location history");
+await post("track/clear", {});   // earlier checks already stored a position
+const nowT = Date.now(), fx = (minAgo, lat, lon, acc = 20) => [nowT - minAgo * 60_000, lat, lon, acc, "gps", "day"];
+await sync({ state: { battery: 60 }, loc: [fx(30, 51.75, -0.34), fx(20, 51.751, -0.341), fx(10, 51.752, -0.342), fx(5, 999, 0), fx(4, 51.7, -0.3, -5), ["bad"], [nowT - 8 * 86400_000, 51.0, 0.0, 10, "gps", "day"]], cfgh: "x" });
+const tr = (await api("GET", `${D}/track`, { parent: true })).body;
+assert.equal(tr.points.length, 3); assert.ok(tr.points.every((q, i) => i === 0 || q[0] > tr.points[i - 1][0])); assert.equal(tr.retention_days, 7); ok("every valid position is stored (not just the newest); bad ones and ones older than the retention are dropped");
+await sync({ state: { battery: 60 }, loc: [fx(20, 51.751, -0.341), fx(2, 51.753, -0.343)], cfgh: "x" }); assert.equal((await api("GET", `${D}/track`, { parent: true })).body.points.length, 4); ok("a repeated position is not stored twice");
+const win = (await api("GET", `${D}/track?from=${nowT - 12 * 60_000}&to=${nowT}`, { parent: true })).body; assert.equal(win.points.length, 2); ok("the history can be asked for a time window");
+const thin = (await api("GET", `${D}/track?max=2`, { parent: true })).body; assert.ok(thin.points.length < 4 && thin.points.length >= 2); assert.equal(thin.thinned, true); assert.equal(thin.points.at(-1)[0], tr.points.at(-1)[0] === thin.points.at(-1)[0] ? tr.points.at(-1)[0] : (await api("GET", `${D}/track`, { parent: true })).body.points.at(-1)[0]); ok("a long history is thinned for the map, always keeping the last position");
+assert.equal((await api("POST", "/api/options", { parent: true, body: { history_days: 5 } })).status, 400); ok("only 0, 1, 3, 7 or 14 days can be chosen");
+await api("POST", "/api/options", { parent: true, body: { history_days: 1 } }); assert.equal((await api("GET", `${D}/track`, { parent: true })).body.retention_days, 1); ok("the retention can be shortened");
+assert.equal((await post("track/clear", {})).status, 200); assert.equal((await api("GET", `${D}/track`, { parent: true })).body.points.length, 0); ok("clear deletes the stored history");
+await api("POST", "/api/options", { parent: true, body: { history_days: 0 } }); await sync({ state: { battery: 60 }, loc: [fx(1, 51.75, -0.34)], cfgh: "x" }); assert.equal((await api("GET", `${D}/track`, { parent: true })).body.points.length, 0); assert.equal((await api("GET", `${D}/view`, { parent: true })).body.device.fix[1], 51.75); ok("with history off nothing is stored, but the latest position is still shown");
+await api("POST", "/api/options", { parent: true, body: { history_days: 7 } });
+assert.equal((await api("GET", `${D}/track`)).status, 401); ok("the history needs the parent key");
+
 console.log("Release and forget");
 assert.equal((await post("release", {})).status, 200);
 const rel = JSON.parse((await sync({ battery: 50, cfgVersion: 9999 })).body.p); assert.deepEqual(rel.cmds, [{ type: "release" }]); ok("a release request reaches the phone as a signed release command");

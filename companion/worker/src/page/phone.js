@@ -100,7 +100,7 @@ export async function phoneScreen(ctx, did) {
 
   // ---- WhatsApp, radio, Nokia menu -----------------------------------------------------------------------------------------
   const w = v.whatsapp, stW = status(), wAll = check(w.all, () => {}), wList = h("textarea", { rows: "4", "aria-label": "Allowed WhatsApp people and groups" }, (w.allowed ?? []).join("\n")), wMin = h("input", { type: "number", min: 1, max: 60, value: w.perMinute, "aria-label": "Per minute" }), wDay = h("input", { type: "number", min: 1, max: 2000, value: w.perDay, "aria-label": "Per day" });
-  const whatsapp = sec("WhatsApp", h("label", { class: "fld chk" }, wAll, h("span", {}, "Allow everyone and every group", h("small", {}, "Without this, only the people and groups listed below."))),
+  const waState = v.device.state?.wa, whatsapp = sec("WhatsApp", h("p", { class: waState?.linked ? "ok" : "mut" }, waState ? (waState.linked ? "Linked to WhatsApp" : "Not linked to WhatsApp yet") : "Link status appears after the phone's next check-in.", " ", h("a", { href: "/guide#whatsapp", target: "_blank", rel: "noopener noreferrer" }, "How to link")), h("label", { class: "fld chk" }, wAll, h("span", {}, "Allow everyone and every group", h("small", {}, "Without this, only the people and groups listed below."))),
     field("Allowed (one per line)", wList, "A phone number with country code and no plus (447700900111), or g: and a group's name (g:Family)."), h("div", { class: "row" }, "Send at most", wMin, "a minute and", wDay, "a day"),
     h("button", { class: "pri", on: { click: () => patchChild({ whatsapp: { all: wAll.checked, allowed: wList.value.split("\n"), perMinute: Number(wMin.value), perDay: Number(wDay.value) } }, stW, "Saved.") } }, "Save WhatsApp settings"), stW.el, h("p", { class: "mut" }, "Messages stay on the phone. This page never sees them."));
   const stRad = status(), radio = h("textarea", { rows: "6", placeholder: "Heart | https://media-ice.musicradio.com/HeartUKMP3", "aria-label": "Radio stations" }, (v.radio_stations ?? []).map((x) => `${x.name} | ${x.url}`).join("\n"));
@@ -129,6 +129,8 @@ export async function phoneScreen(ctx, did) {
       const clientId = cid.value.trim(); if (!/^[0-9a-f]{32}$/i.test(clientId)) return stSp("bad", "That does not look like a Client ID: it is 32 letters and numbers.");
       try { await api("/options", "POST", { spotify_client_id: clientId }); const { verifier, challenge } = await makePkce(), state = crypto.randomUUID(); sessionStorage.setItem("pgSpotify", JSON.stringify({ verifier, state, clientId: clientId.toLowerCase(), did })); location.href = authorizeUrl({ clientId: clientId.toLowerCase(), origin: location.origin, challenge, state }); } catch (e) { stSp("bad", e.message); } } } }, "Connect Spotify"),
       v.spotify.connected ? h("button", { on: { click: () => act("/secret", { name: "spotify.refresh", sealed: null }, stSp, "Spotify removed from this phone.").then(redraw, () => {}) } }, "Disconnect") : null), stSp.el);
+
+  const histSec = sec("Location history", h("p", { class: "mut" }, "See where the phone has been and play a day back on a map: quiet stretches (school, home) play fast and journeys play slowly. Location must be switched on in Mode settings."), h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => ctx.track(did, v.name, v.tz) } }, "Open the map and playback")));
 
   // ---- reports -------------------------------------------------------------------------------------------------------------
   const days = Object.keys(v.usage).sort().reverse(); let day = days[0];
@@ -159,5 +161,5 @@ export async function phoneScreen(ctx, did) {
     h("div", { class: "row" }, h("button", { on: { click: () => { if (confirm("Release this phone? It will switch off all of Phone Guard's controls and stop being managed.")) act("/release", {}, stM, "The phone will be released at its next check-in.").catch(() => {}); } } }, "Release the phone"),
       h("button", { on: { click: async () => { if (confirm("Forget this phone? It is removed from this page and can no longer check in. Release it first if you want it unlocked.")) { await act("/forget", {}, stM).catch(() => {}); back(); } } } }, "Forget the phone")), stM.el);
 
-  app.replaceChildren(header, right, timetable, apps, modes, restr, whatsapp, radioSec, nokia, weather, look, spotify, usage, battery, updates, manage);
+  app.replaceChildren(header, right, timetable, apps, modes, restr, whatsapp, radioSec, nokia, weather, look, histSec, spotify, usage, battery, updates, manage);
 }

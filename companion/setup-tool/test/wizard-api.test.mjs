@@ -31,5 +31,8 @@ assert.equal((await api("/spotify-client", { did: ap.did, clientId: "short" })).
 const cid = "a1b2c3d4e5f60718293a4b5c6d7e8f90"; const sp = (await api("/spotify-client", { did: ap.did, clientId: cid })).body;
 assert.match(sp.link, new RegExp(`#k=.+&spotify=${ap.did}$`)); ok("Client ID saved and a deep link to the parent page's Spotify box returned");
 const st = (await api(`/spotify-status?did=${ap.did}`)).body; assert.deepEqual(st, { connected: false, clientId: cid }); ok("status says not connected yet and echoes the saved Client ID");
+assert.match(info.waGuide, /\/guide#whatsapp$/); assert.match(info.waQr, /^<svg/); ok("the WhatsApp guide link and its QR are built from the host");
+assert.equal((await api("/whatsapp-allowed", { did: ap.did, all: false, allowed: [" 447700900111 ", "g:Family", ""] })).status, 200);
+const waCfg = (await fetch(W + `/api/devices/${ap.did}/config`, { headers: { authorization: "Bearer dev-admin-token" } }).then((r) => r.json())).config.whatsapp; assert.deepEqual(waCfg.allowed, ["447700900111", "g:Family"]); assert.equal(waCfg.all, false); ok("who WhatsApp may talk to is saved from the wizard and reaches the phone's config");
 assert.equal((await fetch(B + "/pairings")).status, 403); ok("every wizard call needs the session key");
 server.close(); console.log(`\n${n} checks passed`);
