@@ -70,7 +70,7 @@
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
             android:excludeFromRecents="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            android:theme="@style/Theme.PhoneGuard.Home">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />

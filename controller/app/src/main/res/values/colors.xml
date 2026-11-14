@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the boot animation fades to this colour (build/bootanimation, bg #070a0f) -->
+    <color name="pg_boot_bg">#FF070A0F</color>
+</resources>

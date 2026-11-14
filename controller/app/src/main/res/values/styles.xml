@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Phone Guard Home: the very first frame (the system's starting window) is the boot animation's own dark colour, full screen, so the
+         hand-over from the boot animation to the home screen shows no white window and no Android status bar. -->
+    <style name="Theme.PhoneGuard.Home" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@color/pg_boot_bg</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:statusBarColor">@color/pg_boot_bg</item>
+        <item name="android:navigationBarColor">@color/pg_boot_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/pg_boot_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/pg_splash_empty</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>
