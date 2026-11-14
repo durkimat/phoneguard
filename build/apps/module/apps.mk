@@ -19,3 +19,4 @@ PRODUCT_COPY_FILES += \
 # FM radio: Lineage ships MediaTek-derived FMRadio (packages/apps/FMRadio, platform-signed with our key, with its own libfmjni and allowlist).
 # (The stock Qin FMRadio.apk + libfmjni are kept as a fallback in /archive/phone-backups/own-build-inputs/fmradio-stock-20261114, see docs/fm-radio.md.)
 PRODUCT_PACKAGES += FMRadio
+$(call inherit-product-if-exists, vendor/phoneguard/fm/fm.mk)

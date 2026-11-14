@@ -1,0 +1,7 @@
+// FM customisation library the MediaTek-derived FMRadio JNI dlopens (see fmcust.c).
+cc_library_shared {
+    name: "libfmcust",
+    srcs: ["fmcust.c"],
+    cflags: ["-Wall", "-Werror"],
+    shared_libs: ["liblog"],
+}
