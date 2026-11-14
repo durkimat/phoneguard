@@ -1,6 +1,6 @@
 # repo: frameworks/base
 diff --git a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
-index e719489d4e08..5d146059c9c6 100644
+index e719489d4e08..6956f21ce7d7 100644
 --- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
 +++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
 @@ -1944,6 +1944,11 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
@@ -27,3 +27,20 @@ index e719489d4e08..5d146059c9c6 100644
  
  
              resetKeyguardDonePendingLocked();
+@@ -3694,6 +3704,16 @@ public class KeyguardViewMediator implements CoreStartable, Dumpable,
+             }
+             mBootCompleted = true;
+             adjustStatusBarLocked(false, true);
++            // Phone Guard: the keyguard shown at boot is attached before the pad can be raised; raise it once boot has completed.
++            if (android.os.SystemProperties.getBoolean("persist.sys.pg.bouncer_on_show", false)) {
++                for (long delay : new long[] {1500, 4000}) {
++                    mHandler.postDelayed(() -> {
++                        if (mShowing && mLockPatternUtils.isSecure(mSelectedUserInteractor.getSelectedUserId())) {
++                            mKeyguardViewControllerLazy.get().showPrimaryBouncer(true);
++                        }
++                    }, delay);
++                }
++            }
+             if (mBootSendUserPresent) {
+                 sendUserPresentBroadcast();
+             }
