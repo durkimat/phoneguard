@@ -381,6 +381,7 @@ class LauncherActivity : Activity() {
 
     private fun load() {
         if (loading) return
+        if (isDestroyed || loader.isShutdown) return   // a queued ui.post can run after onDestroy (activity recreated, e.g. by the theme change at first boot)
         var bits = dirty.getAndSet(0)
         if (bits == 0) return
         if (bits and D.CONTACTS != 0) bits = bits or D.CALLS or D.CONVOS or D.WA // names come from the contacts
@@ -390,7 +391,7 @@ class LauncherActivity : Activity() {
         loadedScreen = screen
         val known = model.contacts
         val bitsNow = bits
-        loader.execute {
+        try { loader.execute {
             val r = Loaded()
             try {
                 if (bitsNow and D.INFO != 0) {
@@ -427,7 +428,7 @@ class LauncherActivity : Activity() {
                 }
             } catch (e: Exception) { Log.log(this, "launcher data: ${e.javaClass.simpleName}") }
             ui.post { apply(r, bitsNow, screen); loading = false; if (dirty.get() != 0) load() }
-        }
+        } } catch (_: java.util.concurrent.RejectedExecutionException) { loading = false }
     }
 
     /** Takes what the background read found into the model (main thread) and draws. */
