@@ -359,6 +359,7 @@ object Pregrant {
         }
         // our own camera needs the camera and microphone without a prompt (the keypad cannot answer one)
         for (perm in listOf("android.permission.CAMERA", "android.permission.RECORD_AUDIO", "android.permission.READ_MEDIA_IMAGES", "android.permission.READ_MEDIA_VIDEO")) {
+            if (c.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED) continue // see Enforcer.grantOwnPermissions: no notice for what the image already grants
             try { dpm.setPermissionGrantState(admin, c.packageName, perm, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) } catch (_: Exception) { }
         }
         if (done > 0) Log.log(c, "pre-granted $done permissions")

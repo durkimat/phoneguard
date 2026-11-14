@@ -105,6 +105,9 @@ object Enforcer {
         val admin = Dpm.admin(c)
         fun grant(p: String) {
             try {
+                // already granted (the image pre-grants our permissions): a grant through the device owner would make Android post
+                // "Your organization allows Phone Guard to access your location" and "Controlled permissions" notices at every boot
+                if (c.checkSelfPermission(p) == android.content.pm.PackageManager.PERMISSION_GRANTED) return
                 if (dpm.getPermissionGrantState(admin, c.packageName, p) != DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
                     dpm.setPermissionGrantState(admin, c.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
             } catch (_: Exception) { }
