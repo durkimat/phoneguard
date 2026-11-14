@@ -540,6 +540,31 @@ if __name__ == "__main__":
             z.writestr("desc.txt", desc)
             for i in range(n): z.write(os.path.join(tmp, "%04d.png" % i), "part0/%04d.png" % i)
         shutil.rmtree(tmp); print("wrote", out, os.path.getsize(out), "bytes,", n, "frames; desc.txt:\n" + desc)
+    elif cmd == "bootzip2":
+        # Short boot animation for the real boot (docs/boot-animation.md): part0 plays once (~11.6 s: both sequences compressed), part1 loops the
+        # magnifier look-around (6 s, starts and ends on the same pose) until Android is ready, then fades.
+        import zipfile, tempfile, shutil
+        out = sys.argv[2]; w_, h_ = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (W, H)
+        SEG = [(0.0, 4.8, 2.0), (4.8, 11.2, 1.6), (11.2, 16.0, 2.0), (17.0, 22.6, 2.0)]   # original-time ranges and playback speed
+        intro = []
+        for a, b, sp in SEG:
+            n_ = int(round((b - a) / sp * FPS))
+            intro += [a + (b - a) * k / n_ for k in range(n_)]
+        loop = [22.6 + 6.0 * k / (6 * FPS) for k in range(6 * FPS)]
+        tmp = tempfile.mkdtemp(prefix="bootanim2-")
+        def make(tlist, part):
+            os.makedirs(os.path.join(tmp, part))
+            for i, t in enumerate(tlist):
+                png = os.path.join(tmp, part, "%04d.png" % i); render_png(t, png)
+                subprocess.run(["convert", png, "-resize", "%dx%d!" % (w_, h_), "-colors", "128", "-dither", "None", "PNG8:" + png], check=True)
+        make(intro, "part0"); make(loop, "part1")
+        fade = max(1, int(round(Q["fadeSec"] * FPS)))
+        desc = "%d %d %d\np 1 0 part0\nf 0 0 part1 %d %s\n" % (w_, h_, FPS, fade, Q["bg"])
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as z:
+            z.writestr("desc.txt", desc)
+            for part, tl in (("part0", intro), ("part1", loop)):
+                for i in range(len(tl)): z.write(os.path.join(tmp, part, "%04d.png" % i), "%s/%04d.png" % (part, i))
+        shutil.rmtree(tmp); print("wrote", out, os.path.getsize(out), "bytes; intro frames", len(intro), "loop frames", len(loop), "\n" + desc)
     elif cmd == "frames":
         os.makedirs(sys.argv[2], exist_ok=True)
         for i in range(int(T * FPS)): render_png(i / FPS, os.path.join(sys.argv[2], "f%04d.png" % i))

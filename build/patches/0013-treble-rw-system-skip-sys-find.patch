@@ -1,0 +1,14 @@
+# repo: device/phh/treble
+diff --git a/rw-system.sh b/rw-system.sh
+--- a/rw-system.sh
++++ b/rw-system.sh
+@@ -1098,7 +1098,8 @@
+ 
+ [ -d /mnt/vendor/persist ] && mount /mnt/vendor/persist /persist
+ 
+-for f in $(find /sys -name fts_gesture_mode);do
++# Phone Guard: a find over all of /sys (about 2 s per boot on this phone) only to spot Focaltech touch gesture nodes; not needed here.
++for f in ;do
+     setprop persist.sys.phh.focaltech_node "$f"
+ done
+ 
