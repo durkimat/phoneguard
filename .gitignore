@@ -11,3 +11,4 @@ build/bootlogo/*.png
 node_modules/
 .wrangler/
 companion/worker/.dev.vars
+companion/setup-tool/dist/
