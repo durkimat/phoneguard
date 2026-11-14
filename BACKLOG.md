@@ -1086,3 +1086,9 @@ Decisions so far (owner): in **Settings** enter the SIM plan's **start date** an
 - School mode: widget hidden by mode config (field on each mode in the HA card, like other per-mode settings).
 - HA: send totals only at check-in, show on the phoneguard card; parent can set the plan remotely too (later, with the Cloudflare move: see that item).
 - Related: Data use tracking above (per-app breakdown, Wi-Fi vs mobile, who sees it); keep this item and that one in step.
+
+### Enrolment bundle + keyguard re-evaluation (design input, 2026-11-14; no phone work until the owner says go)
+- Cloudflare accounts are parent-owned: no project-run service and no fixed Worker URL in the app. The phone must be told its family's Worker address.
+- Bundle JSON `{v:1, u: workerUrl, t: token, k: pin}` (under about 200 chars; `k` = first 16 bytes of SHA-256(serverKey); the phone fetches the full key from `/api/info` over HTTPS and checks it against the pin).
+- Delivery order: (a) helper (or WebUSB adb) pushes the file at setup to a known path; `pg-provision.sh` moves it to the app's device-protected dir and deletes it (needs a sepolicy read rule); (b) SMS `pg1:<url>:<token>` from the parent's phone, with the two-sided match confirmation; (c) camera QR later. No rendezvous service. Typed tokens are 8-digit numeric; 10 alphanumeric chars are fine inside bundles.
+- SystemUI patch to add: re-evaluate the keyguard when the credential state changes (set PIN while screen off showed Home with no keyguard; clearing a PIN left the stock lock screen up until a second sleep/wake). Make the DPC reset/clear path take effect at once (`resetStateLocked`, or hide when not secure and the lockscreen is disabled).
