@@ -15,3 +15,9 @@ endif
 PRODUCT_COPY_FILES += \
     vendor/phoneguard/apps/pg-provision.sh:system/system_ext/bin/pg-provision.sh \
     vendor/phoneguard/apps/pg-provision.rc:system/system_ext/etc/init/pg-provision.rc
+
+# FM radio (stock MediaTek app + libfmjni, talks to /dev/fm of the stock kernel).
+PRODUCT_PACKAGES += FMRadio
+PRODUCT_COPY_FILES += \
+    vendor/phoneguard/apps/fm/libfmjni.so:system/system_ext/lib64/libfmjni.so \
+    vendor/phoneguard/apps/privapp-permissions-fmradio.xml:system/system_ext/etc/permissions/privapp-permissions-fmradio.xml

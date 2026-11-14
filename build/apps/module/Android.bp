@@ -12,3 +12,6 @@ android_app_import { name: "PhoneGuard", apk: "phoneguard.apk", presigned: true,
         "Eleven", "Gallery2", "Aperture", "ApertureLensLauncher", "Glimpse", "Jelly", "Etar", "Recorder", "PhotoTable", "Backgrounds",
         "ThemePicker", "LineageSetupWizard", "Seedvault", "ExactCalculator", "AudioFX",
     ], dex_preopt: { enabled: false }, }
+
+// FM radio from the stock Qin firmware (docs/fm-radio.md): the MediaTek FM app (com.android.fmradio 2.0, Duoqin-signed, left as is) and its JNI library.
+android_app_import { name: "FMRadio", apk: "fm/FMRadio.apk", presigned: true, preprocessed: true, privileged: true, system_ext_specific: true, dex_preopt: { enabled: false }, }
