@@ -27,6 +27,7 @@ class EnrolActivity : Activity() {
     private lateinit var info: TextView
     private lateinit var matchView: TextView
     private var polling = false
+    @Volatile private var inFlight = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,6 +69,8 @@ class EnrolActivity : Activity() {
 
     private fun begin(p: EnrolPayload?) {
         if (p == null) { info.text = "Check the address and the code."; return }
+        if (inFlight || polling || WorkerLink.isPaired(this)) return // a second submit (Enter and Done, a double tap) must not start another pairing
+        inFlight = true
         info.text = "Connecting to ${p.host} ..."
         WorkerLink.async {
             try {
@@ -75,8 +78,8 @@ class EnrolActivity : Activity() {
                 ui.post { show("Type this number on the parent page, then wait.", m); startPolling() }
             } catch (e: Exception) {
                 Log.log(this, "companion: pairing failed: ${e.message}")
-                ui.post { info.text = "Could not connect: ${e.message}" }
-            }
+                ui.post { if (!WorkerLink.isPaired(this) && !polling) info.text = "Could not connect: ${e.message}" }
+            } finally { inFlight = false }
         }
     }
 

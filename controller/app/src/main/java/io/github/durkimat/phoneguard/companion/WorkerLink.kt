@@ -62,6 +62,7 @@ object WorkerLink {
     /** Ask the Worker to pair. Returns the 4-digit number to show; the parent types it on their page. Throws with a readable message. */
     @Synchronized
     fun start(c: Context, p: EnrolPayload): String {
+        if (isPaired(c)) throw IllegalStateException("already connected: disconnect first")
         val info = JSONObject(http(p.host, "GET", "/api/info", null))
         val serverKey = info.optString("serverKey")
         if (serverKey.isEmpty()) throw IllegalStateException("not a Phone Guard server")
@@ -162,10 +163,28 @@ object WorkerLink {
         val v = rp.optInt("configVersion", 0)
         val cfg = rp.optJSONObject("config")
         if (cfg == null) return if (rp.optBoolean("unchanged")) "unchanged (v$v)" else "ok"
-        Store.setConfig(c, cfg.toString())
+        Store.setConfig(c, withOpenedSecrets(c, cfg).toString())
         sp(c).edit().putInt("cfgVersion", v).apply()
         Controller.evaluate(c, "companion sync")
         return "config updated (v$v)"
+    }
+
+    /**
+     * The profile's sealed secrets are opened with the phone's encryption key and handed to the existing code under the names it already reads
+     * (the Spotify refresh token goes to `spotifyRefresh`, which Spotify.adopt() takes up); the sealed blobs themselves are not kept.
+     */
+    private fun withOpenedSecrets(c: Context, profile: JSONObject): JSONObject {
+        val out = JSONObject(profile.toString())
+        val secrets = out.optJSONObject("secrets") ?: return out
+        out.remove("secrets")
+        val did = sp(c).getString("did", "").orEmpty()
+        val key = EncKey.privateKey()
+        secrets.optJSONObject("spotify.refresh")?.let { sealed ->
+            val plain = if (key == null) null else SealedSecret.open(key, did, "spotify.refresh", sealed)
+            if (plain != null) { out.put("spotifyRefresh", plain); Log.log(c, "companion: opened sealed spotify.refresh") }
+            else Log.log(c, "companion: could not open sealed spotify.refresh")
+        }
+        return out
     }
 
     // ---- network and scheduling ----------------------------------------------------------------
