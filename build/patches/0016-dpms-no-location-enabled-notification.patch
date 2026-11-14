@@ -1,0 +1,15 @@
+# repo: frameworks/base
+diff --git a/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java b/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java
+index 409916c3df2d..3e9d57f97e33 100644
+--- a/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java
++++ b/services/devicepolicy/java/com/android/server/devicepolicy/DevicePolicyManagerService.java
+@@ -14902,6 +14902,9 @@ public class DevicePolicyManagerService extends IDevicePolicyManager.Stub {
+     }
+ 
+     private void showLocationSettingsEnabledNotification(UserHandle user) {
++        // Phone Guard: never post the "Apps can access your location / Contact your IT admin" heads-up when the device owner turns location on
++        // (Phone Guard lends location to Android for Wi-Fi scans); it popped up on the child-facing screens.
++        if (true) return;
+         Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                 .addFlags(FLAG_ACTIVITY_NEW_TASK);
+         // Fill the component explicitly to prevent the PendingIntent from being intercepted
