@@ -22,6 +22,7 @@ class F2Service : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     private val volume by lazy { VolumeBar(this) }
     private val cover by lazy { ScreenCover(this) }
+    private val pin by lazy { PinCover(this, cover) }
 
     companion object {
         @Volatile private var instance: F2Service? = null
@@ -106,6 +107,7 @@ class F2Service : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        pin.start()
         // the pairing is settled (paired, or given up): take the panel down
         registerReceiver(object : android.content.BroadcastReceiver() {
             override fun onReceive(c: android.content.Context?, i: Intent?) {
@@ -156,6 +158,7 @@ class F2Service : AccessibilityService() {
     }
 
     override fun onKeyEvent(ev: KeyEvent): Boolean {
+        if (pin.shown && pin.onKey(ev)) return true   // the PIN panel: only Emergency is ours, every other key also reaches the real lock screen
         if (pairing && (ev.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || ev.keyCode == KeyEvent.KEYCODE_ENTER || ev.keyCode == KeyEvent.KEYCODE_MENU || ev.keyCode == KeyEvent.KEYCODE_BACK)) {
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) pressPairingButton(ev.keyCode != KeyEvent.KEYCODE_BACK)
             return true
