@@ -441,7 +441,7 @@ class LauncherModel(
         Screen.GAMEHELP -> gameNames[helpGame]
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
-        Screen.MUSIC -> if (provider == Provider.RADIO) "Radio" else "Spotify"
+        Screen.MUSIC -> if (provider == Provider.RADIO) "Internet Radio" else "Spotify"
         Screen.RADIO -> "Presets"
         Screen.RADIOMENU -> "Radio menu"
         Screen.SPOTIFYMENU -> "Spotify menu"
@@ -1514,10 +1514,10 @@ class LauncherModel(
     var radioMode = "any"
     var radioIndex = -1
 
-    private val musicMenuRows: List<String> get() = (if (radioMode != "off") listOf("Radio") else emptyList()) + listOf("Spotify") + commonMusicRows
+    private val musicMenuRows: List<String> get() = (if (radioMode != "off") listOf("Internet Radio") else emptyList()) + listOf("Spotify") + commonMusicRows
 
     /** A small symbol for each row of the Music menu: 2 playing, 1 paused, 0 none. */
-    val rowMarks: List<Int> get() = if (screen == Screen.MUSICMENU) musicMenuRows.map { r -> when (r) { "Radio" -> provStatus[Provider.RADIO] ?: 0; "Spotify" -> provStatus[Provider.SPOTIFY] ?: 0; else -> 0 } } else emptyList()
+    val rowMarks: List<Int> get() = if (screen == Screen.MUSICMENU) musicMenuRows.map { r -> when (r) { "Internet Radio" -> provStatus[Provider.RADIO] ?: 0; "Spotify" -> provStatus[Provider.SPOTIFY] ?: 0; else -> 0 } } else emptyList()
 
     // the Phone entry and the green key open the dial pad (see the dialler notes in the backlog)
     private fun openPhoneMenu(): Action { dialNumber = ""; dialler = true; enter(Screen.DIAL); return Action.Redraw }
@@ -1664,7 +1664,7 @@ class LauncherModel(
 
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = musicMenuRows.getOrNull(selected)) {
-            "Radio" -> { provider = Provider.RADIO; selected = 0; if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) screen = Screen.RADIO else screen = Screen.MUSIC; Action.Redraw }
+            "Internet Radio" -> { provider = Provider.RADIO; selected = 0; if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) screen = Screen.RADIO else screen = Screen.MUSIC; Action.Redraw }
             "Spotify" -> { provider = Provider.SPOTIFY; selected = 0; if ((provStatus[Provider.SPOTIFY] ?: 0) == 0 && spSignedIn) { screen = Screen.PLAYLISTS; spStatus = "Loading..."; Action.SpLoad("playlists") } else { screen = Screen.MUSIC; Action.Redraw } }
             else -> commonMusicRow(r)
         }

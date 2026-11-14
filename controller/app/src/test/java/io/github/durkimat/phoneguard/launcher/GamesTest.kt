@@ -282,7 +282,7 @@ class HomeBadgeTest {
     @Test fun theMusicMenuListsProvidersThenTheCommonSettings() {
         val m = musicModel()
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen)
-        assertEquals(listOf("Radio", "Spotify", "Sleep timer: off", "Bar shows: progress"), m.rows)
+        assertEquals(listOf("Internet Radio", "Spotify", "Sleep timer: off", "Bar shows: progress"), m.rows)
         m.provStatus = mapOf(Provider.RADIO to 2, Provider.SPOTIFY to 1); assertEquals(listOf(2, 1, 0, 0), m.rowMarks) // a symbol per provider: playing, paused
         m.radioMode = "off"; assertEquals(listOf("Spotify", "Sleep timer: off", "Bar shows: progress"), m.rows) // radio off in this mode: no Radio row
         assertEquals(Action.SleepStep, m.onKey(Key.DIGIT, 2)); assertEquals(Action.SpectrumToggle, m.onKey(Key.DIGIT, 3))
@@ -342,7 +342,7 @@ class HomeBadgeTest {
         val m = musicModel()
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 1) // Music menu, Radio
         assertEquals(Screen.RADIO, m.screen); assertEquals(listOf("BBC Radio 1", "Heart", "Classic FM"), m.rows) // nothing playing: straight to the presets
-        assertEquals(Action.RadioPlay(1), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.RADIO, m.provider); assertEquals("Radio", m.title)
+        assertEquals(Action.RadioPlay(1), m.onKey(Key.DIGIT, 2)); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.RADIO, m.provider); assertEquals("Internet Radio", m.title)
         m.music = io.github.durkimat.phoneguard.music.MusicInfo(true, "Radio", "Heart", "", "", true, 5_000, 0, 40, source = "radio")
         assertEquals(Action.RadioPlay(2), m.onKey(Key.DIGIT, 3)); assertEquals(Action.None, m.onKey(Key.DIGIT, 9)) // the digits are presets
         assertEquals(Action.MusicNext, m.onKey(Key.RIGHT)); assertEquals(Action.MusicPrevious, m.onKey(Key.LEFT)); assertEquals(Action.MusicPlayPause, m.onKey(Key.OK))

@@ -384,14 +384,14 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             if (!mu.active) {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
                 val other = m.playingProvider?.takeIf { it != m.provider }
-                text(c, if (other != null) (if (other == Provider.RADIO) "Radio" else "Spotify") + " is playing"
+                text(c, if (other != null) (if (other == Provider.RADIO) "Internet Radio" else "Spotify") + " is playing"
                     else if (radio) (if (m.radioNames.isEmpty()) "No stations in this mode" else "OK picks a station")
                     else if (m.spSignedIn) "OK picks a playlist" else "Menu: sign in to Spotify", 240f, 280f, 26f, u, align = Paint.Align.CENTER)
                 if (other != null) text(c, if (radio) "OK picks a station" else if (m.spSignedIn) "OK picks a playlist" else "", 240f, 316f, 24f, u, align = Paint.Align.CENTER)
             } else if (chrome.nowPlaying(this, c, m, u)) {
                 // the chrome drew the whole player
             } else {
-                if (radio) text(c, "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
+                if (radio) text(c, "Internet Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
                 else if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
                 marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)
                 marquee(c, mu.artist, 20f, 240f, 32f, 440f, u)

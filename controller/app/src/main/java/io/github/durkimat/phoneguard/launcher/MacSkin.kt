@@ -144,7 +144,7 @@ class MacChrome : Chrome {
         stroke.strokeWidth = 2 * u
         c.drawRect(22 * u, 104 * u, 458 * u, 256 * u, stroke)
         c.drawRect(26 * u, 108 * u, 454 * u, 252 * u, stroke)
-        val where = if (radio) "Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else "")
+        val where = if (radio) "Internet Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else "")
             else if (mu.device.isNotEmpty()) (if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 250f, 22f)) else ""
         text(c, where, 38f, 134f, 22f, u)
         if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 442f, 134f, 22f, u, align = Paint.Align.RIGHT)
