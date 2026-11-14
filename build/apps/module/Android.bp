@@ -5,4 +5,10 @@ android_app_import { name: "TT9", apk: "tt9.apk", presigned: true, preprocessed:
 
 // Phone Guard itself (controller/), a privileged system app signed with ITS OWN release key (not the platform key): see docs/integration-plan.md.
 // It stays updatable by the same-key release flow; the allowlist below is what grants its privileged permissions.
-android_app_import { name: "PhoneGuard", apk: "phoneguard.apk", presigned: true, preprocessed: true, privileged: true, overrides: ["TrebuchetQuickStep", "Launcher3QuickStep", "Launcher3", "Launcher3Go"], dex_preopt: { enabled: false }, }
+android_app_import { name: "PhoneGuard", apk: "phoneguard.apk", presigned: true, preprocessed: true, privileged: true, overrides: [
+        // Stock launcher: Phone Guard Home replaces it.
+        "TrebuchetQuickStep", "Launcher3QuickStep", "Launcher3", "Launcher3Go",
+        // Lineage apps Phone Guard has its own versions of, or that a keypad phone does not use (docs/image-trim.md). Add back by deleting the name here.
+        "Eleven", "Gallery2", "Aperture", "ApertureLensLauncher", "Glimpse", "Jelly", "Etar", "Recorder", "PhotoTable", "Backgrounds",
+        "ThemePicker", "LineageSetupWizard", "Seedvault", "ExactCalculator", "AudioFX",
+    ], dex_preopt: { enabled: false }, }
