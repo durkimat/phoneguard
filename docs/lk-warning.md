@@ -18,3 +18,7 @@ Source: `/archive/phone-backups/qin-j35-20261110/partitions/lk_a.bin` (and lk_b.
 - Procedure: back up the phone's CURRENT lk_a (compare with the backup), flash the patched lk_a with mtkclient in BROM mode (the phone off, USB connected, owner present), verify by reading back, reboot; keep the restore command ready.
 - Prepared patch (nothing flashed): `build/tools/patch_lk_warning.py lk_a.bin OUT.bin` blanks the three orange-state strings (81 bytes, same size). It does not remove the 5 s wait.
 - The logo replacement (separate, `logo` partition) is independent and does not touch LK.
+
+## Result (2026-11-14)
+- v1 (spaces) drew black boxes on the logo; v2 (NUL bytes, 96 bytes at 0x8dce0-0x8dd45, `lk_a-empty-warning.bin`, sha256 7ce32e92a32758b15d5d12e40b9b7aa60008cfd37baef53e13c7b745b51cd952) is on the phone's lk_a (verified from Android with dd): no text over the logo, then the boot animation. Written with mtkclient in emergency (BROM/preloader) mode with no key combination: phone off, plug USB. The original is backed up (sha256 549f3b07...), restore with `mtk w lk_a lk_a-original.bin`.
+- Still open: the 5 s wait (not located), and the charge-mode (powered off + USB) screen first shows a battery symbol with 'no battery' before the real level (LK/kpoc charging pictures; low priority).
