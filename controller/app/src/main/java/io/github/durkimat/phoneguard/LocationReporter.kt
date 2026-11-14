@@ -22,8 +22,8 @@ import java.util.concurrent.Executors
  * Fixes wait in a small file and ride along with the next sync. The phone's own location switch is handled by [LocationLock].
  */
 object LocationReporter {
-    private const val KEEP = 60
-    private const val MAX_UPLOAD = 20
+    private const val KEEP = 600 // about 10 hours of live fixes
+    private const val MAX_UPLOAD = 200 // about 15 KB per sync
     private val pool = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
     private var live: LocationListener? = null
