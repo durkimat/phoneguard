@@ -1,0 +1,17 @@
+# repo: frameworks/av
+diff --git a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
+index 1823522fe2..cd4ec4cac3 100644
+--- a/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
++++ b/services/audiopolicy/managerdefault/AudioPolicyManager.cpp
+@@ -766,7 +766,10 @@ status_t AudioPolicyManager::updateCallRoutingInternal(
+         }
+         muteWaitMs = setOutputDevices(__func__, mPrimaryOutput, rxDevices, true, delayMs);
+     } else { // create RX path audio patch
+-        if (property_get_int32("ro.vndk.version", 31) >= 31) {
++        // Phone Guard: this MediaTek vendor (VNDK 31) has a HW bridge to the earpiece and no SW output for the telephony Rx
++        // route, so SW bridging aborts in connectAudioSourceToSink (audioserver crash loop during calls). Use the HW patch.
++        if (property_get_int32("ro.vndk.version", 31) >= 31 &&
++                !property_get_bool("persist.sys.pg.apm.hw_rx_bridge", true)) {
+             connectTelephonyRxAudioSource();
+         } else {
+             // pre-S behavior: some devices do not support SW bridging correctly when HW bridge is

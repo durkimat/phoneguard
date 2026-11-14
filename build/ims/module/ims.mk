@@ -44,3 +44,7 @@ PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/phoneguard/keys/releasekey
 endif
 
 PRODUCT_PACKAGE_OVERLAYS += vendor/phoneguard/overlay
+
+# No on-screen navigation bar (keypad phone; Phone Guard draws its own soft keys). Proven alternative if this does not hide it:
+# cmd overlay enable com.android.internal.systemui.navbar.gestural; cmd overlay enable org.lineageos.overlay.customization.navbar.nohint; settings put secure navigation_mode 2
+PRODUCT_SYSTEM_DEFAULT_PROPERTIES += qemu.hw.mainkeys=1
