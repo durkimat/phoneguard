@@ -78,33 +78,56 @@ assert.equal((await sync({ x: 1 }, { c: 50, signWith: (m) => crypto.sign("sha256
 assert.equal((await sync({ x: 1 }, { c: 51, did: "dnotadevice" })).status, 403); ok("unknown device rejected");
 assert.equal((await sync({ x: 1 })).status, 200); ok("counter may skip ahead (phone persists it before sending)");
 
-console.log("Config");
-const cfgPost = await api("POST", `/api/devices/${conf.did}/config`, { parent: true, body: { base: "day", modes: { day: { allowAll: true }, school: { name: "School", allow: ["io.github.durkimat.phoneguard"], sound: "silent" } }, override: "school" } });
-assert.equal(cfgPost.body.version, 2); ok("parent changes the config (version 2)");
+console.log("Config and parent controls");
+const D = `/api/devices/${conf.did}`, post = (sub, body) => api("POST", `${D}/${sub}`, { parent: true, body });
+const ov = await post("override", { mode: "school" });
+assert.equal(ov.status, 200); assert.equal(ov.body.version, 2); ok("parent forces a mode (override): config version 2");
 const s2 = await sync({ battery: 80 });
-const p2 = JSON.parse(s2.body.p); assert.equal(p2.configVersion, 2); assert.equal(p2.config.override, "school"); assert.equal(p2.config.version, 2); ok("phone picks it up on the next sync (server set the version)");
+const p2 = JSON.parse(s2.body.p); assert.equal(p2.configVersion, 2); assert.equal(p2.config.override, "school"); assert.equal(p2.config.version, 2); assert.equal(p2.cfgh.length, 12); ok("phone picks it up on the next sync (server set the version and a hash)");
+assert.deepEqual(p2.cmds, []); assert.equal(p2.boost, null); ok("sync reply carries boost (none) and commands (none)");
 const devs = (await api("GET", "/api/devices", { parent: true })).body;
-assert.equal(devs[0].state.battery, 80); assert.ok(devs[0].last_seen > 0); ok("parent sees last-seen and reported state");
+assert.equal(devs[0].state.battery, 80); assert.ok(devs[0].last_seen > 0); assert.equal(devs[0].override, "school"); assert.equal(devs[0].mode_now, "school"); ok("parent sees last-seen, reported state, override and the mode now");
+assert.equal((await post("override", { mode: "nonsense" })).status, 400); assert.equal((await post("override", { mode: "auto" })).status, 200); ok("an unknown mode is refused; 'auto' returns to the timetable");
 
-for (const [name, bad] of [["no modes", { modes: {} }], ["bad sound value", { modes: { day: { sound: "loud" } } }], ["mode id with capitals", { modes: { Day: {} } }], ["bad radio url", { modes: { day: {} }, radioStations: [{ name: "x", url: "ftp://x" }] }], ["malformed sealed secret", { modes: { day: {} }, secrets: { "spotify.refresh": { alg: "none" } } }]]) {
-  const r = await api("POST", `/api/devices/${conf.did}/config`, { parent: true, body: bad });
-  assert.equal(r.status, 400, name); assert.ok(r.body.problems.length > 0);
-}
-ok("invalid profiles rejected with readable problems (no modes, bad enum, bad mode id, bad URL, malformed secret)");
-assert.equal((await api("GET", "/api/devices", { parent: true })).body[0].version, 2); ok("a rejected profile does not bump the version");
+const b1 = await post("boost", { mode: "day", minutes: 15 }); assert.equal(b1.status, 200); assert.equal(b1.body.boost.mode, "day");
+const sB = JSON.parse((await sync({ battery: 79 })).body.p); assert.equal(sB.boost.mode, "day"); assert.ok(sB.boost.until > Date.now()); ok("boost reaches the phone in the sync reply (mode and expiry)");
+const b2 = await post("boost", { mode: "day", minutes: 15 }); assert.ok(b2.body.boost.until >= b1.body.boost.until + 14 * 60_000); ok("pressing boost again adds time");
+assert.equal((await post("boost", { mode: "nope", minutes: 5 })).status, 400); await post("boost/cancel", {}); assert.equal(JSON.parse((await sync({ battery: 78 })).body.p).boost, null); ok("boost cancel and unknown boost mode");
 
-const sU = await sync({ battery: 78, cfgVersion: 3 });
-const pU = JSON.parse(sU.body.p); assert.equal(pU.unchanged, true); assert.equal(pU.config, undefined); ok("a phone that already has the current version gets 'unchanged' (no profile sent)");
+assert.equal((await post("holiday", { from: "2026-12-19", until: "2027-01-04" })).status, 200); assert.equal((await api("GET", `${D}/view`, { parent: true })).body.holiday.until, "2027-01-04"); ok("holiday dates saved");
+const patch = await post("child", { patch: { restrictions: ["no_config_vpn"], whatsapp: { all: false, allowed: ["+441234"] }, radio_stations: [{ name: "BBC", url: "https://x/y" }] } });
+assert.equal(patch.status, 200); const cfgNow = JSON.parse((await sync({ battery: 77 })).body.p).config; assert.deepEqual(cfgNow.restrictions, ["no_config_vpn"]); assert.deepEqual(cfgNow.whatsapp.allowed, ["+441234"]); assert.equal(cfgNow.radioStations[0].name, "BBC"); ok("settings edits reach the phone's config");
+const badPatch = await post("child", { patch: { week: { 1: [[0, 100, "ghost"]] } } }); assert.equal(badPatch.status, 400); assert.match(badPatch.body.error, /does not have/);
+assert.equal((await post("child", { patch: { modes: { day: { wa: "weird" } } } })).status, 400); ok("invalid settings are refused with a readable reason");
+const verBefore = (await api("GET", "/api/devices", { parent: true })).body[0].version; await post("child", { patch: { tz: "Mars/Olympus" } }); assert.equal((await api("GET", "/api/devices", { parent: true })).body[0].version, verBefore); ok("a refused change does not bump the version");
+
+const sA = JSON.parse((await sync({ battery: 76, cfgVersion: 9999 }, {})).body.p); assert.equal(sA.config ?? null, null); assert.equal(sA.unchanged, true); ok("nothing changed: 'unchanged' (no config re-sent)");
+const sFull1 = JSON.parse((await sync({ state: { battery: 70, version: "0.3.18", mode: "day" }, apps: [{ pkg: "a.one", label: "One" }, { pkg: "a.two", label: "Two" }], cfgh: "stale" })).body.p); assert.ok(sFull1.config); ok("full report: a different config hash gets the config");
+const v1 = (await api("GET", `${D}/view`, { parent: true })).body; assert.equal(v1.apps.length, 2); assert.deepEqual(v1.pending_apps, []); assert.equal(v1.device.version, "0.3.18"); ok("the phone's apps are listed and not 'new' at the first report");
+await sync({ state: { battery: 70, version: "0.3.18" }, apps: [{ pkg: "a.one", label: "One" }, { pkg: "a.two", label: "Two" }, { pkg: "a.new", label: "New" }], usage: { "2026-11-14": { "a.one": 120 } }, labels: { "a.one": "One" }, loc: [[Date.now(), 51.75, -0.34, 20, "gps", "day"]], power: [[Date.now(), 80, 2000000, 0, 0, 1, "day", 4, 1, 0, 300, 0, "t"]] });
+const v2 = (await api("GET", `${D}/view`, { parent: true })).body; assert.deepEqual(v2.pending_apps.map((a) => a.pkg), ["a.new"]); assert.equal(v2.usage["2026-11-14"]["a.one"], 120); assert.equal(v2.device.fix[1], 51.75); assert.equal(v2.power.level, 80); ok("a new app is pending; usage, position and battery are kept");
+assert.equal((await post("apps/approve", { pkg: "a.new", modes: ["day", "night"] })).status, 200); const v3 = (await api("GET", `${D}/view`, { parent: true })).body; assert.deepEqual(v3.pending_apps, []); assert.ok(v3.modes.night.allow.includes("a.new")); ok("approving an app ticks it in the chosen modes");
+await post("apps/mode", { pkg: "a.two", mode: "school", allowed: true }); assert.ok((await api("GET", `${D}/view`, { parent: true })).body.modes.school.allow.includes("a.two"));
+await post("apps/mode-all", { mode: "school", allowed: false }); assert.ok(!(await api("GET", `${D}/view`, { parent: true })).body.modes.school.allow.includes("a.two")); await post("apps/dismiss", { pkg: "a.one" }); ok("per-app, select-all and dismiss work");
+const cmd = await post("apps/command", { kind: "remove", pkg: "com.bad.app", name: "Bad" }); assert.equal(cmd.status, 200); const sC = JSON.parse((await sync({ state: { battery: 70 }, cfgh: "x" })).body.p); assert.equal(sC.config.appCommands[0].pkg, "com.bad.app"); ok("an app removal reaches the phone's config");
+await sync({ state: { battery: 70 }, appResults: [[cmd.body.command.id, "done", "removed", Date.now()]], cfgh: "x" }); const v4 = (await api("GET", `${D}/view`, { parent: true })).body; assert.equal(v4.app_commands.length, 0); assert.equal(v4.app_log[0][3], "done"); ok("the phone's result finishes the job and is logged");
+assert.equal((await post("apps/command", { kind: "remove", pkg: "io.github.durkimat.phoneguard", name: "x" })).status, 400); ok("Phone Guard itself cannot be removed from here");
+assert.equal((await api("POST", "/api/options", { parent: true, body: { spotify_client_id: "nope" } })).status, 400); assert.equal((await api("POST", "/api/options", { parent: true, body: { spotify_client_id: "A1B2C3D4E5F60718293A4B5C6D7E8F90" } })).body.spotify_client_id, "a1b2c3d4e5f60718293a4b5c6d7e8f90"); assert.equal(JSON.parse((await sync({ state: { battery: 70 }, cfgh: "x" })).body.p).config.spotifyClientId, "a1b2c3d4e5f60718293a4b5c6d7e8f90"); ok("the Spotify Client ID is a family option and reaches every phone's config");
+assert.equal((await post("update", {})).status, 400); await api("POST", "/api/options", { parent: true, body: { updates_enabled: true } }); assert.equal((await post("update", {})).status, 400); ok("updates are off until switched on, and need a known release");
+assert.equal((await post("rename", { name: "Elowen's phone" })).status, 200); assert.equal((await api("GET", "/api/devices", { parent: true })).body[0].name, "Elowen's phone"); ok("rename");
+
+const sU = await sync({ battery: 78, cfgVersion: 9999 });
+const pU = JSON.parse(sU.body.p); assert.equal(pU.unchanged, true); assert.equal(pU.config, undefined); ok("an older-style phone that already has the version gets 'unchanged'");
 const sOld = await sync({ battery: 77, cfgVersion: 1 });
-assert.ok(JSON.parse(sOld.body.p).config); ok("an older phone version gets the full profile");
+assert.ok(JSON.parse(sOld.body.p).config); ok("an older phone version gets the full config");
 
 console.log("Sealed credentials");
 const encKey = (await api("GET", `/api/devices/${conf.did}/enckey`, { parent: true })).body.encKey;
 assert.equal(encKey, encPubB64); ok("parent can fetch the phone's encryption key (separate from its signing key)");
 const secret = "spotify-refresh-token-AQBq9f...long-value-1234567890";
 const sealed = await seal({ recipientSpki: encKey, did: conf.did, name: "spotify.refresh", plaintext: secret });
-const saved = await api("POST", `/api/devices/${conf.did}/config`, { parent: true, body: { base: "day", modes: { day: { allowAll: true } }, secrets: { "spotify.refresh": sealed } } });
-assert.equal(saved.status, 200); ok("parent saves a profile whose secret is sealed in the browser");
+const saved = await post("secret", { name: "spotify.refresh", sealed });
+assert.equal(saved.status, 200); assert.equal((await post("secret", { name: "spotify.refresh", sealed: { alg: "none" } })).status, 400); ok("parent stores a secret sealed in the browser (a malformed one is refused)");
 const s3 = await sync({ battery: 79 });
 const got = JSON.parse(s3.body.p).config.secrets["spotify.refresh"];
 assert.ok(!JSON.stringify(s3.body).includes("AQBq9f")); ok("the plaintext never appears in what the Worker stores or relays");
@@ -122,12 +145,17 @@ for (const f of ["/app.js", "/timetable.js"]) { const r = await fetch(BASE + f);
 const g = await fetch(BASE + "/guide"); assert.equal(g.status, 200); assert.match(await g.text(), /How Phone Guard works/); ok("the how-it-works guide is served at /guide");
 assert.equal((await fetch(BASE + "/nope")).status, 404); ok("unknown paths are 404");
 assert.equal((await api("GET", `/api/devices/${conf.did}/config`)).status, 401); ok("reading a phone's settings needs the parent token");
-const gc = (await api("GET", `/api/devices/${conf.did}/config`, { parent: true })).body; assert.ok(gc.version >= 1 && gc.config.modes); ok("parent can read a phone's current settings and version");
+const gc = (await api("GET", `/api/devices/${conf.did}/config`, { parent: true })).body; assert.ok(gc.version >= 1 && gc.config.modes && gc.config.segments); ok("parent can read a phone's current settings and version");
 assert.equal((await api("GET", "/api/devices/dnosuchdevice/config", { parent: true })).status, 404); ok("unknown phone -> 404");
 
 console.log("Token limits");
 const e2 = (await api("POST", "/api/enrol/new", { parent: true })).body;
 for (let i = 0; i < 3; i++) await api("POST", "/api/pair", { body: { token: e2.token, pub: "not-a-key", nonce } });
 assert.equal((await api("POST", "/api/pair", { body: { token: e2.token, pub: pubB64, nonce } })).status, 429); ok("a token allows only a few tries");
+
+console.log("Release and forget");
+assert.equal((await post("release", {})).status, 200);
+const rel = JSON.parse((await sync({ battery: 50, cfgVersion: 9999 })).body.p); assert.deepEqual(rel.cmds, [{ type: "release" }]); ok("a release request reaches the phone as a signed release command");
+assert.equal((await sync({ battery: 50 })).status, 403); assert.equal((await api("GET", "/api/devices", { parent: true })).body.length, 0); ok("a released phone is forgotten and can no longer check in");
 
 console.log(`\n${passed} checks passed`);

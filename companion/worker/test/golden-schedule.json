@@ -1,0 +1,9802 @@
+[
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "default child",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "day",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "day",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "day",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "day",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "day",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": {
+    "from": "2026-11-09",
+    "until": "2026-11-13"
+   },
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "holiday turns school into day",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": {
+    "from": "x",
+    "until": "y"
+   },
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "bad holiday ignored",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "override": "night",
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": "night",
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "override to a real mode",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": "nope",
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "override to a missing mode is dropped",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1792972800000,
+     "mode": "night",
+     "to": 1792998000000
+    },
+    {
+     "from": 1793003400000,
+     "mode": "school",
+     "to": 1793028600000
+    },
+    {
+     "from": 1793048400000,
+     "mode": "night",
+     "to": 1793059200000
+    },
+    {
+     "from": 1793059200000,
+     "mode": "night",
+     "to": 1793084400000
+    },
+    {
+     "from": 1793089800000,
+     "mode": "school",
+     "to": 1793115000000
+    },
+    {
+     "from": 1793134800000,
+     "mode": "night",
+     "to": 1793145600000
+    },
+    {
+     "from": 1793145600000,
+     "mode": "night",
+     "to": 1793170800000
+    },
+    {
+     "from": 1793176200000,
+     "mode": "school",
+     "to": 1793201400000
+    },
+    {
+     "from": 1793221200000,
+     "mode": "night",
+     "to": 1793232000000
+    },
+    {
+     "from": 1793232000000,
+     "mode": "night",
+     "to": 1793257200000
+    },
+    {
+     "from": 1793262600000,
+     "mode": "school",
+     "to": 1793287800000
+    },
+    {
+     "from": 1793307600000,
+     "mode": "night",
+     "to": 1793318400000
+    },
+    {
+     "from": 1793318400000,
+     "mode": "night",
+     "to": 1793343600000
+    },
+    {
+     "from": 1793349000000,
+     "mode": "school",
+     "to": 1793374200000
+    },
+    {
+     "from": 1793394000000,
+     "mode": "night",
+     "to": 1793404800000
+    },
+    {
+     "from": 1793404800000,
+     "mode": "night",
+     "to": 1793430000000
+    },
+    {
+     "from": 1793480400000,
+     "mode": "night",
+     "to": 1793491200000
+    },
+    {
+     "from": 1793491200000,
+     "mode": "night",
+     "to": 1793516400000
+    },
+    {
+     "from": 1793566800000,
+     "mode": "night",
+     "to": 1793577600000
+    },
+    {
+     "from": 1793577600000,
+     "mode": "night",
+     "to": 1793602800000
+    },
+    {
+     "from": 1793608200000,
+     "mode": "school",
+     "to": 1793633400000
+    },
+    {
+     "from": 1793653200000,
+     "mode": "night",
+     "to": 1793664000000
+    },
+    {
+     "from": 1793664000000,
+     "mode": "night",
+     "to": 1793689200000
+    },
+    {
+     "from": 1793694600000,
+     "mode": "school",
+     "to": 1793719800000
+    },
+    {
+     "from": 1793739600000,
+     "mode": "night",
+     "to": 1793750400000
+    },
+    {
+     "from": 1793750400000,
+     "mode": "night",
+     "to": 1793775600000
+    },
+    {
+     "from": 1793781000000,
+     "mode": "school",
+     "to": 1793806200000
+    },
+    {
+     "from": 1793826000000,
+     "mode": "night",
+     "to": 1793836800000
+    },
+    {
+     "from": 1793836800000,
+     "mode": "night",
+     "to": 1793862000000
+    },
+    {
+     "from": 1793867400000,
+     "mode": "school",
+     "to": 1793892600000
+    },
+    {
+     "from": 1793912400000,
+     "mode": "night",
+     "to": 1793923200000
+    },
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1794182400000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "clocks go back 25 Oct 2026",
+  "now": 1793000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1805673600000,
+     "mode": "night",
+     "to": 1805698800000
+    },
+    {
+     "from": 1805704200000,
+     "mode": "school",
+     "to": 1805729400000
+    },
+    {
+     "from": 1805749200000,
+     "mode": "night",
+     "to": 1805760000000
+    },
+    {
+     "from": 1805760000000,
+     "mode": "night",
+     "to": 1805785200000
+    },
+    {
+     "from": 1805790600000,
+     "mode": "school",
+     "to": 1805815800000
+    },
+    {
+     "from": 1805835600000,
+     "mode": "night",
+     "to": 1805846400000
+    },
+    {
+     "from": 1805846400000,
+     "mode": "night",
+     "to": 1805871600000
+    },
+    {
+     "from": 1805877000000,
+     "mode": "school",
+     "to": 1805902200000
+    },
+    {
+     "from": 1805922000000,
+     "mode": "night",
+     "to": 1805932800000
+    },
+    {
+     "from": 1805932800000,
+     "mode": "night",
+     "to": 1805958000000
+    },
+    {
+     "from": 1805963400000,
+     "mode": "school",
+     "to": 1805988600000
+    },
+    {
+     "from": 1806008400000,
+     "mode": "night",
+     "to": 1806019200000
+    },
+    {
+     "from": 1806019200000,
+     "mode": "night",
+     "to": 1806044400000
+    },
+    {
+     "from": 1806049800000,
+     "mode": "school",
+     "to": 1806075000000
+    },
+    {
+     "from": 1806094800000,
+     "mode": "night",
+     "to": 1806105600000
+    },
+    {
+     "from": 1806105600000,
+     "mode": "night",
+     "to": 1806130800000
+    },
+    {
+     "from": 1806181200000,
+     "mode": "night",
+     "to": 1806192000000
+    },
+    {
+     "from": 1806192000000,
+     "mode": "night",
+     "to": 1806213600000
+    },
+    {
+     "from": 1806264000000,
+     "mode": "night",
+     "to": 1806274800000
+    },
+    {
+     "from": 1806274800000,
+     "mode": "night",
+     "to": 1806300000000
+    },
+    {
+     "from": 1806305400000,
+     "mode": "school",
+     "to": 1806330600000
+    },
+    {
+     "from": 1806350400000,
+     "mode": "night",
+     "to": 1806361200000
+    },
+    {
+     "from": 1806361200000,
+     "mode": "night",
+     "to": 1806386400000
+    },
+    {
+     "from": 1806391800000,
+     "mode": "school",
+     "to": 1806417000000
+    },
+    {
+     "from": 1806436800000,
+     "mode": "night",
+     "to": 1806447600000
+    },
+    {
+     "from": 1806447600000,
+     "mode": "night",
+     "to": 1806472800000
+    },
+    {
+     "from": 1806478200000,
+     "mode": "school",
+     "to": 1806503400000
+    },
+    {
+     "from": 1806523200000,
+     "mode": "night",
+     "to": 1806534000000
+    },
+    {
+     "from": 1806534000000,
+     "mode": "night",
+     "to": 1806559200000
+    },
+    {
+     "from": 1806564600000,
+     "mode": "school",
+     "to": 1806589800000
+    },
+    {
+     "from": 1806609600000,
+     "mode": "night",
+     "to": 1806620400000
+    },
+    {
+     "from": 1806620400000,
+     "mode": "night",
+     "to": 1806645600000
+    },
+    {
+     "from": 1806651000000,
+     "mode": "school",
+     "to": 1806676200000
+    },
+    {
+     "from": 1806696000000,
+     "mode": "night",
+     "to": 1806706800000
+    },
+    {
+     "from": 1806706800000,
+     "mode": "night",
+     "to": 1806732000000
+    },
+    {
+     "from": 1806782400000,
+     "mode": "night",
+     "to": 1806793200000
+    },
+    {
+     "from": 1806793200000,
+     "mode": "night",
+     "to": 1806818400000
+    },
+    {
+     "from": 1806868800000,
+     "mode": "night",
+     "to": 1806879600000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1806879600000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "clocks go forward 28 Mar 2027",
+  "now": 1805740800000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "America/New_York"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793941200000,
+     "mode": "night",
+     "to": 1793966400000
+    },
+    {
+     "from": 1793971800000,
+     "mode": "school",
+     "to": 1793997000000
+    },
+    {
+     "from": 1794016800000,
+     "mode": "night",
+     "to": 1794027600000
+    },
+    {
+     "from": 1794027600000,
+     "mode": "night",
+     "to": 1794052800000
+    },
+    {
+     "from": 1794103200000,
+     "mode": "night",
+     "to": 1794114000000
+    },
+    {
+     "from": 1794114000000,
+     "mode": "night",
+     "to": 1794139200000
+    },
+    {
+     "from": 1794189600000,
+     "mode": "night",
+     "to": 1794200400000
+    },
+    {
+     "from": 1794200400000,
+     "mode": "night",
+     "to": 1794225600000
+    },
+    {
+     "from": 1794231000000,
+     "mode": "school",
+     "to": 1794256200000
+    },
+    {
+     "from": 1794276000000,
+     "mode": "night",
+     "to": 1794286800000
+    },
+    {
+     "from": 1794286800000,
+     "mode": "night",
+     "to": 1794312000000
+    },
+    {
+     "from": 1794317400000,
+     "mode": "school",
+     "to": 1794342600000
+    },
+    {
+     "from": 1794362400000,
+     "mode": "night",
+     "to": 1794373200000
+    },
+    {
+     "from": 1794373200000,
+     "mode": "night",
+     "to": 1794398400000
+    },
+    {
+     "from": 1794403800000,
+     "mode": "school",
+     "to": 1794429000000
+    },
+    {
+     "from": 1794448800000,
+     "mode": "night",
+     "to": 1794459600000
+    },
+    {
+     "from": 1794459600000,
+     "mode": "night",
+     "to": 1794484800000
+    },
+    {
+     "from": 1794490200000,
+     "mode": "school",
+     "to": 1794515400000
+    },
+    {
+     "from": 1794535200000,
+     "mode": "night",
+     "to": 1794546000000
+    },
+    {
+     "from": 1794546000000,
+     "mode": "night",
+     "to": 1794571200000
+    },
+    {
+     "from": 1794576600000,
+     "mode": "school",
+     "to": 1794601800000
+    },
+    {
+     "from": 1794621600000,
+     "mode": "night",
+     "to": 1794632400000
+    },
+    {
+     "from": 1794632400000,
+     "mode": "night",
+     "to": 1794657600000
+    },
+    {
+     "from": 1794708000000,
+     "mode": "night",
+     "to": 1794718800000
+    },
+    {
+     "from": 1794718800000,
+     "mode": "night",
+     "to": 1794744000000
+    },
+    {
+     "from": 1794794400000,
+     "mode": "night",
+     "to": 1794805200000
+    },
+    {
+     "from": 1794805200000,
+     "mode": "night",
+     "to": 1794830400000
+    },
+    {
+     "from": 1794835800000,
+     "mode": "school",
+     "to": 1794861000000
+    },
+    {
+     "from": 1794880800000,
+     "mode": "night",
+     "to": 1794891600000
+    },
+    {
+     "from": 1794891600000,
+     "mode": "night",
+     "to": 1794916800000
+    },
+    {
+     "from": 1794922200000,
+     "mode": "school",
+     "to": 1794947400000
+    },
+    {
+     "from": 1794967200000,
+     "mode": "night",
+     "to": 1794978000000
+    },
+    {
+     "from": 1794978000000,
+     "mode": "night",
+     "to": 1795003200000
+    },
+    {
+     "from": 1795008600000,
+     "mode": "school",
+     "to": 1795033800000
+    },
+    {
+     "from": 1795053600000,
+     "mode": "night",
+     "to": 1795064400000
+    },
+    {
+     "from": 1795064400000,
+     "mode": "night",
+     "to": 1795089600000
+    },
+    {
+     "from": 1795095000000,
+     "mode": "school",
+     "to": 1795120200000
+    },
+    {
+     "from": 1795140000000,
+     "mode": "night",
+     "to": 1795150800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795150800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "America/New_York",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "New York",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Pacific/Auckland"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793962800000,
+     "mode": "night",
+     "to": 1793988000000
+    },
+    {
+     "from": 1794038400000,
+     "mode": "night",
+     "to": 1794049200000
+    },
+    {
+     "from": 1794049200000,
+     "mode": "night",
+     "to": 1794074400000
+    },
+    {
+     "from": 1794124800000,
+     "mode": "night",
+     "to": 1794135600000
+    },
+    {
+     "from": 1794135600000,
+     "mode": "night",
+     "to": 1794160800000
+    },
+    {
+     "from": 1794166200000,
+     "mode": "school",
+     "to": 1794191400000
+    },
+    {
+     "from": 1794211200000,
+     "mode": "night",
+     "to": 1794222000000
+    },
+    {
+     "from": 1794222000000,
+     "mode": "night",
+     "to": 1794247200000
+    },
+    {
+     "from": 1794252600000,
+     "mode": "school",
+     "to": 1794277800000
+    },
+    {
+     "from": 1794297600000,
+     "mode": "night",
+     "to": 1794308400000
+    },
+    {
+     "from": 1794308400000,
+     "mode": "night",
+     "to": 1794333600000
+    },
+    {
+     "from": 1794339000000,
+     "mode": "school",
+     "to": 1794364200000
+    },
+    {
+     "from": 1794384000000,
+     "mode": "night",
+     "to": 1794394800000
+    },
+    {
+     "from": 1794394800000,
+     "mode": "night",
+     "to": 1794420000000
+    },
+    {
+     "from": 1794425400000,
+     "mode": "school",
+     "to": 1794450600000
+    },
+    {
+     "from": 1794470400000,
+     "mode": "night",
+     "to": 1794481200000
+    },
+    {
+     "from": 1794481200000,
+     "mode": "night",
+     "to": 1794506400000
+    },
+    {
+     "from": 1794511800000,
+     "mode": "school",
+     "to": 1794537000000
+    },
+    {
+     "from": 1794556800000,
+     "mode": "night",
+     "to": 1794567600000
+    },
+    {
+     "from": 1794567600000,
+     "mode": "night",
+     "to": 1794592800000
+    },
+    {
+     "from": 1794643200000,
+     "mode": "night",
+     "to": 1794654000000
+    },
+    {
+     "from": 1794654000000,
+     "mode": "night",
+     "to": 1794679200000
+    },
+    {
+     "from": 1794729600000,
+     "mode": "night",
+     "to": 1794740400000
+    },
+    {
+     "from": 1794740400000,
+     "mode": "night",
+     "to": 1794765600000
+    },
+    {
+     "from": 1794771000000,
+     "mode": "school",
+     "to": 1794796200000
+    },
+    {
+     "from": 1794816000000,
+     "mode": "night",
+     "to": 1794826800000
+    },
+    {
+     "from": 1794826800000,
+     "mode": "night",
+     "to": 1794852000000
+    },
+    {
+     "from": 1794857400000,
+     "mode": "school",
+     "to": 1794882600000
+    },
+    {
+     "from": 1794902400000,
+     "mode": "night",
+     "to": 1794913200000
+    },
+    {
+     "from": 1794913200000,
+     "mode": "night",
+     "to": 1794938400000
+    },
+    {
+     "from": 1794943800000,
+     "mode": "school",
+     "to": 1794969000000
+    },
+    {
+     "from": 1794988800000,
+     "mode": "night",
+     "to": 1794999600000
+    },
+    {
+     "from": 1794999600000,
+     "mode": "night",
+     "to": 1795024800000
+    },
+    {
+     "from": 1795030200000,
+     "mode": "school",
+     "to": 1795055400000
+    },
+    {
+     "from": 1795075200000,
+     "mode": "night",
+     "to": 1795086000000
+    },
+    {
+     "from": 1795086000000,
+     "mode": "night",
+     "to": 1795111200000
+    },
+    {
+     "from": 1795116600000,
+     "mode": "school",
+     "to": 1795141800000
+    },
+    {
+     "from": 1795161600000,
+     "mode": "night",
+     "to": 1795172400000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795172400000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Pacific/Auckland",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "Auckland",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [
+    "a.app",
+    "b.app"
+   ],
+   "restrictions": [
+    "no_config_wifi",
+    "no_install_apps"
+   ],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [
+    "b.app",
+    "a.app"
+   ],
+   "restrictions": [
+    "no_install_apps",
+    "no_config_wifi"
+   ],
+   "tz": "Europe/London",
+   "unprotect": [],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "restrictions, protect, unprotect",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "location": {
+    "lat": 51.751,
+    "lon": -0.34
+   },
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [
+    "a.b",
+    "x.y"
+   ],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [
+    "z.app",
+    "a.app"
+   ],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": true,
+    "allowed": [
+     "+441234",
+     "g:Family"
+    ],
+    "perDay": 300,
+    "perMinute": 9
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": {
+    "lat": 51.7512,
+    "lon": -0.3399
+   },
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [
+    "x.y",
+    "a.b"
+   ],
+   "notify": "",
+   "override": null,
+   "pinned": [
+    "z.app",
+    "a.app"
+   ],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": true,
+    "allowed": [
+     " +441234 ",
+     "g:Family",
+     ""
+    ],
+    "perDay": 300,
+    "perMinute": 9
+   }
+  },
+  "name": "whatsapp, location, pinned, notes",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "idleDryRun": true,
+   "keepRunning": [
+    "a",
+    "z"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "radioStations": [
+    {
+     "name": "BBC",
+     "url": "https://x/y"
+    }
+   ],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "idle_dry_run": true,
+   "keep_running": [
+    "z",
+    "a"
+   ],
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "radio_stations": [
+    {
+     "name": "BBC",
+     "url": "https://x/y"
+    },
+    {
+     "name": "bad",
+     "url": "http://nope"
+    }
+   ],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "radio, keep running, dry run",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "look": {
+    "accent": "#D42A1E",
+    "font": "mono",
+    "menuStyle": "grid",
+    "shadow": "off",
+    "theme": "amber"
+   },
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "look": {
+    "accent": "#D42A1E",
+    "font": "mono",
+    "menu_style": "grid",
+    "shadow": "off",
+    "theme": "amber"
+   },
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "look",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "appCommands": [
+    {
+     "id": "abc",
+     "kind": "remove",
+     "name": "Pq",
+     "pkg": "p.q",
+     "sha256": "",
+     "size": 0,
+     "url": ""
+    }
+   ],
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "commands": [
+    {
+     "id": "abc",
+     "kind": "remove",
+     "name": "Pq",
+     "pkg": "p.q",
+     "sha256": "",
+     "size": 0,
+     "url": ""
+    }
+   ],
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "app commands",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 5,
+     "location": "gps",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "silent",
+     "touch": true,
+     "wa": "off",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 1440,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 5,
+     "location": "gps",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "silent",
+     "touch": true,
+     "wa": "off",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 99999,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "per-mode options and clamping",
+  "now": 1794000000000,
+  "options": null
+ },
+ {
+  "cfg": {
+   "base": "day",
+   "keepRunning": [
+    "com.android.deskclock",
+    "com.dumbermini.davx",
+    "com.whatsapp"
+   ],
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idleMin": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "waApp": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idleMin": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "locEvery": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radiosSleep": true,
+     "screenOffMin": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "waApp": "simple"
+    }
+   },
+   "notesHide": [],
+   "pattern": {
+    "days": {
+     "1": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "2": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "3": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "4": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "5": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       510,
+       930,
+       "school"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "6": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ],
+     "7": [
+      [
+       0,
+       420,
+       "night"
+      ],
+      [
+       1260,
+       1440,
+       "night"
+      ]
+     ]
+    },
+    "tz": "Europe/London"
+   },
+   "pinned": [],
+   "protectExtra": [],
+   "segments": [
+    {
+     "from": 1793923200000,
+     "mode": "night",
+     "to": 1793948400000
+    },
+    {
+     "from": 1793953800000,
+     "mode": "school",
+     "to": 1793979000000
+    },
+    {
+     "from": 1793998800000,
+     "mode": "night",
+     "to": 1794009600000
+    },
+    {
+     "from": 1794009600000,
+     "mode": "night",
+     "to": 1794034800000
+    },
+    {
+     "from": 1794085200000,
+     "mode": "night",
+     "to": 1794096000000
+    },
+    {
+     "from": 1794096000000,
+     "mode": "night",
+     "to": 1794121200000
+    },
+    {
+     "from": 1794171600000,
+     "mode": "night",
+     "to": 1794182400000
+    },
+    {
+     "from": 1794182400000,
+     "mode": "night",
+     "to": 1794207600000
+    },
+    {
+     "from": 1794213000000,
+     "mode": "school",
+     "to": 1794238200000
+    },
+    {
+     "from": 1794258000000,
+     "mode": "night",
+     "to": 1794268800000
+    },
+    {
+     "from": 1794268800000,
+     "mode": "night",
+     "to": 1794294000000
+    },
+    {
+     "from": 1794299400000,
+     "mode": "school",
+     "to": 1794324600000
+    },
+    {
+     "from": 1794344400000,
+     "mode": "night",
+     "to": 1794355200000
+    },
+    {
+     "from": 1794355200000,
+     "mode": "night",
+     "to": 1794380400000
+    },
+    {
+     "from": 1794385800000,
+     "mode": "school",
+     "to": 1794411000000
+    },
+    {
+     "from": 1794430800000,
+     "mode": "night",
+     "to": 1794441600000
+    },
+    {
+     "from": 1794441600000,
+     "mode": "night",
+     "to": 1794466800000
+    },
+    {
+     "from": 1794472200000,
+     "mode": "school",
+     "to": 1794497400000
+    },
+    {
+     "from": 1794517200000,
+     "mode": "night",
+     "to": 1794528000000
+    },
+    {
+     "from": 1794528000000,
+     "mode": "night",
+     "to": 1794553200000
+    },
+    {
+     "from": 1794558600000,
+     "mode": "school",
+     "to": 1794583800000
+    },
+    {
+     "from": 1794603600000,
+     "mode": "night",
+     "to": 1794614400000
+    },
+    {
+     "from": 1794614400000,
+     "mode": "night",
+     "to": 1794639600000
+    },
+    {
+     "from": 1794690000000,
+     "mode": "night",
+     "to": 1794700800000
+    },
+    {
+     "from": 1794700800000,
+     "mode": "night",
+     "to": 1794726000000
+    },
+    {
+     "from": 1794776400000,
+     "mode": "night",
+     "to": 1794787200000
+    },
+    {
+     "from": 1794787200000,
+     "mode": "night",
+     "to": 1794812400000
+    },
+    {
+     "from": 1794817800000,
+     "mode": "school",
+     "to": 1794843000000
+    },
+    {
+     "from": 1794862800000,
+     "mode": "night",
+     "to": 1794873600000
+    },
+    {
+     "from": 1794873600000,
+     "mode": "night",
+     "to": 1794898800000
+    },
+    {
+     "from": 1794904200000,
+     "mode": "school",
+     "to": 1794929400000
+    },
+    {
+     "from": 1794949200000,
+     "mode": "night",
+     "to": 1794960000000
+    },
+    {
+     "from": 1794960000000,
+     "mode": "night",
+     "to": 1794985200000
+    },
+    {
+     "from": 1794990600000,
+     "mode": "school",
+     "to": 1795015800000
+    },
+    {
+     "from": 1795035600000,
+     "mode": "night",
+     "to": 1795046400000
+    },
+    {
+     "from": 1795046400000,
+     "mode": "night",
+     "to": 1795071600000
+    },
+    {
+     "from": 1795077000000,
+     "mode": "school",
+     "to": 1795102200000
+    },
+    {
+     "from": 1795122000000,
+     "mode": "night",
+     "to": 1795132800000
+    }
+   ],
+   "spotifyClientId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "spotifyRefresh": "REFRESH",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   },
+   "windowEnd": 1795132800000
+  },
+  "child": {
+   "base": "day",
+   "holiday": null,
+   "known": null,
+   "location": null,
+   "modes": {
+    "day": {
+     "allow": [],
+     "allowAll": true,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Day",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "night": {
+     "allow": [
+      "com.android.deskclock"
+     ],
+     "allowAll": false,
+     "camera": true,
+     "gray": false,
+     "idle_min": 10,
+     "inbound": true,
+     "kiosk": false,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "Night",
+     "notes": "show",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": true,
+     "sound": "normal",
+     "touch": true,
+     "wa": "30",
+     "wa_app": "auto"
+    },
+    "school": {
+     "allow": [],
+     "allowAll": false,
+     "camera": true,
+     "gray": true,
+     "idle_min": 10,
+     "inbound": false,
+     "kiosk": true,
+     "launcher": "nokia",
+     "loc_every": 30,
+     "location": "off",
+     "name": "School",
+     "notes": "off",
+     "radio": "any",
+     "radios_sleep": true,
+     "screen_off_min": 5,
+     "shade": false,
+     "sound": "silent",
+     "touch": false,
+     "wa": "open",
+     "wa_app": "simple"
+    }
+   },
+   "name": "Test",
+   "notes_hide": [],
+   "notify": "",
+   "override": null,
+   "pinned": [],
+   "protect_extra": [],
+   "restrictions": null,
+   "spotify_refresh": "REFRESH",
+   "tz": "Europe/London",
+   "unprotect": [
+    "com.android.deskclock"
+   ],
+   "week": {
+    "1": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "2": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "3": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "4": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "5": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      510,
+      930,
+      "school"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "6": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ],
+    "7": [
+     [
+      0,
+      420,
+      "night"
+     ],
+     [
+      1260,
+      1440,
+      "night"
+     ]
+    ]
+   },
+   "whatsapp": {
+    "all": false,
+    "allowed": [],
+    "perDay": 200,
+    "perMinute": 5
+   }
+  },
+  "name": "spotify option and refresh",
+  "now": 1794000000000,
+  "options": {
+   "spotify_client_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+ }
+]

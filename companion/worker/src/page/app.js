@@ -1,11 +1,11 @@
 // Parent page: confirm new phones, see phones, edit the weekly timetable. All text from the server is set with textContent (phone names are untrusted).
-import { resolveSegments, checkPattern } from "/timetable.js";
 import { qrSvg } from "/qr.js";
 import { enrolPayload } from "/enrol.js";
-import { makePkce, authorizeUrl, exchangeCode, storeRefreshToken, redirectUri } from "/spotify.js";
+import { exchangeCode, storeRefreshToken } from "/spotify.js";
+import { h, ago, left } from "/ui.js";
+import { phoneScreen } from "/phone.js";
 
 const $app = document.getElementById("app");
-const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "html") e.innerHTML = v; else if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn); else if (k === "class") e.className = v; else e.setAttribute(k, v); } for (const c of kids.flat()) if (c != null) e.append(c); return e; };
 
 let key = null, deepSpotify = null;
 try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
@@ -18,17 +18,13 @@ async function api(path, method = "GET", body) {
   return j;
 }
 
-const ago = (t) => { if (!t) return "never"; const s = Math.max(0, (Date.now() - t) / 1000); return s < 90 ? "just now" : s < 5400 ? Math.round(s / 60) + " min ago" : s < 129600 ? Math.round(s / 3600) + " h ago" : Math.round(s / 86400) + " days ago"; };
-const hm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
-const toMin = (v) => { const [a, b] = v.split(":").map(Number); return a * 60 + b; };
-const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 async function render() {
   $app.replaceChildren();
   if (!key) return $app.append(signIn());
   try {
     const [waiting, phones] = await Promise.all([api("/pairings"), api("/devices")]);
-    if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return edit(d); }
+    if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return open(d.did); }
     $app.append(waitingView(waiting), phonesView(phones));
   } catch (e) { $app.append(h("p", { class: "bad" }, e.message)); }
 }
@@ -60,57 +56,12 @@ function showRecovery(k) {
 
 function phonesView(list) {
   if (!list.length) return h("div", {});
-  return h("div", {}, h("h2", {}, "Phones"), list.map((d) => h("div", { class: "card" }, h("div", {}, d.model || "Phone"),
-    h("p", { class: "mut" }, `Seen ${ago(d.last_seen)}`, d.state?.battery != null ? ` · battery ${d.state.battery}%` : "", d.state?.mode ? ` · mode ${d.state.mode}` : ""),
-    h("button", { on: { click: () => edit(d) } }, "Timetable and settings"))));
+  return h("div", {}, h("h2", {}, "Phones"), list.map((d) => h("div", { class: "card" }, h("div", {}, h("strong", {}, d.name ?? d.model ?? "Phone")),
+    h("p", { class: "mut" }, d.mode_now ? `Now ${d.mode_now}` : "", d.override ? " (forced)" : "", d.boost ? ` · boost ${left(d.boost.until)} left` : "", ` · seen ${ago(d.last_seen)}`, d.state?.battery != null ? ` · battery ${d.state.battery}%` : ""),
+    h("button", { on: { click: () => open(d.did) } }, "Open"))));
 }
 
-async function edit(d) {
-  const { config } = await api(`/devices/${d.did}/config`);
-  const modes = Object.keys(config.modes), tz = config.pattern?.tz ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const days = Object.fromEntries(DAYS.map((_, i) => [String(i + 1), structuredClone(config.pattern?.days?.[String(i + 1)] ?? [])]));
-  const box = h("div", {}), msg = h("p", {}), adv = h("textarea", { "aria-label": "Advanced settings" });
-  const draw = () => box.replaceChildren(...DAYS.map((name, i) => { const id = String(i + 1);
-    return h("div", { class: "card" }, h("strong", {}, name), days[id].map((b, bi) => h("div", { class: "row" },
-      h("input", { type: "time", value: hm(b[0]), "aria-label": name + " start", on: { change: (e) => { b[0] = toMin(e.target.value); } } }), "to",
-      h("input", { type: "time", value: hm(b[1] >= 1440 ? 1439 : b[1]), "aria-label": name + " end", on: { change: (e) => { b[1] = toMin(e.target.value); } } }),
-      h("select", { "aria-label": name + " mode", on: { change: (e) => { b[2] = e.target.value; } } }, modes.map((m) => { const o = h("option", { value: m }, config.modes[m].name ?? m); if (m === b[2]) o.selected = true; return o; })),
-      h("button", { "aria-label": "Remove block", on: { click: () => { days[id].splice(bi, 1); draw(); } } }, "Remove"))),
-      h("div", { class: "row" }, h("button", { on: { click: () => { days[id].push([0, 60, modes[0]]); draw(); } } }, "Add block"), i === 0 ? h("button", { on: { click: () => { for (let k = 2; k <= 5; k++) days[String(k)] = structuredClone(days["1"]); draw(); } } }, "Copy to Tue to Fri") : null)); }));
-  draw();
-  const save = async () => {
-    msg.className = "mut"; msg.textContent = "Saving...";
-    try {
-      const base = adv.value.trim() ? JSON.parse(adv.value) : structuredClone(config);
-      const pattern = { tz, days: Object.fromEntries(Object.entries(days).filter(([, b]) => b.length)) };
-      const problems = checkPattern(pattern, base.modes ?? config.modes); if (problems.length) throw Object.assign(new Error("Please fix the timetable"), { problems });
-      const next = { ...base, pattern, segments: resolveSegments(pattern), windowEnd: Date.now() + 14 * 86400000 }; delete next.version;
-      const r = await api(`/devices/${d.did}/config`, "POST", next);
-      msg.className = "ok"; msg.textContent = `Saved (version ${r.version}). The phone picks it up at its next check-in.`;
-    } catch (e) { msg.className = "bad"; msg.replaceChildren(e.message, ...(e.problems ?? []).map((p) => h("div", {}, p))); }
-  };
-  $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("h2", {}, d.model || "Phone"), h("p", { class: "mut" }, `Times are in ${tz}. Gaps use the base mode "${config.base ?? modes[0]}".`), box,
-    spotifyCard(d, config),
-    h("details", {}, h("summary", {}, "Advanced: full settings (JSON)"), h("p", { class: "mut" }, "Leave empty to keep everything else as it is."), adv, h("button", { on: { click: () => { adv.value = JSON.stringify(config, null, 2); } } }, "Load current settings")),
-    h("div", { class: "row" }, h("button", { class: "pri", on: { click: save } }, "Save")), msg);
-}
-
-function spotifyCard(d, config) {
-  const cid = h("input", { value: config.spotifyClientId ?? "", placeholder: "Client ID (32 characters)", "aria-label": "Spotify Client ID", autocomplete: "off" }), msg = h("p", { class: "bad" });
-  const go = async () => {
-    const clientId = cid.value.trim();
-    if (!/^[0-9a-f]{32}$/i.test(clientId)) { msg.textContent = "That does not look like a Client ID: it is 32 letters and numbers."; return; }
-    try {
-      const { config: c } = await api(`/devices/${d.did}/config`); const next = { ...c, spotifyClientId: clientId }; delete next.version; await api(`/devices/${d.did}/config`, "POST", next);
-      const { verifier, challenge } = await makePkce(), state = crypto.randomUUID();
-      sessionStorage.setItem("pgSpotify", JSON.stringify({ verifier, state, clientId, did: d.did }));
-      location.href = authorizeUrl({ clientId, origin: location.origin, challenge, state });
-    } catch (e) { msg.textContent = e.message; }
-  };
-  return h("div", { class: "card" }, h("strong", {}, "Spotify"), h("p", { class: config.secrets?.["spotify.refresh"] ? "ok" : "mut" }, config.secrets?.["spotify.refresh"] ? "Connected" : "Not connected yet"),
-    h("ol", { class: "mut" }, h("li", {}, "Go to developer.spotify.com/dashboard (sign in with your Premium account) and create an app."), h("li", {}, "Redirect URI: ", h("code", {}, redirectUri(location.origin))), h("li", {}, "Tick Web API. Under Users and Access add the email of every Spotify account that will be used."), h("li", {}, "Copy the app's Client ID here:")),
-    h("div", { class: "row" }, cid, h("button", { class: "pri", on: { click: go } }, "Connect Spotify")), msg);
-}
+async function open(did) { try { await phoneScreen({ api, back: render, app: $app }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
 
 async function spotifyCallback() {
   $app.replaceChildren(h("p", { class: "mut" }, "Finishing the Spotify sign-in..."));
@@ -125,4 +76,4 @@ async function spotifyCallback() {
 }
 
 if (location.pathname === "/spotify/callback") { if (key) spotifyCallback(); else $app.append(signIn()); } else render();
-setInterval(() => { if (key && document.visibilityState === "visible" && $app.querySelector("h2")?.textContent !== "Phone approved" && !$app.querySelector("textarea") && !document.activeElement?.matches("input,select")) render(); }, 15000);
+setInterval(() => { if (key && document.visibilityState === "visible" && $app.querySelector("h2")?.textContent !== "Phone approved" && !$app.querySelector("details") && !$app.querySelector("textarea") && !document.activeElement?.matches("input,select")) render(); }, 15000);

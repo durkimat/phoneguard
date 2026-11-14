@@ -64,3 +64,14 @@ Shown by the setup tool (or the parent page) after `POST /api/enrol/new`. The ph
 * No fingerprint is typed, so the key is pinned on first contact (TLS to the host only). The two-sided 4-digit match, which the parent confirms on their own device, is what protects this route.
 
 **Common rules:** token is single-use, 10 minutes, 3 tries (server enforced). After a good `/pair` the phone stores `{host, serverKey}` and discards the token. Test vectors for the QR string to be added to `test/vectors.json`.
+
+
+## Hub model and parent API (parity with the Home Assistant integration)
+
+The Worker holds, per phone, the **child** (what the parent sets: modes, weekly timetable, holiday, override, per-mode options, app lists, restrictions, WhatsApp, radio, look, weather place, jobs) and the **runtime** (what the phone reported: apps, state, usage, power diary, power-saver log, position, labels; and short-lived state: boost, release flag). `src/hub/schedule.js` turns a child into the phone's config; it is a port of the Home Assistant `schedule.py` and is checked against golden vectors (`test/golden-schedule.json`, made by the Python code). A new config version (a counter) is stored only when the built config changes; the 14-day window moves on every day, so this also runs at each check-in.
+
+**Phone sync payload** (inside the signed `p`): either the old lean state, or the full report `{"kind":"sync","cfgh":"<last applied>","state":{...},"apps":[{pkg,label,hidden}],"power":[...],"reaped":[...],"appResults":[[id,"done"|"failed",detail,time]],"loc":[[time,lat,lon,acc,provider,mode]],"usage":{day:{pkg:secs}},"labels":{pkg:label}}` (identical to the Home Assistant payload).
+
+**Reply payload**: `{"configVersion":N,"cfgh":"<12 hex>","boost":{mode,until}|null,"cmds":[{"type":"release"}]|[], "unchanged":true | "config":{...},"cfg":{...}}`. `cfgh` is opaque; the phone echoes it. A phone is "unchanged" when its `cfgh` equals the Worker's (or, for the old client, `state.cfgVersion >= configVersion`).
+
+**Parent endpoints** (Bearer parent key): `GET /api/devices`, `GET /api/devices/{did}/view`, `GET /api/devices/{did}/config`, `GET /api/devices/{did}/enckey`, and `POST /api/devices/{did}/` + `child {patch}`, `override {mode|"auto"}`, `boost {mode,minutes,extend}`, `boost/cancel`, `holiday {from,until}`, `apps/mode {pkg,mode,allowed}`, `apps/mode-all {mode,allowed}`, `apps/approve {pkg,modes}`, `apps/dismiss {pkg}`, `apps/command {kind:"remove"|"update",pkg,name,...}`, `apps/command/cancel {id}`, `update {override?}`, `copy {from,parts}`, `rename {name}`, `secret {name,sealed|null}`, `release`, `forget`; family level `GET/POST /api/options` (`spotify_client_id`, `updates_enabled`) and `POST /api/check-updates` (newest GitHub release). Settings edits are validated exactly as the Home Assistant hub validates them and a refused change is never kept.

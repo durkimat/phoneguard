@@ -27,11 +27,9 @@ export async function exchangeCode({ clientId, origin, code, verifier, fetchImpl
   return j.refresh_token;
 }
 
-// Seals the refresh token to the phone and stores it in that phone's settings (other settings are kept as they are).
+// Seals the refresh token to the phone and stores it as that phone's `spotify.refresh` secret (nothing else about the phone changes).
 export async function storeRefreshToken({ api, did, refreshToken }) {
   const { encKey } = await api(`/devices/${did}/enckey`);
   const sealed = await seal({ recipientSpki: encKey, did, name: SLOT, plaintext: refreshToken });
-  const { config } = await api(`/devices/${did}/config`);
-  const next = { ...config, secrets: { ...(config.secrets ?? {}), [SLOT]: sealed } }; delete next.version;
-  return api(`/devices/${did}/config`, "POST", next);
+  return api(`/devices/${did}/secret`, "POST", { name: SLOT, sealed });
 }

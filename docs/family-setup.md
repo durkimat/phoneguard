@@ -120,11 +120,26 @@ Do this on your parent page after the wizard.
 
 Times follow the time zone shown on the page, including clock changes. The page works out the next 14 days; the phone does no calendar logic and keeps repeating your weekly pattern if it is offline for longer.
 
-## Everyday use
+## Everyday controls
 
-* **Add another phone, or the code ran out:** press **Add a phone** on the parent page.
-* **Change the timetable:** see [Set a timetable](#set-a-timetable).
-* **See the phones:** the list shows last seen, battery and current mode.
+Open a phone from your parent page. Each section opens and closes; every control saves straight away and the phone picks the change up at its next check-in (about 15 minutes), or at once if you press **Sync now** on the phone.
+
+| Section | What it does |
+|---|---|
+| **Right now** | Force a mode regardless of the timetable, give a temporary **boost** (up to 3 hours, pressing again adds time), set **holiday** dates (School becomes Day). |
+| **Timetable** | The weekly blocks, the base mode for gaps and the time zone. |
+| **Apps and modes** | A tick grid of which apps each mode allows, with select-all. New apps appear for you to **approve** or leave blocked. A **Remove** button asks the phone to uninstall an app. |
+| **Mode settings** | Per mode: grey screen, home screen, touch, pull-down shade, sound, WhatsApp checks and app, internet radio, radios sleeping, incoming calls, camera, location and how often, notifications, locking to allowed apps, screen-off and idle times, allowing new apps automatically. |
+| **Phone restrictions** | Factory reset, safe mode, date and time, adding users, VPN and other Android settings the phone may block. |
+| **WhatsApp**, **Radio stations**, **Apps on the Nokia menu**, **Weather place**, **Look of the phone** | Who WhatsApp may talk to and how fast, your station list, which apps are in the main menu and which notifications are cleared, the weather location, and the phone's theme, fonts and colours. |
+| **Spotify** | Connect or disconnect (see above). |
+| **Screen time**, **Battery and power saver** | What the phone reported: app time per day, battery use by screen, mode, location and Wi-Fi, and what the power saver closed. The latest position is shown at the top with a map link. |
+| **Updates and removals** | Switch on updating Phone Guard from here, check GitHub for the newest release, update a phone, and see waiting and finished jobs. |
+| **Manage this phone** | Rename, copy timetable, holiday, restrictions, mode settings or WhatsApp from another phone (app lists are never copied), release the phone (it gives up control) or forget it. |
+
+Other everyday jobs:
+
+* **Add another phone, or the code ran out:** press **Add a phone** at the top of the parent page.
 * **Start again with the same phone:** on the phone's enrol screen press **Disconnect from the family companion**, then connect again. Secrets sealed before a disconnect will not open afterwards, so reconnect Spotify.
 
 ## Privacy, cost and limits
@@ -159,6 +174,6 @@ Times follow the time zone shown on the page, including clock changes. The page 
 * The tool does not flash the phone (*not yet*).
 * Sign-in to Cloudflare uses a key you create from a link rather than a "Sign in" button (*not yet*).
 * If you lose your private link, there is no recovery flow yet (*not yet*): re-run setup to create a new companion and pair the phones again.
-* Modes (what each mode allows) are edited as JSON on the parent page; forms are planned.
+* Changes reach a phone at its next check-in, about 15 minutes (Home Assistant could nudge a phone with a notification; Cloudflare has no push yet).
 * Email, calendar and WhatsApp setup are planned; Spotify and the timetable work today.
 * A packaged download for Windows, Linux and macOS is planned; today you run it with Node.js.

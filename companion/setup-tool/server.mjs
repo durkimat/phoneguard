@@ -73,9 +73,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && p === "/devices") { const r = await wk("/devices"); return json(r.status, r.body); }
     if (req.method === "POST" && p === "/spotify-client") {
       if (!/^[0-9a-f]{32}$/i.test(body.clientId ?? "")) return json(400, { error: "A Client ID is 32 letters and numbers." });
-      const c = await wk(`/devices/${encodeURIComponent(body.did)}/config`); if (!c.ok) return json(c.status, c.body);
-      const next = { ...c.body.config, spotifyClientId: body.clientId.trim() }; delete next.version;
-      const r = await wk(`/devices/${encodeURIComponent(body.did)}/config`, "POST", next); if (!r.ok) return json(r.status, r.body);
+      const r = await wk("/options", "POST", { spotify_client_id: body.clientId.trim().toLowerCase() }); if (!r.ok) return json(r.status, r.body);
       return json(200, { link: parentLink(`&spotify=${encodeURIComponent(body.did)}`) });
     }
     if (req.method === "GET" && p === "/spotify-status") { const c = await wk(`/devices/${encodeURIComponent(url.searchParams.get("did") ?? "")}/config`); return json(200, { connected: Boolean(c.ok && c.body.config?.secrets?.["spotify.refresh"]), clientId: c.ok ? c.body.config?.spotifyClientId ?? "" : "" }); }

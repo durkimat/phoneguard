@@ -22,11 +22,10 @@ const enc = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });
 const encPub = enc.publicKey.export({ type: "spki", format: "der" }).toString("base64"), encPriv = enc.privateKey.export({ type: "pkcs8", format: "der" }).toString("base64");
 const saved = []; const api = async (path, method = "GET", body) => {
   if (path.endsWith("/enckey")) return { encKey: encPub };
-  if (method === "GET") return { version: 3, config: { version: 3, base: "day", modes: { day: { name: "Day" } }, secrets: { "email.password": { alg: "x" } } } };
-  saved.push(body); return { version: 4 };
+  saved.push({ path, method, body }); return { ok: true, version: 4 };
 };
 await S.storeRefreshToken({ api, did: "dtest1", refreshToken: "REFRESH-123" });
-const out = saved[0]; assert.ok(!("version" in out)); assert.ok(out.secrets["email.password"]); assert.ok(out.base === "day"); ok("other settings and secrets are kept; version left to the server");
+const out = saved[0]; assert.equal(out.path, "/devices/dtest1/secret"); assert.equal(out.method, "POST"); assert.equal(out.body.name, "spotify.refresh"); ok("the sealed token is stored as that phone's spotify.refresh secret (nothing else is touched)");
 assert.ok(!JSON.stringify(out).includes("REFRESH-123")); ok("the refresh token never appears in plain text in what is sent");
-assert.equal(openSealed({ encPrivatePkcs8: encPriv, did: "dtest1", name: S.SLOT, sealed: out.secrets[S.SLOT] }), "REFRESH-123"); ok("the phone's key opens the sealed Spotify token");
+assert.equal(openSealed({ encPrivatePkcs8: encPriv, did: "dtest1", name: S.SLOT, sealed: out.body.sealed }), "REFRESH-123"); ok("the phone's key opens the sealed Spotify token");
 console.log(`\n${n} checks passed`);

@@ -1,10 +1,10 @@
 // Front door: routes phone calls (signed, no login) and parent calls (bearer token) to the family's Durable Object.
 import { safeEqual } from "./crypto.js";
-import { INDEX, APP, TIMETABLE, SPOTIFY, SEAL, CRYPTO, QR, ENROL, GUIDE } from "./page-assets.js";
+import { INDEX, APP, TIMETABLE, SPOTIFY, SEAL, CRYPTO, QR, ENROL, GUIDE, UI, PHONE as PHONE_JS, LOOKOPT } from "./page-assets.js";
 export { Family } from "./family.js";
 
 const PHONE = [/^\/api\/info$/, /^\/api\/pair$/, /^\/api\/pair\/[A-Z0-9]+$/, /^\/api\/sync$/];
-const PARENT = [/^\/api\/enrol\/new$/, /^\/api\/pairings(\/[A-Z0-9]+\/confirm)?$/, /^\/api\/devices(\/[a-z0-9]+\/(config|enckey))?$/];
+const PARENT = [/^\/api\/enrol\/new$/, /^\/api\/pairings(\/[A-Z0-9]+\/confirm)?$/, /^\/api\/devices(\/[a-z0-9]+(\/[a-z0-9-]+(\/[a-z-]+)?)?)?$/, /^\/api\/options$/, /^\/api\/check-updates$/];
 
 export default {
   async fetch(req, env) {
@@ -24,7 +24,7 @@ export default {
 
 const SECURITY = { "content-security-policy": "default-src 'self'; style-src 'unsafe-inline'; connect-src 'self' https://accounts.spotify.com; frame-ancestors 'none'", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff", "cache-control": "no-store" };
 const JS = "text/javascript; charset=utf-8";
-const FILES = { "/": [INDEX, "text/html; charset=utf-8"], "/app.js": [APP, JS], "/spotify/callback": [INDEX, "text/html; charset=utf-8"], "/timetable.js": [TIMETABLE, JS], "/spotify.js": [SPOTIFY, JS], "/seal.js": [SEAL, JS], "/crypto.js": [CRYPTO, JS], "/qr.js": [QR, JS], "/guide": [GUIDE, "text/html; charset=utf-8"], "/enrol.js": [ENROL, JS] };
+const FILES = { "/": [INDEX, "text/html; charset=utf-8"], "/app.js": [APP, JS], "/spotify/callback": [INDEX, "text/html; charset=utf-8"], "/timetable.js": [TIMETABLE, JS], "/spotify.js": [SPOTIFY, JS], "/seal.js": [SEAL, JS], "/crypto.js": [CRYPTO, JS], "/qr.js": [QR, JS], "/guide": [GUIDE, "text/html; charset=utf-8"], "/enrol.js": [ENROL, JS], "/ui.js": [UI, JS], "/phone.js": [PHONE_JS, JS], "/look-options.js": [LOOKOPT, JS] };
 function staticPage(path) {
   const f = FILES[path];
   return f ? new Response(f[0], { headers: { "content-type": f[1], ...SECURITY } }) : new Response("Not found", { status: 404, headers: SECURITY });
