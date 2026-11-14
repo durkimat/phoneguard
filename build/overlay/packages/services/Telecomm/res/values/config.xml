@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Telecom binds the system dialer as config_defaultDialer (framework overlay: Phone Guard) + this class. -->
+<resources>
+    <string name="incall_default_class" translatable="false">io.github.durkimat.phoneguard.incall.CallService</string>
+</resources>
