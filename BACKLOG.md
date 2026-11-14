@@ -4,6 +4,16 @@ Things agreed or parked, newest first within each group. Not a promise of order.
 
 ## Agreed, not started
 
+### Move off Home Assistant to Cloudflare (added 2026-11-14, after the integrated image)
+Owner wants Phone Guard's backend to move from Home Assistant to Cloudflare once Phone Guard is integrated in the image.
+Research already exists: `docs/companion-research.md` §4 and §8.3 (Worker + Durable Objects, Cloudflare Access for a second parent, deploy script built but not run).
+Things this touches, to settle when it is picked up:
+- Updates of Phone Guard itself (today: HA checks GitHub releases, phone installs silently as device owner). The Worker (or R2) would serve the APK + SHA-256; the APK is signed with the release key, so keep the app on its OWN key (see `docs/integration-plan.md`): no platform key in the update pipeline.
+- Commands/state channel (modes, apps allowed, check-ins, removals), push or polling, offline queue (spike 3), auth (device token + Cloudflare Access for parents), data kept (usage, location?) and privacy.
+- The HA card and integration are replaced by a parent web page on the Worker; keep HA integration optional if wanted.
+- Cloudflare terms were not read; free-plan limits (Workers, Durable Objects) to check.
+- Image side: first-boot provisioning (device owner, backend URL/enrolment token) should be backend-agnostic so this move needs no new image.
+
 ### Sound profile per mode (added 2026-11-07)
 Each mode gets a sound setting. **School defaults to silent.** Day and Night default to normal
 (Night may want vibrate; the owner to say).
