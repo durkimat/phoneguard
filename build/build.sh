@@ -47,6 +47,8 @@ build)
   cp -r "$PLAN"/apps/module/. vendor/phoneguard/apps/; cp "$PLAN"/apps/tt9.apk vendor/phoneguard/apps/tt9.apk
   # SELinux: MediaTek telephony property labels and rules ported from the stock policy (build/tools/port_mtk_policy.py).
   rm -rf vendor/phoneguard/sepolicy; mkdir -p vendor/phoneguard/sepolicy; cp -r "$PLAN"/sepolicy/. vendor/phoneguard/sepolicy/
+  # Resource overlays (first-boot IMS binding): build/overlay -> vendor/phoneguard/overlay, used via PRODUCT_PACKAGE_OVERLAYS in ims.mk.
+  rm -rf vendor/phoneguard/overlay; mkdir -p vendor/phoneguard/overlay; cp -r "$PLAN"/overlay/. vendor/phoneguard/overlay/
   # Own signing keys (docs/signing-keys.md): copied from /src/keys-pg (not in git). With them present ims.mk sets PRODUCT_DEFAULT_DEV_CERTIFICATE,
   # so every platform/shared/media-signed app is signed with our keys instead of AOSP's public test keys.
   chmod -R u+w vendor/phoneguard/keys 2>/dev/null || true; rm -rf vendor/phoneguard/keys

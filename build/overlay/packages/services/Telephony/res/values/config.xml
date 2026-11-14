@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone Guard: bind MediaTek's MMTEL IMS service from the first boot. TrebleDroid's own overlay of the same value
+     (me.phh.treble.overlay.mtkims_telephony) is only enabled by TrebleApp after the phone process has started, so a
+     freshly wiped device needed one extra reboot before IMS worked. -->
+<resources>
+    <string name="config_ims_mmtel_package">com.mediatek.ims</string>
+</resources>

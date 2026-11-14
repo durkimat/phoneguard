@@ -42,3 +42,5 @@ PRODUCT_COPY_FILES += \
 ifneq ($(wildcard vendor/phoneguard/keys/releasekey.pk8),)
 PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/phoneguard/keys/releasekey
 endif
+
+PRODUCT_PACKAGE_OVERLAYS += vendor/phoneguard/overlay
