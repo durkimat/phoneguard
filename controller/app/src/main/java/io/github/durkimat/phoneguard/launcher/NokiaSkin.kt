@@ -380,7 +380,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         private fun musicScreen(c: Canvas, m: LauncherModel, u: Float) {
             titleBar(c, m.title, u)
-            val mu = m.music.copy(active = true, playing = true, thisPhone = true, title = "A Long Song Title That Scrolls Along", artist = "Some Artist", album = "The Album", positionMs = 83000, durationMs = 240000, device = "Phone").copy(active = true, playing = true, thisPhone = true, title = "A Long Song Title That Scrolls Along", artist = "Some Artist", album = "The Album", positionMs = 83000, durationMs = 240000, device = "Phone")
+            val mu = m.music
             val radio = m.provider == Provider.RADIO
             if (!mu.active) {
                 text(c, "Nothing playing", 240f, 230f, 32f, u, bold = true, align = Paint.Align.CENTER)
