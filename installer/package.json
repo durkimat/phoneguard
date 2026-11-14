@@ -1,0 +1,1 @@
+{"name":"phoneguard-installer","private":true,"type":"module","scripts":{"test":"node test/installer.test.mjs","start":"node pg-install.mjs"}}

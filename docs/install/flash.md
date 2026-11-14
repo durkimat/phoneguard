@@ -2,7 +2,19 @@
 
 > **This erases the phone.** Keep it charged (above 50%) and do not unplug it or let the computer sleep during the flash.
 
-## Steps
+## The easy way: the installer script
+
+The `installer/` folder has a script that checks your computer and phone, makes a backup, verifies the image and runs the commands below for you, stopping at the first problem:
+
+```bash
+cd installer
+node pg-install.mjs all --kit <folder with system.img>      # add --dry-run first to see the plan
+```
+
+Status: tested against simulated phones, and its read-only parts on a real J36. Its flash stage uses exactly the commands below but has not yet been run on a stock-unlocked phone, so keep these manual steps to hand. See [installer/README.md](../../installer/README.md).
+
+## The manual way
+
 
 Do these in a terminal in the folder that holds `system.img`. The same commands work on Windows, Linux and macOS.
 

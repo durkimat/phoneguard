@@ -1,0 +1,86 @@
+{
+ "note": "Stock Qin files used by the image (docs/image-redistribution.md). Personal safety copy only: never publish them.",
+ "files": [
+  {
+   "path": "/system/app/mediatek-res/mediatek-res.apk"
+  },
+  {
+   "path": "/system/etc/permissions/com.mediatek.wfo.legacy.xml"
+  },
+  {
+   "path": "/system/etc/permissions/privapp-permissions-mediatek.xml"
+  },
+  {
+   "path": "/system/etc/sysconfig/com.mediatek.ims.config.xml"
+  },
+  {
+   "path": "/system/framework/mediatek-carrier-config-manager.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-common.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-framework.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-ims-base.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-ims-common.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-ims-extension-plugin.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-services.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-telecom-common.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-telephony-base.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-telephony-common.jar"
+  },
+  {
+   "path": "/system/framework/mediatek-wfo-legacy.jar"
+  },
+  {
+   "path": "/system/lib64/lib_remote_simlock.so"
+  },
+  {
+   "path": "/system/lib64/libccci_util_sys.so"
+  },
+  {
+   "path": "/system/lib64/vendor.mediatek.hardware.mtkradioex.rsu-V1-ndk.so"
+  },
+  {
+   "path": "/system/lib64/vendor.mediatek.hardware.mtkradioex.se-V1-ndk.so"
+  },
+  {
+   "path": "/system/lib64/vendor.mediatek.hardware.mtkradioex.sim-V1-ndk.so"
+  },
+  {
+   "path": "/system/priv-app/ImsService/ImsService.apk"
+  },
+  {
+   "path": "/system/priv-app/MtkCapCtrl/MtkCapCtrl.apk"
+  },
+  {
+   "path": "/system/priv-app/MtkGbaService/MtkGbaService.apk"
+  },
+  {
+   "path": "/system/priv-app/MtkTelephonyAssist/MtkTelephonyAssist.apk"
+  },
+  {
+   "path": "/system/system_ext/etc/permissions/system-ext-permissions-mediatek.xml"
+  },
+  {
+   "path": "/system/system_ext/lib64/vendor.mediatek.hardware.mtkradioex@3.0.so"
+  },
+  {
+   "path": "/system/system_ext/priv-app/MtkCarrierConfig/MtkCarrierConfig.apk"
+  }
+ ]
+}
