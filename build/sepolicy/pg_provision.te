@@ -1,0 +1,16 @@
+# Domain for pg-provision.sh (first-boot device-owner provisioning, build/apps/module/pg-provision.sh).
+type pg_provision, domain, coredomain;
+type pg_provision_exec, exec_type, file_type, system_file_type;
+init_daemon_domain(pg_provision)
+
+# TEST-ONLY while the rules are being worked out: logs denials instead of enforcing them. Remove once the denials are covered below.
+permissive pg_provision;
+
+binder_use(pg_provision)
+binder_call(pg_provision, system_server)
+allow pg_provision servicemanager:service_manager list;
+allow pg_provision { device_policy_service package_service activity_service }:service_manager find;
+allow pg_provision shell_exec:file rx_file_perms;
+allow pg_provision toolbox_exec:file rx_file_perms;
+allow pg_provision system_file:file rx_file_perms;
+allow pg_provision system_file:dir r_dir_perms;

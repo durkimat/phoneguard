@@ -9,3 +9,8 @@ ifneq ($(wildcard vendor/phoneguard/apps/phoneguard.apk),)
 PRODUCT_PACKAGES += PhoneGuard
 PRODUCT_COPY_FILES += vendor/phoneguard/apps/privapp-permissions-phoneguard.xml:system/etc/permissions/privapp-permissions-phoneguard.xml
 endif
+
+# First-boot device-owner provisioning (script + init service; sepolicy in build/sepolicy/pg_provision.te).
+PRODUCT_COPY_FILES += \
+    vendor/phoneguard/apps/pg-provision.sh:system/system_ext/bin/pg-provision.sh \
+    vendor/phoneguard/apps/pg-provision.rc:system/system_ext/etc/init/pg-provision.rc

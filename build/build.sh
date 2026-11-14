@@ -44,7 +44,7 @@ build)
   cp -r "$PLAN"/proprietary/ims-stock-android13-20261112 vendor/phoneguard/ims/proprietary; chmod -R u+w vendor/phoneguard/ims
   # Third-party apps (docs/apps-in-image.md): module files from git, the APK from /src/phoneguard-build/apps (not in git).
   chmod -R u+w vendor/phoneguard/apps 2>/dev/null || true; rm -rf vendor/phoneguard/apps; mkdir -p vendor/phoneguard/apps
-  cp -r "$PLAN"/apps/module/. vendor/phoneguard/apps/; cp "$PLAN"/apps/tt9.apk vendor/phoneguard/apps/tt9.apk
+  cp -r "$PLAN"/apps/module/. vendor/phoneguard/apps/; chmod +x vendor/phoneguard/apps/*.sh; cp "$PLAN"/apps/tt9.apk vendor/phoneguard/apps/tt9.apk
   [ -f "$PLAN"/apps/phoneguard.apk ] && cp "$PLAN"/apps/phoneguard.apk vendor/phoneguard/apps/phoneguard.apk || echo "no phoneguard.apk staged: image without Phone Guard"
   # SELinux: MediaTek telephony property labels and rules ported from the stock policy (build/tools/port_mtk_policy.py).
   rm -rf vendor/phoneguard/sepolicy; mkdir -p vendor/phoneguard/sepolicy; cp -r "$PLAN"/sepolicy/. vendor/phoneguard/sepolicy/

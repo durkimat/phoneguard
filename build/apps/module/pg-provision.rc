@@ -1,0 +1,11 @@
+# Phone Guard first-boot provisioning (pg-provision.sh). Idempotent: the script exits at once when Phone Guard already is the device owner.
+service pg_provision /system_ext/bin/pg-provision.sh
+    class late_start
+    user root
+    group root
+    seclabel u:r:pg_provision:s0
+    disabled
+    oneshot
+
+on property:sys.boot_completed=1
+    start pg_provision
