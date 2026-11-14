@@ -14,3 +14,7 @@ allow pg_provision shell_exec:file rx_file_perms;
 allow pg_provision toolbox_exec:file rx_file_perms;
 allow pg_provision system_file:file rx_file_perms;
 allow pg_provision system_file:dir r_dir_perms;
+
+# `cmd` hands system_server its stdin/stdout/stderr in the binder call; without this every cmd call fails with "Failed transaction (2147483646)".
+allow system_server pg_provision:fd use;
+allow system_server pg_provision:fifo_file { read write getattr };

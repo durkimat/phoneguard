@@ -1,1 +1,1 @@
-/system_ext/bin/pg-provision\.sh u:object_r:pg_provision_exec:s0
+/(system/)?system_ext/bin/pg-provision\.sh u:object_r:pg_provision_exec:s0
