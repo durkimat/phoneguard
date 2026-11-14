@@ -7,6 +7,26 @@ Started 2026-11-12. Sources: `docs/workarounds.md` (hacks 1-11), BACKLOG.md (pho
 
 Status values: Untested, Verified-works, Verified-fails, Dropped.
 
+## Current status summary (2026-11-14, image ims22/ims23; the tables below keep the history)
+| ID | Item | Status now |
+|---|---|---|
+| B1 | Bluetooth audio | Adapter fine (on from boot, enable/disable works, no crash); sysbta patch 0005 in. **Real pairing + A2DP + headset call audio on a speaker/headset NOT yet tried on our image** (needs the owner). |
+| B2 | VoLTE calls | **Verified-works** (ims7+): IMS registers ~10-20 s after boot, HD call to 123 connected; call audio crash fixed (ims18+, patch 0011); Phone Guard's own call screen shows (ims21). Listening quality: owner to judge. |
+| B3 | Wi-Fi calling | Untested (needs a joined Wi-Fi network; the owner toggled it earlier with no WLAN registration seen). |
+| B4 | Boot, registration, data, SMS | **Verified-works**: boots, SIM, LTE data (on by itself since ims20), SMS both ways over IMS. |
+| 1-3,10 | BT pairing/hidden calls/enable, Wi-Fi switch | Privileged app route available; real tests pending. |
+| 4 | Self-grant WRITE_SECURE_SETTINGS | **Verified-works**: granted by the image allowlist (ims11+). |
+| 7 | Force-stop idle apps | FORCE_STOP_PACKAGES is allowlisted but the app does not request it yet; untested. |
+| 11 | Mobile data switch | `cmd phone data enable` works from the provisioning step (ims20); the app's own switch untested. |
+| C | NFC loop | Dropped: the phone has no NFC; the NFC packages are still in the image but harmless so far. |
+| C | White screen after unlock / stock launcher flash | Stock launcher is removed (ims15+); white screen after unlock not yet re-checked by the owner. |
+| C | Treble app crash | Still 2x per boot (prebuilt APK, harmless). |
+| C | SMS default role | AOSP Messages holds it (works); Dialer role is Phone Guard. |
+| C | Enrolment / device owner | **Verified-works**: Phone Guard is device owner on the first boot with no human action (ims14+). |
+| C | T9 | TT9 in the image; owner test pending. |
+| C | Slow first boot | Fixed (rw-system.sh resize skipped); owner considers boot delays resolved. |
+| extra | FM radio | Experiment (ims23): Lineage FMRadio included; first on-phone test pending. |
+
 ## A. Blockers (a failure here stops the project)
 
 | ID | Item | Why it matters | Baseline expectation | Plan if it fails | Confidence | Status |
