@@ -39,4 +39,18 @@ class EnrolPayloadTest {
         assertNull(EnrolPayload.fromTyped("a b", "ABCDEFGHJK"))
         assertNull(EnrolPayload.fromTyped("a.b", "SHORT"))
     }
+
+    @Test fun sharedVectors() {
+        val qr = "phoneguard://enrol?v=1&h=pg-example.family.workers.dev&t=7K3QM9XD2P&f=PHHtKl7AMMJHrNskmOPZag"
+        val p = EnrolPayload.parseQr(qr)!!
+        assertEquals("pg-example.family.workers.dev", p.host)
+        assertEquals("7K3QM9XD2P", p.token)
+        assertEquals("PHHtKl7AMMJHrNskmOPZag", p.fingerprint)
+        val t = EnrolPayload.fromTyped("pg-example.family", "7K3QM-9XD2P")!!
+        assertEquals(p.host, t.host); assertEquals(p.token, t.token)
+        assertNull(EnrolPayload.parseQr(qr.replace("v=1", "v=2")))
+        assertNull(EnrolPayload.parseQr(qr.replace("h=pg-", "h=http://pg-")))
+        assertNull(EnrolPayload.parseQr(qr.replace("7K3QM9XD2P", "7K3QM9XD2")))
+        assertNull(EnrolPayload.parseQr(qr.replace("&f=PHHtKl7AMMJHrNskmOPZag", "")))
+    }
 }
