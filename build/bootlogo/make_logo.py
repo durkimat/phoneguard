@@ -40,6 +40,14 @@ V = [  # name, font, sizes (line1, line2), fill, stroke, strokewidth, y1, y2, ex
     ("E-sci-fi-teal",    "Orbitron[wght].ttf",       (112, 160), "none", "#35e0c8", 4, 290, 405, None),
     ("F-retro-future",   "Audiowide-Regular.ttf",    (118, 170), "none", "#f4f1ea", 4, 285, 400, "#3ddc84"),
 ]
+if "--filled" in sys.argv:        # option A (Press Start 2P), filled with translucent colour
+    F = "PressStart2P-Regular.ttf"
+    V = [("A1-fill35",   F, (0, 0), "rgba(255,255,255,0.35)", "none", 1, 0, 0, None),
+         ("A2-fill55",   F, (0, 0), "rgba(255,255,255,0.55)", "none", 1, 0, 0, None),
+         ("A3-fill40-outline", F, (0, 0), "rgba(255,255,255,0.40)", "rgba(255,255,255,0.95)", 3, 0, 0, None),
+         ("A4-fill50-outline-orange", F, (0, 0), "rgba(255,255,255,0.50)", "rgba(255,138,61,0.95)", 3, 0, 0, None),
+         ("A5-fill45-outline-shadow", F, (0, 0), "rgba(255,255,255,0.45)", "rgba(255,255,255,0.95)", 3, 0, 0, "rgba(0,0,0,0.55)"),
+         ("A6-fill-green", F, (0, 0), "rgba(61,220,132,0.45)", "rgba(61,220,132,0.95)", 3, 0, 0, None)]
 names = []
 for name, font, size, fill, stroke, sw, y1, y2, shadow in V:
     lay = os.path.join(out, name + "-text.png"); text_layer(lay, font, size, fill, stroke, sw, y1, y2)
@@ -50,6 +58,6 @@ for name, font, size, fill, stroke, sw, y1, y2, shadow in V:
         cmd += [sh, "-composite"]
     cmd += [lay, "-composite", comp]
     subprocess.run(cmd, check=True); names.append(comp)
-sheet = os.path.join(out, "daddybot-options.png")
+sheet = os.path.join(out, "daddybot-options-filled.png" if "--filled" in sys.argv else "daddybot-options.png")
 subprocess.run(["montage"] + names + ["-tile", "3x2", "-geometry", "400x533+8+8", "-background", "#1a1a1a", "-label", "%t", sheet], check=True)
 print("wrote", sheet)
