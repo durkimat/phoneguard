@@ -44,3 +44,21 @@ index e719489d4e08..6956f21ce7d7 100644
              if (mBootSendUserPresent) {
                  sendUserPresentBroadcast();
              }
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
+index 9cfedaab89f3..d6facb43d679 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarKeyguardViewManager.java
+@@ -1236,6 +1236,13 @@ public class StatusBarKeyguardViewManager implements RemoteInputController.Callb
+             return;
+         }
+ 
++        // Phone Guard: on the PIN pad, Back (the Clear key of the keypad) clears the entry and keeps the pad up instead of leaving for the lock screen.
++        if (isSecure() && android.os.SystemProperties.getBoolean("persist.sys.pg.bouncer_on_show", false)) {
++            hideBouncer(false);
++            showPrimaryBouncer(true);
++            return;
++        }
++
+         mCentralSurfaces.endAffordanceLaunch();
+         // The second condition is for SIM card locked bouncer
+         if (primaryBouncerIsScrimmed() && !needsFullscreenBouncer()) {
