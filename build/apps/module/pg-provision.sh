@@ -13,6 +13,7 @@ finish() {
   timeout 20 cmd settings put secure user_setup_complete 1
   timeout 20 cmd package disable-user --user 0 org.lineageos.setupwizard
   timeout 20 cmd activity start-activity --user 0 -n $PKG/.MainActivity
+  timeout 20 cmd phone data enable      # a wiped phone has mobile data off; Phone Guard manages it per mode afterwards
   say "provisioned, wizard disabled"
 }
 i=0
