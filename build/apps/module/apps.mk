@@ -19,5 +19,5 @@ PRODUCT_COPY_FILES += \
 # FM radio (stock MediaTek app + libfmjni, talks to /dev/fm of the stock kernel).
 PRODUCT_PACKAGES += FMRadio
 PRODUCT_COPY_FILES += \
-    vendor/phoneguard/apps/fm/libfmjni.so:system/system_ext/lib64/libfmjni.so \
-    vendor/phoneguard/apps/privapp-permissions-fmradio.xml:system/system_ext/etc/permissions/privapp-permissions-fmradio.xml
+    vendor/phoneguard/apps/fm/libfmjni.so:system/lib64/libfmjni.so \
+    vendor/phoneguard/apps/privapp-permissions-fmradio.xml:system/etc/permissions/privapp-permissions-fmradio.xml
