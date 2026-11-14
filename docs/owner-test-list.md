@@ -1,10 +1,11 @@
 # Owner test list (things only a person with the phone can check)
 
 Kept up to date as work goes on. Tick off and tell me results; nothing here blocks the build work.
-Last updated 2026-11-14 (images up to ims15).
+Last updated 2026-11-14 (images up to ims21).
 
 ## Calls and messages
-- [ ] Call audio both ways on a VoLTE call (earpiece and speaker): ims7+ registers on IMS, a 123 call connected (HD), audio not judged by a person yet.
+- [ ] Call audio both ways on a VoLTE call (earpiece and speaker): ims21 fixes the audioserver crash that broke the audio up (stable through a 25 s call); you still need to LISTEN and judge quality, both earpiece and speaker.
+- [ ] Phone Guard's own call screen appears for outgoing AND incoming calls (outgoing verified by the PC session on ims21).
 - [ ] Receive a call from another phone; end it from both sides.
 - [ ] Wi-Fi calling: does Settings > Network > SIM show a Wi-Fi calling entry (needs wfc props; not verified at all).
 - [ ] SMS: already verified both ways with the new SIM (ims7). Re-check once on the final image, and MMS if you use it.
@@ -15,7 +16,9 @@ Last updated 2026-11-14 (images up to ims15).
 - [ ] Your main SIM (Smarty on Three): dropped from plan as pointless; skip unless something odd shows.
 
 ## Phone Guard integration (ims15)
-- [ ] Phone Guard is the only home screen after boot; Home key returns to it.
+- [x] Phone Guard is the only home screen after boot; Home key returns to it. (ims15+, you tested)
+- [ ] Nav bar hidden and Phone Guard soft keys visible (verified by the PC session on ims20; look yourself).
+- [ ] Green call key from home with digits typed places the call (call permissions are pre-granted since ims19; not yet checked by a person).
 - [ ] No setup wizard on a freshly wiped phone; Phone Guard is device owner (Settings > Security shows "managed").
 - [ ] Phone Guard first-run flow as a system app: it may ask for runtime permissions (SMS, contacts, location, BT, mic...). Pre-granting them in the image is a to-do.
 - [ ] T9 input (TT9) selected and working in Phone Guard text fields.
