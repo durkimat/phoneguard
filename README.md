@@ -1,5 +1,7 @@
 # Phone Guard
 
+> **New here? Start with [docs/getting-started.md](docs/getting-started.md).** It takes you from a stock Qin J36 (unlock the bootloader, flash the image, first start) to the setup wizard, described in [docs/family-setup.md](docs/family-setup.md).
+
 Manage a child's keypad phone (Qin J36) from your own phone, or from Home Assistant: time-based modes, per-mode app allowlists, a PIN-protected local override, without Google Family Link.
 
 **Status: working prototype.** The phone runs an own-build Android 14 image with Phone Guard built in as a privileged system app (`build/`, `controller/`). Two ways to manage it:
