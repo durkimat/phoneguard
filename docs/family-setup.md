@@ -1,6 +1,6 @@
 # Family setup: your own Phone Guard companion
 
-This guide takes you from nothing to a child's phone managed from your own phone, with no Home Assistant and no service run by the Phone Guard project. Allow 30 to 45 minutes the first time.
+This guide takes you from nothing to a child's phone managed from your own phone, with no Home Assistant and no service run by the Phone Guard project. Allow about 30 minutes the first time.
 
 > **Status.** The setup tool described here is a working prototype, tested on a Qin J36 with a real Cloudflare account. It is run from source with Node.js today; a one-file download for Windows, Linux and macOS is planned. The tool does not flash the phone yet: the phone must already be running the Phone Guard image (see [Before you start](#before-you-start)). Items marked *not yet* are listed under [Known limits](#known-limits).
 
@@ -33,67 +33,85 @@ You need:
 4. **Your own smartphone** with a camera and a normal browser.
 5. *(Optional)* **A Spotify Premium account** if you want Spotify on the child's phone. The owner of the Spotify developer app must have Premium.
 
-## Step 1: get the tool
+## Get the tool
 
 ```bash
 git clone https://github.com/durkimat/phoneguard.git
 cd phoneguard/companion/setup-tool
 npm run bootstrap
-```
-
-`bootstrap` installs what is needed and builds the Worker. It needs internet and takes about a minute.
-
-## Step 2: run it and give it a Cloudflare key
-
-```bash
 npm start
 ```
 
-A page opens in your browser (it only works on this computer). Then:
+`bootstrap` installs what is needed and builds the Worker (internet needed, about a minute). `npm start` opens the **setup wizard** in your browser. It only works on this computer.
+
+## The setup wizard
+
+The wizard shows a progress bar along the top ("Step 3 of 6"). It does everything it can by itself. Where it cannot, it hands over with a link and exact values to copy. Optional steps have a **Skip** button, and you can do them later from your parent page.
+
+### Step 1: Cloudflare
 
 1. Press **Open Cloudflare**. A Cloudflare page opens with the permission already filled in (Workers Scripts: Edit).
 2. Press **Continue to summary**, then **Create token**. Copy the key it shows.
-3. Paste the key into the setup page and press **Start setting up**.
+3. Paste the key into the wizard and press **Install my companion**.
 
-![The setup page: step 1 gets the Cloudflare key, step 2 is where you paste it.](images/setup-tool-start.png)
-*The setup page: step 1 gets the Cloudflare key, step 2 is where you paste it.*
+![The wizard's first step: get the Cloudflare key, then paste it. The progress bar shows where you are.](images/wizard-step1.png)
+*The wizard's first step: get the Cloudflare key, then paste it. The progress bar shows where you are.*
 
-The key stays on your computer, is used only to talk to Cloudflare and is forgotten when you close the page.
+The key stays on your computer, is used only to talk to Cloudflare and is forgotten when you close the page. If you have already installed your companion and closed the wizard, pick it under **Continue an earlier setup** to carry on from step 3.
 
-The page shows a checklist: checking your account, preparing your address, installing the companion, waiting for it to come online (this can take two minutes while Cloudflare prepares the secure address), making the code for the child's phone.
+### Step 2: Install
 
-## Step 3: two codes appear
+Automatic. A checklist shows: checking your account, preparing your address, installing the companion, waiting for it to come online (this can take two minutes while Cloudflare prepares the secure address), making the code for the child's phone. If your key can see more than one Cloudflare account, the wizard asks which one to use. A copy of your parent key is saved in `~/.phoneguard/` on your computer.
 
-* **A, for the child's phone:** a QR code, plus an address and a code to type instead. It works for about 10 minutes.
-* **B, for your own phone:** a QR code for your **private parent link**. Anyone who has this link can manage your phones, so do not share or post it. A copy of the parent key is saved in `~/.phoneguard/` on your computer.
+### Step 3: Connect the child's phone
 
-Scan **B** with your phone's camera now and keep the page it opens (add it to your home screen if you like).
-
-## Step 4: connect the child's phone
+The wizard shows a QR code and an address and code to type instead. They work for about 10 minutes; **Make a new code** gives a fresh one.
 
 1. On the child's phone open **Phone Guard**, then press **Connect to the family companion**.
-2. Scan the QR code from **A**, or type the address and the code and press **Connect** (or the keyboard's Done key).
-3. The phone shows a 4-digit number. Leave it on screen.
+2. Scan the QR code, or type the address and the code and press **Connect** (or the keyboard's Done key).
+3. The phone shows a 4-digit number. The wizard notices the waiting phone and asks you to **type those 4 digits** and press **Approve**. Typing them checks that you are approving the phone in your hand and not a stranger's.
+4. A **recovery key** appears once. Write it down and keep it somewhere safe, not on the same phone. Tick the box to continue.
+5. The wizard says when the child's phone has connected, usually within about 10 seconds. The phone's status page then says **Companion: paired**.
 
 ![The phone's enrol screen: scan or type, Connect, and Disconnect. Once paired it shows the connected line at the bottom.](images/phone-enrol.png)
 *The phone's enrol screen: scan or type, Connect, and Disconnect. Once paired it shows the connected line at the bottom.*
 
-## Step 5: approve it on your phone
-
-1. On your parent page you will see **New phone waiting**.
-2. Type the 4 digits the child's phone is showing and press **Approve**. Typing them checks that you are approving the phone in your hand and not a stranger's.
-
-![Your parent page: a new phone is waiting for the 4 digits.](images/parent-page.png)
-*Your parent page: a new phone is waiting for the 4 digits.*
-3. A **recovery key** appears once. Write it down and keep it somewhere safe (not on the same phone).
-4. Within about 10 seconds the child's phone says **Companion: paired**.
-
 ![The phone's status page showing the Companion line after pairing.](images/phone-status-paired.png)
 *The phone's status page showing the Companion line after pairing.*
 
-## Step 6: set a timetable
+You can skip this step and add a phone later with **Add a phone** on your parent page.
 
-1. On your parent page press **Timetable and settings** under the phone.
+### Step 4: Your phone
+
+The wizard shows a QR code for your **private parent link**. Scan it with your own phone's camera; it opens your parent page, already signed in. Anyone who has this link can manage your phones, so do not share or post it. You can skip this and use the link later (the wizard's last page shows it again).
+
+![Your parent page: add phones, approve new phones, see your phones.](images/parent-page.png)
+*Your parent page: add phones, approve new phones, see your phones.*
+
+### Step 5 (optional): Spotify
+
+Spotify does not let tools create developer apps or add users for you, so this step is a guided hand-off. It takes about five minutes, needs a Spotify Premium account, and you can **Skip** it and do it later.
+
+1. Press **Open the Spotify dashboard**, sign in with your Premium account, accept the terms and press **Create app**.
+2. Fill in the form with the values the wizard shows, each with a **Copy** button: app name, app description and the **redirect URI**. The redirect URI must match exactly. Tick **Web API** and save.
+3. In the app's Settings open **User management** and add the email address of every Spotify account that will be used (Spotify allows up to five).
+4. Copy the app's **Client ID** from its Settings and paste it into the wizard. It says "Looks right" when it has 32 letters and numbers.
+5. Press **Save and connect Spotify**. A new tab opens on your parent page; sign in to Spotify there. The wizard ticks when Spotify is connected.
+
+![The Spotify step: values to copy, then paste the Client ID.](images/wizard-spotify.png)
+*The Spotify step hands off with the exact values to copy.*
+
+The sign-in key is locked in your browser so that only the child's phone can open it. The phone collects it at its next check-in. If you skipped this step, do it later from your parent page: **Timetable and settings**, then the Spotify box.
+
+### Step 6: Finish
+
+A summary shows what is done and what you skipped, with how to do each skipped part later, plus a button to open your parent page.
+
+## Set a timetable
+
+Do this on your parent page after the wizard.
+
+1. Press **Timetable and settings** under the phone.
 2. For each day add blocks (start, end, mode). **Copy to Tue to Fri** saves typing. Gaps use the base mode.
 3. Press **Save**. The phone picks it up at its next check-in, or immediately if you press **Sync now** on the phone.
 
@@ -102,22 +120,10 @@ Scan **B** with your phone's camera now and keep the page it opens (add it to yo
 
 Times follow the time zone shown on the page, including clock changes. The page works out the next 14 days; the phone does no calendar logic and keeps repeating your weekly pattern if it is offline for longer.
 
-## Step 7 (optional): connect Spotify
-
-Spotify only lets a few people use each developer app, so every family creates its own (about five minutes):
-
-1. Go to <https://developer.spotify.com/dashboard> with your Premium account and create an app.
-2. For the **redirect URI**, enter the address shown in the Spotify box on your parent page. It looks like `https://<your-address>/spotify/callback` and must match exactly.
-3. Tick **Web API**.
-4. Under **Users and Access**, add the email address of every Spotify account that will be used (yours and your child's). Spotify limits a developer app to five.
-5. Copy the app's **Client ID** into the Spotify box on your parent page and press **Connect Spotify**. Sign in to Spotify when asked.
-
-The sign-in key is locked in your browser for the child's phone. The phone collects it at its next check-in.
-
 ## Everyday use
 
 * **Add another phone, or the code ran out:** press **Add a phone** on the parent page.
-* **Change the timetable:** Step 6 again.
+* **Change the timetable:** see [Set a timetable](#set-a-timetable).
 * **See the phones:** the list shows last seen, battery and current mode.
 * **Start again with the same phone:** on the phone's enrol screen press **Disconnect from the family companion**, then connect again. Secrets sealed before a disconnect will not open afterwards, so reconnect Spotify.
 
@@ -132,13 +138,13 @@ The sign-in key is locked in your browser for the child's phone. The phone colle
 
 | Symptom | What to try |
 |---|---|
-| Cloudflare "did not accept that key" | Create the key again with the button on the setup page. Check you chose Workers Scripts: Edit. |
-| Setup waits a long time on "online" | A new Cloudflare address can take up to two minutes. If it stops after that, run `npm start` again and retry. |
-| Phone says "token invalid or expired" | Codes last 10 minutes and work once. Press **Add a phone** on your parent page for a new one. |
+| Cloudflare "did not accept that key" | Create the key again with the button in the wizard. Check you chose Workers Scripts: Edit. |
+| Setup waits a long time on "online" | A new Cloudflare address can take up to two minutes. If it stops after that, close the wizard, run `npm start` again and retry. |
+| Phone says "token invalid or expired" | Codes last 10 minutes and work once. Press **Make a new code** in the wizard, or **Add a phone** on your parent page. |
 | Digits do not match | Check you typed what the **child's phone** shows. After three wrong tries ask the phone for a new code. |
 | Phone is not paired after approval | Check the phone has internet. Press **Sync now** on its status page and read the Log line at the bottom. |
-| Parent page asks for a key | Open your private link again. It is the QR code B or the saved file in `~/.phoneguard/`. |
-| Spotify says "invalid redirect URI" | The address in the Spotify dashboard must match the one shown on your parent page exactly, including `https://` and the path. |
+| Parent page asks for a key | Open your private link again (wizard step 4, or the saved file in `~/.phoneguard/`). |
+| Spotify says "invalid redirect URI" | The redirect URI in the Spotify dashboard must match the one the wizard shows exactly, including `https://` and the path. |
 | Spotify signs in but nothing plays | Your Spotify account must be added under Users and Access, and the app owner needs Premium. |
 
 ## Removing everything

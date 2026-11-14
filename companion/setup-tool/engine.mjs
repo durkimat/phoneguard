@@ -63,8 +63,8 @@ export function enrolPayload({ host, token, serverKey }) {
   return { qr: text, typed: { address, code: `${t.slice(0, 5)}-${t.slice(5)}` } };
 }
 
-export async function newEnrolment(host, adminToken, fetchImpl = fetch) {
-  const r = await fetchImpl(`https://${host}/api/enrol/new`, { method: "POST", headers: { Authorization: `Bearer ${adminToken}` } });
+export async function newEnrolment(host, adminToken, fetchImpl = fetch, base = `https://${host}`) {
+  const r = await fetchImpl(`${base}/api/enrol/new`, { method: "POST", headers: { Authorization: `Bearer ${adminToken}` } });
   if (!r.ok) throw new Error(`enrol/new failed: HTTP ${r.status}`);
   const j = await r.json();
   return { ...enrolPayload({ host, token: j.token, serverKey: j.serverKey }), expires: j.expires };

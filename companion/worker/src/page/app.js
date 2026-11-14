@@ -7,8 +7,8 @@ import { makePkce, authorizeUrl, exchangeCode, storeRefreshToken, redirectUri } 
 const $app = document.getElementById("app");
 const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === "html") e.innerHTML = v; else if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn); else if (k === "class") e.className = v; else e.setAttribute(k, v); } for (const c of kids.flat()) if (c != null) e.append(c); return e; };
 
-let key = null;
-try { const m = /[#&]k=([\w-]+)/.exec(location.hash); if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
+let key = null, deepSpotify = null;
+try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
 
 async function api(path, method = "GET", body) {
   const r = await fetch("/api" + path, { method, headers: { authorization: "Bearer " + key, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -28,6 +28,7 @@ async function render() {
   if (!key) return $app.append(signIn());
   try {
     const [waiting, phones] = await Promise.all([api("/pairings"), api("/devices")]);
+    if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return edit(d); }
     $app.append(waitingView(waiting), phonesView(phones));
   } catch (e) { $app.append(h("p", { class: "bad" }, e.message)); }
 }
