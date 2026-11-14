@@ -218,10 +218,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
         }
 
-        /** The diagonal that marks a switched-off radio, in full ink over its faint symbol. */
+        /** The diagonal that marks a switched-off radio, in the same faint tone (and transparency) as the symbol it crosses. */
         private fun slash(c: Canvas, cx: Float, u: Float) {
-            stroke.color = ink; stroke.strokeWidth = 3f * u
+            stroke.color = (ink and 0x00FFFFFF) or (0x55 shl 24); stroke.strokeWidth = 3f * u
             c.drawLine((cx - 15) * u, 37f * u, (cx + 15) * u, 8f * u, stroke)
+            stroke.color = ink
         }
 
         // The two labels are the D-pad's Left and Right: a small arrow shows which way to press.
