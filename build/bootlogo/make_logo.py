@@ -19,6 +19,7 @@ def arg(name, default):
     return float(sys.argv[sys.argv.index(name) + 1]) if name in sys.argv else default
 S, TY = arg("--scale", 1.35), arg("--ty", -112)                  # 1.0 / 0 = exactly the size and place the character has in the boot animation
 TS = arg("--tscale", 1.0)                                       # lettering size relative to the first mock-ups (keeps each line centred where it was)
+BOTUP = arg("--botup", 0)                                      # move BOT up by this many pixels (DADDY stays)
 DYS = arg("--dy", 0)                                            # move the lettering down by this many pixels
 lines = sc.mvg().split("\n")
 mvg = "\n".join(lines[:3] + ["translate %.1f,%.1f" % (240 - 240 * S, TY), "scale %.3f,%.3f" % (S, S)] + lines[3:])
@@ -29,7 +30,7 @@ subprocess.run(["convert", "-size", "480x640", "xc:" + gen.Q["bg"], "-draw", "@"
 def text_layer(path, font, size, fill, stroke, sw, y1, y2, dy=0):
     """DADDY and BOT as two centred lines on a transparent 480x640 canvas; each line is auto-fitted (caption:) into its own box so it never leaves the screen"""
     boxes = []
-    for word, w, h, y in (("DADDY", 404, 104, 300 + dy + DYS), ("BOT", 330, 136, 418 + dy + DYS)):
+    for word, w, h, y in (("DADDY", 404, 104, 300 + dy + DYS), ("BOT", 330, 136, 418 + dy + DYS - BOTUP)):
         boxes.append((word, int(w * TS), int(h * TS), int(y + (h - h * TS) / 2)))
     cmd = ["convert", "-size", "480x640", "xc:none"]
     for word, w, h, y in boxes:
