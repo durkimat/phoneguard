@@ -1092,3 +1092,18 @@ Decisions so far (owner): in **Settings** enter the SIM plan's **start date** an
 - Bundle JSON `{v:1, u: workerUrl, t: token, k: pin}` (under about 200 chars; `k` = first 16 bytes of SHA-256(serverKey); the phone fetches the full key from `/api/info` over HTTPS and checks it against the pin).
 - Delivery order: (a) helper (or WebUSB adb) pushes the file at setup to a known path; `pg-provision.sh` moves it to the app's device-protected dir and deletes it (needs a sepolicy read rule); (b) SMS `pg1:<url>:<token>` from the parent's phone, with the two-sided match confirmation; (c) camera QR later. No rendezvous service. Typed tokens are 8-digit numeric; 10 alphanumeric chars are fine inside bundles.
 - SystemUI patch to add: re-evaluate the keyguard when the credential state changes (set PIN while screen off showed Home with no keyguard; clearing a PIN left the stock lock screen up until a second sleep/wake). Make the DPC reset/clear path take effect at once (`resetStateLocked`, or hide when not secure and the lockscreen is disabled).
+
+### TEST BACKLOG: ims38 checks (owner, 2026-11-14: parked; ims38 flashed without wipe, boots, 0.3.14, pgprov "already device owner", heads_up=0, no pg_provision avc seen in logcat)
+1. Set a PIN with the screen off: first wake shows the PIN cover (patch 0018).
+2. `locksettings clear` drops the stock lock screen at once (patch 0018).
+3. Enrol push: `adb push pg-enrol.json /data/local/tmp/`, reboot: pgprov log "enrol:", app log "enrol: bundle stored", file deleted. The PC session can do this one without the owner.
+4. Regressions: no-PIN screen off after 60 s, call/star/OK keys, heads-up off, 112.
+5. avc check for pg_provision once Rooted debugging is back on (dmesg closed, root off now).
+
+### BUG: screen-wake cycle still present on ims38 while plugged into the PC over USB (owner: not now, enrol first)
+Screen lights up, dims, goes off, repeats: the same symptom as before. The ims37 BOUNCER_DOZING/keyguard fix did not cure it; `doze_enabled` reads null. Check whether it only happens on USB power (charging wake/dock dream/stay-awake setting) versus battery, and capture `dumpsys power` and logcat across a cycle.
+
+### Enrol UX decisions (owner, 2026-11-14)
+- Setup tool v1 is a desktop app (Windows/Linux/macOS) and does NOT flash in v1. Model is J36 only (not J35).
+- Address and token reach the phone by QR code (the phone scans it), with a typed short code as the fallback. Phone Guard therefore needs a camera QR scan plus typed-code entry on the enrol screen. Keep the `pg-enrol.json` push as the dev/test route.
+- Details in `~/HA/plan-phone-guard-two-editions.md` section 14.
