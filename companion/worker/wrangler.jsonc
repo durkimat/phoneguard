@@ -1,0 +1,7 @@
+{
+  "name": "phoneguard-companion-dev",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+  "durable_objects": { "bindings": [{ "name": "FAMILY", "class_name": "Family" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Family"] }]
+}

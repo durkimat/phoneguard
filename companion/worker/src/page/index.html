@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phone Guard</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#1c1b1a;--mut:#6b6a66;--line:#d9d7d0;--acc:#185fa5;--card:#f6f5f1;--bad:#a32d2d;--ok:#3b6d11}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1b1a;--fg:#ecebe6;--mut:#a3a199;--line:#3a3935;--acc:#85b7eb;--card:#262522;--bad:#f09595;--ok:#97c459}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
+main{max-width:34rem;margin:0 auto;padding:16px}
+h1{font-size:22px;font-weight:500;margin:8px 0 16px}h2{font-size:18px;font-weight:500;margin:24px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
+.mut{color:var(--mut);font-size:14px}.bad{color:var(--bad)}.ok{color:var(--ok)}
+button{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:8px 14px;min-height:44px;cursor:pointer}
+button.pri{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;min-height:40px;box-sizing:border-box}
+input.code{width:7em;font-size:22px;letter-spacing:.2em;text-align:center}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+textarea{width:100%;min-height:14rem;font-family:ui-monospace,monospace;font-size:13px}
+.qr svg{width:200px;height:200px;border-radius:8px;display:block}.big{font:24px ui-monospace,monospace;letter-spacing:.06em;word-break:break-all}
+.key{font:18px ui-monospace,monospace;word-break:break-all;padding:10px;border:2px dashed var(--bad);border-radius:8px;margin:8px 0}
+</style></head>
+<body><main><h1>Phone Guard</h1><div id="app" aria-live="polite"></div></main>
+<script type="module" src="/app.js"></script></body></html>

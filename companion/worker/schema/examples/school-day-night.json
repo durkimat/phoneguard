@@ -1,0 +1,139 @@
+{
+  "version": 12,
+  "base": "day",
+  "modes": {
+    "day": {
+      "name": "Day",
+      "allowAll": true,
+      "launcher": "nokia",
+      "sound": "normal",
+      "location": "network",
+      "locEvery": 30,
+      "wa": "30",
+      "camera": true
+    },
+    "school": {
+      "name": "School",
+      "allow": [
+        "io.github.durkimat.phoneguard"
+      ],
+      "launcher": "nokia",
+      "touch": false,
+      "shade": false,
+      "kiosk": true,
+      "gray": true,
+      "sound": "silent",
+      "inbound": false,
+      "wa": "off",
+      "camera": false,
+      "location": "network",
+      "locEvery": 15,
+      "radio": "off"
+    },
+    "night": {
+      "name": "Night",
+      "allow": [
+        "io.github.durkimat.phoneguard",
+        "com.android.deskclock"
+      ],
+      "launcher": "nokia",
+      "sound": "vibrate",
+      "inbound": false,
+      "screenOffMin": 1,
+      "radiosSleep": true
+    }
+  },
+  "pattern": {
+    "tz": "Europe/London",
+    "days": {
+      "1": [
+        [
+          0,
+          450,
+          "night"
+        ],
+        [
+          510,
+          900,
+          "school"
+        ],
+        [
+          1260,
+          1440,
+          "night"
+        ]
+      ],
+      "2": [
+        [
+          0,
+          450,
+          "night"
+        ],
+        [
+          510,
+          900,
+          "school"
+        ],
+        [
+          1260,
+          1440,
+          "night"
+        ]
+      ],
+      "7": [
+        [
+          0,
+          480,
+          "night"
+        ],
+        [
+          1260,
+          1440,
+          "night"
+        ]
+      ]
+    }
+  },
+  "segments": [
+    {
+      "from": 1794700800000,
+      "to": 1794724200000,
+      "mode": "school"
+    }
+  ],
+  "windowEnd": 1795910400000,
+  "override": null,
+  "protectExtra": [],
+  "location": {
+    "lat": 51.75,
+    "lon": -0.34
+  },
+  "radioStations": [
+    {
+      "name": "BBC Radio 2",
+      "url": "https://stream.live.vc.bbcmedia.co.uk/bbc_radio_two"
+    }
+  ],
+  "whatsapp": {
+    "all": false,
+    "allowed": [
+      "447700900123"
+    ],
+    "perMinute": 5,
+    "perDay": 100
+  },
+  "spotifyClientId": "0123456789abcdef0123456789abcdef",
+  "secrets": {
+    "spotify.refresh": {
+      "alg": "ECDH-P256+HKDF-SHA256+AES-256-GCM",
+      "epk": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE...",
+      "salt": "c2FsdA==",
+      "iv": "aXY=",
+      "ct": "Y2lwaGVydGV4dA=="
+    }
+  },
+  "look": {
+    "theme": "mac",
+    "accent": "#3ddc84"
+  }
+}

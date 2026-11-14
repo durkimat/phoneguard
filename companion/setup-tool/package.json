@@ -1,0 +1,17 @@
+{
+ "name": "phoneguard-setup-tool",
+ "private": true,
+ "type": "module",
+ "scripts": {
+  "bootstrap": "npm --prefix ../worker install && npm install && npm run bundle",
+  "bundle": "node ../worker/scripts/build-page.mjs && node bundle-worker.mjs",
+  "start": "node server.mjs",
+  "test": "node test/engine.test.mjs && node test/server.test.mjs"
+ },
+ "dependencies": {
+  "qrcode": "^1.5.4"
+ },
+ "devDependencies": {
+  "esbuild": "^0.25.0"
+ }
+}

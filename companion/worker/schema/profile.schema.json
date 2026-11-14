@@ -1,0 +1,511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://phoneguard.example/schema/profile-v1.json",
+  "title": "Phone Guard profile",
+  "description": "Everything a phone is told by its companion: modes, timetable, app rules, contacts, radios, look. Backend-neutral (Cloudflare now, Home Assistant later). Field names are exactly those the phone's core/Config.kt parses today, so the existing Home Assistant hub output validates. Unknown extra keys are allowed so a newer companion never breaks an older phone; the phone ignores what it does not know. `x-lockedByParent` marks, per top-level field, whether a child can change it on the phone while it is managed (true = only the parent can); fields without the marker are never child-editable. Child-local only (not in the profile): radio on/off within the allowed intent (wifi|bt|data), ringtone and volume.",
+  "type": "object",
+  "required": [
+    "version",
+    "modes"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Bumped by the companion on every change; the phone applies a profile only if it is newer."
+    },
+    "modes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{0,23}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/mode"
+      },
+      "description": "Named modes (day, school, night, ...). The built-in emergency mode always exists on the phone and is not listed.",
+      "x-lockedByParent": true
+    },
+    "base": {
+      "type": "string",
+      "description": "Mode used where the timetable has no segment (default 'day')."
+    },
+    "segments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/segment"
+      },
+      "description": "Resolved timetable: absolute instants for a rolling ~14-day window (the companion resolves time zones and holidays, the phone does no calendar logic)."
+    },
+    "windowEnd": {
+      "type": "integer",
+      "description": "Epoch ms where `segments` ends."
+    },
+    "pattern": {
+      "$ref": "#/$defs/pattern"
+    },
+    "override": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Mode forced right now (a boost or an emergency override), or null."
+    },
+    "protectExtra": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Extra package names that can never be hidden.",
+      "x-lockedByParent": true
+    },
+    "unprotect": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Packages taken off the default protected list.",
+      "x-lockedByParent": true
+    },
+    "restrictions": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "User restrictions to apply; null = the phone's defaults.",
+      "x-lockedByParent": true
+    },
+    "location": {
+      "type": "object",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        }
+      },
+      "description": "Home position for weather.",
+      "x-lockedByParent": true
+    },
+    "notesHide": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Notification sources hidden from the Notifications screen.",
+      "x-lockedByParent": true
+    },
+    "keepRunning": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "Packages the idle reaper must not stop; null = default.",
+      "x-lockedByParent": true
+    },
+    "idleDryRun": {
+      "type": "boolean"
+    },
+    "pinned": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Apps pinned to the 'Other apps' menu.",
+      "x-lockedByParent": true
+    },
+    "radioStations": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https?://"
+          }
+        }
+      },
+      "description": "Internet radio presets; null = built-in list.",
+      "x-lockedByParent": true
+    },
+    "whatsapp": {
+      "$ref": "#/$defs/whatsapp",
+      "x-lockedByParent": true
+    },
+    "spotifyClientId": {
+      "type": "string",
+      "description": "The family's own Spotify developer app (Client ID; PKCE, no secret)."
+    },
+    "spotifyRefresh": {
+      "type": "string",
+      "description": "LEGACY (Home Assistant hub): plain refresh token. In the companion protocol secrets are never in the profile: use `secrets` below."
+    },
+    "secrets": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_.]{0,39}$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/sealed"
+      },
+      "description": "Connector credentials (Spotify refresh token, email password, ...) encrypted by the parent's browser to the phone's public key; the backend only ever relays ciphertext."
+    },
+    "appCommands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/appCommand"
+      },
+      "description": "One-off app install/remove/update orders for the phone.",
+      "x-lockedByParent": true
+    },
+    "look": {
+      "$ref": "#/$defs/look",
+      "x-lockedByParent": false
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "segment": {
+      "type": "object",
+      "required": [
+        "from",
+        "to",
+        "mode"
+      ],
+      "properties": {
+        "from": {
+          "type": "integer"
+        },
+        "to": {
+          "type": "integer"
+        },
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
+    "pattern": {
+      "type": "object",
+      "required": [
+        "tz",
+        "days"
+      ],
+      "properties": {
+        "tz": {
+          "type": "string",
+          "description": "IANA zone, e.g. Europe/London."
+        },
+        "days": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[1-7]$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1440
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1440
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "minItems": 3,
+              "maxItems": 3
+            }
+          },
+          "description": "ISO weekday (1 = Monday ... 7 = Sunday, java.time DayOfWeek.value as in Engine.kt) to [startMinute, endMinute, mode] triples; used when the phone is out of contact and `segments` has run out (it repeats the last pushed week)."
+        }
+      }
+    },
+    "mode": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "allowAll": {
+          "type": "boolean",
+          "default": false
+        },
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Package names visible in this mode."
+        },
+        "gray": {
+          "type": "boolean",
+          "default": false
+        },
+        "launcher": {
+          "enum": [
+            "default",
+            "nokia"
+          ],
+          "default": "default"
+        },
+        "touch": {
+          "type": "boolean",
+          "default": true
+        },
+        "shade": {
+          "type": "boolean",
+          "default": true
+        },
+        "kiosk": {
+          "type": "boolean",
+          "default": false
+        },
+        "sound": {
+          "enum": [
+            "normal",
+            "vibrate",
+            "silent"
+          ],
+          "default": "normal"
+        },
+        "inbound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Calls/messages from non-contacts allowed in."
+        },
+        "wa": {
+          "enum": [
+            "off",
+            "open",
+            "30",
+            "60"
+          ],
+          "default": "open",
+          "description": "WhatsApp rule for this mode: off, open (any allowed contact), or 30/60 (minutes-limited windows)."
+        },
+        "waApp": {
+          "enum": [
+            "auto",
+            "simple",
+            "full"
+          ],
+          "default": "auto",
+          "description": "Which WhatsApp front end: our simple screens, the real app, or auto."
+        },
+        "camera": {
+          "type": "boolean",
+          "default": true
+        },
+        "location": {
+          "enum": [
+            "off",
+            "network",
+            "gps"
+          ],
+          "default": "off",
+          "description": "Location reporting level for this mode."
+        },
+        "locEvery": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1440,
+          "default": 30,
+          "description": "Minutes between location reports."
+        },
+        "notes": {
+          "enum": [
+            "show",
+            "off"
+          ],
+          "default": "show"
+        },
+        "idleMin": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 10
+        },
+        "screenOffMin": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5
+        },
+        "radio": {
+          "enum": [
+            "off",
+            "presets",
+            "any"
+          ],
+          "default": "any",
+          "description": "Internet radio: off, only the parent's presets, or any station."
+        },
+        "radiosSleep": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "whatsapp": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Allowed contacts' numbers, digits only with country code."
+        },
+        "perMinute": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5
+        },
+        "perDay": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 200
+        }
+      }
+    },
+    "sealed": {
+      "type": "object",
+      "required": [
+        "alg",
+        "epk",
+        "ct"
+      ],
+      "properties": {
+        "alg": {
+          "const": "ECDH-P256+HKDF-SHA256+AES-256-GCM"
+        },
+        "epk": {
+          "type": "string",
+          "description": "Parent browser's ephemeral public key (SPKI, base64)."
+        },
+        "salt": {
+          "type": "string"
+        },
+        "iv": {
+          "type": "string"
+        },
+        "ct": {
+          "type": "string",
+          "description": "AES-GCM ciphertext + tag, base64."
+        }
+      },
+      "description": "A secret encrypted to the phone's public key (see PROTOCOL-DRAFT.md, sealed credentials)."
+    },
+    "appCommand": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "install",
+            "remove",
+            "update"
+          ]
+        },
+        "pkg": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "look": {
+      "type": "object",
+      "properties": {
+        "theme": {
+          "type": "string"
+        },
+        "font": {
+          "type": "string"
+        },
+        "menuStyle": {
+          "type": "string"
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$"
+        },
+        "windows": {
+          "type": "string"
+        },
+        "colour": {
+          "type": "string"
+        },
+        "wall": {
+          "type": "string"
+        },
+        "shadow": {
+          "type": "string"
+        },
+        "bars": {
+          "type": "string"
+        },
+        "fontDisplay": {
+          "type": "string"
+        },
+        "fontText": {
+          "type": "string"
+        },
+        "fontLabel": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

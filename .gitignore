@@ -8,3 +8,6 @@ build/bootanimation/draft*.png
 build/branding/
 build/apps/*.apk
 build/bootlogo/*.png
+node_modules/
+.wrangler/
+companion/worker/.dev.vars

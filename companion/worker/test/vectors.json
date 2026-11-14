@@ -1,0 +1,93 @@
+{
+  "_about": "Signing: ECDSA P-256 with SHA-256, signature DER-encoded then base64 (Android SHA256withECDSA). Messages are UTF-8 strings joined with '|'; `p` is the exact JSON text transmitted, never re-serialised. Public keys are X.509 SubjectPublicKeyInfo, base64. Signatures are randomised: verify them, do not compare bytes.",
+  "phone": {
+    "privateKeyPkcs8": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgyUmCx6y4KZAkAvp+Z2lTg8m5E/iXDu/LbJYMvsE+w0GhRANCAARjxLkkE4MFalgCK5z/AhpC7zFhSIeEgMEfL2XGNRK6+XZggclm5rImb6PPH5/fxjQXnYUkL6iVSmztKU4NobZB",
+    "publicKeySpki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEY8S5JBODBWpYAiuc/wIaQu8xYUiHhIDBHy9lxjUSuvl2YIHJZuayJm+jzx+f38Y0F52FJC+olUps7SlODaG2QQ=="
+  },
+  "server": {
+    "privateKeyPkcs8": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgyr39hK0lNWO9fB30OJcAd4ZOREnjVG6pmocEFhewRJOhRANCAASBY3iaSDAadALjEfElPJUVSBRnGoYJgSU30PIaI79r6rdcfRJkcIMF5El+VzQgPCZKuNyqP9/l0bpkHwkqH966",
+    "publicKeySpki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgWN4mkgwGnQC4xHxJTyVFUgUZxqGCYElN9DyGiO/a+q3XH0SZHCDBeRJflc0IDwmSrjcqj/f5dG6ZB8JKh/eug=="
+  },
+  "pairing": {
+    "token": "7K3QM9XD2P",
+    "tokenNormalisation": "upper-case, strip everything outside A-Z0-9",
+    "matchNumberRule": "SHA-256(utf8(token + ':' + phoneSpkiBase64)); first 4 bytes big-endian unsigned; decimal; last 4 digits, zero-padded",
+    "matchNumber": "2197"
+  },
+  "bundle": {
+    "json": {
+      "v": 1,
+      "u": "https://pg-example.family.workers.dev",
+      "t": "7K3QM9XD2P",
+      "k": "PHHtKl7AMMJHrNskmOPZag=="
+    },
+    "pinRule": "base64(first 16 bytes of SHA-256(DER bytes of the server SPKI)); the phone fetches the full key from GET /api/info over HTTPS and rejects it unless its pin equals `k`",
+    "pin": "PHHtKl7AMMJHrNskmOPZag=="
+  },
+  "enrolPayload": {
+    "rule": "QR text = phoneguard://enrol?v=1&h=<host>&t=<token>&f=<fp>; h is a plain DNS name (the phone uses https://<h>/api/..); t is 10 chars A-Z0-9 without dashes; f is base64url (22 chars, no padding; padding tolerated) of the first 16 bytes of SHA-256(server SPKI DER), i.e. the bundle pin re-encoded. Typed route: address box (the phone appends '.workers.dev' unless already present) and code box (strip non-alphanumerics, upper-case); no fingerprint is typed.",
+    "qr": {
+      "text": "phoneguard://enrol?v=1&h=pg-example.family.workers.dev&t=7K3QM9XD2P&f=PHHtKl7AMMJHrNskmOPZag",
+      "host": "pg-example.family.workers.dev",
+      "token": "7K3QM9XD2P",
+      "fp": "PHHtKl7AMMJHrNskmOPZag"
+    },
+    "typed": {
+      "address": "pg-example.family",
+      "code": "7K3QM-9XD2P",
+      "expectedHost": "pg-example.family.workers.dev",
+      "expectedToken": "7K3QM9XD2P"
+    },
+    "invalid": [
+      "phoneguard://enrol?v=2&h=pg-example.family.workers.dev&t=7K3QM9XD2P&f=PHHtKl7AMMJHrNskmOPZag",
+      "phoneguard://enrol?v=1&h=http://pg-example.family.workers.dev&t=7K3QM9XD2P&f=PHHtKl7AMMJHrNskmOPZag",
+      "phoneguard://enrol?v=1&h=pg-example.family.workers.dev&t=7K3QM9XD2&f=PHHtKl7AMMJHrNskmOPZag",
+      "phoneguard://enrol?v=1&h=pg-example.family.workers.dev&t=7K3QM9XD2P"
+    ]
+  },
+  "sealed": {
+    "rule": "alg ECDH-P256+HKDF-SHA256+AES-256-GCM: shared = ECDH(ephemeral private, phone ENCRYPTION public) as 32 raw bytes; key = HKDF-SHA256(ikm = shared, salt, info = utf8('phoneguard-sealed-v1|' + did + '|' + name)) -> 32 bytes; ct = AES-256-GCM(key, iv 12 bytes, aad = utf8(did + '|' + name), plaintext utf8), ciphertext followed by the 16-byte tag; all fields base64",
+    "phoneEncryptionKey": {
+      "privateKeyPkcs8": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg7Od5BqP2AD536rBQ62bdJznFDWkqwQYKY9+1KIhNIV6hRANCAATVc0857eTax+Y+OdiMFJMmcBgem6A2QSCiZZcXyaiMT4j+K2LoVu1Hklnzda8P5g7kPPKu7i8Ba20rj/vVQk5d",
+      "publicKeySpki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1XNPOe3k2sfmPjnYjBSTJnAYHpugNkEgomWXF8mojE+I/iti6FbtR5JZ83WvD+YO5Dzyru4vAWttK4/71UJOXQ=="
+    },
+    "ephemeralKey": {
+      "privateKeyPkcs8": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgHXwjliyzhS+VOg7BmkFwlc8LKnsUvGZ8K0qBV+zZF8mhRANCAAQw6i0+U9qP7o//7boYqASautaUdVKAOvJrGlhDuafCRtSqRhy/SBnEe1MeaEJ6UMH+aLbWC8kUSKaikNxcEOOp",
+      "publicKeySpki": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMOotPlPaj+6P/+26GKgEmrrWlHVSgDryaxpYQ7mnwkbUqkYcv0gZxHtTHmhCelDB/mi21gvJFEimopDcXBDjqQ=="
+    },
+    "did": "dq7m2k9x4a",
+    "name": "spotify.refresh",
+    "plaintext": "AQBq9f-example-spotify-refresh-token",
+    "sealed": {
+      "alg": "ECDH-P256+HKDF-SHA256+AES-256-GCM",
+      "epk": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMOotPlPaj+6P/+26GKgEmrrWlHVSgDryaxpYQ7mnwkbUqkYcv0gZxHtTHmhCelDB/mi21gvJFEimopDcXBDjqQ==",
+      "salt": "ABEiM0RVZneImaq7zN3u/w==",
+      "iv": "oKGio6Slpqeoqaqr",
+      "ct": "NmGHld0XsrsAKjqW38TyIiI3F1IfF9l9S4/LmRb+okBfgoJhnD1DhS+g4nFUpiriHlA3yg=="
+    }
+  },
+  "serverReply": {
+    "messageToSign": "1|dq7m2k9x4a|a3f1c0de5b7a49e2b6d81f04c2a7e9b3|1794678920285|{\"did\":\"dq7m2k9x4a\",\"recoveryHash\":\"772496e70ee36468b8375df2596a7de39ad1c3f6023546580eee7cd2c609a52f\",\"configVersion\":1,\"config\":{\"mode\":\"day\",\"modes\":{}}}",
+    "envelope": {
+      "v": 1,
+      "did": "dq7m2k9x4a",
+      "n": "a3f1c0de5b7a49e2b6d81f04c2a7e9b3",
+      "t": 1794678920285,
+      "p": "{\"did\":\"dq7m2k9x4a\",\"recoveryHash\":\"772496e70ee36468b8375df2596a7de39ad1c3f6023546580eee7cd2c609a52f\",\"configVersion\":1,\"config\":{\"mode\":\"day\",\"modes\":{}}}",
+      "s": "MEUCIHplA/e28OBsB8JD4Imyx/M+MJjO1xIhlUsY+Vjlb1mKAiEA9gVf10TLB7Uxj+a5tlGRQPvaczorY3hdX7ADqsoyUaY="
+    },
+    "rule": "signed by the SERVER over `v|did|n|t|p`; n echoes the phone's nonce; t is advisory (the phone clock may be wrong)"
+  },
+  "phoneSync": {
+    "messageToSign": "1|dq7m2k9x4a|7|5e8b9a1c7d3f4a60b2c8e9d1f0a37c44|{\"battery\":83,\"mode\":\"day\",\"app\":\"0.4.0\"}",
+    "request": {
+      "v": 1,
+      "did": "dq7m2k9x4a",
+      "ctr": 7,
+      "n": "5e8b9a1c7d3f4a60b2c8e9d1f0a37c44",
+      "p": "{\"battery\":83,\"mode\":\"day\",\"app\":\"0.4.0\"}",
+      "s": "MEQCIAYkkxtHdISdoqeFjVYssHxkPr6S739rLvktTIqU7lgCAiBSESJpqfDApj9FILwB0i4w5B/IiCWpsR8srHBJOzG+sg=="
+    },
+    "rule": "signed by the PHONE over `v|did|ctr|n|p`; ctr must exceed the last accepted counter (persist it before sending, gaps are fine)"
+  }
+}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phone Guard: how it works</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--fg:#1c1b1a;--mut:#6b6a66;--line:#d9d7d0;--acc:#185fa5;--card:#f6f5f1}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1b1a;--fg:#ecebe6;--mut:#a3a199;--line:#3a3935;--acc:#85b7eb;--card:#262522}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,sans-serif}main{max-width:38rem;margin:0 auto;padding:16px}
+h1{font-size:22px;font-weight:500}h2{font-size:18px;font-weight:500;margin:28px 0 6px}a{color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 16px;margin:10px 0}.mut{color:var(--mut);font-size:14px}
+ol{padding-left:1.3rem}li{margin:6px 0}table{border-collapse:collapse;width:100%}td{border-top:1px solid var(--line);padding:6px 4px;vertical-align:top}td:first-child{font-weight:500;width:34%}
+</style></head><body><main>
+<p><a href="/">Back to your phones</a></p>
+<h1>How Phone Guard works</h1>
+<p>Your family has a small private service in your own Cloudflare account. It holds the settings and passes them to the child's phone. Nobody else runs it or can see it.</p>
+<h2>Who does what</h2>
+<table>
+<tr><td>Your computer</td><td>Runs the setup tool once. It creates the service in your Cloudflare account and makes the codes.</td></tr>
+<tr><td>Your Cloudflare account</td><td>Holds the settings. The free plan is enough.</td></tr>
+<tr><td>Child's phone</td><td>Checks in about every 15 minutes and follows the timetable. If it loses internet it keeps the last settings.</td></tr>
+<tr><td>Your own phone</td><td>Opens this page to approve phones, change the timetable and connect Spotify.</td></tr>
+</table>
+<h2>Adding a phone</h2>
+<ol>
+<li>On this page press <b>Add a phone</b>. You get a QR code, an address and a code. They work for about 10 minutes.</li>
+<li>On the child's phone open Phone Guard, press <b>Connect to the family companion</b>, scan the QR code or type the address and code.</li>
+<li>The child's phone shows 4 digits. Type them here under <b>New phone waiting</b> and press <b>Approve</b>. This proves you are approving the phone in your hand.</li>
+<li>Write down the recovery key shown. It appears once and lets you take back control if you lose your private link.</li>
+<li>Within about 10 seconds the child's phone says it is paired.</li>
+</ol>
+<h2>Changing the timetable</h2>
+<p>Press <b>Timetable and settings</b> on a phone. Add a block for each part of the day, choose its mode, press <b>Save</b>. The phone picks it up at its next check-in, or sooner if you press <b>Sync now</b> on the phone. Times follow the time zone shown on the page, including clock changes.</p>
+<h2>Spotify</h2>
+<ol>
+<li>Go to developer.spotify.com/dashboard with a Premium account and create an app.</li>
+<li>Use the redirect address shown in the Spotify box on the phone's settings page, and tick Web API.</li>
+<li>Under Users and Access add the email of each Spotify account that will be used.</li>
+<li>Copy the Client ID into the Spotify box and press <b>Connect Spotify</b>. Sign in to Spotify when asked.</li>
+</ol>
+<p class="mut">The sign-in key is locked in your browser so that only the child's phone can open it. Your Cloudflare service only ever holds the locked version.</p>
+<h2>Good to know</h2>
+<ul>
+<li>Your private link opens this page already signed in. Anyone with it can manage the phones, so keep it private.</li>
+<li>To pair a phone again from scratch, use <b>Disconnect from the family companion</b> on its enrol screen.</li>
+</ul>
+</main></body></html>
