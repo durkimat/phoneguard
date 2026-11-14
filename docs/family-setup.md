@@ -55,6 +55,9 @@ A page opens in your browser (it only works on this computer). Then:
 2. Press **Continue to summary**, then **Create token**. Copy the key it shows.
 3. Paste the key into the setup page and press **Start setting up**.
 
+![The setup page: step 1 gets the Cloudflare key, step 2 is where you paste it.](images/setup-tool-start.png)
+*The setup page: step 1 gets the Cloudflare key, step 2 is where you paste it.*
+
 The key stays on your computer, is used only to talk to Cloudflare and is forgotten when you close the page.
 
 The page shows a checklist: checking your account, preparing your address, installing the companion, waiting for it to come online (this can take two minutes while Cloudflare prepares the secure address), making the code for the child's phone.
@@ -72,18 +75,30 @@ Scan **B** with your phone's camera now and keep the page it opens (add it to yo
 2. Scan the QR code from **A**, or type the address and the code and press **Connect** (or the keyboard's Done key).
 3. The phone shows a 4-digit number. Leave it on screen.
 
+![The phone's enrol screen: scan or type, Connect, and Disconnect. Once paired it shows the connected line at the bottom.](images/phone-enrol.png)
+*The phone's enrol screen: scan or type, Connect, and Disconnect. Once paired it shows the connected line at the bottom.*
+
 ## Step 5: approve it on your phone
 
 1. On your parent page you will see **New phone waiting**.
 2. Type the 4 digits the child's phone is showing and press **Approve**. Typing them checks that you are approving the phone in your hand and not a stranger's.
+
+![Your parent page: a new phone is waiting for the 4 digits.](images/parent-page.png)
+*Your parent page: a new phone is waiting for the 4 digits.*
 3. A **recovery key** appears once. Write it down and keep it somewhere safe (not on the same phone).
 4. Within about 10 seconds the child's phone says **Companion: paired**.
+
+![The phone's status page showing the Companion line after pairing.](images/phone-status-paired.png)
+*The phone's status page showing the Companion line after pairing.*
 
 ## Step 6: set a timetable
 
 1. On your parent page press **Timetable and settings** under the phone.
 2. For each day add blocks (start, end, mode). **Copy to Tue to Fri** saves typing. Gaps use the base mode.
 3. Press **Save**. The phone picks it up at its next check-in, or immediately if you press **Sync now** on the phone.
+
+![The timetable editor.](images/parent-timetable.png)
+*The timetable editor.*
 
 Times follow the time zone shown on the page, including clock changes. The page works out the next 14 days; the phone does no calendar logic and keeps repeating your weekly pattern if it is offline for longer.
 
