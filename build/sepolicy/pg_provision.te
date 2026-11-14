@@ -26,3 +26,7 @@ binder_call(pg_provision, radio)
 allow radio pg_provision:fd use;
 allow radio pg_provision:fifo_file { read write getattr };
 allow radio pg_provision:binder { call transfer };
+
+# Enrolment bundle pushed by the setup helper (adb push -> /data/local/tmp/pg-enrol.json): read it, then delete it.
+allow pg_provision shell_data_file:dir { search getattr write remove_name };
+allow pg_provision shell_data_file:file { read open getattr unlink };

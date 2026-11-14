@@ -8,6 +8,18 @@ say() { /system/bin/log -t pgprov "$*"; }
 say "started"
 # After the owner is set: skip the Lineage setup wizard (the phone is provisioned by Phone Guard, not by a person) and start Phone Guard.
 # device_provisioned/user_setup_complete matter beyond the wizard: telephony refuses user mobile data until both are 1.
+# Companion enrolment bundle (docs/plan-two-editions.md): the setup helper pushes {"v":1,"u":url,"t":token,"k":pin} (under 200 bytes) to
+# /data/local/tmp/pg-enrol.json. Hand it to Phone Guard by explicit broadcast (EnrolReceiver checks the sender is root/shell via the DUMP
+# permission and validates the JSON), then delete the file. No file crosses into the app's storage, so no extra SELinux access to app data.
+ENROL=/data/local/tmp/pg-enrol.json
+enrol() {
+  [ -f "$ENROL" ] || return 0
+  b=$(head -c 400 "$ENROL" 2>/dev/null)
+  [ -n "$b" ] || { say "enrol: file empty"; rm -f "$ENROL"; return 0; }
+  out=$(timeout 20 cmd activity broadcast --user 0 -n $PKG/.EnrolReceiver --es bundle "$b" 2>&1)
+  say "enrol: $out"
+  rm -f "$ENROL"
+}
 finish() {
   timeout 20 cmd settings put global device_provisioned 1
   timeout 20 cmd settings put secure user_setup_complete 1
@@ -21,6 +33,7 @@ finish() {
   timeout 20 cmd settings put global hide_error_dialogs 1
   timeout 20 cmd settings put secure theme_customization_overlay_packages '{"android.theme.customization.color_source":"preset","android.theme.customization.system_palette":"3DDC84","android.theme.customization.accent_color":"3DDC84","_applied_timestamp":1}'
   timeout 20 cmd activity start-activity --user 0 -n $PKG/.MainActivity
+  enrol
   # A wiped phone has mobile data off; Phone Guard manages it per mode afterwards. `cmd phone data enable` only works once the SIM
   # subscription exists (23 s or more after boot), so retry until a mobile_data<subId>=1 setting appears (max ~5 min).
   j=0
@@ -33,7 +46,7 @@ finish() {
 }
 i=0
 while [ $i -lt 20 ]; do
-  if timeout 20 cmd device_policy list-owners 2>/dev/null | grep -q "$PKG"; then say "already device owner"; exit 0; fi
+  if timeout 20 cmd device_policy list-owners 2>/dev/null | grep -q "$PKG"; then say "already device owner"; enrol; exit 0; fi
   p=$(timeout 20 cmd package path "$PKG" 2>&1); rc=$?
   case "$p" in package:*) ;; *) say "attempt $i: package path rc=$rc: $p"; sleep 15; i=$((i+1)); continue;; esac
   out=$(timeout 30 cmd device_policy set-device-owner --user 0 "$ADMIN" 2>&1) && { say "device owner set: $out"; finish; exit 0; }

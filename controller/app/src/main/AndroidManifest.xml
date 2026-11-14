@@ -177,6 +177,10 @@
 
         <service android:name=".music.RadioService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
 
+        <!-- Enrolment bundle from pg-provision.sh / the setup helper; only the shell and root hold DUMP. -->
+        <receiver android:name=".companion.EnrolReceiver" android:directBootAware="true" android:exported="true"
+            android:permission="android.permission.DUMP" />
+
         <receiver android:name=".NudgeReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="io.github.durkimat.phoneguard.SYNC" />

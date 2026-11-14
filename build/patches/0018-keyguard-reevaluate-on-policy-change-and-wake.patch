@@ -1,0 +1,50 @@
+# repo: frameworks/base
+# Phone Guard: re-evaluate the keyguard when the PIN/policy changes and on wake (set PIN while off, clear PIN left the stock lock screen).
+--- a/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
++++ b/packages/SystemUI/src/com/android/systemui/keyguard/KeyguardViewMediator.java
+@@ -818,6 +818,14 @@
+                 doKeyguardLocked(null);
+             }
+         }
++
++        // Phone Guard: setting or clearing the PIN (device policy reset) must show or drop the keyguard at once.
++        @Override
++        public void onDevicePolicyManagerStateChanged() {
++            synchronized (KeyguardViewMediator.this) {
++                pgReevaluateKeyguardLocked();
++            }
++        }
+     };
+ 
+     ViewMediatorCallback mViewMediatorCallback = new ViewMediatorCallback() {
+@@ -1944,6 +1952,7 @@
+                         + ", mPowerGestureIntercepted = " + mPowerGestureIntercepted);
+             }
+             notifyStartedWakingUp();
++            pgReevaluateKeyguardLocked();
+             // Phone Guard: waking a locked secure device shows the PIN pad at once (see handleShow).
+             if (mShowing && mLockPatternUtils.isSecure(mSelectedUserInteractor.getSelectedUserId())
+                     && android.os.SystemProperties.getBoolean("persist.sys.pg.bouncer_on_show", false)) {
+@@ -2271,6 +2280,22 @@
+     /**
+      * Enable the keyguard if the settings are appropriate.
+      */
++    /**
++     * Phone Guard: the keyguard is not re-evaluated when the credential changes (PIN set while the screen is off showed Home with no
++     * keyguard; a cleared PIN left the stock lock screen up until a second sleep/wake). Re-evaluate on policy changes and on wake.
++     */
++    private void pgReevaluateKeyguardLocked() {
++        if (!mSystemReady || !mBootCompleted) return;
++        int userId = mSelectedUserInteractor.getSelectedUserId();
++        boolean unlocked = mLockPatternUtils.isLockScreenDisabled(userId) && !mLockPatternUtils.isSecure(userId);
++        if (unlocked && mShowing) {
++            setShowingLocked(false, mAodShowing);
++            hideLocked();
++        } else if (!unlocked && !mShowing) {
++            doKeyguardLocked(null);
++        }
++    }
++
+     private void doKeyguardLocked(Bundle options) {
+         int currentUserId = KeyguardUpdateMonitor.getCurrentUser();
+         if (options != null && options.getBinder(LOCK_ON_USER_SWITCH_CALLBACK) != null) {
