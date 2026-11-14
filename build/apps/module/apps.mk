@@ -20,3 +20,6 @@ PRODUCT_COPY_FILES += \
 # (The stock Qin FMRadio.apk + libfmjni are kept as a fallback in /archive/phone-backups/own-build-inputs/fmradio-stock-20261114, see docs/fm-radio.md.)
 PRODUCT_PACKAGES += FMRadio
 $(call inherit-product-if-exists, vendor/phoneguard/fm/fm.mk)
+
+# Faster SurfaceFlinger start (boot animation earlier): see pg-sf.rc.
+PRODUCT_COPY_FILES += vendor/phoneguard/apps/pg-sf.rc:system/etc/init/pg-sf.rc

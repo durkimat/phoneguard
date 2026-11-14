@@ -1,0 +1,5 @@
+# SurfaceFlinger start-up speed (docs/boot-animation.md): SF primes its Skia shader cache (85 shaders) synchronously on its main thread inside
+# init(); on this MT6761 (PowerVR GE8300 through the MEOW GL shim) that takes about 12 s of CPU, during which the display is not even switched
+# on, so the boot animation appears 12 s late. Skip the priming; shaders then compile on first use.
+on init
+    setprop service.sf.prime_shader_cache false
