@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Phone Guard's own call screens hold the Dialer role (it declares DIAL activities and an InCallService with IN_CALL_SERVICE_UI).
+     SMS stays with the AOSP Messages app (Phone Guard's Messages screens read and send through it). -->
+<resources>
+    <string name="config_defaultDialer" translatable="false">io.github.durkimat.phoneguard</string>
+</resources>

@@ -7,7 +7,8 @@ PRODUCT_COPY_FILES += vendor/phoneguard/apps/pg-timing.rc:system/etc/init/pg-tim
 # Phone Guard as a privileged app (the APK is staged by build.sh when present; without it the image simply has no Phone Guard).
 ifneq ($(wildcard vendor/phoneguard/apps/phoneguard.apk),)
 PRODUCT_PACKAGES += PhoneGuard
-PRODUCT_COPY_FILES += vendor/phoneguard/apps/privapp-permissions-phoneguard.xml:system/etc/permissions/privapp-permissions-phoneguard.xml
+PRODUCT_COPY_FILES += vendor/phoneguard/apps/privapp-permissions-phoneguard.xml:system/etc/permissions/privapp-permissions-phoneguard.xml \
+    vendor/phoneguard/apps/default-permissions-phoneguard.xml:system/etc/default-permissions/default-permissions-phoneguard.xml
 endif
 
 # First-boot device-owner provisioning (script + init service; sepolicy in build/sepolicy/pg_provision.te).
