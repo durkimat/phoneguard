@@ -1,0 +1,8 @@
+# Access the stock Android 12 vendor expects that Android 14's platform policy no longer grants (denials seen on the running image,
+# docs/own-build-outcomes.md). Only rules between types the system_ext policy may reference (public/platform types); gaps between
+# two VENDOR types (misctrl, nvram_daemon, mtk_hal_camera, ccci_mdinit, ...) can only be fixed in the vendor policy, which we do not build.
+allow system_app default_android_hwservice:hwservice_manager find;
+allow system_server default_android_hwservice:hwservice_manager find;
+allow hal_fingerprint_oppo_compat default_android_hwservice:hwservice_manager find;
+allow { system_app system_server } default_android_service:service_manager find;
+allow { zygote audioserver hal_audio_sysbta } vendor_default_prop:file { read getattr open map };

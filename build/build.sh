@@ -60,11 +60,11 @@ build)
   set +u   # Android's envsetup.sh and lunch use unset variables
   source build/envsetup.sh; source vendor/lineage/vars/aosp_target_release
   (cd device/phh/treble && git clean -fdx && bash generate.sh lineage)
-  lunch treble_${TARGET}-${aosp_target_release}-userdebug
+  lunch treble_${TARGET}-${aosp_target_release}-${VARIANT:-userdebug}   # VARIANT=user for the release candidate (adb needs on-device authorisation, no root)
   export LINEAGE_BUILD=treble_${TARGET}   # what Lineage's breakfast sets; AOSP product makefiles key off it
   make installclean
   # TrebleDroid adds public API (FAKE_PACKAGE_SIGNATURE) that API lint/checkapi reject; skip those checks, not the build.
-  DISABLE_STUB_VALIDATION=true WITH_LINEAGE_CHARGER=false WITH_ADB_INSECURE=true make -j$(nproc) systemimage   # all 16 cores; Soong/ninja also size their own parallelism. Drop to -j12/-j8 if the 48 GB cap OOMs
+  DISABLE_STUB_VALIDATION=true WITH_LINEAGE_CHARGER=false WITH_ADB_INSECURE=${ADB_INSECURE:-true} make -j$(nproc) systemimage   # all 16 cores; Soong/ninja also size their own parallelism. Drop to -j12/-j8 if the 48 GB cap OOMs
   ;;
 publish)
   d=/artifacts/lineage-21-$(date -u +%Y%m%d)-${TARGET}; mkdir -p "$d"
