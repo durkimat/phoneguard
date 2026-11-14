@@ -27,7 +27,7 @@ object Protected {
     )
 
     /** Protected by default, but a parent may choose to manage them (listed in `unprotect`). */
-    private val editable = setOf("com.android.deskclock")
+    private val editable = setOf("com.android.deskclock", "com.android.fmradio") // fmradio: the FM app must stay visible until FM is a Phone Guard media source
 
     fun dynamic(c: Context): Set<String> {
         val out = mutableSetOf(c.packageName)
