@@ -46,6 +46,15 @@ object WorkerLink {
         return pendingMatch(c)?.let { "waiting for the parent to confirm $it" } ?: "not paired"
     }
 
+    /** "Qin J36" rather than the GSI's generic product model. */
+    private fun deviceModel(): String = try {
+        val sp = Class.forName("android.os.SystemProperties")
+        (sp.getMethod("get", String::class.java, String::class.java).invoke(null, "ro.product.vendor.model", "") as String).ifBlank { Build.MODEL }
+    } catch (e: Exception) { Build.MODEL }
+
+    /** Disconnect: forget the Worker, device id and keys' use; everything else on the phone stays as it is. */
+    fun disconnect(c: Context) { forget(c); EncKey.delete(); Log.log(c, "companion: disconnected") }
+
     fun forget(c: Context) { sp(c).edit().clear().apply(); cancelPoll(c) }
 
     // ---- pairing -----------------------------------------------------------------------------
@@ -59,8 +68,9 @@ object WorkerLink {
         if (p.fingerprint != null && !CompanionCrypto.fingerprintMatches(serverKey, p.fingerprint)) throw IllegalStateException("server key does not match the code")
         val pub = Keys.publicB64()
         val nonce = Wire.nonce()
-        val body = JSONObject().put("token", p.token).put("pub", pub).put("model", Build.MODEL).put("app", BuildConfig.VERSION_NAME).put("nonce", nonce)
+        val body = JSONObject().put("token", p.token).put("pub", pub).put("model", deviceModel()).put("app", BuildConfig.VERSION_NAME).put("nonce", nonce)
         EncKey.publicB64()?.let { body.put("encPub", it) }
+        Log.log(c, "companion: encryption key (PURPOSE_AGREE_KEY) self-test: ${EncKey.selfTest()}")
         val r = JSONObject(http(p.host, "POST", "/api/pair", body.toString()))
         val match = r.getString("match")
         if (match != CompanionCrypto.matchNumber(p.token, pub)) throw IllegalStateException("server returned a different number")

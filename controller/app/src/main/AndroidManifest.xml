@@ -62,7 +62,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".companion.EnrolActivity" android:exported="false" />
+        <activity android:name=".companion.EnrolActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".launcher.LauncherActivity"

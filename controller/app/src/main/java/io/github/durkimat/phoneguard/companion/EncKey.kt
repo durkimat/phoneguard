@@ -35,5 +35,18 @@ object EncKey {
 
     fun privateKey(): PrivateKey? { if (!supported) return null; ensure(); return ks().getKey(ALIAS, null) as? PrivateKey }
 
+    /** Proves the Keystore key really does ECDH on this phone: both sides of an exchange with a software key must give the same 32 bytes. */
+    fun selfTest(): String {
+        if (!supported) return "skipped (API < 31)"
+        return try {
+            val eph = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+            val mine = ks().getCertificate(ALIAS).publicKey
+            ensure()
+            val a = javax.crypto.KeyAgreement.getInstance("ECDH").run { init(privateKey()); doPhase(eph.public, true); generateSecret() }
+            val b = javax.crypto.KeyAgreement.getInstance("ECDH").run { init(eph.private); doPhase(mine, true); generateSecret() }
+            if (a.size == 32 && a.contentEquals(b)) "ok" else "FAILED (secrets differ)"
+        } catch (e: Exception) { "FAILED ${e.javaClass.simpleName}: ${e.message}" }
+    }
+
     fun delete() { try { ks().deleteEntry(ALIAS) } catch (_: Exception) { } }
 }

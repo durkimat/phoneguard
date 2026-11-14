@@ -38,9 +38,15 @@ class EnrolActivity : Activity() {
         })
         root.addView(TextView(this).apply { text = "or type it in:" })
         address = EditText(this).apply { hint = "Address (e.g. phoneguard-x7k2.jane)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI; setSingleLine() }
-        code = EditText(this).apply { hint = "Code (ABCDE-FGHJK)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS; setSingleLine() }
+        code = EditText(this).apply { imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE; hint = "Code (ABCDE-FGHJK)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS; setSingleLine() }
         root.addView(address); root.addView(code)
-        root.addView(Button(this).apply { text = "Connect"; setOnClickListener { begin(EnrolPayload.fromTyped(address.text.toString(), code.text.toString())) } })
+        val connect = { begin(EnrolPayload.fromTyped(address.text.toString(), code.text.toString())) }
+        code.setOnEditorActionListener { _, _, _ -> connect(); true }
+        root.addView(Button(this).apply { text = "Connect"; setOnClickListener { connect() } })
+        root.addView(Button(this).apply {
+            text = "Disconnect from the family companion"
+            setOnClickListener { polling = false; WorkerLink.disconnect(this@EnrolActivity); matchView.text = ""; info.text = "Disconnected." }
+        })
         matchView = TextView(this).apply { textSize = 48f; gravity = android.view.Gravity.CENTER }
         info = TextView(this).apply { textSize = 15f }
         root.addView(matchView); root.addView(info)
