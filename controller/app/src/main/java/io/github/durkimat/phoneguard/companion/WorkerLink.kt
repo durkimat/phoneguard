@@ -1,0 +1,201 @@
+package io.github.durkimat.phoneguard.companion
+
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.BatteryManager
+import android.os.Build
+import io.github.durkimat.phoneguard.AlarmReceiver
+import io.github.durkimat.phoneguard.BuildConfig
+import io.github.durkimat.phoneguard.Clock
+import io.github.durkimat.phoneguard.Controller
+import io.github.durkimat.phoneguard.Dpm
+import io.github.durkimat.phoneguard.Keys
+import io.github.durkimat.phoneguard.Log
+import io.github.durkimat.phoneguard.Store
+import io.github.durkimat.phoneguard.Wire
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.TimeZone
+import java.util.concurrent.Executors
+
+/**
+ * The phone's side of the Cloudflare companion (PROTOCOL-DRAFT): pairing with a one-time token, then a signed sync loop. Mirrors [io.github.durkimat.phoneguard.Link]
+ * (the Home Assistant link); the two never both run on one phone. State lives in device-protected storage so it works before the PIN is entered.
+ */
+object WorkerLink {
+    const val POLL_MS = 15 * 60_000L
+    private val BACKOFF = longArrayOf(60_000, 2 * 60_000, 5 * 60_000, 10 * 60_000, POLL_MS)
+    private const val V = 1
+    private val pool = Executors.newSingleThreadExecutor()
+
+    private fun sp(c: Context) = c.applicationContext.createDeviceProtectedStorageContext().getSharedPreferences("pg-worker", Context.MODE_PRIVATE)
+
+    fun isPaired(c: Context) = sp(c).getString("did", "").orEmpty().isNotEmpty()
+    fun pendingMatch(c: Context): String? = if (sp(c).getString("pairingId", null) != null && !isPaired(c)) sp(c).getString("match", null) else null
+    fun host(c: Context): String = sp(c).getString("host", "").orEmpty()
+
+    fun summary(c: Context): String {
+        val s = sp(c)
+        if (isPaired(c)) {
+            val last = s.getLong("lastSync", 0)
+            return "paired with ${host(c)}; last sync ${if (last == 0L) "never" else "${(System.currentTimeMillis() - last) / 1000}s ago"} (${s.getString("lastResult", "-")})"
+        }
+        return pendingMatch(c)?.let { "waiting for the parent to confirm $it" } ?: "not paired"
+    }
+
+    fun forget(c: Context) { sp(c).edit().clear().apply(); cancelPoll(c) }
+
+    // ---- pairing -----------------------------------------------------------------------------
+
+    /** Ask the Worker to pair. Returns the 4-digit number to show; the parent types it on their page. Throws with a readable message. */
+    @Synchronized
+    fun start(c: Context, p: EnrolPayload): String {
+        val info = JSONObject(http(p.host, "GET", "/api/info", null))
+        val serverKey = info.optString("serverKey")
+        if (serverKey.isEmpty()) throw IllegalStateException("not a Phone Guard server")
+        if (p.fingerprint != null && !CompanionCrypto.fingerprintMatches(serverKey, p.fingerprint)) throw IllegalStateException("server key does not match the code")
+        val pub = Keys.publicB64()
+        val nonce = Wire.nonce()
+        val body = JSONObject().put("token", p.token).put("pub", pub).put("model", Build.MODEL).put("app", BuildConfig.VERSION_NAME).put("nonce", nonce)
+        EncKey.publicB64()?.let { body.put("encPub", it) }
+        val r = JSONObject(http(p.host, "POST", "/api/pair", body.toString()))
+        val match = r.getString("match")
+        if (match != CompanionCrypto.matchNumber(p.token, pub)) throw IllegalStateException("server returned a different number")
+        sp(c).edit().clear().putString("host", p.host).putString("serverKey", serverKey).putString("pairingId", r.getString("pairingId"))
+            .putString("nonce", nonce).putString("match", match).apply()
+        Log.log(c, "companion: pairing started with ${p.host}, match $match")
+        return match
+    }
+
+    /** One poll of a pending pairing: "waiting", "paired" or a refusal text starting "failed". */
+    @Synchronized
+    fun pollPair(c: Context): String {
+        val s = sp(c)
+        val id = s.getString("pairingId", null) ?: return "failed: nothing pending"
+        val host = s.getString("host", "").orEmpty()
+        return try {
+            val r = JSONObject(http(host, "GET", "/api/pair/$id", null))
+            when (val st = r.optString("status")) {
+                "pending" -> "waiting"
+                "confirmed" -> {
+                    val rp = verifyReply(c, r.getJSONObject("reply"), s.getString("nonce", "")!!) ?: return "failed: reply not trusted"
+                    val did = rp.getString("did")
+                    s.edit().putString("did", did).putLong("ctr", 0).putInt("cfgVersion", 0).remove("pairingId").apply()
+                    applyConfig(c, rp)
+                    Log.log(c, "companion: PAIRED did=$did")
+                    schedulePoll(c, 5_000)
+                    "paired"
+                }
+                else -> { s.edit().remove("pairingId").remove("match").apply(); "failed: $st" }
+            }
+        } catch (e: Exception) { "waiting (${e.message})" }
+    }
+
+    // ---- sync --------------------------------------------------------------------------------
+
+    @Synchronized
+    fun sync(c: Context, reason: String): String {
+        val s = sp(c)
+        if (!isPaired(c)) return "not paired"
+        val did = s.getString("did", "")!!; val host = host(c)
+        val ctr = s.getLong("ctr", 0) + 1
+        s.edit().putLong("ctr", ctr).apply() // persist first: a counter is never reused, even if the reply is lost
+        val n = Wire.nonce()
+        val p = state(c).toString()
+        val env = JSONObject().put("v", V).put("did", did).put("ctr", ctr).put("n", n).put("p", p)
+            .put("s", Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, p).toByteArray(Charsets.UTF_8)))
+        val result = try {
+            val reply = JSONObject(http(host, "POST", "/api/sync", env.toString()))
+            val rp = verifyReply(c, reply, n) ?: throw IllegalStateException("reply not trusted")
+            s.edit().putLong("lastSync", System.currentTimeMillis()).putInt("failures", 0).apply()
+            applyConfig(c, rp).also { s.edit().putString("lastResult", it).apply() }
+        } catch (e: Exception) {
+            val f = s.getInt("failures", 0) + 1
+            s.edit().putInt("failures", f).putString("lastResult", "FAILED ${e.javaClass.simpleName}: ${e.message}").apply()
+            if (e.message?.contains("HTTP 409") == true) s.edit().putLong("ctr", ctr + 1000).apply() // the server is ahead of us: skip forward
+            schedulePoll(c, BACKOFF[(f - 1).coerceAtMost(BACKOFF.size - 1)])
+            Log.log(c, "companion sync($reason) failed #$f: ${e.javaClass.simpleName}: ${e.message}")
+            return "failed: ${e.message}"
+        }
+        schedulePoll(c, POLL_MS)
+        Log.log(c, "companion sync($reason) $result")
+        return result
+    }
+
+    /** What the phone tells the server (shown on the parent page); lean on purpose. */
+    private fun state(c: Context): JSONObject {
+        val cfg = Store.config(c)
+        val eff = io.github.durkimat.phoneguard.core.Engine.effective(cfg, Store.boost(c), Clock.now())
+        val bm = c.getSystemService(BatteryManager::class.java)
+        return JSONObject().put("cfgVersion", sp(c).getInt("cfgVersion", 0)).put("mode", eff.modeId)
+            .put("owner", Dpm.isOwner(c)).put("battery", bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
+            .put("version", BuildConfig.VERSION_NAME).put("tz", TimeZone.getDefault().id).put("clock", Clock.now())
+    }
+
+    /** Signature, device id and echoed nonce must all check out against the pinned server key; returns the signed payload. */
+    private fun verifyReply(c: Context, reply: JSONObject, nonce: String): JSONObject? {
+        val s = sp(c)
+        val did = reply.optString("did"); val p = reply.optString("p")
+        if (reply.optString("n") != nonce) return null
+        val mine = s.getString("did", "").orEmpty()
+        if (mine.isNotEmpty() && did != mine) return null
+        val key = s.getString("serverKey", "").orEmpty()
+        val msg = CompanionCrypto.serverMessage(reply.optInt("v"), did, nonce, reply.optLong("t"), p)
+        if (!CompanionCrypto.verify(key, msg, reply.optString("s"))) return null
+        return JSONObject(p)
+    }
+
+    private fun applyConfig(c: Context, rp: JSONObject): String {
+        val v = rp.optInt("configVersion", 0)
+        val cfg = rp.optJSONObject("config")
+        if (cfg == null) return if (rp.optBoolean("unchanged")) "unchanged (v$v)" else "ok"
+        Store.setConfig(c, cfg.toString())
+        sp(c).edit().putInt("cfgVersion", v).apply()
+        Controller.evaluate(c, "companion sync")
+        return "config updated (v$v)"
+    }
+
+    // ---- network and scheduling ----------------------------------------------------------------
+
+    private fun http(host: String, method: String, path: String, body: String?): String {
+        val h = URL("https://$host$path").openConnection() as HttpURLConnection
+        try {
+            h.connectTimeout = 15_000; h.readTimeout = 20_000; h.instanceFollowRedirects = false
+            h.requestMethod = method
+            if (body != null) { h.doOutput = true; h.setRequestProperty("Content-Type", "application/json"); h.outputStream.use { it.write(body.toByteArray()) } }
+            val code = h.responseCode
+            val text = (if (code < 400) h.inputStream else h.errorStream)?.readBytes()?.toString(Charsets.UTF_8) ?: ""
+            if (code >= 400) throw IllegalStateException("HTTP $code ${runCatching { JSONObject(text).optString("error") }.getOrDefault("")}".trim())
+            return text
+        } finally { h.disconnect() }
+    }
+
+    fun runAsync(c: Context, reason: String, pending: android.content.BroadcastReceiver.PendingResult? = null) {
+        val app = c.applicationContext
+        if (!isPaired(app)) { pending?.finish(); return }
+        io.github.durkimat.phoneguard.net.RadioManager.begin(app, "companion $reason")
+        pool.execute {
+            try { io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000); sync(app, reason) }
+            catch (e: Exception) { Log.log(app, "companion sync($reason) crashed: ${e.message}") }
+            finally { io.github.durkimat.phoneguard.net.RadioManager.end(app, "companion $reason"); pending?.finish() }
+        }
+    }
+
+    /** Pairing runs on the caller's thread-pool slot too, so it never blocks the UI. */
+    fun async(block: () -> Unit) { pool.execute(block) }
+
+    private fun pollIntent(c: Context) = PendingIntent.getBroadcast(
+        c, 3, Intent(c, AlarmReceiver::class.java).putExtra("kind", "wsync"),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    fun schedulePoll(c: Context, delayMs: Long) {
+        if (!isPaired(c)) return
+        c.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + delayMs, pollIntent(c))
+    }
+
+    fun cancelPoll(c: Context) { c.getSystemService(AlarmManager::class.java).cancel(pollIntent(c)) }
+}

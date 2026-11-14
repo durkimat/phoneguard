@@ -32,7 +32,11 @@ class MainActivity : Activity() {
                     .setBeepEnabled(false).setOrientationLocked(true).initiateScan()
             }
         })
-        root.addView(Button(this).apply { text = "Sync now"; setOnClickListener { Link.runAsync(this@MainActivity, "manual") } })
+        root.addView(Button(this).apply {
+            text = "Connect to the family companion"
+            setOnClickListener { startActivity(Intent(this@MainActivity, io.github.durkimat.phoneguard.companion.EnrolActivity::class.java)) }
+        })
+        root.addView(Button(this).apply { text = "Sync now"; setOnClickListener { Link.runAsync(this@MainActivity, "manual"); io.github.durkimat.phoneguard.companion.WorkerLink.runAsync(this@MainActivity, "manual") } })
         root.addView(Button(this).apply { text = "Re-check now"; setOnClickListener { Controller.evaluateAsync(this@MainActivity, "manual") { runOnUiThread { refresh() } } } })
         root.addView(logView)
         setContentView(ScrollView(this).apply { addView(root, ViewGroup.LayoutParams(-1, -2)) })
@@ -65,6 +69,7 @@ class MainActivity : Activity() {
             appendLine("Device owner: ${Dpm.isOwner(this@MainActivity)}")
             appendLine("Now: ${Store.summary(this@MainActivity)}")
             appendLine("Home Assistant: ${Link.summary(this@MainActivity)}")
+            appendLine("Companion: ${io.github.durkimat.phoneguard.companion.WorkerLink.summary(this@MainActivity)}")
             if (Link.isPending(this@MainActivity)) appendLine("\nCONFIRM IN HOME ASSISTANT: ${Link.sas(this@MainActivity)}\n")
             appendLine("Config: ${cfg?.let { "v${it.version}, ${it.modes.size} modes" } ?: "none (Emergency mode)"}")
             appendLine("Hidden by us: ${Store.hidden(this@MainActivity).size}")

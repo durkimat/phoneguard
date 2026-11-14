@@ -20,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
                     Link.schedulePoll(c, 30_000) // soon after boot, once the network is up
+                    io.github.durkimat.phoneguard.companion.WorkerLink.schedulePoll(c, 45_000)
                 }
             } finally { pending.finish() }
         }
@@ -30,6 +31,7 @@ class BootReceiver : BroadcastReceiver() {
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         if (i.getStringExtra("kind") == "sync") Link.runAsync(c, "poll", goAsync())
+        else if (i.getStringExtra("kind") == "wsync") io.github.durkimat.phoneguard.companion.WorkerLink.runAsync(c, "poll", goAsync())
         else if (i.getStringExtra("kind") == "loc") LocationReporter.onAlarm(c, goAsync())
         else if (i.getStringExtra("kind") == "sweep") {
             // only if the screen is still off when the timer fires

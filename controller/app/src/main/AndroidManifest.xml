@@ -62,6 +62,8 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".companion.EnrolActivity" android:exported="false" />
+
         <activity
             android:name=".launcher.LauncherActivity"
             android:exported="true"

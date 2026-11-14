@@ -31,6 +31,13 @@ object CompanionCrypto {
     fun pinMatches(serverSpkiBase64: String, pin: String): Boolean =
         try { MessageDigest.isEqual(serverPin(serverSpkiBase64).toByteArray(), pin.toByteArray()) } catch (e: Exception) { false }
 
+    /** QR fingerprint `f`: base64url (padding optional) of the first 16 bytes of SHA-256 of the server's DER SPKI. */
+    fun fingerprintMatches(serverSpkiBase64: String, f: String): Boolean = try {
+        val mine = serverPin(serverSpkiBase64).trimEnd('=')
+        val theirs = f.replace('-', '+').replace('_', '/').trimEnd('=')
+        MessageDigest.isEqual(mine.toByteArray(), theirs.toByteArray())
+    } catch (e: Exception) { false }
+
     /** Message the Worker signs: `v|did|n|t|p`, p exactly as transmitted. */
     fun serverMessage(v: Int, did: String, n: String, t: Long, p: String) = "$v|$did|$n|$t|$p"
 

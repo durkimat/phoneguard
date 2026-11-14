@@ -53,4 +53,11 @@ class EnrolPayloadTest {
         assertNull(EnrolPayload.parseQr(qr.replace("7K3QM9XD2P", "7K3QM9XD2")))
         assertNull(EnrolPayload.parseQr(qr.replace("&f=PHHtKl7AMMJHrNskmOPZag", "")))
     }
+
+    @Test fun fingerprintOfServerKey() {
+        val spki = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgWN4mkgwGnQC4xHxJTyVFUgUZxqGCYElN9DyGiO/a+q3XH0SZHCDBeRJflc0IDwmSrjcqj/f5dG6ZB8JKh/eug=="
+        assertEquals(true, CompanionCrypto.fingerprintMatches(spki, "PHHtKl7AMMJHrNskmOPZag"))
+        assertEquals(true, CompanionCrypto.fingerprintMatches(spki, "PHHtKl7AMMJHrNskmOPZag=="))
+        assertEquals(false, CompanionCrypto.fingerprintMatches(spki, "AAAAAAAAAAAAAAAAAAAAAA"))
+    }
 }
