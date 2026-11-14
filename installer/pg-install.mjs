@@ -4,25 +4,29 @@
 // It only ever writes system_a, userdata and md_udc (see FLASH_STEPS). It never touches the radio, identity or boot partitions.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync, readFileSync, writeFileSync, statSync, appendFileSync, readdirSync } from "node:fs";
+import { openSync, readSync, closeSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, statSync, statfsSync, appendFileSync, readdirSync, rmSync } from "node:fs";
+import { createGunzip } from "node:zlib";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 import { join, resolve, basename } from "node:path";
 import { homedir, platform } from "node:os";
 import readline from "node:readline/promises";
 
 const EXPECTED_MODEL = /J36/i;
+const REPO = "durkimat/phoneguard";          // where image releases live (tags starting "image-")
 const MIN_BATTERY = 50;
 
 export function parseArgs(argv) {
-  const o = { cmd: "all", kit: process.cwd(), dryRun: false, yes: false, skipBackup: false, keepData: false, backupDir: null };
+  const o = { cmd: "all", kit: process.cwd(), dryRun: false, yes: false, skipBackup: false, keepData: false, backupDir: null, download: false };
   const a = [...argv];
   if (a[0] && !a[0].startsWith("--")) o.cmd = a.shift();
   while (a.length) {
     const k = a.shift();
     if (k === "--kit") o.kit = resolve(a.shift()); else if (k === "--backup-dir") o.backupDir = resolve(a.shift());
-    else if (k === "--dry-run") o.dryRun = true; else if (k === "--yes") o.yes = true; else if (k === "--skip-backup") o.skipBackup = true; else if (k === "--keep-data") o.keepData = true;
+    else if (k === "--dry-run") o.dryRun = true; else if (k === "--yes") o.yes = true; else if (k === "--skip-backup") o.skipBackup = true; else if (k === "--keep-data") o.keepData = true; else if (k === "--download") o.download = true;
     else throw new Error(`unknown option ${k}`);
   }
-  if (!["check", "backup", "verify", "flash", "all"].includes(o.cmd)) throw new Error(`unknown command ${o.cmd}`);
+  if (!["check", "backup", "verify", "flash", "all", "download"].includes(o.cmd)) throw new Error(`unknown command ${o.cmd}`);
   return o;
 }
 
@@ -82,11 +86,47 @@ export async function verifyKit(kit) {
   const lines = []; let ok = true;
   for (const l of readFileSync(sums, "utf8").split("\n").map((x) => x.trim()).filter(Boolean)) {
     const m = /^([0-9a-fA-F]{64})\s+\*?(.+)$/.exec(l); if (!m) continue;
-    const f = join(kit, m[2]); const good = existsSync(f) && (await sha256(f)) === m[1].toLowerCase();
+    const f = join(kit, m[2]); if (m[2].endsWith(".gz") && !existsSync(f)) continue;   // the compressed copy may be deleted once unpacked
+    const good = existsSync(f) && (await sha256(f)) === m[1].toLowerCase();
     lines.push(`${m[2]}: ${good ? "OK" : "FAILED"}`); ok &&= good;
   }
   if (!existsSync(join(kit, "system.img"))) { ok = false; lines.push("system.img: missing"); }
   return { ok, lines };
+}
+
+const freeBytes = (dir) => { try { const s = statfsSync(dir); return Number(s.bavail) * Number(s.bsize); } catch { return Infinity; } };
+
+// Unpacks system.img.gz (the form the image is published in) next to it. Nothing is overwritten if system.img is already there.
+export async function prepareKit(kit, { out = () => {} } = {}) {
+  const img = join(kit, "system.img"), gz = join(kit, "system.img.gz");
+  if (existsSync(img) || !existsSync(gz)) return { unpacked: false };
+  const fd = openSync(gz, "r"), tail = Buffer.alloc(4); readSync(fd, tail, 0, 4, statSync(gz).size - 4); closeSync(fd);
+  const need = tail.readUInt32LE(0) + 256 * 1024 ** 2;   // a gzip file ends with the unpacked size (the image is under 4 GB)
+  if (freeBytes(kit) < need) throw new Error(`There is not enough free disk space to unpack the image (about ${Math.ceil(need / 1024 ** 3 * 10) / 10} GB is needed).`);
+  out("Unpacking system.img.gz (about 2.4 GB; this takes a minute)...");
+  try { await pipeline(createReadStream(gz), createGunzip(), createWriteStream(img)); } catch (e) { rmSync(img, { force: true }); throw new Error(`Could not unpack the image: ${e.message}. Download it again.`); }
+  return { unpacked: true };
+}
+
+// Finds the newest "image-" release on GitHub and saves its system.img.gz and SHA256SUMS into `dir`.
+export async function downloadImage(dir, { fetchImpl = fetch, out = () => {}, repo = REPO, reserve = 3 * 1024 ** 3 } = {}) {
+  mkdirSync(dir, { recursive: true });
+  const r = await fetchImpl(`https://api.github.com/repos/${repo}/releases?per_page=30`, { headers: { accept: "application/vnd.github+json", "user-agent": "phoneguard-installer" } });
+  if (!r.ok) throw new Error(`GitHub answered ${r.status} when looking for the image. Check your internet connection and try again.`);
+  const rel = (await r.json()).filter((x) => !x.draft && String(x.tag_name).startsWith("image-")).sort((a, b) => (a.published_at < b.published_at ? 1 : -1))[0];
+  if (!rel) throw new Error("No image has been published yet. Ask the project owner for the image kit (docs/install/get-the-image.md).");
+  const need = ["system.img.gz", "SHA256SUMS"], assets = need.map((n) => rel.assets.find((a) => a.name === n));
+  if (assets.some((a) => !a)) throw new Error(`The release ${rel.tag_name} is missing ${need.filter((_, i) => !assets[i]).join(" and ")}.`);
+  if (freeBytes(dir) < assets[0].size + reserve) throw new Error("There is not enough free disk space for the download and the unpacked image (about 5 GB).");
+  out(`Downloading ${rel.tag_name}: ${rel.name ?? ""}`);
+  for (const [i, a] of assets.entries()) {
+    const res = await fetchImpl(a.browser_download_url, { headers: { "user-agent": "phoneguard-installer" } });
+    if (!res.ok) throw new Error(`Downloading ${a.name} failed (${res.status}).`);
+    let got = 0, lastPct = -1;
+    const counter = async function* (src) { for await (const chunk of src) { got += chunk.length; const pct = Math.floor((got / a.size) * 10) * 10; if (pct !== lastPct && a.size > 1e6) { lastPct = pct; out(`  ${a.name}: ${pct}%`); } yield chunk; } };
+    await pipeline(Readable.fromWeb(res.body), counter, createWriteStream(join(dir, a.name)));
+  }
+  return { tag: rel.tag_name, dir };
 }
 
 // Reads from the phone only. Writes a dated folder with what is needed to understand or undo a mistake, and a checksum list.
@@ -142,7 +182,7 @@ export async function flash(t, kit, { keepData, ask, wait = { fastboot: async ()
 }
 
 // ---- command line ----------------------------------------------------------------------------------------------------------------
-export async function main(argv, { out = console.log, input = process.stdin, toolDir = null, wait = null } = {}) {
+export async function main(argv, { out = console.log, input = process.stdin, toolDir = null, wait = null, fetchImpl = fetch, reserve } = {}) {
   const o = parseArgs(argv), stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19), logDir = o.backupDir ?? join(homedir(), "phoneguard-install", stamp);
   mkdirSync(logDir, { recursive: true });
   const logFile = join(logDir, "install.log"), log = (m) => { appendFileSync(logFile, m + "\n"); if (m.startsWith("DRY RUN:") && !m.startsWith("DRY RUN: nothing")) out("  would run: " + m.slice(9)); };
@@ -153,6 +193,12 @@ export async function main(argv, { out = console.log, input = process.stdin, too
   try {
     if (o.dryRun) out("DRY RUN: nothing will be written to the phone.");
     if (o.cmd === "check" || o.cmd === "all") { out("\n== Checking your computer and phone"); const r = preflight(t); show(r); if (!r.ok && o.cmd === "check") return 1; if (!r.ok) throw new Error("Fix the problems above and run again."); }
+    const have = existsSync(join(o.kit, "system.img")) || existsSync(join(o.kit, "system.img.gz"));
+    if (o.cmd === "download" || (!have && (o.cmd === "all" || o.cmd === "flash"))) {
+      if (!o.download && o.cmd !== "download") throw new Error(`No image was found in ${o.kit}. Put the kit there, or add --download to fetch the published image.`);
+      out("\n== Getting the image"); if (o.dryRun) out("  would download the newest image release from GitHub"); else await downloadImage(o.kit, { fetchImpl, out: (m) => out("  " + m), ...(reserve != null ? { reserve } : {}) });
+      if (o.cmd === "download") { await prepareKit(o.kit, { out }); const v = await verifyKit(o.kit); for (const l of v.lines) out("  " + l); if (!v.ok) throw new Error("The downloaded image did not pass its check. Try again."); return 0; }
+    }
     if (o.cmd === "backup" || (o.cmd === "all" && !o.skipBackup)) {
       out("\n== Backing up (reads from the phone only)");
       if (preflight(t).mode !== "adb") { if (!o.dryRun) throw new Error("Put the phone in normal Android mode with USB debugging on, then run again."); }
@@ -161,7 +207,7 @@ export async function main(argv, { out = console.log, input = process.stdin, too
       out("\nFor the phone's IMEI and radio calibration, a deeper read-only backup with mtkclient is strongly recommended and takes about half an hour: docs/recovery-guide.md section 4.");
       if (!o.yes) await ask("Have you done that (or decided to go without it)?");
     }
-    if (o.cmd === "verify" || o.cmd === "flash" || o.cmd === "all") { out("\n== Checking the image"); const v = await verifyKit(o.kit); for (const l of v.lines) out("  " + l); if (!v.ok) throw new Error("The image did not pass its check. Download the kit again; do not flash it."); }
+    if (o.cmd === "verify" || o.cmd === "flash" || o.cmd === "all") { out("\n== Checking the image"); if (!o.dryRun || existsSync(join(o.kit, "system.img.gz"))) await prepareKit(o.kit, { out }); const v = await verifyKit(o.kit); for (const l of v.lines) out("  " + l); if (!v.ok) throw new Error("The image did not pass its check. Download the kit again; do not flash it."); }
     if (o.cmd === "flash" || o.cmd === "all") {
       if (o.cmd === "flash" && !o.skipBackup && !existsSync(join(logDir, "backup")) && !o.yes) await ask("No backup was made by this run. Flash without one?");
       out("\n== Flashing");

@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { parseArgs, makeTools, preflight, verifyKit, backup, flashSteps, main } from "../pg-install.mjs";
+import { parseArgs, makeTools, preflight, verifyKit, backup, flashSteps, main, prepareKit, downloadImage } from "../pg-install.mjs";
+import { gzipSync } from "node:zlib";
 
 const FAKES = fileURLToPath(new URL("./fakebin", import.meta.url));
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
@@ -17,7 +18,7 @@ const quiet = [], out = (s) => quiet.push(s), wait = { fastboot: async () => tru
 const ALLOWED = new Set(["system_a", "userdata", "md_udc"]);
 const writes = (log) => cmds(log).filter((c) => /^fastboot (flash|erase|resize-logical-partition|format|write|oem|flashing)/.test(c));
 
-assert.deepEqual(parseArgs(["flash", "--kit", "/k", "--dry-run", "--yes"]), { cmd: "flash", kit: "/k", dryRun: true, yes: true, skipBackup: false, keepData: false, backupDir: null }); assert.throws(() => parseArgs(["--nope"])); assert.throws(() => parseArgs(["explode"])); ok("command line options are parsed and unknown ones refused");
+assert.deepEqual(parseArgs(["flash", "--kit", "/k", "--dry-run", "--yes"]), { cmd: "flash", kit: "/k", dryRun: true, yes: true, skipBackup: false, keepData: false, backupDir: null, download: false }); assert.throws(() => parseArgs(["--nope"])); assert.throws(() => parseArgs(["explode"])); ok("command line options are parsed and unknown ones refused");
 
 { env(); const r = preflight(makeTools({ dir: FAKES })); assert.ok(r.ok && r.mode === "adb"); ok("preflight passes for a J36 with enough battery"); }
 { env({ FAKE_MODEL: "Pixel 7" }); const r = preflight(makeTools({ dir: FAKES })); assert.ok(!r.ok); assert.ok(r.checks.some((c) => c.name.includes("J36") && !c.ok)); ok("another phone model is refused"); }
@@ -45,4 +46,18 @@ assert.deepEqual(parseArgs(["flash", "--kit", "/k", "--dry-run", "--yes"]), { cm
 { const log = env({ FAKE_USERSPACE: "no" }); const code = await main(["flash", "--kit", mkKit(), "--yes", "--skip-backup", "--backup-dir", join(work, "run6")], { out, toolDir: FAKES, wait }); assert.equal(code, 1); assert.ok(!cmds(log).some((x) => x.startsWith("fastboot flash"))); ok("if the phone is not in fastbootd, it stops before writing"); }
 { const log = env(); const code = await main(["all", "--kit", mkKit(), "--yes", "--dry-run", "--backup-dir", join(work, "run7")], { out, toolDir: FAKES, wait }); assert.equal(code, 0); assert.deepEqual(writes(log), []); assert.ok(!cmds(log).some((x) => x.startsWith("adb reboot") || x === "fastboot reboot")); ok("a dry run prints the plan and changes nothing on the phone"); }
 { const log = env({ FAKE_MODEL: "Pixel 7" }); const code = await main(["all", "--kit", mkKit(), "--yes", "--backup-dir", join(work, "run8")], { out, toolDir: FAKES, wait }); assert.equal(code, 1); assert.deepEqual(writes(log), []); ok("the wrong phone model stops the whole run"); }
+
+// ---- publishing: the image as system.img.gz in a GitHub release ----
+const img = Buffer.from("pretend system image ".repeat(5000)), sums = `${createHash("sha256").update(img).digest("hex")}  system.img\n`;
+const releaseFetch = ({ withRelease = true, missing = false } = {}) => async (url) => {
+  if (url.includes("/releases?")) return { ok: withRelease || true, status: 200, json: async () => withRelease ? [{ tag_name: "image-20261114", name: "Image 20261114", draft: false, published_at: "2026-11-14T10:00:00Z", assets: [{ name: "system.img.gz", size: 3e5, browser_download_url: "https://dl/system.img.gz" }, ...(missing ? [] : [{ name: "SHA256SUMS", size: 100, browser_download_url: "https://dl/SHA256SUMS" }])] }, { tag_name: "v0.3.19", draft: false, published_at: "2026-11-15T10:00:00Z", assets: [] }] : [{ tag_name: "v0.3.19", assets: [] }] };
+  const body = url.endsWith("SHA256SUMS") ? Buffer.from(sums) : gzipSync(img); return { ok: true, status: 200, body: new Response(body).body };
+};
+{ const k = mkdtempSync(join(work, "gz-")); writeFileSync(join(k, "system.img.gz"), gzipSync(img)); writeFileSync(join(k, "SHA256SUMS"), sums); const r = await prepareKit(k); assert.ok(r.unpacked); assert.deepEqual(readFileSync(join(k, "system.img")), img); assert.ok((await verifyKit(k)).ok); assert.equal((await prepareKit(k)).unpacked, false); ok("system.img.gz is unpacked and checked against the checksum of the real image; an existing image is left alone"); }
+{ const k = mkdtempSync(join(work, "gzbad-")); writeFileSync(join(k, "system.img.gz"), Buffer.from("not gzip")); await assert.rejects(prepareKit(k), /Could not unpack/); assert.ok(!existsSync(join(k, "system.img"))); ok("a damaged download is reported and leaves no half-written image"); }
+{ const k = mkdtempSync(join(work, "dl-")), lines = []; const r = await downloadImage(k, { fetchImpl: releaseFetch(), out: (m) => lines.push(m), reserve: 0 }); assert.equal(r.tag, "image-20261114"); assert.ok(existsSync(join(k, "system.img.gz")) && existsSync(join(k, "SHA256SUMS"))); assert.ok(lines.some((l) => l.includes("image-20261114"))); ok("the newest 'image-' release is found (other releases ignored) and its files are downloaded"); }
+await assert.rejects(downloadImage(mkdtempSync(join(work, "dl0-")), { fetchImpl: releaseFetch({ withRelease: false }), reserve: 0 }), /No image has been published/); await assert.rejects(downloadImage(mkdtempSync(join(work, "dl1-")), { fetchImpl: releaseFetch({ missing: true }), reserve: 0 }), /missing SHA256SUMS/); ok("no release, or a release without its checksum file, gives a clear message");
+{ const log = env(), k = mkdtempSync(join(work, "full-")); const code = await main(["all", "--kit", k, "--download", "--yes", "--backup-dir", join(work, "run9")], { out, toolDir: FAKES, wait, fetchImpl: releaseFetch(), reserve: 0 }); assert.equal(code, 0); assert.ok(existsSync(join(k, "system.img"))); assert.ok(cmds(log).some((x) => x.startsWith("fastboot flash system_a") && x.endsWith("system.img"))); ok("one command downloads, unpacks, checks, backs up and flashes"); }
+{ const log = env(), k = mkdtempSync(join(work, "noimg-")); const code = await main(["all", "--kit", k, "--yes", "--backup-dir", join(work, "run10")], { out, toolDir: FAKES, wait }); assert.equal(code, 1); assert.ok(quiet.some((l) => l.includes("--download"))); assert.deepEqual(writes(log), []); ok("without an image or --download it says what to do and writes nothing"); }
+{ const k = mkdtempSync(join(work, "dlonly-")); const code = await main(["download", "--kit", k, "--yes", "--backup-dir", join(work, "run11")], { out, toolDir: FAKES, wait, fetchImpl: releaseFetch(), reserve: 0 }); assert.equal(code, 0); assert.ok(existsSync(join(k, "system.img"))); ok("the download command fetches, unpacks and verifies without touching a phone"); }
 console.log(`\n${n} checks passed`);
