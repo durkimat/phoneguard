@@ -17,6 +17,8 @@ The companion is the backend a Family phone talks to when there is no Home Assis
 
 ## Build and test
 
+The setup tool runs on Node.js 20 or newer. Running the Worker locally (`npm run dev`, needed for the protocol and wizard tests) needs Node.js 22.12 or newer, because Wrangler requires it.
+
 ```bash
 cd companion/worker && npm install
 node scripts/build-page.mjs        # regenerate src/page-assets.js after editing src/page/*
