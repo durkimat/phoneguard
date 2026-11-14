@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Privileged permissions Phone Guard may be granted as a /system/priv-app (docs/integration-plan.md).
+     A privileged permission the app requests but that is not listed here stops system_server booting, so list every
+     signature|privileged permission in the app's manifest; extra entries for permissions it does not request are harmless. -->
+<permissions>
+    <privapp-permissions package="io.github.durkimat.phoneguard">
+        <!-- requested by the current manifest -->
+        <permission name="android.permission.WRITE_SECURE_SETTINGS"/>
+        <permission name="android.permission.DELETE_PACKAGES"/>
+        <permission name="android.permission.PACKAGE_USAGE_STATS"/>
+        <permission name="android.permission.SCHEDULE_EXACT_ALARM"/>
+        <!-- for the hacks that become supported calls once privileged (not requested yet) -->
+        <permission name="android.permission.BLUETOOTH_PRIVILEGED"/>
+        <permission name="android.permission.FORCE_STOP_PACKAGES"/>
+        <permission name="android.permission.MODIFY_PHONE_STATE"/>
+        <permission name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
+        <permission name="android.permission.MODIFY_AUDIO_ROUTING"/>
+        <permission name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
+        <permission name="android.permission.INSTALL_PACKAGES"/>
+        <permission name="android.permission.REBOOT"/>
+    </privapp-permissions>
+</permissions>
