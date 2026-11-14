@@ -75,3 +75,10 @@ Only item 4 can be started now; the rest needs the integrated build.
 ## F. Legal and security (not bugs)
 
 Test-keys baseline is for the desk only. The MediaTek apps are proprietary (redistribution needs legal advice). The TrebleDroid patch licence is unread.
+
+## G. Test results, 2026-11-13/14 (ims7, new Smarty SIM, PC session logs in /archive/phone-backups/flash-run-20261113/)
+
+- **VoLTE/IMS works on ims7.** Root cause of "Voice:false, no IMS": AOSP's ImsManager judged VoLTE/VT/WFC "not available by platform" (no device overlay; carrier config `carrier_volte_available_bool=false` because the SIM's carrier id does not resolve, `carrierId=-1`). Fix: `persist.dbg.volte_avail_ovr`, `persist.dbg.vt_avail_ovr`, `persist.dbg.wfc_avail_ovr` = 1 (build/ims/module/ims.mk). With them: MmTel Voice/UT/SMS true, "IMS registered on WWAN" ~7 s after boot_completed, voice in service ~10-13 s, default PDN up, ping/curl OK, no loss of attach in 20 min, an HD VoLTE call to 123 connected (8 s, audio not judged).
+- The earlier 16F1 data failure was a start-up race on the first boot after flashing (63 failed EAPNACT, then success); it did not recur on 5 cold reboots. Experiments A/B (persist.mtk_* = 0, disable capctrl) were not needed.
+- Still to test: SMS send/receive, two-way call audio, Wi-Fi calling entry, the main SIM, mobile data via browser by the owner.
+- Before a final image: replace the `persist.dbg.*` test props with a proper framework overlay (`config_device_volte_available` etc.) and fix carrier-id resolution; Rooted debugging off; remaining non-telephony avc denials; Treble app crash (IQcRilAudio).
