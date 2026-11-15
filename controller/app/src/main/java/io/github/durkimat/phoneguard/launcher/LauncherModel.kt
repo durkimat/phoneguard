@@ -1121,10 +1121,24 @@ class LauncherModel(
         }
     }
 
-    private fun move(key: Key, size: Int): Action? = when (key) {
-        Key.UP -> if (size == 0) Action.None else { selected = (selected - 1 + size) % size; Action.Redraw }
-        Key.DOWN -> if (size == 0) Action.None else { selected = (selected + 1) % size; Action.Redraw }
-        else -> null
+    /**
+     * On the "Are you sure?" pages the first lines are plain text, not choices: they carry no number, the cursor never lands on them, and a number key never
+     * picks anything (a stray key must not erase the phone). Everywhere else this is 0.
+     */
+    val plainRows: Int get() = when {
+        screen == Screen.FIRSTRUN && firstConfirm == "open" -> 4
+        screen == Screen.PHONETYPE && confirmErase -> 4
+        else -> 0
+    }
+
+    private fun move(key: Key, size: Int): Action? {
+        val lo = plainRows.coerceAtMost(size)
+        val n = size - lo
+        return when (key) {
+            Key.UP -> if (n <= 0) Action.None else { selected = lo + ((selected.coerceAtLeast(lo) - lo - 1 + n) % n); Action.Redraw }
+            Key.DOWN -> if (n <= 0) Action.None else { selected = lo + ((selected.coerceAtLeast(lo) - lo + 1) % n); Action.Redraw }
+            else -> null
+        }
     }
 
     private fun open(item: MenuItem?): Action = when {
@@ -1165,7 +1179,7 @@ class LauncherModel(
     var langTag: String = java.util.Locale.getDefault().toLanguageTag()
 
     private val firstRunRows: List<String> get() = when {
-        firstConfirm == "open" -> listOf("Nothing is locked.", "No parent controls", "it. Changing this", "later erases it.", "Yes, Open phone", "No, go back")
+        firstConfirm == "open" -> listOf("Nothing is locked.", "No parent controls.", "Changing this later", "erases the phone.", "Yes, Open phone", "No, go back")
         wizStep == 0 -> listOf("Choose Wi-Fi", if (connWifi == 1) "Next" else "Skip")
         wizStep == 1 -> listOf("Time zone: " + Regional.zoneName(tzId), "Language: " + Regional.languageName(langTag), "Next", "Back")
         else -> listOf("Open phone", "Family phone", "Back")

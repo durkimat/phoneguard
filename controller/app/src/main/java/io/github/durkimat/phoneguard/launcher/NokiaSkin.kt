@@ -664,7 +664,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
                 val style = chrome.row(m, idx)
-                val prefix = style?.prefix ?: if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
+                val prefix = style?.prefix ?: if (m.plainRows > 0) "" else if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
                 val tx = style?.tx ?: 20f
                 val room = style?.room ?: 440f
                 val label = ellipsize(prefix + row, room, 32f)

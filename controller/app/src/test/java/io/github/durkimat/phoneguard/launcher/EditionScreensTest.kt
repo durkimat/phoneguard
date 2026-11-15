@@ -57,7 +57,7 @@ class EditionScreensTest {
     @Test fun openPhoneNeedsConfirmationThenChoosesOnce() {
         val m = model("first_boot")
         toPhoneType(m); assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(listOf("Nothing is locked.", "No parent controls", "it. Changing this", "later erases it.", "Yes, Open phone", "No, go back"), m.rows)
+        assertEquals(listOf("Nothing is locked.", "No parent controls.", "Changing this later", "erases the phone.", "Yes, Open phone", "No, go back"), m.rows)
         assertTrue(m.rows.all { it.length <= 20 }) // the confirmation text must not be cut off on the screen
         m.onKey(Key.SOFT_RIGHT) // back out of the question
         assertEquals(listOf("Open phone", "Family phone", "Back"), m.rows)
@@ -157,5 +157,16 @@ class EditionScreensTest {
         assertEquals(Screen.THISPHONE, m.screen)
         m.lockFailed("Could not set the PIN. Ask your parent")
         assertEquals(Screen.FORM, m.screen); assertEquals("Screen lock", m.title); assertEquals("Could not set the PIN. Ask your parent", m.notice)
+    }
+
+    @Test fun theExplanationLinesOfAConfirmationAreNotChoices() {
+        val m = model("first_boot"); toPhoneType(m); m.onKey(Key.OK)
+        assertEquals(4, m.plainRows); assertEquals(5, m.selected)
+        m.onKey(Key.UP); assertEquals(4, m.selected)
+        m.onKey(Key.UP); assertEquals(5, m.selected) // wraps past the text lines, not onto them
+        m.onKey(Key.DOWN); assertEquals(4, m.selected)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(0, m.plainRows) // an ordinary page numbers every row again
+        val e = model("open"); e.onKey(Key.OK); e.onKey(Key.OK); e.onKey(Key.DIGIT, 4); down(e, e.rows.indexOf("Phone type")); e.onKey(Key.OK); down(e, 2); e.onKey(Key.OK)
+        assertEquals(4, e.plainRows); assertEquals(5, e.selected); e.onKey(Key.UP); e.onKey(Key.UP); assertEquals(5, e.selected)
     }
 }
