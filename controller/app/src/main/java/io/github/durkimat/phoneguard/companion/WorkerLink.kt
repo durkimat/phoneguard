@@ -157,7 +157,7 @@ object WorkerLink {
         val v = rp.optInt("configVersion", 0)
         mailRetry = false
         val what = Link.applyShared(c, rp, serverT, { withOpenedSecrets(c, it) },
-            { sp(c).edit().putString("cfgh", if (mailRetry) "" else it).putInt("cfgVersion", v).apply() }, // an empty hash makes the server send the config again next time
+            { sp(c).edit().putString("cfgh", if (mailRetry || io.github.durkimat.phoneguard.ScreenLock.retry) "" else it).putInt("cfgVersion", v).apply() }, // an empty hash makes the server send the config again next time
             { removeProvisioned(c); forget(c); EncKey.delete() })
         return "$what (v$v)"
     }
@@ -179,6 +179,7 @@ object WorkerLink {
         }
         provisionMail(c, out, secrets, did, key)
         provisionCalendars(c, out, secrets, did, key)
+        try { io.github.durkimat.phoneguard.ScreenLock.applyFromConfig(c, out.optJSONObject("lock"), secrets, did, key) } catch (e: Exception) { Log.log(c, "screen lock: crashed: ${e.javaClass.simpleName}") }
         return out
     }
 
@@ -264,6 +265,7 @@ object WorkerLink {
         io.github.durkimat.phoneguard.whatsapp.WhatsApp.allowSummary(c).let { (all, n) ->
             st.put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("all", all).put("allowed", n))
         }
+        try { st.put("lock", io.github.durkimat.phoneguard.ScreenLock.state(c)) } catch (_: Exception) { }
         st.put("spotifyInstalled", io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(c))
         return p
     }

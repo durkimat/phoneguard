@@ -125,4 +125,28 @@ class EditionScreensTest {
         assertEquals("vibrate", OpenConfig.step(emptyMap(), OpenConfig.options[0], 1))
         assertEquals("silent", OpenConfig.step(emptyMap(), OpenConfig.options[0], -1))
     }
+
+    private fun toScreenLock(m: LauncherModel): Action { m.onKey(Key.OK); m.onKey(Key.OK); down(m, m.rows.indexOf("Screen lock")); return m.onKey(Key.OK) }
+
+    @Test fun anOpenPhoneOpensAndroidsOwnLockScreen() {
+        val m = model("open")
+        assertEquals(Action.OpenAndroidLock, toScreenLock(m))
+    }
+
+    @Test fun aFamilyPhoneHasItsOwnScreenLockForm() {
+        val m = model("family")
+        assertEquals(Action.LockLoad, toScreenLock(m))
+        assertEquals(Screen.FORM, m.screen)
+        assertEquals("Screen lock", m.title)
+        assertEquals(listOf("PIN: not set", "PIN (4 to 8 digits): -", "Repeat PIN: -"), m.rows)
+        m.lockSet = true; m.lockKnown = true; m.lockParentReady = true; m.lockBy = "parent"
+        assertEquals(listOf("PIN: set by your parent", "Current PIN: -", "New PIN: -", "Repeat PIN: -", "Remove PIN"), m.rows)
+        m.lockParentReady = false
+        assertTrue(m.rows.contains("Allow parent help"))
+    }
+
+    @Test fun savingWithNothingTypedJustLeaves() {
+        val m = model("family"); toScreenLock(m)
+        assertEquals(Action.Redraw, m.onKey(Key.SOFT_LEFT)) // nothing typed: leaves quietly
+    }
 }

@@ -134,6 +134,12 @@ sealed class Action {
     /** First-run: the person chose the Family phone (starts the pairing screen). */
     object StartFamily : Action()
     data class SetTimeZone(val id: String) : Action()
+    /** Screen lock: set or change the PIN (current is empty when none was set), remove it, ask Android to confirm the PIN once for parent control, or open Android's own set-PIN screen (an Open phone). */
+    data class SetLockPin(val current: String, val pin: String) : Action()
+    data class RemoveLockPin(val current: String) : Action()
+    object ConfirmLockForParent : Action()
+    object LockLoad : Action()
+    object OpenAndroidLock : Action()
     data class SetLanguage(val tag: String) : Action()
     /** Factory reset behind "switch the phone type". */
     object EraseAndRestart : Action()
@@ -297,7 +303,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery", "Time zone", "Language")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery", "Screen lock", "Time zone", "Language")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -1220,6 +1226,7 @@ class LauncherModel(
                 "Battery" -> enter(Screen.BATTERY)
                 "Connections" -> enter(Screen.CONNECTIONS)
                 "Time zone" -> enter(Screen.TIMEZONE, Regional.zones.indexOfFirst { it.id == tzId }.coerceAtLeast(0))
+                "Screen lock" -> out = openLock()
                 "Language" -> enter(Screen.LANGUAGE, Regional.languages.indexOfFirst { it.id.equals(langTag, true) || it.id.startsWith(langTag.substringBefore('-') + "-", true) }.coerceAtLeast(0))
                 "Phone options" -> enter(Screen.OPENOPTS)
                 "Phone type" -> { confirmErase = false; enter(Screen.PHONETYPE) }
@@ -2291,6 +2298,47 @@ class LauncherModel(
                     leaveTo(if (trail.any { it.screen == Screen.MAILLIST }) Screen.MAILLIST else Screen.MAILBOX, 0); notice = "Sending..."
                     Action.MailSend(rcpt, subject.ifBlank { "(no subject)" }, body)
                 }
+            }
+        }
+    }
+
+    // ---- Screen lock
+    /** Set by the activity: a secure lock exists; the phone can check its PIN; parent control is ready (Family, token active); the line about who set it; a note to show once. */
+    var lockSet = false
+    var lockKnown = false
+    var lockParentReady = false
+    var lockBy = ""
+    private var lockRemoveConfirm = false
+
+    private fun openLock(): Action {
+        if (edition != "family") return Action.OpenAndroidLock // an Open phone has no parent control: Android's own screen does it
+        pushForm(lockForm())
+        return Action.LockLoad
+    }
+
+    private fun lockForm(): Form {
+        var cur = ""; var pin = ""; var again = ""
+        lockRemoveConfirm = false
+        val stars: (String) -> String = { if (it.isEmpty()) "-" else "*".repeat(it.length.coerceAtMost(8)) }
+        val rows: () -> List<FormRow> = { buildList {
+            add(FormRow("PIN", { if (!lockSet) "not set" else if (lockBy == "parent") "set by your parent" else "set" }))
+            if (lockSet && !lockParentReady) add(FormRow("Allow parent help", run = { Action.ConfirmLockForParent }))
+            if (lockSet && lockKnown) add(FormRow("Current PIN", { stars(cur) }, { cur = it.filter { ch -> ch.isDigit() }.take(8) }, { cur }, exact = true))
+            add(FormRow(if (lockSet) "New PIN" else "PIN (4 to 8 digits)", { stars(pin) }, { pin = it.filter { ch -> ch.isDigit() }.take(8) }, { pin }, exact = true))
+            add(FormRow("Repeat PIN", { stars(again) }, { again = it.filter { ch -> ch.isDigit() }.take(8) }, { again }, exact = true))
+            if (lockSet) add(FormRow(if (lockRemoveConfirm) "Press again to remove" else "Remove PIN", run = {
+                if (!lockRemoveConfirm) { lockRemoveConfirm = true; Action.Redraw }
+                else if (lockKnown && cur.isEmpty()) { lockRemoveConfirm = false; notice = "Enter the current PIN"; Action.Redraw }
+                else { lockRemoveConfirm = false; leave(); notice = "Removing the PIN..."; Action.RemoveLockPin(cur) }
+            }))
+        } }
+        return Form("Screen lock", "Save", rows) {
+            when {
+                pin.isEmpty() && again.isEmpty() -> { leave(); Action.Redraw }
+                pin.length !in 4..8 -> { notice = "Use 4 to 8 digits"; Action.Redraw }
+                pin != again -> { notice = "The two PINs differ"; Action.Redraw }
+                lockSet && lockKnown && cur.isEmpty() -> { notice = "Enter the current PIN"; Action.Redraw }
+                else -> { leave(); notice = "Saving the PIN..."; Action.SetLockPin(cur, pin) }
             }
         }
     }

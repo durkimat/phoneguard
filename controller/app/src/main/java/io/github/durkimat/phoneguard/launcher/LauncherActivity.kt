@@ -96,6 +96,7 @@ class LauncherActivity : Activity() {
     override fun onResume() {
         super.onResume()
         inFront = true
+        if (model.lockSet && !model.lockParentReady) lockPush() // back from confirming the PIN: the token may be active now
         try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
@@ -570,6 +571,11 @@ class LauncherActivity : Activity() {
             }.start()
             Action.ChooseOpen -> Thread { io.github.durkimat.phoneguard.Edition.chooseOpen(this); ui.post { refresh() } }.start()
             is Action.SetTimeZone -> Thread { val ok = Regional.applyZone(this, a.id); ui.post { model.notify(if (ok) "Time zone set" else "Could not set the time zone"); refresh() } }.start()
+            is Action.SetLockPin -> Thread { val r = io.github.durkimat.phoneguard.ScreenLock.childSet(this, a.current, a.pin); ui.post { model.notify(if (r.isEmpty()) "PIN saved" else r); lockPush(); refresh() } }.start()
+            is Action.RemoveLockPin -> Thread { val r = io.github.durkimat.phoneguard.ScreenLock.childRemove(this, a.current); ui.post { model.notify(if (r.isEmpty()) "PIN removed" else r); lockPush(); refresh() } }.start()
+            Action.ConfirmLockForParent -> io.github.durkimat.phoneguard.ScreenLock.confirmIntent(this)?.let { start(it) } ?: ui.post { model.notify("No PIN to confirm"); refresh() }
+            Action.LockLoad -> { lockPush(); refresh() }
+            Action.OpenAndroidLock -> start(Intent(android.app.admin.DevicePolicyManager.ACTION_SET_NEW_PASSWORD))
             is Action.SetLanguage -> Thread { val ok = Regional.applyLanguage(this, a.tag); ui.post { model.notify(if (ok) "Language set" else "Could not set the language"); refresh() } }.start()
             Action.StartFamily -> start(Intent(this, io.github.durkimat.phoneguard.companion.EnrolActivity::class.java))
             Action.EraseAndRestart -> io.github.durkimat.phoneguard.Edition.eraseAndRestart(this)
@@ -809,6 +815,16 @@ class LauncherActivity : Activity() {
     private fun launch(pkg: String) {
         val i = packageManager.getLaunchIntentForPackage(pkg) ?: return Log.log(this, "launcher: no launch intent for $pkg")
         start(i)
+    }
+
+    /** Tells the model what the screen lock looks like now (it is read from the system, so off the main thread). */
+    private fun lockPush() {
+        Thread {
+            val set = io.github.durkimat.phoneguard.ScreenLock.isSet(this); val known = io.github.durkimat.phoneguard.ScreenLock.canVerify(this)
+            val ready = io.github.durkimat.phoneguard.ScreenLock.tokenReady(this); val by = io.github.durkimat.phoneguard.ScreenLock.state(this).optString("by", "")
+            val note = io.github.durkimat.phoneguard.ScreenLock.takeParentNote(this)
+            ui.post { model.lockSet = set; model.lockKnown = known; model.lockParentReady = ready; model.lockBy = if (by == "null") "" else by; if (note) model.notify("Your parent changed your PIN"); refresh() }
+        }.start()
     }
 
     private fun start(i: Intent) {
