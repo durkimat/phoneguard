@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -73,6 +73,8 @@ object MenuStyles {
 
 /** How a screen's entries are laid out. The model tells every skin, so key handling and drawing always agree. */
 enum class Layout { LIST, GRID, CUSTOM }
+/** How far the home screen's data line moves down in the Mac look (design pixels): its title bar and frame take the top. */
+const val DATA_MAC_SHIFT = 46f
 const val GRID_COLS = 3
 /** Rows of tiles on screen at once; more rows scroll vertically. */
 const val GRID_ROWS = 3
@@ -139,6 +141,9 @@ sealed class Action {
     data class RemoveLockPin(val current: String) : Action()
     object ConfirmLockForParent : Action()
     object LockLoad : Action()
+    /** Mobile data plan: the activity fills in the plan, the SIMs and the renewal date; or saves what the form collected. */
+    object DataLoad : Action()
+    data class SaveDataPlan(val plan: io.github.durkimat.phoneguard.core.DataPlan) : Action()
     object OpenAndroidLock : Action()
     data class SetLanguage(val tag: String) : Action()
     /** Factory reset behind "switch the phone type". */
@@ -303,7 +308,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery", "Screen lock", "Time zone", "Language")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery", "Mobile data", "Screen lock", "Time zone", "Language")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -467,6 +472,7 @@ class LauncherModel(
         Screen.RADIOBROWSE -> "Browse"
         Screen.CONNECTIONS -> "Connections"
         Screen.FIRSTRUN -> if (firstConfirm != null) "Are you sure?" else when (wizStep) { 0 -> "1 of 3: Wi-Fi"; 1 -> "2 of 3: Time, language"; else -> "3 of 3: Phone type" }
+        Screen.DATA -> "Mobile data"
         Screen.TIMEZONE -> "Time zone"
         Screen.LANGUAGE -> "Language"
         Screen.PHONETYPE -> "Phone type"
@@ -520,6 +526,7 @@ class LauncherModel(
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
         Screen.TIMEZONE, Screen.LANGUAGE -> "Select" to "Back"
+        Screen.DATA -> "Select" to "Back"
         Screen.OPENOPTS -> "Change" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
@@ -560,6 +567,7 @@ class LauncherModel(
         Screen.RADIOBROWSE -> radioBrowseRows
         Screen.CONNECTIONS -> connectionRows
         Screen.FIRSTRUN -> firstRunRows
+        Screen.DATA -> dataRows
         Screen.TIMEZONE -> Regional.zones.map { it.name + if (it.id == tzId) " *" else "" }
         Screen.LANGUAGE -> Regional.languages.map { it.name + if (it.id.equals(langTag, true)) " *" else "" }
         Screen.PHONETYPE -> phoneTypeRows
@@ -619,7 +627,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -640,6 +648,7 @@ class LauncherModel(
         Screen.RADIOBROWSE -> radioBrowseKey(key)
         Screen.CONNECTIONS -> connectionsKey(key)
         Screen.FIRSTRUN -> firstRunKey(key)
+        Screen.DATA -> dataKey(key)
         Screen.TIMEZONE -> pickKey(key, Regional.zones.size) { tzId = Regional.zones[it].id; Action.SetTimeZone(tzId) }
         Screen.LANGUAGE -> pickKey(key, Regional.languages.size) { langTag = Regional.languages[it].id; Action.SetLanguage(langTag) }
         Screen.PHONETYPE -> phoneTypeKey(key)
@@ -1226,6 +1235,7 @@ class LauncherModel(
                 "Battery" -> enter(Screen.BATTERY)
                 "Connections" -> enter(Screen.CONNECTIONS)
                 "Time zone" -> enter(Screen.TIMEZONE, Regional.zones.indexOfFirst { it.id == tzId }.coerceAtLeast(0))
+                "Mobile data" -> { enter(Screen.DATA); out = Action.DataLoad }
                 "Screen lock" -> out = openLock()
                 "Language" -> enter(Screen.LANGUAGE, Regional.languages.indexOfFirst { it.id.equals(langTag, true) || it.id.startsWith(langTag.substringBefore('-') + "-", true) }.coerceAtLeast(0))
                 "Phone options" -> enter(Screen.OPENOPTS)
@@ -1310,6 +1320,7 @@ class LauncherModel(
         if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
+        if (dataView != null) { val y = if (Themes.byId(theme).skin == "mac") DATA_MAC_SHIFT else 0f; add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
         if (weather != null) add(HomeTarget("weather", 60f, 345f, 420f, 440f))
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
     }
@@ -1333,6 +1344,7 @@ class LauncherModel(
                     "bt" -> { openConnection(Screen.BT); Action.BtLoad }
                     "battery" -> { enter(Screen.BATTERY); Action.Redraw }
                     "weather" -> openWeather()
+                    "data" -> { enter(Screen.DATA); Action.DataLoad }
                     else -> t.badge?.let { openBadge(it) } ?: Action.Redraw
                 }
             }
@@ -1370,7 +1382,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
@@ -2390,6 +2402,50 @@ class LauncherModel(
         }
     }
 
+    // ---- Mobile data plan
+    /** The SIM's data for the home widget and the Data page; the plan being edited, the SIMs, and the renewal date text. Set by the activity. */
+    var dataView: io.github.durkimat.phoneguard.core.DataView? = null
+    var dataPlan = io.github.durkimat.phoneguard.core.DataPlan()
+    var dataSims: List<Pair<Int, String>> = emptyList()
+    var dataRenews = ""
+
+    private val dataRows: List<String> get() {
+        val v = dataView ?: return listOf(if (dataPlan.set) "No reading yet" else "No data plan set", if (dataPlan.set) "Change plan" else "Set up plan")
+        return listOf("Used: " + io.github.durkimat.phoneguard.core.DataView.amount(v.used) + " (" + (v.fraction * 100).toInt() + "%)", "Left: " + io.github.durkimat.phoneguard.core.DataView.amount(v.left),
+            "Allowance: " + io.github.durkimat.phoneguard.core.DataView.amount(v.allowance), "Renews: " + dataRenews.ifEmpty { "-" }, "Change plan")
+    }
+
+    private fun dataKey(key: Key): Action = move(key, dataRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == dataRows.size - 1) { pushForm(dataForm()); Action.Redraw } else Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun dataForm(): Form {
+        val p0 = dataPlan
+        var gb = if (p0.set) io.github.durkimat.phoneguard.core.DataView.amount(p0.allowance).removeSuffix(" GB") else ""
+        var day = p0.renewDay; var start = p0.start; var warn = p0.warnPct; var corr = p0.correctionMb.toString(); var sim = p0.subId
+        val rows: () -> List<FormRow> = { buildList {
+            add(FormRow("Allowance GB", { gb.ifBlank { "-" } }, { gb = it.trim().replace(',', '.') }, { gb }, exact = true))
+            add(FormRow("Renews on day", { if (start.isNotBlank()) "(date set)" else day.toString() }, onStep = { d, big -> day = (day + d * (if (big) 5 else 1) - 1).mod(28) + 1; start = "" }))
+            add(FormRow("Or start date", { start.ifBlank { "-" } }, { start = it.trim() }, { start }, exact = true))
+            add(FormRow("Warn at %", { warn.toString() }, onStep = { d, big -> warn = (warn + d * (if (big) 10 else 1)).coerceIn(1, 50) }))
+            add(FormRow("Correction MB", { corr }, { corr = it.trim() }, { corr }, exact = true))
+            if (dataSims.size > 1) add(FormRow("SIM", { dataSims.firstOrNull { it.first == sim }?.second ?: "Data SIM" }, onStep = { d, _ ->
+                val ids = listOf(-1) + dataSims.map { it.first }; sim = ids[(ids.indexOf(sim).coerceAtLeast(0) + d).mod(ids.size)] }))
+        } }
+        return Form("Mobile data plan", "Save", rows) {
+            val bytes = gb.toDoubleOrNull()?.let { (it * 1e9).toLong() } ?: 0L
+            when {
+                gb.isNotBlank() && bytes <= 0 -> { notice = "Allowance in GB, like 10 or 7.5"; Action.Redraw }
+                start.isNotBlank() && io.github.durkimat.phoneguard.core.DataPlan.parseDate(start) == null -> { notice = "Date like 2026-12-12"; Action.Redraw }
+                corr.isNotBlank() && corr.toLongOrNull() == null -> { notice = "Correction is a whole number of MB"; Action.Redraw }
+                else -> { leave(); notice = "Saved"; Action.SaveDataPlan(io.github.durkimat.phoneguard.core.DataPlan(bytes, day, start, warn, corr.toLongOrNull() ?: 0L, sim)) }
+            }
+        }
+    }
+
     private fun accountForm(): Form {
         var address = mailAccount ?: ""; var password = ""; var name = ""; var imap = ""; var smtp = ""
         removeConfirm = false
@@ -2450,6 +2506,8 @@ data class HomeInfo(
     val bt: Int = -1,
     /** Mobile data: -1 not shown (no SIM, or the mode hides it), 0 on but not in use, 1 in use, 2 switched off. Wi-Fi above takes 2 for switched off too. */
     val data: Int = -1,
+    /** The SIM's mobile data (null when there is no plan, no SIM, or the mode hides it). */
+    val dataView: io.github.durkimat.phoneguard.core.DataView? = null,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

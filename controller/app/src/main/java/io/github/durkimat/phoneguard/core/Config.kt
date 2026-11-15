@@ -42,6 +42,8 @@ data class ModeDef(
     val radio: String = "any",
     /** Wi-Fi, Bluetooth and mobile data go off while the phone is locked and unused, and come back on for check-ins and when it is unlocked. */
     val radiosSleep: Boolean = true,
+    /** Whether the mobile data left is shown on the home screen (when a plan is set on the phone). */
+    val dataWidget: Boolean = true,
 )
 
 /** One internet radio station: a name for the screens and an https stream address. */
@@ -137,6 +139,7 @@ data class Config(
                     screenOffMin = m.optInt("screenOffMin", 5),
                     radio = m.optString("radio", "any"),
                     radiosSleep = m.optBoolean("radiosSleep", true),
+                    dataWidget = m.optBoolean("dataWidget", true),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->

@@ -70,7 +70,7 @@ class JourneyTest {
     private class Map(val seen: LinkedHashMap<Snap, List<Press>>, val crashes: List<String>)
 
     /** Breadth first over (screen, row, depth), keeping the shortest key path to each. */
-    private fun explore(s: Setup, levels: Int = 8, cap: Int = 9000): Map {
+    private fun explore(s: Setup, levels: Int = 9, cap: Int = 30000): Map {
         val seen = LinkedHashMap<Snap, List<Press>>()
         val crashes = ArrayList<String>()
         val start = phone(s)

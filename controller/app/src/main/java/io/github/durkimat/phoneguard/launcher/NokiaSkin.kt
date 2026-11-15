@@ -122,7 +122,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             statusLine(c, i, u)
             chrome.beginContent(this, c, u)
             when (m.screen) {
-                Screen.HOME -> { home(c, i, u); if (i.nextUp.isNotBlank()) text(c, fit(i.nextUp, 440f, 26f), 240f, 396f, 26f, u, align = Paint.Align.CENTER); m.weather?.let { w -> weatherStrip(c, w, u) } }
+                Screen.HOME -> { home(c, i, u); i.dataView?.let { dataWidget(c, it, u) }; if (i.nextUp.isNotBlank()) text(c, fit(i.nextUp, 440f, 26f), 240f, 396f, 26f, u, align = Paint.Align.CENTER); m.weather?.let { w -> weatherStrip(c, w, u) } }
                 Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.BATTERY -> batteryScreen(c, m, u)
                 Screen.NOTE -> noteScreen(c, m, u)
@@ -551,6 +551,20 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 text(c, "Weather data by Open-Meteo.com", 240f, 570f, 18f, u, align = Paint.Align.CENTER)
             }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** Mobile data on the home screen, one line under the status strip: what is left in words and the share used as a bar; at 10% or less left, an inverted banner instead. */
+        private fun dataWidget(c: Canvas, v: io.github.durkimat.phoneguard.core.DataView, u: Float) {
+            val y = (if (Themes.byId(model?.theme).skin == "mac") DATA_MAC_SHIFT else 0f) // the Mac look has a title bar and a frame: the line sits just inside it
+            if (v.low) {
+                fill.color = ink; c.drawRect(14f * u, (56f + y) * u, 466f * u, (84f + y) * u, fill)
+                text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 77f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                return
+            }
+            text(c, v.leftText, 14f, 78f + y, 26f, u, bold = true)
+            stroke.strokeWidth = 2f * u; stroke.color = ink
+            c.drawRect(230f * u, (58f + y) * u, 466f * u, (80f + y) * u, stroke)
+            fill.color = ink; c.drawRect(230f * u, (58f + y) * u, (230f + 236f * v.fraction) * u, (80f + y) * u, fill)
         }
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {

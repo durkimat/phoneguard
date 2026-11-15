@@ -266,6 +266,7 @@ object WorkerLink {
             st.put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("all", all).put("allowed", n))
         }
         try { st.put("lock", io.github.durkimat.phoneguard.ScreenLock.state(c)) } catch (_: Exception) { }
+        try { io.github.durkimat.phoneguard.net.DataUsage.state(c)?.let { st.put("data", it) } } catch (_: Exception) { }
         st.put("spotifyInstalled", io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(c))
         return p
     }

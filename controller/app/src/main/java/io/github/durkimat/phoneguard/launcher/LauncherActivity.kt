@@ -445,7 +445,7 @@ class LauncherActivity : Activity() {
             model.radioNames = r.radioNames; model.radioMode = r.radioMode
             model.playingProvider = r.playingProvider; model.provStatus = r.provStatus
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
-            model.badges = it.badges; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
+            model.badges = it.badges; model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
             model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data
             lastInfo = it
         }
@@ -576,6 +576,12 @@ class LauncherActivity : Activity() {
             Action.ConfirmLockForParent -> io.github.durkimat.phoneguard.ScreenLock.confirmIntent(this)?.let { start(it) } ?: ui.post { model.notify("No PIN to confirm"); refresh() }
             Action.LockLoad -> { lockPush(); refresh() }
             Action.OpenAndroidLock -> start(Intent(android.app.admin.DevicePolicyManager.ACTION_SET_NEW_PASSWORD))
+            Action.DataLoad -> Thread {
+                val plan = io.github.durkimat.phoneguard.net.DataUsage.plan(this); val sims = io.github.durkimat.phoneguard.net.DataUsage.sims(this)
+                val v = io.github.durkimat.phoneguard.net.DataUsage.view(this); val until = io.github.durkimat.phoneguard.net.DataUsage.renewal(this)
+                ui.post { model.dataPlan = plan; model.dataSims = sims; model.dataView = v; model.dataRenews = if (until > 0) java.text.SimpleDateFormat("d MMM", java.util.Locale.UK).format(java.util.Date(until)) else ""; refresh() }
+            }.start()
+            is Action.SaveDataPlan -> Thread { io.github.durkimat.phoneguard.net.DataUsage.save(this, a.plan); ui.post { invalidate(D.INFO); refresh() } }.start()
             is Action.SetLanguage -> Thread { val ok = Regional.applyLanguage(this, a.tag); ui.post { model.notify(if (ok) "Language set" else "Could not set the language"); refresh() } }.start()
             Action.StartFamily -> start(Intent(this, io.github.durkimat.phoneguard.companion.EnrolActivity::class.java))
             Action.EraseAndRestart -> io.github.durkimat.phoneguard.Edition.eraseAndRestart(this)

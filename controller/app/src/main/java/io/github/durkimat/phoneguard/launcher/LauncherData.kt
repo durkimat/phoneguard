@@ -189,6 +189,7 @@ object LauncherData {
             wifi = wifiState(c),
             bt = bluetoothState(c),
             data = dataState(c),
+            dataView = if (eff.dataWidget) try { io.github.durkimat.phoneguard.net.DataUsage.view(c, now) } catch (_: Exception) { null } else null,
         )
     }
 
