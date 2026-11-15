@@ -443,6 +443,9 @@ class LauncherActivity : Activity() {
 
     private var homeMusicTick = false
 
+    /** A short, plain reason for a PIN that could not be changed ("Not ready yet" and the like mean the phone could not use its device-owner token). */
+    private fun lockWhy(r: String) = when (r) { "Not ready yet", "The phone refused the PIN", "Could not change the PIN", "Needs a Family phone" -> "Could not set the PIN. Ask your parent"; else -> r }
+
     /** Takes what the background read found into the model (main thread) and draws. */
     private fun apply(r: Loaded, bits: Int, screen: Screen) {
         model.openOpts = io.github.durkimat.phoneguard.Edition.openOptions(this)
@@ -583,8 +586,8 @@ class LauncherActivity : Activity() {
             }.start()
             Action.ChooseOpen -> Thread { io.github.durkimat.phoneguard.Edition.chooseOpen(this); ui.post { refresh() } }.start()
             is Action.SetTimeZone -> Thread { val ok = Regional.applyZone(this, a.id); ui.post { model.notify(if (ok) "Time zone set" else "Could not set the time zone"); refresh() } }.start()
-            is Action.SetLockPin -> Thread { val r = io.github.durkimat.phoneguard.ScreenLock.childSet(this, a.current, a.pin); ui.post { model.notify(if (r.isEmpty()) "PIN saved" else r); lockPush(); refresh() } }.start()
-            is Action.RemoveLockPin -> Thread { val r = io.github.durkimat.phoneguard.ScreenLock.childRemove(this, a.current); ui.post { model.notify(if (r.isEmpty()) "PIN removed" else r); lockPush(); refresh() } }.start()
+            is Action.SetLockPin -> Thread { val r = io.github.durkimat.phoneguard.ScreenLock.childSet(this, a.current, a.pin); ui.post { if (r.isEmpty()) model.notify("PIN saved") else model.lockFailed(lockWhy(r)); lockPush(); refresh() } }.start()
+            is Action.RemoveLockPin -> Thread { val r = io.github.durkimat.phoneguard.ScreenLock.childRemove(this, a.current); ui.post { if (r.isEmpty()) model.notify("PIN removed") else model.lockFailed(lockWhy(r)); lockPush(); refresh() } }.start()
             Action.ConfirmLockForParent -> io.github.durkimat.phoneguard.ScreenLock.confirmIntent(this)?.let { start(it) } ?: ui.post { model.notify("No PIN to confirm"); refresh() }
             Action.LockLoad -> { lockPush(); refresh() }
             Action.OpenAndroidLock -> start(Intent(android.app.admin.DevicePolicyManager.ACTION_SET_NEW_PASSWORD))

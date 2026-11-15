@@ -1200,3 +1200,6 @@ Left ink edge column 14 for the signal bars, the data text (ink-measured) and th
 
 ## 0.4.14: alignment fixes from the PC's 0.4.13 measurements
 The data text started at column 30 instead of 14: the ink-outline helper measured the glyph with whatever text alignment the last drawn text had left in the shared paint (the centred date), which shifted the outline by half a glyph. The helpers now set left alignment and no letter spacing first. The weather band moves 2 px lower (cy 130; Mac 372): band ink 102..157, gaps about 21 / 22 between the data strip (ends 80) and the clock's top ink (180).
+
+## 0.4.15: small fixes from the PC's emulator pass
+Screen lock page: the PIN rows read "New PIN" / "Repeat PIN" (the 4 to 8 digits hint is on the status row), and a PIN that cannot be saved or removed brings the page back with a short reason ("Could not set the PIN. Ask your parent", or "Confirm your PIN once first" when a lock already exists) instead of dropping into Settings. The home screen's left soft key reads "Select" while a symbol is highlighted (the skin used the HomeInfo label). Open: the battery highlight only exists where the mode shows Settings (intentional); "0 GB left" over the allowance kept as specified (the owner may prefer "0 MB").

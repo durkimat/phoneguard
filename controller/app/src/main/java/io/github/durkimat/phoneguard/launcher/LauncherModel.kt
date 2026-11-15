@@ -2379,15 +2379,18 @@ class LauncherModel(
         return Action.LockLoad
     }
 
+    /** The PIN could not be saved or removed: come back to the Screen lock page and say why, instead of dropping the person into Settings. */
+    fun lockFailed(why: String) { if (screen == Screen.SETTINGS) { pushForm(lockForm()) }; notice = why }
+
     private fun lockForm(): Form {
         var cur = ""; var pin = ""; var again = ""
         lockRemoveConfirm = false
         val stars: (String) -> String = { if (it.isEmpty()) "-" else "*".repeat(it.length.coerceAtMost(8)) }
         val rows: () -> List<FormRow> = { buildList {
-            add(FormRow("PIN", { if (!lockSet) "not set" else if (lockBy == "parent") "set by your parent" else "set" }))
+            add(FormRow("PIN", { if (!lockSet) "not set, 4 to 8 digits" else if (lockBy == "parent") "set by your parent" else "set" }))
             if (lockSet && !lockParentReady) add(FormRow("Allow parent help", run = { Action.ConfirmLockForParent }))
             if (lockSet && lockKnown) add(FormRow("Current PIN", { stars(cur) }, { cur = it.filter { ch -> ch.isDigit() }.take(8) }, { cur }, exact = true))
-            add(FormRow(if (lockSet) "New PIN" else "PIN (4 to 8 digits)", { stars(pin) }, { pin = it.filter { ch -> ch.isDigit() }.take(8) }, { pin }, exact = true))
+            add(FormRow("New PIN", { stars(pin) }, { pin = it.filter { ch -> ch.isDigit() }.take(8) }, { pin }, exact = true))
             add(FormRow("Repeat PIN", { stars(again) }, { again = it.filter { ch -> ch.isDigit() }.take(8) }, { again }, exact = true))
             if (lockSet) add(FormRow(if (lockRemoveConfirm) "Press again to remove" else "Remove PIN", run = {
                 if (!lockRemoveConfirm) { lockRemoveConfirm = true; Action.Redraw }

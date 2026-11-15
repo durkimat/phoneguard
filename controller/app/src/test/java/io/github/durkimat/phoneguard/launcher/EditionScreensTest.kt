@@ -138,7 +138,7 @@ class EditionScreensTest {
         assertEquals(Action.LockLoad, toScreenLock(m))
         assertEquals(Screen.FORM, m.screen)
         assertEquals("Screen lock", m.title)
-        assertEquals(listOf("PIN: not set", "PIN (4 to 8 digits): -", "Repeat PIN: -"), m.rows)
+        assertEquals(listOf("PIN: not set, 4 to 8 digits", "New PIN: -", "Repeat PIN: -"), m.rows)
         m.lockSet = true; m.lockKnown = true; m.lockParentReady = true; m.lockBy = "parent"
         assertEquals(listOf("PIN: set by your parent", "Current PIN: -", "New PIN: -", "Repeat PIN: -", "Remove PIN"), m.rows)
         m.lockParentReady = false
@@ -148,5 +148,13 @@ class EditionScreensTest {
     @Test fun savingWithNothingTypedJustLeaves() {
         val m = model("family"); toScreenLock(m)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_LEFT)) // nothing typed: leaves quietly
+    }
+
+    @Test fun aFailedSaveBringsBackTheScreenLockPageWithTheReason() {
+        val m = model("family"); toScreenLock(m)
+        m.onKey(Key.SOFT_RIGHT) // back to Settings
+        assertEquals(Screen.SETTINGS, m.screen)
+        m.lockFailed("Could not set the PIN. Ask your parent")
+        assertEquals(Screen.FORM, m.screen); assertEquals("Screen lock", m.title); assertEquals("Could not set the PIN. Ask your parent", m.notice)
     }
 }
