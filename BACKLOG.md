@@ -1155,3 +1155,7 @@ Done in this build (needs the PC's live test on the J36):
 Not done / notes:
 - WhatsApp history is requested only at link time (30 days, newest 20 per chat, allowed chats only), by the Go bridge. Keeping metadata for chats skipped at link time so they can be imported when the allow list grows is not cheap (it is in the bridge's history handler, not the Kotlin side); parked. The PC session is reordering the wizard so "who may message" comes before linking, which avoids the problem.
 - The hands-on librespot build was not run (see the spike note).
+
+### ims42 live results (2026-11-15, PC session)
+No-wipe flash on the owner's J36: boots in ~110 s, app 0.4.4, device owner kept, SET_TIME_ZONE and CHANGE_CONFIGURATION granted, doze_enabled=0. Time zone (Paris and back to London) and language (English UK, no `regional: language not set`) both verified. WhatsApp list shows no false "Not connected". Published: release v0.4.4 (APK 0.4.4 + companion 0.5.1) and image-20261115-ims42. Owner's Cloudflare is at 0.5.1.
+Still untested on a device: the first-run wizard screens (needs a wipe flash), the themed Connect screen, and WhatsApp relink after removing the device on the main phone.
