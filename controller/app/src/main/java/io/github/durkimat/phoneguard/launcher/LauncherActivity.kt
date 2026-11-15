@@ -461,12 +461,12 @@ class LauncherActivity : Activity() {
             model.playingProvider = r.playingProvider; model.provStatus = r.provStatus
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
             model.badges = it.badges; model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
-            model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data
+            model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data; model.batteryPct = it.batteryPct
             lastInfo = it
         }
         r.all?.let { all ->
             model.apps = LauncherData.otherApps(all, r.pinned)
-            model.logItems = LauncherData.logsAndSettings(all)
+            model.extraItems = LauncherData.settingsExtras(all)
             model.setItems(LauncherData.menu(all, r.pinned, androidApps = model.androidSettings))
         }
         r.contacts?.let { model.contacts = it }
@@ -531,7 +531,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
-    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOGSET, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+    private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
 
     private var presetDigit = 0
     private var presetStored = false

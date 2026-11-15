@@ -87,18 +87,18 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK)
         m.onKey(Key.UP) // wraps to the last entry, Settings
         assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery", "Mobile data", "Screen lock", "Time zone", "Language"), m.rows)
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Look", "Sound and typing", "Connections", "This phone"), m.rows)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
         assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
     }
 
     @Test fun choosingAThemeSavesItAndMarksIt() {
-        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK)
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK)
         assertEquals(Screen.THEME, m.screen)
         assertEquals(listOf("Green *", "Grey", "Amber", "Orange", "Classic Mac", "Classic Mac dark"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.DOWN)
         assertEquals(Action.SaveTheme("amber"), m.onKey(Key.SOFT_LEFT))
-        assertEquals("amber", m.theme); assertEquals(Screen.SETTINGS, m.screen)
+        assertEquals("amber", m.theme); assertEquals(Screen.LOOK, m.screen)
     }
 
     @Test fun themeBackLeavesTheThemeAlone() {
@@ -112,12 +112,13 @@ class LauncherModelTest {
 
     @Test fun fontIsChosenFromSettingsLikeTheTheme() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery", "Mobile data", "Screen lock", "Time zone", "Language"), m.rows)
+        assertEquals(listOf("Look", "Sound and typing", "Connections", "This phone"), m.rows)
+        m.onKey(Key.OK); assertEquals(listOf("Theme", "Font", "Menu style", "Appearance"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *") + Fonts.all.drop(1).map { it.name }, m.rows)
         m.onKey(Key.DOWN)
         assertEquals(Action.SaveFont("sans"), m.onKey(Key.OK))
-        assertEquals("sans", m.font); assertEquals(Screen.SETTINGS, m.screen)
+        assertEquals("sans", m.font); assertEquals(Screen.LOOK, m.screen)
     }
 
     private fun withContacts() = model().also { it.contacts = listOf(Contact("Dad", listOf("0111")), Contact("Mum", listOf("0222", "0333"))) }
@@ -448,19 +449,19 @@ class LauncherModelTest {
         assertEquals(Action.ToggleMute, c.onKey(Key.DIGIT, 2)); assertEquals(Screen.CALL, c.screen)
         c.onKey(Key.SOFT_LEFT); assertEquals(Action.ToggleSpeaker, c.onKey(Key.DIGIT, 1))
         // theme: 3 picks the third theme and saves it
-        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1)
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 1)
         assertEquals(Screen.THEME, m.screen); assertEquals(Action.SaveTheme("amber"), m.onKey(Key.DIGIT, 3))
         // a number with no entry does nothing
-        val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK); s.onKey(Key.DIGIT, 1); assertEquals(Action.None, s.onKey(Key.DIGIT, 9)) // the theme list has six entries
+        val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK); s.onKey(Key.DIGIT, 1); s.onKey(Key.DIGIT, 1); assertEquals(Action.None, s.onKey(Key.DIGIT, 9)) // the theme list has six entries
         // the call log: 2 rings (opens the dial screen with) the second entry
         val l = withTools(); l.onKey(Key.CALL); l.onKey(Key.CALL); assertEquals(Action.Call("0111"), l.onKey(Key.DIGIT, 2))
     }
 
     @Test fun hidingTheSpeakerRemovesItFromCallsAndSettingsSavesIt() {
         val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK)
-        assertEquals(Action.Redraw, s.onKey(Key.DIGIT, 6)); assertEquals(Screen.SPEAKER, s.screen)
+        s.onKey(Key.DIGIT, 2); assertEquals(Action.Redraw, s.onKey(Key.DIGIT, 2)); assertEquals(Screen.SPEAKER, s.screen)
         assertEquals(listOf("Show *", "Hide"), s.rows)
-        assertEquals(Action.SaveSpeaker(false), s.onKey(Key.DIGIT, 2)); assertEquals(false, s.speakerShown); assertEquals(Screen.SETTINGS, s.screen)
+        assertEquals(Action.SaveSpeaker(false), s.onKey(Key.DIGIT, 2)); assertEquals(false, s.speakerShown); assertEquals(Screen.SOUNDSET, s.screen)
 
         val c = LauncherModel(emptyList()); c.speakerShown = false
         c.setCall(CallInfo("0222", "Mum", CallPhase.DIALING)); assertEquals("" to "End", c.softKeys); assertEquals(Action.None, c.onKey(Key.SOFT_LEFT))
@@ -549,10 +550,11 @@ class LauncherModelTest {
         val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
         m.waEnabled = true; m.waLinked = true
         m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "WhatsApp", "Battery", "Mobile data", "Screen lock", "Time zone", "Language"), m.rows)
-        m.onKey(Key.DIGIT, 9); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
+        assertEquals(listOf("Look", "Sound and typing", "Connections", "This phone"), m.rows)
+        m.onKey(Key.DIGIT, 4); assertEquals(listOf("Screen lock", "Time zone", "Language", "WhatsApp"), m.rows)
+        m.onKey(Key.DIGIT, 4); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
         assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
-        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.SETTINGS, m.screen)
+        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.THISPHONE, m.screen)
     }
 
     @Test fun whatsAppSwitchedOffByTheModeIsNotOfferedAtAll() {
@@ -586,7 +588,7 @@ class LauncherModelTest {
         // choose another style: Settings > WhatsApp > Names in lists
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT) // back to the menu
         m.onKey(Key.UP); m.onKey(Key.OK) // Settings
-        m.onKey(Key.DIGIT, 9); assertEquals(Screen.WASET, m.screen)
+        m.onKey(Key.DIGIT, 4); m.onKey(Key.DIGIT, 4); assertEquals(Screen.WASET, m.screen)
         m.onKey(Key.DIGIT, 2); assertEquals(Screen.WANAMES, m.screen)
         assertEquals(listOf("First+last initials *", "All initials", "First name, 5 letters", "Full name"), m.rows)
         assertEquals(Action.SaveNameStyle("first5"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WASET, m.screen)
@@ -616,7 +618,7 @@ class LauncherModelTest {
 
     @Test fun pinnedAppsJoinTheMainMenuAndTheRestGoUnderOtherApps() {
         val menu = LauncherData.menu(all, listOf("a.music"))
-        assertEquals(listOf("Phone", "Messages", "Contacts", "Music", "Android Apps", "Calculator", "Logs & Settings"), menu.map { it.label })
+        assertEquals(listOf("Phone", "Messages", "Contacts", "Music", "Android Apps", "Calculator", "Call log", "Settings"), menu.map { it.label })
         assertEquals(listOf("Maps", "Reader"), LauncherData.otherApps(all, listOf("a.music")).map { it.label })
     }
 

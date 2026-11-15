@@ -12,9 +12,8 @@ import org.junit.Test
 class JourneyTest {
     private val items = listOf(
         MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
-        MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(WEATHER_PKG, "Weather"), MenuItem(GAMES_PKG, "Games"),
-        MenuItem(APPS_PKG, "Apps"), MenuItem(CALC_PKG, "Calculator"), MenuItem(MUSIC_PKG, "Music"), MenuItem(SETTINGS_PKG, "Settings"),
-        MenuItem(LOGSET_PKG, "Logs"), MenuItem(RUNNING_PKG, "Running"), MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(MAIL_PKG, "Email"),
+        MenuItem(MAIL_PKG, "Email"), MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(MUSIC_PKG, "Music"), MenuItem(APPS_PKG, "Apps"), MenuItem(WEATHER_PKG, "Weather"),
+        MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(CALLLOG_PKG, "Calls"), MenuItem(SETTINGS_PKG, "Settings"),
     )
 
     private class Setup(val menuStyle: String, val whatsApp: Boolean, val theme: String = "green", val linked: Boolean = whatsApp, val edition: String = "") {
@@ -31,7 +30,7 @@ class JourneyTest {
         it.convos = chat
         if (s.whatsApp && s.linked) it.waConvos = chat
         it.calls = listOf(CallEntry("0222", "Mum", 1, 3000), CallEntry("0111", "Dad", 2, 2000), CallEntry("0999", "0999", 3, 1000))
-        it.logItems = listOf(MenuItem(CALLLOG_PKG, "Calls"), MenuItem(NOTES_PKG, "Notes"), MenuItem(SETTINGS_PKG, "Settings"))
+        it.extraItems = listOf(MenuItem(NOTES_PKG, "Notes"), MenuItem(RUNNING_PKG, "Running"))
         it.apps = listOf(MenuItem("a.b", "Maps"), MenuItem("c.d", "Bank"))
         it.notes = listOf(io.github.durkimat.phoneguard.notes.NoteItem("k1", "a.b", "Maps", "Route", "Turn left", 1L, null))
         it.wifiOn = true; it.wifiNets = listOf(WifiNet("Home", 1, true, true, 3, true, true, "WPA2"), WifiNet("Cafe", -1, false, false, 2, false, true, ""))

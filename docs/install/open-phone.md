@@ -4,21 +4,16 @@ An Open phone has nothing locked and nothing reporting anywhere. You set it up o
 
 ## Getting around
 
-- **Menu** (left soft key on the home screen) lists Phone, Messages, Contacts, Email, Calendar, Music, Camera, Android Apps, Classic Games, Calculator, and **Logs & Settings**.
-- **Logs & Settings** holds the Call log, Notifications, **Running Apps** and **Settings**.
+- **Menu** (left soft key on the home screen) lists Phone, Messages, Contacts, Email, Calendar, Music, Camera, Android Apps, Classic Games, Calculator, **Call log** and **Settings**. Every row has a number: press it to jump straight there (for example Menu, 8 opens the Call log).
+- **Settings** is a short list of groups, numbered the same way: **Look**, **Sound and typing**, **Connections**, **This phone**, **Notifications** and **Running Apps**. The phone remembers where you were in each list until you go back to the home screen.
 
 ## What you can change on the phone
 
-In **Logs & Settings, Settings**:
-- **Theme, Font, Menu style, Appearance, Predictive text, Speakerphone, Sound test**: how the phone looks and sounds.
-- **Connections**: Wi-Fi, Bluetooth and mobile data on or off, and searching for Bluetooth devices.
-- **Phone options**: Sound, Notifications, WhatsApp checks, Camera on or off (off hides Camera from the Menu), Internet radio, Power saver radios, and the Spotify Client ID.
-- **Phone type**: shows this is an Open phone, the lost-PIN warning, and the switch to Family.
-- **WhatsApp**: link WhatsApp on the phone.
-- **Android settings**: the full Android Settings app.
-- **Battery**.
-
-In **Logs & Settings, Running Apps**, the left soft key (**Kill**) stops the highlighted app.
+- **Look**: Theme, Font, Menu style, Appearance.
+- **Sound and typing**: Predictive text, Speakerphone, Sound test.
+- **Connections**: Wi-Fi and Bluetooth on or off and their lists, **Mobile data** (the plan page, with the on/off switch at the top) and **Battery**.
+- **This phone**: **Screen lock**, **Time zone**, **Language**, **Phone options** (Sound, Notifications, WhatsApp checks, Camera on or off, Internet radio, Power saver radios and the Spotify Client ID), **Phone type** (shows this is an Open phone, the lost-PIN warning, and the switch to Family), **WhatsApp** and **Android settings** (the full Android Settings app).
+- **Running Apps**: the left soft key (**Kill**) stops the highlighted app.
 
 ## What is different from a Family phone
 
@@ -30,7 +25,7 @@ In **Logs & Settings, Running Apps**, the left soft key (**Kill**) stops the hig
 
 ## Changing your mind
 
-- **Open to Family:** Logs & Settings, Settings, **Phone type**, **Switch to Family (erases)**. The phone is erased and restarts at the first-run screen, where you choose **Family phone**, then follow the Family steps in the guide for your system ([Windows](windows.md), [macOS](macos.md), [Linux](linux.md)), from step 13.
+- **Open to Family:** Settings, This phone, **Phone type**, **Switch to Family (erases)**. The phone is erased and restarts at the first-run screen, where you choose **Family phone**, then follow the Family steps in the guide for your system ([Windows](windows.md), [macOS](macos.md), [Linux](linux.md)), from step 13.
 - **Family to Open:** the parent opens **Manage this phone** on the parent page and chooses **Release**. The phone becomes an Open phone, and nothing is erased.
 
 ## How it works

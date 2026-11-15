@@ -87,6 +87,7 @@ class EditionScreensTest {
         val m = model("open")
         m.onKey(Key.OK); m.onKey(Key.OK) // menu, then Settings
         assertEquals(Screen.SETTINGS, m.screen)
+        m.onKey(Key.DIGIT, 4); assertEquals(Screen.THISPHONE, m.screen)
         assertTrue(m.rows.contains("Phone type") && m.rows.contains("Phone options"))
         down(m, m.rows.indexOf("Phone type")); m.onKey(Key.OK)
         assertEquals(Screen.PHONETYPE, m.screen)
@@ -101,14 +102,14 @@ class EditionScreensTest {
     }
 
     @Test fun familyPhoneShowsNoSwitchAndNoOptions() {
-        val m = model("family"); m.onKey(Key.OK); m.onKey(Key.OK)
+        val m = model("family"); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.DIGIT, 4)
         assertFalse(m.rows.contains("Phone options"))
         down(m, m.rows.indexOf("Phone type")); m.onKey(Key.OK)
         assertEquals(Action.None, m.onKey(Key.OK))
     }
 
     @Test fun openOptionsCycleAndAreReportedForSaving() {
-        val m = model("open"); m.onKey(Key.OK); m.onKey(Key.OK)
+        val m = model("open"); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.DIGIT, 4)
         down(m, m.rows.indexOf("Phone options")); m.onKey(Key.OK)
         assertEquals(Screen.OPENOPTS, m.screen)
         assertEquals("Sound: Normal", m.rows[0])
@@ -126,7 +127,7 @@ class EditionScreensTest {
         assertEquals("silent", OpenConfig.step(emptyMap(), OpenConfig.options[0], -1))
     }
 
-    private fun toScreenLock(m: LauncherModel): Action { m.onKey(Key.OK); m.onKey(Key.OK); down(m, m.rows.indexOf("Screen lock")); return m.onKey(Key.OK) }
+    private fun toScreenLock(m: LauncherModel): Action { m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.DIGIT, 4); down(m, m.rows.indexOf("Screen lock")); return m.onKey(Key.OK) }
 
     @Test fun anOpenPhoneOpensAndroidsOwnLockScreen() {
         val m = model("open")
@@ -152,8 +153,8 @@ class EditionScreensTest {
 
     @Test fun aFailedSaveBringsBackTheScreenLockPageWithTheReason() {
         val m = model("family"); toScreenLock(m)
-        m.onKey(Key.SOFT_RIGHT) // back to Settings
-        assertEquals(Screen.SETTINGS, m.screen)
+        m.onKey(Key.SOFT_RIGHT) // back to This phone
+        assertEquals(Screen.THISPHONE, m.screen)
         m.lockFailed("Could not set the PIN. Ask your parent")
         assertEquals(Screen.FORM, m.screen); assertEquals("Screen lock", m.title); assertEquals("Could not set the PIN. Ask your parent", m.notice)
     }

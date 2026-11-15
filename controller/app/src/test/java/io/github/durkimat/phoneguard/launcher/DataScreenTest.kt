@@ -24,8 +24,9 @@ class DataScreenTest {
 
     @Test fun theDataPageListsUsedLeftAllowanceAndRenewal() {
         val m = model(); m.dataView = DataView(5_200_000_000L, 10_000_000_000L, 10); m.dataRenews = "12 Dec"; m.dataPlan = DataPlan(allowance = 10_000_000_000L)
-        m.onKey(Key.OK); m.onKey(Key.OK); repeat(m.rows.indexOf("Mobile data")) { m.onKey(Key.DOWN) }
-        assertEquals(Action.DataLoad, m.onKey(Key.OK))
+        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3) // Menu > Settings > Connections
+        assertEquals(listOf("Wi-Fi: On", "Bluetooth: On", "Mobile data: 4.8 GB", "Battery"), m.rows)
+        assertEquals(Action.DataLoad, m.onKey(Key.DIGIT, 3))
         assertEquals(listOf("Used: 5.2 GB (52%)", "Left: 4.8 GB", "Allowance: 10 GB", "Renews: 12 Dec", "Change plan"), m.rows)
         repeat(4) { m.onKey(Key.DOWN) }; m.onKey(Key.OK)
         assertEquals(Screen.FORM, m.screen); assertEquals("Mobile data plan", m.title)
@@ -33,7 +34,7 @@ class DataScreenTest {
     }
 
     @Test fun withoutAPlanThePageOffersToSetOneUp() {
-        val m = model(); m.onKey(Key.OK); m.onKey(Key.OK); repeat(m.rows.indexOf("Mobile data")) { m.onKey(Key.DOWN) }; m.onKey(Key.OK)
+        val m = model(); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3); assertEquals("Mobile data", m.rows[2]); m.onKey(Key.DIGIT, 3)
         assertEquals(listOf("No data plan set", "Set up plan"), m.rows)
         m.dataPlan = DataPlan(allowance = 1); assertEquals("Change plan", m.rows[1])
     }

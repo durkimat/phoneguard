@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -92,7 +92,6 @@ const val GRID_GAP = 8f
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
 const val CAMERA_PKG = "pg:camera"
-const val LOGSET_PKG = "pg:logset"
 const val MUSIC_PKG = "pg:music"
 const val NOTES_PKG = "pg:notes"
 const val CALENDAR_PKG = "pg:calendar"
@@ -272,7 +271,15 @@ class LauncherModel(
     /** How many screens sit behind this one (a stacked-window skin draws a close box when there is something to close back to). */
     val depth: Int get() = trail.size
     /** Opens [to] (on row [row]) on top of the current screen, remembering where we are so Back comes back to the same row. */
-    private fun enter(to: Screen, row: Int = 0) { trail.addLast(Frame(screen, selected)); screen = to; selected = row }
+    private fun enter(to: Screen, row: Int = 0) {
+        remember()
+        trail.addLast(Frame(screen, selected)); screen = to; selected = row
+        if (row == 0 && to in rememberRow) selected = (positions[to] ?: 0).coerceIn(0, (rows.size - 1).coerceAtLeast(0))
+    }
+    /** The lists that open again where the person left them (until the phone goes home): the menu, Settings and its groups. */
+    private val rememberRow = setOf(Screen.MENU, Screen.SETTINGS, Screen.LOOK, Screen.SOUNDSET, Screen.CONNECTIONS, Screen.THISPHONE)
+    private val positions = HashMap<Screen, Int>()
+    private fun remember() { if (screen in rememberRow) positions[screen] = selected }
     /** Back to a screen further down the trail, dropping its own frame and everything above it; with no such frame it is simply shown. */
     private fun leaveTo(target: Screen, row: Int) {
         val i = trail.indexOfLast { it.screen == target }
@@ -280,7 +287,7 @@ class LauncherModel(
         screen = target; selected = row
     }
     /** Back: returns to the screen below and the row it was on, or home when there is nothing below. */
-    private fun leave() { val f = trail.removeLastOrNull(); if (f == null || f.screen == Screen.HOME) goHome() else { screen = f.screen; selected = f.selected } }
+    private fun leave() { remember(); val f = trail.removeLastOrNull(); if (f == null || f.screen == Screen.HOME) goHome() else { screen = f.screen; selected = f.selected } }
 
     /** The allowed apps that are not in the main menu, shown under "Android Apps". */
     var apps: List<MenuItem> = emptyList()
@@ -312,7 +319,14 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery", "Mobile data", "Screen lock", "Time zone", "Language")
+    /** The Settings groups and what is in each, every one numbered 1.. in the order shown (rows come and go with the mode and the edition). */
+    private fun groupRows(on: Screen): List<String> = when (on) {
+        Screen.LOOK -> listOf("Theme", "Font", "Menu style", "Appearance")
+        Screen.SOUNDSET -> listOf("Predictive text", "Speakerphone", "Sound test")
+        Screen.THISPHONE -> listOf("Screen lock", "Time zone", "Language") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
+            (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList())
+        else -> listOf("Look", "Sound and typing", "Connections", "This phone") + extraItems.filter { it.pkg == NOTES_PKG }.map { "Notifications" } + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
+    }
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -439,7 +453,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); homeFocus = -1 }
+    fun goHome() { screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); homeFocus = -1; positions.clear() }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -482,7 +496,9 @@ class LauncherModel(
         Screen.PHONETYPE -> "Phone type"
         Screen.OPENOPTS -> "Phone options"
         Screen.RADIORES -> radioResTitle
-        Screen.LOGSET -> "Logs & Settings"
+        Screen.LOOK -> "Look"
+        Screen.SOUNDSET -> "Sound and typing"
+        Screen.THISPHONE -> "This phone"
         Screen.RUNNING -> "Running Apps"
         Screen.WIFI -> "Wi-Fi"
         Screen.WIFINET -> wifiSel?.ssid ?: "Wi-Fi"
@@ -525,7 +541,7 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.RADIOMENU, Screen.SPOTIFYMENU -> "Select" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU -> "Select" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
@@ -579,7 +595,6 @@ class LauncherModel(
         Screen.RADIORES -> if (radioRes.isEmpty()) listOf(radioStatus.ifEmpty { "Nothing found" }) else radioRes.map { it.name }
         Screen.RADIOMENU -> radioMenuRows
         Screen.SPOTIFYMENU -> spotifyMenuRows
-        Screen.LOGSET -> logItems.map { it.label }
         Screen.RUNNING -> if (running.isEmpty()) listOf("Nothing running") else running.map { it.label + " (" + it.state + ")" }
         Screen.WIFI -> listOf("Wi-Fi: " + (if (wifiOn) "On" else "Off")) + (if (!wifiOn) emptyList() else if (wifiNets.isEmpty()) listOf("Searching...") else wifiNets.map { wifiLabel(it) })
         Screen.WIFINET -> wifiNetRows
@@ -590,7 +605,7 @@ class LauncherModel(
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
-        Screen.SETTINGS -> settingsRows
+        Screen.SETTINGS, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE -> groupRows(screen)
         Screen.THEME -> Themes.all.map { it.name + if (it.id == theme) " *" else "" }
         Screen.FONT -> Fonts.all.map { it.name + if (it.id == font) " *" else "" }
         Screen.MENUSTYLE -> MenuStyles.all.map { it.name + if (it.id == menuStyle) " *" else "" }
@@ -631,7 +646,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -660,7 +675,6 @@ class LauncherModel(
         Screen.RADIORES -> radioResKey(key)
         Screen.RADIOMENU -> radioMenuKey(key)
         Screen.SPOTIFYMENU -> spotifyMenuKey(key)
-        Screen.LOGSET -> logSetKey(key)
         Screen.RUNNING -> runningKey(key)
         Screen.WIFI -> wifiKey(key)
         Screen.WIFINET -> wifiNetKey(key)
@@ -674,7 +688,7 @@ class LauncherModel(
         Screen.PAIRS -> pairsKey(key, digit)
         Screen.SHOOTER -> shooterKey(key, digit)
         Screen.SEEDS -> seedsKey(key, digit)
-        Screen.SETTINGS -> settings(key, digit)
+        Screen.SETTINGS, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE -> settings(key, digit)
         Screen.THEME -> themes(key, digit)
         Screen.APPEARANCE -> appearance(key)
         Screen.CHOICE -> choice(key)
@@ -1115,13 +1129,12 @@ class LauncherModel(
 
     private fun open(item: MenuItem?): Action = when {
         item == null -> Action.None
-        item.pkg == LOGSET_PKG -> { enter(Screen.LOGSET); Action.Redraw }
         item.pkg == SETTINGS_PKG -> { enter(Screen.SETTINGS); Action.Redraw }
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
         item.pkg == dialerApp -> openPhoneMenu()
         item.pkg == CALC_PKG -> { calc.allClear(); enter(Screen.CALC); Action.Redraw }
-        item.pkg == CALLLOG_PKG -> openCallLog(if (screen == Screen.LOGSET) Screen.LOGSET else Screen.MENU)
+        item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == MUSIC_PKG -> { enter(Screen.MUSICMENU); Action.Redraw }
         item.pkg == RUNNING_PKG -> { enter(Screen.RUNNING); Action.Redraw }
@@ -1223,10 +1236,15 @@ class LauncherModel(
         else -> Action.None
     }
 
-    private fun settings(key: Key, digit: Int): Action = move(key, settingsRows.size) ?: when (key) {
+    private fun settings(key: Key, digit: Int): Action = move(key, groupRows(screen).size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
             var out: Action = Action.Redraw
-            when (settingsRows.getOrNull(selected)) {
+            when (groupRows(screen).getOrNull(selected)) {
+                "Look" -> enter(Screen.LOOK)
+                "Sound and typing" -> enter(Screen.SOUNDSET)
+                "This phone" -> enter(Screen.THISPHONE)
+                "Notifications" -> out = open(extraItems.firstOrNull { it.pkg == NOTES_PKG })
+                "Running Apps" -> out = open(extraItems.firstOrNull { it.pkg == RUNNING_PKG })
                 "Theme" -> enter(Screen.THEME, Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0))
                 "Font" -> enter(Screen.FONT, Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0))
                 "Menu style" -> enter(Screen.MENUSTYLE, MenuStyles.all.indexOfFirst { it.id == menuStyle }.coerceAtLeast(0))
@@ -1236,10 +1254,8 @@ class LauncherModel(
                 "Sound test" -> enter(Screen.SOUNDTEST)
                 "WhatsApp" -> enter(Screen.WASET)
                 "Android settings" -> out = Action.Launch("com.android.settings")
-                "Battery" -> enter(Screen.BATTERY)
                 "Connections" -> enter(Screen.CONNECTIONS)
                 "Time zone" -> enter(Screen.TIMEZONE, Regional.zones.indexOfFirst { it.id == tzId }.coerceAtLeast(0))
-                "Mobile data" -> { enter(Screen.DATA); out = Action.DataLoad }
                 "Screen lock" -> out = openLock()
                 "Language" -> enter(Screen.LANGUAGE, Regional.languages.indexOfFirst { it.id.equals(langTag, true) || it.id.startsWith(langTag.substringBefore('-') + "-", true) }.coerceAtLeast(0))
                 "Phone options" -> enter(Screen.OPENOPTS)
@@ -1386,7 +1402,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
@@ -1431,7 +1447,7 @@ class LauncherModel(
         item.pkg == APPS_PKG || item.pkg == RUNNING_PKG -> "apps"
         item.pkg == GAMES_PKG -> "games"
         item.pkg == CALC_PKG -> "calculator"
-        item.pkg == LOGSET_PKG || item.pkg == SETTINGS_PKG -> "settings"
+        item.pkg == SETTINGS_PKG -> "settings"
         item.pkg == NOTES_PKG -> "notes"
         item.pkg == MAIL_PKG -> "mail"
         item.pkg == CALENDAR_PKG -> "calendar"
@@ -1539,8 +1555,8 @@ class LauncherModel(
     var battery: BatteryInfo? = null
 
     /** What the music screen shows; the activity refreshes it about once a second while that screen is open. */
-    /** What "Logs & Settings" lists (Call log, Notifications, Settings); the activity fills it in. */
-    var logItems: List<MenuItem> = emptyList()
+    /** The built-in entries Settings lists as groups of their own (Notifications, Running Apps), where the mode shows them; the activity fills it in. */
+    var extraItems: List<MenuItem> = emptyList()
     var music: io.github.durkimat.phoneguard.music.MusicInfo = io.github.durkimat.phoneguard.music.MusicInfo.NONE
     var musicApp = false
     /** Spotify account state: signed in, the lists the screens show, and a short status line for an empty list. */
@@ -1760,14 +1776,20 @@ class LauncherModel(
     /** Wi-Fi, Bluetooth and mobile data as the status line shows them: 0 on, not connected; 1 connected; 2 switched off; -1 not available here. */
     var connWifi = 0; var connBt = 0; var connData = -1
 
-    private val connectionRows: List<String> get() = listOf("Wi-Fi: " + (if (connWifi == 2) "Off" else "On"), "Bluetooth: " + (if (connBt == 2) "Off" else "On")) + (if (dataShown) listOf("Mobile data: " + (if (connData == 2) "Off" else "On")) else emptyList())
+    var batteryPct = -1
+
+    private val connectionRows: List<String> get() = listOf(
+        "Wi-Fi: " + (if (connWifi == 2) "Off" else "On"), "Bluetooth: " + (if (connBt == 2) "Off" else "On"),
+        "Mobile data" + (dataView?.let { ": " + io.github.durkimat.phoneguard.core.DataView.amount(it.left) } ?: ""),
+        "Battery" + (if (batteryPct >= 0) ": $batteryPct%" else ""),
+    )
 
     private fun connectionsKey(key: Key): Action = move(key, connectionRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
             0 -> { screen = Screen.WIFI; selected = 0; Action.WifiLoad }
             1 -> { screen = Screen.BT; selected = 0; Action.BtLoad }
-            2 -> if (dataShown) Action.DataToggle else Action.None
-            else -> Action.None
+            2 -> { enter(Screen.DATA); Action.DataLoad }
+            else -> { enter(Screen.BATTERY); Action.Redraw }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
@@ -1842,13 +1864,6 @@ class LauncherModel(
             }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.BT; selected = 0; Action.Redraw }
-        Key.END -> { goHome(); Action.Redraw }
-        else -> Action.None
-    }
-
-    private fun logSetKey(key: Key): Action = move(key, logItems.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(logItems.getOrNull(selected))
-        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2380,7 +2395,7 @@ class LauncherModel(
     }
 
     /** The PIN could not be saved or removed: come back to the Screen lock page and say why, instead of dropping the person into Settings. */
-    fun lockFailed(why: String) { if (screen == Screen.SETTINGS) { pushForm(lockForm()) }; notice = why }
+    fun lockFailed(why: String) { if (screen == Screen.THISPHONE) { pushForm(lockForm()) }; notice = why }
 
     private fun lockForm(): Form {
         var cur = ""; var pin = ""; var again = ""
@@ -2416,14 +2431,20 @@ class LauncherModel(
     var dataSims: List<Pair<Int, String>> = emptyList()
     var dataRenews = ""
 
+    private val dataToggleRow: List<String> get() = if (dataShown) listOf("Mobile data: " + (if (connData == 2) "Off" else "On")) else emptyList()
+
     private val dataRows: List<String> get() {
-        val v = dataView ?: return listOf(if (dataPlan.set) "No reading yet" else "No data plan set", if (dataPlan.set) "Change plan" else "Set up plan")
-        return listOf("Used: " + io.github.durkimat.phoneguard.core.DataView.amount(v.used) + " (" + (v.fraction * 100).toInt() + "%)", "Left: " + io.github.durkimat.phoneguard.core.DataView.amount(v.left),
+        val v = dataView ?: return dataToggleRow + listOf(if (dataPlan.set) "No reading yet" else "No data plan set", if (dataPlan.set) "Change plan" else "Set up plan")
+        return dataToggleRow + listOf("Used: " + io.github.durkimat.phoneguard.core.DataView.amount(v.used) + " (" + (v.fraction * 100).toInt() + "%)", "Left: " + io.github.durkimat.phoneguard.core.DataView.amount(v.left),
             "Allowance: " + io.github.durkimat.phoneguard.core.DataView.amount(v.allowance), "Renews: " + dataRenews.ifEmpty { "-" }, "Change plan")
     }
 
     private fun dataKey(key: Key): Action = move(key, dataRows.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == dataRows.size - 1) { pushForm(dataForm()); Action.Redraw } else Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
+            dataShown && selected == 0 -> Action.DataToggle
+            selected == dataRows.size - 1 -> { pushForm(dataForm()); Action.Redraw }
+            else -> Action.None
+        }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None

@@ -83,9 +83,9 @@ object LauncherData {
     private val builtIn = setOf(MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
 
     /**
-     * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts, the apps a parent pinned,
-     * Music, Camera, Android Apps (every other app, the real WhatsApp included, only where the mode allows touch), Weather, Classic
-     * Games, Calculator, and Logs & Settings last (Call log, Notifications, Settings).
+     * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts and the apps a parent pinned (where they exist),
+     * then Email, Calendar, Music, Camera, Android Apps (every other app, the real WhatsApp included, only where the mode allows touch), Weather, Classic
+     * Games, Calculator, Call log and Settings. Notifications and Running Apps are inside Settings.
      */
     fun menu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
         val apps = all.filter { it.pkg !in builtIn }
@@ -93,14 +93,12 @@ object LauncherData {
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
         val others = apps - core.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
-        val hasLogs = all.any { it.pkg in setOf(CALLLOG_PKG, NOTES_PKG, SETTINGS_PKG) }
         return core + pins + one(MAIL_PKG) + one(CALENDAR_PKG) + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
-            one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + (if (hasLogs) listOf(MenuItem(LOGSET_PKG, "Logs & Settings")) else emptyList())
+            one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + one(CALLLOG_PKG) + one(SETTINGS_PKG)
     }
 
-    /** What "Logs & Settings" lists. */
-    fun logsAndSettings(all: List<MenuItem>): List<MenuItem> =
-        listOf(CALLLOG_PKG, NOTES_PKG, RUNNING_PKG, SETTINGS_PKG).mapNotNull { p -> all.firstOrNull { it.pkg == p } }
+    /** The built-in entries that Settings lists as groups of their own, where the mode shows them. */
+    fun settingsExtras(all: List<MenuItem>): List<MenuItem> = listOf(NOTES_PKG, RUNNING_PKG).mapNotNull { p -> all.firstOrNull { it.pkg == p } }
 
     /** The allowed apps that are not in the main menu, for the "Android Apps" list. */
     fun otherApps(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {

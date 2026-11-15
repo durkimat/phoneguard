@@ -70,19 +70,19 @@ class GridMenuTest {
 
     @Test fun theMenuStyleIsChosenInSettings() {
         val m = LauncherModel(listOf(MenuItem("p.1", "One"), MenuItem(SETTINGS_PKG, "Settings")))
-        for (k in listOf(Key.OK, Key.DOWN, Key.OK)) m.onKey(k) // Menu > Settings
+        for (k in listOf(Key.OK, Key.DOWN, Key.OK, Key.OK)) m.onKey(k) // Menu > Settings > Look
         repeat(2) { m.onKey(Key.DOWN) } // Theme, Font, Menu style
         m.onKey(Key.OK); assertEquals(Screen.MENUSTYLE, m.screen); assertEquals(listOf("List *", "Grid", "List, no icons"), m.rows)
         m.onKey(Key.DOWN)
         assertEquals(Action.SaveMenuStyle("grid"), m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen)
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen); assertEquals(Layout.GRID, m.layout)
+        assertEquals(Screen.LOOK, m.screen)
+        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen); assertEquals(Layout.GRID, m.layout)
     }
 
     @Test fun everyKindOfMenuEntryHasAPictureAndTheDrawingsAreWellFormed() {
         assertEquals(emptyList<String>(), PixelIcons.problems())
         val m = LauncherModel(emptyList())
-        for (pkg in listOf(MUSIC_PKG, CAMERA_PKG, APPS_PKG, GAMES_PKG, CALC_PKG, LOGSET_PKG, SETTINGS_PKG, NOTES_PKG, WEATHER_PKG, CALLLOG_PKG, RUNNING_PKG, "com.android.dialer", "com.android.messaging", "com.android.contacts", "com.whatsapp", "org.some.other"))
+        for (pkg in listOf(MUSIC_PKG, CAMERA_PKG, APPS_PKG, GAMES_PKG, CALC_PKG, SETTINGS_PKG, NOTES_PKG, WEATHER_PKG, CALLLOG_PKG, RUNNING_PKG, "com.android.dialer", "com.android.messaging", "com.android.contacts", "com.whatsapp", "org.some.other"))
             assertTrue(pkg, m.iconFor(MenuItem(pkg, pkg)) in PixelIcons.names)
         assertEquals("app", m.iconFor(MenuItem("org.some.other", "Other")))
     }
