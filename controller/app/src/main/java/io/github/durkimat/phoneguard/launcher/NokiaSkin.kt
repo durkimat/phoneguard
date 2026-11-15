@@ -122,7 +122,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             statusLine(c, i, u)
             chrome.beginContent(this, c, u)
             when (m.screen) {
-                Screen.HOME -> { home(c, i, u); i.dataView?.let { dataWidget(c, it, u) }; if (i.nextUp.isNotBlank()) text(c, fit(i.nextUp, 440f, 26f), 240f, 396f, 26f, u, align = Paint.Align.CENTER); m.weather?.let { w -> weatherStrip(c, w, u) } }
+                Screen.HOME -> { home(c, i, u); i.dataView?.let { dataWidget(c, it, u) }; homeLower(c, m, i, u) }
                 Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.BATTERY -> batteryScreen(c, m, u)
                 Screen.NOTE -> noteScreen(c, m, u)
@@ -370,16 +370,45 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
         }
 
-        /** The weather row on the home screen: symbol, temperature and a note when rain is on its way. */
-        private fun weatherStrip(c: Canvas, w: WeatherData, u: Float) {
-            // centred: symbol and temperature as one group, the rain note under it
+        /** The weather group on the home screen: symbol and temperature, centred, with its centre line at [cy]. */
+        private fun weatherStrip(c: Canvas, w: WeatherData, cy: Float, u: Float) {
             val temp = "${w.temp}°"
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 46f * scaleOf(TEXT) * u; p.isFakeBoldText = true
             val tw = p.measureText(temp) / u
             val left = 240f - (62f + 14f + tw) / 2
-            weatherIcon(c, w.icon, left + 31f, 392f, 62f, u)
-            text(c, temp, left + 76f, 410f, 46f, u, bold = true)
-            w.hint()?.let { text(c, it, 240f, 440f, 24f, u, align = Paint.Align.CENTER) }
+            weatherIcon(c, w.icon, left + 31f, cy, 62f, u)
+            text(c, temp, left + 76f, cy + 18f, 46f, u, bold = true)
+        }
+
+        /**
+         * The weather (above the clock, or lower in the Mac look) and, in the slot where the weather used to be, one of: Now playing while music is on (a play
+         * or pause mark, one scrolling "Artist - Title" line and a progress bar), the next event, or the note about rain on its way.
+         */
+        private fun homeLower(c: Canvas, m: LauncherModel, i: HomeInfo, u: Float) {
+            val mac = Themes.byId(m.theme).skin == "mac"
+            val slot = homeSlotY(mac)
+            m.weather?.let { weatherStrip(c, it, weatherCy(mac), u) }
+            val np = i.nowPlaying
+            when {
+                np != null -> nowPlayingLine(c, np, slot, u)
+                i.nextUp.isNotBlank() -> text(c, fit(i.nextUp, 440f, 26f), 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER)
+                !mac -> m.weather?.hint()?.let { text(c, it, 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER) }
+            }
+        }
+
+        private fun nowPlayingLine(c: Canvas, np: io.github.durkimat.phoneguard.music.MusicInfo, top: Float, u: Float) {
+            fill.color = ink; fill.style = Paint.Style.FILL
+            if (np.playing) {
+                val tri = android.graphics.Path().apply { moveTo(24f * u, (top - 14f) * u); lineTo(48f * u, top * u); lineTo(24f * u, (top + 14f) * u); close() }
+                c.drawPath(tri, fill)
+            } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
+            val line = if (np.source == "radio") listOf(np.title, np.artist).filter { it.isNotBlank() }.joinToString(" - ") else listOf(np.artist, np.title).filter { it.isNotBlank() }.joinToString(" - ")
+            marquee(c, line, 64f, top + 10f, 32f, 392f, u)
+            if (np.durationMs > 0) {
+                stroke.strokeWidth = 2f * u; stroke.color = ink
+                c.drawRect(24f * u, (top + 30f) * u, 456f * u, (top + 38f) * u, stroke)
+                c.drawRect(24f * u, (top + 30f) * u, (24f + 432f * (np.positionMs.toFloat() / np.durationMs).coerceIn(0f, 1f)) * u, (top + 38f) * u, fill)
+            }
         }
 
         private fun musicScreen(c: Canvas, m: LauncherModel, u: Float) {

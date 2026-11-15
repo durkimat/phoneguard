@@ -75,6 +75,10 @@ object MenuStyles {
 enum class Layout { LIST, GRID, CUSTOM }
 /** How far the home screen's data line moves down in the Mac look (design pixels): its title bar and frame take the top. */
 const val DATA_MAC_SHIFT = 46f
+/** The home screen's weather group: its centre line (design pixels). Above the clock normally; the Mac look has too little room there, so it stays lower. */
+fun weatherCy(mac: Boolean) = if (mac) 372f else 124f
+/** The slot for Now playing, the next event and the rain note: where the weather used to be (lower in the Mac look). */
+fun homeSlotY(mac: Boolean) = if (mac) 440f else 392f
 const val GRID_COLS = 3
 /** Rows of tiles on screen at once; more rows scroll vertically. */
 const val GRID_ROWS = 3
@@ -1321,7 +1325,7 @@ class LauncherModel(
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
         if (dataView != null) { val y = if (Themes.byId(theme).skin == "mac") DATA_MAC_SHIFT else 0f; add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
-        if (weather != null) add(HomeTarget("weather", 60f, 345f, 420f, 440f))
+        if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 60f, cy - 34f, 420f, cy + 34f)) }
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
     }
 
@@ -1479,7 +1483,7 @@ class LauncherModel(
             return Action.None
         }
         if (screen == Screen.HOME) {
-            if (y in 345f..440f) return openWeather()
+            if (weather != null && y in (weatherCy(Themes.byId(theme).skin == "mac") - 34f)..(weatherCy(Themes.byId(theme).skin == "mac") + 34f)) return openWeather()
             if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
             return Action.None
         }
@@ -2508,6 +2512,8 @@ data class HomeInfo(
     val data: Int = -1,
     /** The SIM's mobile data (null when there is no plan, no SIM, or the mode hides it). */
     val dataView: io.github.durkimat.phoneguard.core.DataView? = null,
+    /** What is playing (or paused), for the home screen's one-line Now playing; null when nothing is, or the mode has no music. */
+    val nowPlaying: io.github.durkimat.phoneguard.music.MusicInfo? = null,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

@@ -265,6 +265,15 @@ class LauncherActivity : Activity() {
         return m.copy(playing = h.first)
     }
 
+    /** What the home screen's Now playing line shows: the provider that is playing, else one that is paused; null when music is off in the mode or nothing is on. */
+    private fun homeNowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo? = try {
+        if (!LauncherData.musicShown(this)) null else {
+            val (playing, status) = providerStates()
+            val prov = playing ?: status.entries.firstOrNull { it.value == 1 }?.key
+            prov?.let { nowPlaying(it) }?.takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank()) }
+        }
+    } catch (_: Exception) { null }
+
     /** The radio's state as Now playing shows it, or null when no station has been chosen. */
     private fun radioInfo(): io.github.durkimat.phoneguard.music.MusicInfo? {
         if (!io.github.durkimat.phoneguard.music.Radio.active) return null
@@ -409,7 +418,7 @@ class LauncherActivity : Activity() {
                     r.radioNames = io.github.durkimat.phoneguard.music.Radio.stations(this).map { it.name }
                     providerStates().let { (playing, status) -> r.playingProvider = playing; r.provStatus = status }
                     r.radioMode = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).radio
-                    r.info = LauncherData.info(this)
+                    r.info = LauncherData.info(this).copy(nowPlaying = homeNowPlaying())
                     WeatherStore.refreshIfDue(this) { ui.post { invalidate(D.INFO) } }
                 }
                 if (bitsNow and D.APPS != 0) { r.all = LauncherData.items(this); r.pinned = Store.config(this)?.pinned ?: emptyList() }
@@ -432,12 +441,15 @@ class LauncherActivity : Activity() {
         } } catch (_: java.util.concurrent.RejectedExecutionException) { loading = false }
     }
 
+    private var homeMusicTick = false
+
     /** Takes what the background read found into the model (main thread) and draws. */
     private fun apply(r: Loaded, bits: Int, screen: Screen) {
         model.openOpts = io.github.durkimat.phoneguard.Edition.openOptions(this)
         model.edition = io.github.durkimat.phoneguard.Edition.get(this).name.lowercase()
         val reading = model.screen == Screen.THREAD || model.screen == Screen.WRITE // not while reading or writing, so a message arriving cannot shift what is on the screen
         r.info?.let {
+            if (it.nowPlaying != null && model.screen == Screen.HOME && !homeMusicTick) { homeMusicTick = true; ui.postDelayed({ homeMusicTick = false; if (model.screen == Screen.HOME) invalidate(D.INFO) }, 5_000) } // keeps the progress bar moving while the home screen is up
             model.weather = r.weather; model.androidSettings = r.androidSettings; model.notes = r.notes
             model.spConfigured = r.spConfigured; if (screen != Screen.MUSIC) model.spSignedIn = r.spSignedIn
             model.sleepLabel = r.sleepLabel ?: ""; model.spectrum = r.spectrum

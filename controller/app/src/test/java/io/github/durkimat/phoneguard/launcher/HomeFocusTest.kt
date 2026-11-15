@@ -65,4 +65,20 @@ class HomeFocusTest {
         assertEquals("badge", m.homeFocusTarget()?.kind)
         m.onKey(Key.OK); assertEquals(Screen.INBOX, m.screen)
     }
+
+    @Test fun theWeatherSitsAboveTheClockAndItsTapAndHighlightFollow() {
+        val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L)
+        val t = m.homeTargets().first { it.kind == "weather" }
+        assertEquals(90f, t.t, 0.01f); assertEquals(158f, t.b, 0.01f) // centre line 124
+        assertEquals(Action.Redraw, m.tap(240f, 124f)); assertEquals(Screen.WEATHER, m.screen)
+        val old = model(); old.weather = m.weather
+        assertEquals(Action.None, old.tap(240f, 392f)) // the old place no longer opens the forecast
+    }
+
+    @Test fun inTheMacLookTheWeatherStaysLowerBecauseTheFrameTakesTheTop() {
+        val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L); m.theme = "mac"
+        val t = m.homeTargets().first { it.kind == "weather" }
+        assertEquals(338f, t.t, 0.01f)
+        assertEquals(372f, weatherCy(true), 0f); assertEquals(440f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
+    }
 }
