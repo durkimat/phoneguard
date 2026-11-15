@@ -1325,7 +1325,7 @@ class LauncherModel(
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
         if (dataView != null) { val y = if (Themes.byId(theme).skin == "mac") DATA_MAC_SHIFT else 0f; add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
-        if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 60f, cy - 34f, 420f, cy + 34f)) }
+        if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
     }
 

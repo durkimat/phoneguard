@@ -370,14 +370,36 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
         }
 
-        /** The weather group on the home screen: symbol and temperature, centred, with its centre line at [cy]. */
+        /** The first glyph's ink starts at x (design pixels): a bold 36 "1" and a regular 24 "8" have different side bearings, so each line is nudged to make the ink edges meet. */
+        private fun textInk(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false) {
+            p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = size * scaleOf(TEXT) * u; p.isFakeBoldText = bold
+            val r = android.graphics.Rect(); p.getTextBounds(s, 0, 1.coerceAtMost(s.length), r)
+            text(c, s, x - r.left / u, y, size, u, bold = bold)
+        }
+
+        /**
+         * The weather band on the home screen with its centre line at [cy]: the current weather at the left, a divider and, at the right, rain due (symbol, time
+         * and chance) or dry (high and low). Without a forecast yet, just the current weather centred.
+         */
         private fun weatherStrip(c: Canvas, w: WeatherData, cy: Float, u: Float) {
             val temp = "${w.temp}°"
+            val band = w.rainBand()
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 46f * scaleOf(TEXT) * u; p.isFakeBoldText = true
             val tw = p.measureText(temp) / u
-            val left = 240f - (62f + 14f + tw) / 2
-            weatherIcon(c, w.icon, left + 31f, cy, 62f, u)
-            text(c, temp, left + 76f, cy + 18f, 46f, u, bold = true)
+            if (band == null) { // no forecast yet: centred as before
+                val left = 240f - (62f + 14f + tw) / 2
+                weatherIcon(c, w.icon, left + 31f, cy, 62f, u)
+                text(c, temp, left + 76f, cy + 18f, 46f, u, bold = true)
+                return
+            }
+            weatherIcon(c, w.icon, 56f, cy, 62f, u)
+            text(c, temp, 100f, cy + 18f, if (tw > 100f) 46f * 100f / tw else 46f, u, bold = true) // the left group never reaches the divider
+            stroke.strokeWidth = 2f * u; stroke.color = ink
+            c.drawLine(206f * u, (cy - 28f) * u, 206f * u, (cy + 28f) * u, stroke)
+            val x = if (band.due) 282f else 222f
+            if (band.due) band.icon?.let { weatherIcon(c, it, 244f, cy, 50f, u) }
+            textInk(c, band.line1, x, cy, 36f, u, bold = true)
+            if (band.line2.isNotEmpty()) textInk(c, band.line2, x, cy + 26f, 24f, u)
         }
 
         /**
@@ -392,7 +414,6 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             when {
                 np != null -> nowPlayingLine(c, np, slot, u)
                 i.nextUp.isNotBlank() -> text(c, fit(i.nextUp, 440f, 26f), 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER)
-                !mac -> m.weather?.hint()?.let { text(c, it, 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER) }
             }
         }
 

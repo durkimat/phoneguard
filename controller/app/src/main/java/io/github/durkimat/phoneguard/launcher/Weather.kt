@@ -9,6 +9,9 @@ enum class WeatherIcon { SUN, MOON, PARTLY, CLOUD, FOG, RAIN, SNOW, STORM }
 data class WeatherHour(val time: String, val temp: Int, val code: Int, val precip: Double, val prob: Int)
 data class WeatherDay(val label: String, val code: Int, val max: Int, val min: Int)
 
+/** The right-hand block of the home weather band: rain due (a rain symbol, the time and the chance) or dry (the high and low). */
+data class RainBand(val due: Boolean, val icon: WeatherIcon?, val line1: String, val line2: String)
+
 /** What Open-Meteo told us, boiled down to what the phone shows. Pure, so it can be tested. */
 data class WeatherData(val temp: Int, val code: Int, val isDay: Boolean, val hours: List<WeatherHour>, val days: List<WeatherDay>, val fetched: Long) {
     val icon: WeatherIcon get() = iconFor(code, isDay)
@@ -24,6 +27,21 @@ data class WeatherData(val temp: Int, val code: Int, val isDay: Boolean, val hou
         val next = hours.drop(1).take(4)
         val i = next.indexOfFirst { it.precip >= 0.3 || it.prob >= 60 || isWet(it.code) }
         return if (i < 0) null else "${word(next[i].code)} in ${i + 1}h"
+    }
+
+    /**
+     * Rain due when any of the next six forecast hours has a chance of 30% or more: the time is the first such hour, the chance the highest within three hours
+     * from it. Raining now reads "Now". Otherwise dry, with today's high and low (nothing when they are unknown). Null when there is no forecast yet.
+     */
+    fun rainBand(): RainBand? {
+        if (hours.isEmpty()) return null
+        val wetNow = isWet(code)
+        val first = hours.drop(1).take(6).indexOfFirst { it.prob >= 30 }
+        if (!wetNow && first < 0) return RainBand(false, null, "Dry", days.firstOrNull()?.let { "H ${it.max}°  L ${it.min}°" } ?: "")
+        val from = if (wetNow) 0 else first + 1
+        val pct = hours.drop(from).take(3).maxOf { it.prob }
+        val icon = if (wetNow && iconFor(code, true) in listOf(WeatherIcon.SNOW, WeatherIcon.STORM)) iconFor(code, true) else WeatherIcon.RAIN
+        return RainBand(true, icon, if (wetNow) "Now" else hours[from].time, if (pct > 0) "$pct% chance" else description)
     }
 
     companion object {
