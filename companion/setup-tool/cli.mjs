@@ -25,6 +25,7 @@ if (cmd === "update") {
     let r; try { r = await updateWorker({ token, family: f, source: arg2("--source") ?? "auto", force: process.argv.includes("--force"), progress: (s, t) => console.log(`- ${t}`) }); } catch (e) { console.error(`STOPPED: ${e.message}`); failed = true; continue; }
     if (r.upToDate) { console.log(`Already up to date (version ${r.version}).`); continue; }
     console.log(`Updated ${r.from ?? "an older version"} -> ${r.to} (from ${r.source}).`);
+    if (r.settling) console.log("The database part of your companion is still switching to the new version; this can take a couple of minutes and needs nothing from you.");
     if (f.parentKey) { try { const v = await verifyFamily({ host: f.host, parentKey: f.parentKey }); console.log(`Checked: your parent key works and ${v.phones} phone(s) are still there.`); } catch (e) { console.error(`WARNING: ${e.message}`); failed = true; } }
   }
   process.exit(failed ? 1 : 0);

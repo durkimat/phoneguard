@@ -145,7 +145,7 @@ export async function pickBundle({ source = "auto", fetchImpl = fetch, local: gi
 }
 
 /** Updates one family's Worker. Returns {upToDate} or {from, to, host, source}. Never touches the data or the parent key. */
-export async function updateWorker({ token, family, source = "auto", force = false, local, progress = () => {}, fetchImpl = fetch, base, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), tries = 30 }) {
+export async function updateWorker({ token, family, source = "auto", force = false, local, progress = () => {}, fetchImpl = fetch, base, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), tries = 75 }) {
   const call = cf(token, fetchImpl), root = base ?? `https://${family.host}`;
   progress("check", "Looking at your companion");
   if (!(await scriptExists(call, family.account, family.name))) throw new Error(`There is no companion called ${family.name} in this Cloudflare account. Check you used the key from the same account.`);
@@ -159,8 +159,9 @@ export async function updateWorker({ token, family, source = "auto", force = fal
   progress("wait", "Waiting for the new version to start");
   let seen = null;   // the Worker script and its database object switch to the new code a few seconds apart, so wait for both
   for (let i = 0; i < tries; i++) { seen = await currentVersion(family.host, { fetchImpl, base: root }); if (seen && seen.version === b.info.version && (seen.storage == null || seen.storage === b.info.version)) break; await sleep(2000); }
-  if (!seen || seen.version !== b.info.version || (seen.storage != null && seen.storage !== b.info.version)) throw new Error(`The new version was uploaded but the companion still reports ${seen?.version ?? "nothing"}. Cloudflare can take a minute: check your parent page, and run the update again if it still shows the old version.`);
-  return { from: now?.version ?? null, to: b.info.version, host: family.host, source: b.source, schema: seen.schema, notes: b.info.notes ?? "" };
+  if (!seen || seen.version !== b.info.version) throw new Error(`The new version was uploaded but the companion still reports ${seen?.version ?? "nothing"}. Cloudflare can take a minute: check your parent page, and run the update again if it still shows the old version.`);
+  const settling = seen.storage != null && seen.storage !== b.info.version;   // the front door is new; the database part is still on the old code for a little longer (it can take a couple of minutes)
+  return { from: now?.version ?? null, to: b.info.version, host: family.host, source: b.source, schema: seen.schema, notes: b.info.notes ?? "", ...(settling ? { settling: true } : {}) };
 }
 
 /** After an update: does the parent key still work, and is the data still there? Returns {phones}. */
