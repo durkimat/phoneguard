@@ -430,7 +430,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0; dialler = false; trail.clear() }
+    fun goHome() { screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); homeFocus = -1 }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -504,7 +504,7 @@ class LauncherModel(
 
     /** The two labels under the screen, which the two keys beneath it and D-pad Left/Right carry out. */
     val softKeys: Pair<String, String> get() = when (screen) {
-        Screen.HOME -> "Menu" to (if (items.any { it.pkg == MUSIC_PKG }) "Music" else "Contacts")
+        Screen.HOME -> if (homeFocus >= 0) "Select" to "Back" else "Menu" to (if (items.any { it.pkg == MUSIC_PKG }) "Music" else "Contacts")
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> (if (dialler) "Contacts" else "Call") to "Back"
         Screen.CONTACTS -> (if (dialler && !picking) "Dial" else "Select") to "Back"
@@ -1298,7 +1298,54 @@ class LauncherModel(
 
     // The two labels at the bottom of the screen belong to the two keys under the screen (left key =
     // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
-    private fun home(key: Key, digit: Int): Action = when (key) {
+    // ---- the symbols on the home screen, reached with the keypad (the same places a touch goes to)
+    /** What can be chosen on the home screen without touch, top to bottom: the status symbols, the weather, the notification symbols. */
+    class HomeTarget(val kind: String, val l: Float, val t: Float, val r: Float, val b: Float, val badge: Badge? = null)
+
+    /** Which of [homeTargets] has the highlight, or -1 when none (the normal home screen). */
+    var homeFocus = -1
+
+    fun homeTargets(): List<HomeTarget> = buildList {
+        if (dataShown || wifiShown) add(HomeTarget("signal", 0f, 0f, 105f, 46f))
+        if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
+        if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
+        if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
+        if (weather != null) add(HomeTarget("weather", 60f, 345f, 420f, 440f))
+        badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
+    }
+
+    /** The highlighted symbol, for the skin to outline. */
+    fun homeFocusTarget(): HomeTarget? = if (screen == Screen.HOME) homeTargets().getOrNull(homeFocus) else null
+
+    private fun homeFocusKey(key: Key): Action? {
+        val list = homeTargets()
+        if (list.isEmpty()) { homeFocus = -1; return null }
+        return when (key) {
+            Key.UP, Key.LEFT -> { homeFocus = if (homeFocus < 0) (list.indexOfFirst { it.kind == "weather" }.takeIf { it >= 0 } ?: 0) else (homeFocus - 1).coerceAtLeast(0); Action.Redraw }
+            Key.DOWN, Key.RIGHT -> { homeFocus = if (homeFocus < 0) -1 else if (homeFocus + 1 >= list.size) -1 else homeFocus + 1; Action.Redraw }
+            Key.END, Key.SOFT_RIGHT -> { homeFocus = -1; Action.Redraw }
+            Key.OK, Key.SOFT_LEFT -> {
+                val t = list.getOrNull(homeFocus) ?: return null
+                homeFocus = -1
+                when (t.kind) {
+                    "signal" -> { openConnection(Screen.CONNECTIONS); Action.Redraw }
+                    "wifi" -> { openConnection(Screen.WIFI); Action.WifiLoad }
+                    "bt" -> { openConnection(Screen.BT); Action.BtLoad }
+                    "battery" -> { enter(Screen.BATTERY); Action.Redraw }
+                    "weather" -> openWeather()
+                    else -> t.badge?.let { openBadge(it) } ?: Action.Redraw
+                }
+            }
+            else -> { homeFocus = -1; null } // any other key (digits, Call) leaves the highlight and does what it always did
+        }
+    }
+
+    private fun home(key: Key, digit: Int): Action {
+        if (homeFocus >= 0 || key == Key.UP) homeFocusKey(key)?.let { return it }
+        return homeKey(key, digit)
+    }
+
+    private fun homeKey(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { if (badges.any { it.kind == BadgeKind.MUSIC }) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU); Action.Redraw } else openContacts(Screen.HOME)
         Key.CALL -> openPhoneMenu()

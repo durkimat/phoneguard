@@ -142,6 +142,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 Screen.CALL -> callScreen(c, m, u)
                 else -> menu(c, m, u)
             }
+            m.homeFocusTarget()?.let { t -> // the symbol chosen with the keypad on the home screen
+                stroke.strokeWidth = 3f * u; stroke.color = ink
+                c.drawRoundRect(RectF(t.l * u, t.t * u, t.r * u, t.b * u), 8f * u, 8f * u, stroke)
+            }
             m.notice?.let { notice(c, it, u) }
             chrome.endContent(this, c, m, u)
         }
