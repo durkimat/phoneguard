@@ -19,5 +19,7 @@
         <permission name="android.permission.INSTALL_PACKAGES"/>
         <permission name="android.permission.REBOOT"/>
         <permission name="android.permission.MASTER_CLEAR"/>
+        <permission name="android.permission.SET_TIME_ZONE"/>
+        <permission name="android.permission.CHANGE_CONFIGURATION"/>
     </privapp-permissions>
 </permissions>

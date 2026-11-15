@@ -29,29 +29,55 @@ class EnrolActivity : Activity() {
     private var polling = false
     @Volatile private var inFlight = false
 
+    private var lcd = 0; private var ink = 0
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    /** A full-width bar in the phone's own colours: outlined at rest, filled when it has the focus (so the keypad's arrows show where you are). */
+    private fun bar(label: String, onClick: () -> Unit) = Button(this).apply {
+        text = label; isAllCaps = false; textSize = 18f; setTextColor(ink); isFocusable = true; minHeight = dp(48); minimumHeight = dp(48)
+        background = android.graphics.drawable.StateListDrawable().apply {
+            val on = android.graphics.drawable.GradientDrawable().apply { setColor(ink) }
+            val off = android.graphics.drawable.GradientDrawable().apply { setColor(lcd); setStroke(dp(2), ink) }
+            addState(intArrayOf(android.R.attr.state_focused), on); addState(intArrayOf(android.R.attr.state_pressed), on); addState(intArrayOf(), off)
+        }
+        setTextColor(android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_focused), intArrayOf(android.R.attr.state_pressed), intArrayOf()), intArrayOf(lcd, lcd, ink)))
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+        setOnClickListener { onClick() }
+    }
+
+    private fun field(hintText: String, type: Int) = EditText(this).apply {
+        hint = hintText; inputType = type; setSingleLine(); textSize = 18f; setTextColor(ink); setHintTextColor((ink and 0x00FFFFFF) or 0x88000000.toInt())
+        background = android.graphics.drawable.GradientDrawable().apply { setColor(lcd); setStroke(dp(2), ink) }
+        setPadding(dp(10), dp(8), dp(10), dp(8))
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+    }
+
+    private fun label(t: String, size: Float, bold: Boolean = false, centre: Boolean = false) = TextView(this).apply {
+        text = t; textSize = size; setTextColor(ink); if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD); if (centre) gravity = android.view.Gravity.CENTER
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 24, 24, 24) }
-        root.addView(TextView(this).apply { text = "Connect to the family companion"; textSize = 20f })
-        root.addView(Button(this).apply {
-            text = "Scan the QR code"
-            setOnClickListener { IntentIntegrator(this@EnrolActivity).setPrompt("Scan the QR code from the setup tool").setBeepEnabled(false).setOrientationLocked(true).initiateScan() }
-        })
-        root.addView(TextView(this).apply { text = "or type it in:" })
-        address = EditText(this).apply { hint = "Address (e.g. phoneguard-x7k2.jane)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI; setSingleLine() }
-        code = EditText(this).apply { imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE; hint = "Code (ABCDE-FGHJK)"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS; setSingleLine() }
+        val theme = io.github.durkimat.phoneguard.launcher.Themes.byId(createDeviceProtectedStorageContext().getSharedPreferences("launcher", MODE_PRIVATE).getString("theme", null))
+        lcd = theme.lcd; ink = theme.ink
+        window.statusBarColor = lcd; window.navigationBarColor = lcd
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(16), dp(16), dp(24)); setBackgroundColor(lcd) }
+        root.addView(label("Family companion", 24f, bold = true))
+        root.addView(label("Connect this phone to the family's page, or scan the code from the setup tool.", 15f))
+        root.addView(bar("Scan the QR code") { IntentIntegrator(this@EnrolActivity).setPrompt("Scan the QR code from the setup tool").setBeepEnabled(false).setOrientationLocked(true).initiateScan() })
+        root.addView(label("or type it in:", 15f))
+        address = field("Address (e.g. phoneguard-x7k2.jane)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+        code = field("Code (ABCDE-FGHJK)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS).apply { imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE }
         root.addView(address); root.addView(code)
         val connect = { begin(EnrolPayload.fromTyped(address.text.toString(), code.text.toString())) }
         code.setOnEditorActionListener { _, _, _ -> connect(); true }
-        root.addView(Button(this).apply { text = "Connect"; setOnClickListener { connect() } })
-        root.addView(Button(this).apply {
-            text = "Disconnect from the family companion"
-            setOnClickListener { polling = false; WorkerLink.disconnect(this@EnrolActivity); matchView.text = ""; info.text = "Disconnected." }
-        })
-        matchView = TextView(this).apply { textSize = 48f; gravity = android.view.Gravity.CENTER }
-        info = TextView(this).apply { textSize = 15f }
+        root.addView(bar("Connect") { connect() })
+        root.addView(bar("Disconnect") { polling = false; WorkerLink.disconnect(this@EnrolActivity); matchView.text = ""; info.text = "Disconnected." })
+        matchView = label("", 48f, bold = true, centre = true)
+        info = label("", 16f)
         root.addView(matchView); root.addView(info)
-        setContentView(ScrollView(this).apply { addView(root, ViewGroup.LayoutParams(-1, -2)) })
+        setContentView(ScrollView(this).apply { setBackgroundColor(lcd); isFillViewport = true; addView(root, ViewGroup.LayoutParams(-1, -2)) })
         // a bundle pushed by the setup helper (dev route) pre-fills the form
         EnrolStore.pending(this)?.let { b ->
             runCatching { address.setText(URI(b.workerUrl).host ?: "") }; code.setText(b.token)

@@ -87,7 +87,7 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK)
         m.onKey(Key.UP) // wraps to the last entry, Settings
         assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery"), m.rows)
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery", "Time zone", "Language"), m.rows)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
         assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
     }
@@ -112,7 +112,7 @@ class LauncherModelTest {
 
     @Test fun fontIsChosenFromSettingsLikeTheTheme() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "Battery", "Time zone", "Language"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *") + Fonts.all.drop(1).map { it.name }, m.rows)
         m.onKey(Key.DOWN)
@@ -515,6 +515,10 @@ class LauncherModelTest {
         val m = wa(); assertEquals("", m.waNote)
         m.waStatus = "disconnected"; assertEquals("Not connected", m.waNote)
         m.waStatus = "not linked"; assertEquals("Not linked yet", m.waNote)
+        m.waStatus = "history"; assertEquals("Getting your chats...", m.waNote)
+        m.waStatus = "app state synced: regular"; assertEquals("", m.waNote)
+        m.waStatus = "idle"; assertEquals("Idle: updates every 30 min or when opened", m.waNote)
+        m.waStatus = "logged_out"; assertEquals("Link was removed", m.waNote)
     }
 
     @Test fun numberKeysPickChatsAndGroupsOpenLikePeople() {
@@ -545,7 +549,7 @@ class LauncherModelTest {
         val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
         m.waEnabled = true; m.waLinked = true
         m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "WhatsApp", "Battery"), m.rows)
+        assertEquals(listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections", "WhatsApp", "Battery", "Time zone", "Language"), m.rows)
         m.onKey(Key.DIGIT, 9); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
         assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
         assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.SETTINGS, m.screen)

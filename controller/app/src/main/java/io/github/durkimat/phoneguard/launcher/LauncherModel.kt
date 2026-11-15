@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -133,6 +133,8 @@ sealed class Action {
     object ChooseOpen : Action()
     /** First-run: the person chose the Family phone (starts the pairing screen). */
     object StartFamily : Action()
+    data class SetTimeZone(val id: String) : Action()
+    data class SetLanguage(val tag: String) : Action()
     /** Factory reset behind "switch the phone type". */
     object EraseAndRestart : Action()
     /** An Open phone's own option (sound, notifications, ...). */
@@ -295,7 +297,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery", "Time zone", "Language")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -316,12 +318,14 @@ class LauncherModel(
     /** A short line under the WhatsApp list when the bridge is not connected. */
     val waNote: String get() = when (waStatus) {
         "connected" -> ""
+        "history", "history_sync" -> "Getting your chats..."
+        "idle" -> "Idle: updates every 30 min or when opened"
         "connecting" -> "Connecting..."
         "not linked" -> "Not linked yet"
         "paired" -> "Linked"
         "logged_out" -> "Link was removed"
         "error" -> "Not available"
-        else -> "Not connected"
+        else -> if (waStatus.startsWith("app state synced")) "" else "Not connected"
     }
     private var threadWa = false
     var writeWa = false
@@ -456,7 +460,9 @@ class LauncherModel(
         Screen.SPOTIFYMENU -> "Spotify menu"
         Screen.RADIOBROWSE -> "Browse"
         Screen.CONNECTIONS -> "Connections"
-        Screen.FIRSTRUN -> if (firstConfirm == null) "Welcome" else "Are you sure?"
+        Screen.FIRSTRUN -> if (firstConfirm != null) "Are you sure?" else when (wizStep) { 0 -> "1 of 3: Wi-Fi"; 1 -> "2 of 3: Time, language"; else -> "3 of 3: Phone type" }
+        Screen.TIMEZONE -> "Time zone"
+        Screen.LANGUAGE -> "Language"
         Screen.PHONETYPE -> "Phone type"
         Screen.OPENOPTS -> "Phone options"
         Screen.RADIORES -> radioResTitle
@@ -506,7 +512,8 @@ class LauncherModel(
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.RADIOMENU, Screen.SPOTIFYMENU -> "Select" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
-        Screen.FIRSTRUN -> "Select" to ""
+        Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
+        Screen.TIMEZONE, Screen.LANGUAGE -> "Select" to "Back"
         Screen.OPENOPTS -> "Change" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
@@ -547,6 +554,8 @@ class LauncherModel(
         Screen.RADIOBROWSE -> radioBrowseRows
         Screen.CONNECTIONS -> connectionRows
         Screen.FIRSTRUN -> firstRunRows
+        Screen.TIMEZONE -> Regional.zones.map { it.name + if (it.id == tzId) " *" else "" }
+        Screen.LANGUAGE -> Regional.languages.map { it.name + if (it.id.equals(langTag, true)) " *" else "" }
         Screen.PHONETYPE -> phoneTypeRows
         Screen.OPENOPTS -> openOptRows
         Screen.RADIORES -> if (radioRes.isEmpty()) listOf(radioStatus.ifEmpty { "Nothing found" }) else radioRes.map { it.name }
@@ -604,7 +613,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -625,6 +634,8 @@ class LauncherModel(
         Screen.RADIOBROWSE -> radioBrowseKey(key)
         Screen.CONNECTIONS -> connectionsKey(key)
         Screen.FIRSTRUN -> firstRunKey(key)
+        Screen.TIMEZONE -> pickKey(key, Regional.zones.size) { tzId = Regional.zones[it].id; Action.SetTimeZone(tzId) }
+        Screen.LANGUAGE -> pickKey(key, Regional.languages.size) { langTag = Regional.languages[it].id; Action.SetLanguage(langTag) }
         Screen.PHONETYPE -> phoneTypeKey(key)
         Screen.OPENOPTS -> openOptsKey(key)
         Screen.RADIORES -> radioResKey(key)
@@ -1113,11 +1124,26 @@ class LauncherModel(
     private var firstConfirm: String? = null
     private var confirmErase = false
     /** True while the person is in a screen reached from first-run (Wi-Fi and so on), so the first-run screen is not forced back over it. */
-    private fun firstRunLeft() = trail.any { it.screen == Screen.FIRSTRUN } || screen in setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
+    private fun firstRunLeft() = trail.any { it.screen == Screen.FIRSTRUN } || screen in setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.TIMEZONE, Screen.LANGUAGE)
 
-    private val firstRunRows: List<String> get() = when (firstConfirm) {
-        "open" -> listOf("Nothing is locked.", "No parent controls", "it. Changing this", "later erases it.", "Yes, Open phone", "No, go back")
-        else -> listOf("Wi-Fi", "Time and language", "Open phone", "Family phone")
+    /** The wizard's place: 0 Wi-Fi, 1 time and language, 2 phone type. */
+    var wizStep = 0
+        private set
+    var tzId: String = java.util.TimeZone.getDefault().id
+    var langTag: String = java.util.Locale.getDefault().toLanguageTag()
+
+    private val firstRunRows: List<String> get() = when {
+        firstConfirm == "open" -> listOf("Nothing is locked.", "No parent controls", "it. Changing this", "later erases it.", "Yes, Open phone", "No, go back")
+        wizStep == 0 -> listOf("Choose Wi-Fi", if (connWifi == 1) "Next" else "Skip")
+        wizStep == 1 -> listOf("Time zone: " + Regional.zoneName(tzId), "Language: " + Regional.languageName(langTag), "Next", "Back")
+        else -> listOf("Open phone", "Family phone", "Back")
+    }
+
+    private fun pickKey(key: Key, size: Int, choose: (Int) -> Action): Action = move(key, size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { val a = choose(selected); leave(); a }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
     }
 
     /** On a question that erases or cannot be undone a number key must never choose: only Select on the highlighted row does. */
@@ -1126,16 +1152,24 @@ class LauncherModel(
     private fun firstRunKey(key: Key): Action = move(key, firstRunRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (firstConfirm == "open") when (selected) {
             4 -> { edition = "open"; firstConfirm = null; goHome(); Action.ChooseOpen }
-            5 -> { firstConfirm = null; selected = 2; Action.Redraw }
+            5 -> { firstConfirm = null; selected = 0; Action.Redraw }
             else -> Action.None
-        } else when (selected) {
-            0 -> { enter(Screen.WIFI); Action.WifiLoad }
-            1 -> Action.Launch("com.android.settings")
-            2 -> { firstConfirm = "open"; selected = 5; Action.Redraw }
-            else -> Action.StartFamily
+        } else when (wizStep) {
+            0 -> if (selected == 0) { enter(Screen.WIFI); Action.WifiLoad } else { wizStep = 1; selected = 0; Action.Redraw }
+            1 -> when (selected) {
+                0 -> { enter(Screen.TIMEZONE, Regional.zones.indexOfFirst { it.id == tzId }.coerceAtLeast(0)); Action.Redraw }
+                1 -> { enter(Screen.LANGUAGE, Regional.languages.indexOfFirst { it.id.equals(langTag, true) || it.id.startsWith(langTag.substringBefore('-') + "-", true) }.coerceAtLeast(0)); Action.Redraw }
+                2 -> { wizStep = 2; selected = 0; Action.Redraw }
+                else -> { wizStep = 0; selected = 0; Action.Redraw }
+            }
+            else -> when (selected) {
+                0 -> { firstConfirm = "open"; selected = 5; Action.Redraw }
+                1 -> Action.StartFamily
+                else -> { wizStep = 1; selected = 2; Action.Redraw }
+            }
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> if (firstConfirm != null) { firstConfirm = null; selected = 2; Action.Redraw } else Action.None
-        else -> Action.None // the first-run screen cannot be left: End and Back do nothing until a choice is made
+        Key.RIGHT, Key.SOFT_RIGHT -> if (firstConfirm != null) { firstConfirm = null; selected = 0; Action.Redraw } else if (wizStep > 0) { wizStep--; selected = 0; Action.Redraw } else Action.None
+        else -> Action.None // End does nothing until a choice is made
     }
 
     private val phoneTypeRows: List<String> get() = when {
@@ -1185,6 +1219,8 @@ class LauncherModel(
                 "Android settings" -> out = Action.Launch("com.android.settings")
                 "Battery" -> enter(Screen.BATTERY)
                 "Connections" -> enter(Screen.CONNECTIONS)
+                "Time zone" -> enter(Screen.TIMEZONE, Regional.zones.indexOfFirst { it.id == tzId }.coerceAtLeast(0))
+                "Language" -> enter(Screen.LANGUAGE, Regional.languages.indexOfFirst { it.id.equals(langTag, true) || it.id.startsWith(langTag.substringBefore('-') + "-", true) }.coerceAtLeast(0))
                 "Phone options" -> enter(Screen.OPENOPTS)
                 "Phone type" -> { confirmErase = false; enter(Screen.PHONETYPE) }
             }
@@ -1280,7 +1316,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */

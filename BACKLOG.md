@@ -1142,3 +1142,16 @@ Do not start until the owner's end-to-end test is finished.
 ## ims41 live results and what remains (2026-11-15, PC session)
 ims41 all pass on the J36 (wipe flash, Family pair/sync/override/boost/release, Open path, guided reset); release image-20261115 published (--latest=false). Fixed: Sound option applies, mobile data state/toggle, readable confirmations, data fail-safe after pairing, confirm cursor on "No, go back", doze/wake cycle.
 Remaining: explanation lines on confirm screens still show row numbers; IntentReceiverLeaked not proven fixed; Open WhatsApp/email/PIN untested; Open lacks timetable/modes, allow lists, hiding apps, calendar entry on the phone, silent updates; flash from a stock phone untested; Windows/macOS installer untested.
+
+
+## ims42 / 0.4.4 (2026-11-15, from the owner's end-to-end run)
+Done in this build (needs the PC's live test on the J36):
+- WhatsApp relink: `logged_out` (link removed on the main phone) now closes the stale bridge, clears the pairing code and lets Link work at once; the exact "deleted device" error on pair/connect also resets the bridge and retries once. Errors reach the screen in plain words, never the library text.
+- WhatsApp list label: history / app state synced count as connected ("Getting your chats..." while importing); a deliberate disconnect (idle timer, between checks) reads "Idle: updates every 30 min or when opened"; only real failures say "Not connected".
+- First run is a 3-step wizard (Wi-Fi, Time and language, Phone type) with Skip/Next/Back and a "N of 3" title; time zone and language are Phone Guard lists (Settings has them too, at the end of the list). Time zone uses `AlarmManager.setTimeZone` (SET_TIME_ZONE). Language uses the activity manager's persistent configuration through a hidden call (CHANGE_CONFIGURATION; the manifest declares `usesNonSdkApi` so a system app may call it). Both are new privileged permissions, listed in the privapp XML. **Untested on a device.** If the language call is refused, the log says `regional: language not set`; the fallback is a `persist.sys.locale` set by pg-provision (needs a sepolicy rule) and a reboot. The language list is English variants first, then a few European languages; Phone Guard's own screens stay English.
+- "Family companion" screen (EnrolActivity) is in the phone's own theme (bars that fill when focused, keypad navigable, Scan / Connect / Disconnect). Default look comes from the theme chosen on the phone.
+- Spotify: when the app is not installed Phone Guard says "Spotify is not installed on this phone" instead of failing silently, and the sync state carries `spotifyInstalled` (true/false). The Worker/wizard side (PC) can show it.
+- Spotify Connect spike (paper only): docs/spotify-connect-spike.md.
+Not done / notes:
+- WhatsApp history is requested only at link time (30 days, newest 20 per chat, allowed chats only), by the Go bridge. Keeping metadata for chats skipped at link time so they can be imported when the allow list grows is not cheap (it is in the bridge's history handler, not the Kotlin side); parked. The PC session is reordering the wizard so "who may message" comes before linking, which avoids the problem.
+- The hands-on librespot build was not run (see the spike note).

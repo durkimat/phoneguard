@@ -34,9 +34,11 @@ object WhatsApp {
     fun offChange(l: () -> Unit) { changed.remove(l) }
     private val main = Handler(Looper.getMainLooper())
     // never drop the connection while an account is being linked: it is the one waiting for the code to be typed in
+    /** Set while the bridge is disconnected on purpose (idle timer, between checks), so the screen does not call it a failure. */
+    @Volatile private var quiet = false
     private val idleOff = Runnable {
         if (bridge?.isPaired == false) return@Runnable
-        bridge?.disconnect(); android.util.Log.i("PhoneGuard", "whatsapp: idle, disconnected")
+        quiet = true; bridge?.disconnect(); android.util.Log.i("PhoneGuard", "whatsapp: idle, disconnected")
     }
 
     private fun prefs(c: Context) = c.applicationContext.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -71,11 +73,16 @@ object WhatsApp {
             val st = store(app)
             val b = Wabridge.open(dir.absolutePath, object : Listener {
                 override fun onStatus(state: String) {
-                    status = state; Log.log(app, "whatsapp: $state")
+                    if (state == "connecting" || state == "connected") quiet = false
+                    status = if (state == "disconnected" && quiet) "idle" else state; Log.log(app, "whatsapp: $state")
                     if (state == "paired") { setLinked(app, true); pairCode = null }
                     // names arrive in bundles of their own, often after the messages: look the senders up again
                     if (state == "history" || state == "connected") scheduleRename(app)
-                    if (state == "logged_out") { setLinked(app, false); st.wipe() }
+                    if (state == "logged_out") {
+                        // the link was removed on the main phone: the bridge still holds the deleted device, so drop it and let the next Link start clean
+                        setLinked(app, false); st.wipe(); pairCode = null
+                        Thread { try { close(); status = "logged_out"; fire() } catch (_: Throwable) {} }.start()
+                    }
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
@@ -207,7 +214,7 @@ object WhatsApp {
         if (!linked(c)) { cancelAlarm(c); return }
         // the real WhatsApp is in use: only one client should be on the phone, so ours stands down completely
         if (Engine.useRealWhatsApp(eff.waApp, io.github.durkimat.phoneguard.Enforcer.launcherPackages(c).contains(io.github.durkimat.phoneguard.launcher.LauncherData.WHATSAPP), true)) {
-            cancelAlarm(c); main.removeCallbacks(idleOff); bridge?.disconnect(); return
+            cancelAlarm(c); main.removeCallbacks(idleOff); quiet = true; bridge?.disconnect(); return
         }
         cfg?.whatsapp?.let { w ->
             setAllowed(c, w.allowed.joinToString("\n"), w.all)
@@ -216,7 +223,7 @@ object WhatsApp {
         rejectCalls(c, !eff.inbound)
         Thread { try { store(c).pruneChats() } catch (_: Exception) { } }.start()
         when (eff.wa) {
-            "off" -> { cancelAlarm(c); main.removeCallbacks(idleOff); bridge?.disconnect() }
+            "off" -> { cancelAlarm(c); main.removeCallbacks(idleOff); quiet = true; bridge?.disconnect() }
             "30" -> schedule(c, 30)
             "60" -> schedule(c, 60)
             else -> cancelAlarm(c) // "open": only when WhatsApp is opened
@@ -247,7 +254,7 @@ object WhatsApp {
             val wasOn = isConnected()
             if (!wasOn) { connect(app); for (i in 1..40) { if (isConnected()) break; Thread.sleep(500) } }
             if (isConnected()) Thread.sleep(if (wasOn) 0 else SETTLE_MS) // queued messages arrive straight after connecting
-            if (!wasOn) bridge?.disconnect()
+            if (!wasOn) { quiet = true; bridge?.disconnect() }
             val bat = app.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
             val pct = bat?.let { it.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / it.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) } ?: -1
             val plugged = (bat?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
@@ -272,14 +279,34 @@ object WhatsApp {
         return r
     }
 
-    fun pair(c: Context, number: String): String = try {
+    /** True when the library is complaining about a device that was removed from the account: the bridge must be rebuilt, not reused. */
+    private fun staleDevice(e: Throwable) = (e.message ?: "").let { it.contains("deleted device", true) || it.contains("logged out", true) || it.contains("not logged in", true) }
+
+    /** Plain words for the screen, never the library's own text. */
+    fun plain(e: Throwable): String = when {
+        staleDevice(e) -> "The link was removed. Try again"
+        (e.message ?: "").let { it.contains("timeout", true) || it.contains("network", true) || it.contains("resolve", true) || it.contains("connect", true) } -> "No connection. Try again"
+        else -> "Something went wrong. Try again"
+    }
+
+    fun pair(c: Context, number: String): String {
         pairCode = null // never show the code from an earlier attempt
         main.removeCallbacks(idleOff)
         fire()
-        open(c)?.pairWithPhone(number); "pairing started"
-    } catch (e: Throwable) { "error: ${e.message}" }
-    fun connect(c: Context): String = try { open(c)?.connect(); "ok" } catch (e: Throwable) { "error: ${e.message}" }
-    fun disconnect() { bridge?.disconnect() }
+        for (attempt in 1..2) {
+            try { open(c)?.pairWithPhone(number); return "pairing started" } catch (e: Throwable) {
+                Log.log(c, "whatsapp: pairing failed: ${e.message}")
+                if (attempt == 1 && staleDevice(e)) { setLinked(c, false); close(); continue }
+                return "error: " + plain(e)
+            }
+        }
+        return "error: Something went wrong. Try again"
+    }
+    fun connect(c: Context): String = try { open(c)?.connect(); "ok" } catch (e: Throwable) {
+        if (staleDevice(e)) { setLinked(c, false); close() }
+        "error: " + plain(e)
+    }
+    fun disconnect() { quiet = true; bridge?.disconnect() }
     fun isConnected(): Boolean = bridge?.isConnected ?: false
     /**
      * The chat was opened on this phone: tell WhatsApp, so the main phone shows it read too. Must be called before the unread marks are
@@ -311,7 +338,7 @@ object WhatsApp {
         if (!linked(c)) return "not linked"
         main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
         var problem = ""
-        try { b.resync() } catch (e: Throwable) { problem = e.message ?: "error"; Log.log(c, "whatsapp: resync names failed: $problem") }
+        try { b.resync() } catch (e: Throwable) { problem = plain(e); Log.log(c, "whatsapp: resync names failed: $problem") }
         val st = store(c)
         nameCacheAt = 0L // pick up Contacts changed since the last look
         val renamed = st.renameSenders { id -> localName(c, id) ?: b.nameFor(id).ifBlank { null } }

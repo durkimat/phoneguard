@@ -568,6 +568,8 @@ class LauncherActivity : Activity() {
                 ui.post { if (r != "sent") model.notify("Not sent: $r"); invalidate(D.WA or D.INFO); refresh() }
             }.start()
             Action.ChooseOpen -> Thread { io.github.durkimat.phoneguard.Edition.chooseOpen(this); ui.post { refresh() } }.start()
+            is Action.SetTimeZone -> Thread { val ok = Regional.applyZone(this, a.id); ui.post { model.notify(if (ok) "Time zone set" else "Could not set the time zone"); refresh() } }.start()
+            is Action.SetLanguage -> Thread { val ok = Regional.applyLanguage(this, a.tag); ui.post { model.notify(if (ok) "Language set" else "Could not set the language"); refresh() } }.start()
             Action.StartFamily -> start(Intent(this, io.github.durkimat.phoneguard.companion.EnrolActivity::class.java))
             Action.EraseAndRestart -> io.github.durkimat.phoneguard.Edition.eraseAndRestart(this)
             is Action.SaveOpenOption -> { io.github.durkimat.phoneguard.Edition.setOpenOption(this, a.key, a.value); io.github.durkimat.phoneguard.Controller.evaluateAsync(this, "open option"); refresh() }
@@ -755,6 +757,12 @@ class LauncherActivity : Activity() {
         val pickedId = getSharedPreferences("music", MODE_PRIVATE).getString("target", null)
         var list = sp.devices(this) ?: emptyList()
         var target = list.firstOrNull { it.id == pickedId } ?: list.firstOrNull { thisPhone(it) }
+        if (target == null && !io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)) {
+            Log.log(this, "spotify play: the Spotify app is not installed on this phone")
+            ui.post { model.notify("Spotify is not installed on this phone"); refresh() }
+            if (list.none { it.active }) return
+            target = list.firstOrNull { it.active }
+        }
         if (target == null) {
             list = wakeSpotify(list)
             target = list.firstOrNull { thisPhone(it) } ?: list.firstOrNull { it.active }
@@ -770,6 +778,7 @@ class LauncherActivity : Activity() {
      */
     private fun wakeSpotify(before: List<io.github.durkimat.phoneguard.music.SpDevice>): List<io.github.durkimat.phoneguard.music.SpDevice> {
         var list = before
+        if (!io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)) return list
         val covered = io.github.durkimat.phoneguard.keys.F2Service.cover(true)
         if (covered) Thread.sleep(250) else ui.post { model.notify("Starting Spotify..."); refresh() }
         launch(io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG)

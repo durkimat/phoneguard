@@ -261,6 +261,7 @@ object WorkerLink {
         }
         val cals = io.github.durkimat.phoneguard.calendar.Subscriptions.status(c)
         if (cals.length() > 0) st.put("calendars", cals)
+        st.put("spotifyInstalled", io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(c))
         return p
     }
 
