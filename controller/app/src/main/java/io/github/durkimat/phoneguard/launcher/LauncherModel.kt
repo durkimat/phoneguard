@@ -76,7 +76,7 @@ enum class Layout { LIST, GRID, CUSTOM }
 /** How far the home screen's data line moves down in the Mac look (design pixels): its title bar and frame take the top. */
 const val DATA_MAC_SHIFT = 46f
 /** The home screen's weather group: its centre line (design pixels). Above the clock normally; the Mac look has too little room there, so it stays lower. */
-fun weatherCy(mac: Boolean) = if (mac) 372f else 124f
+fun weatherCy(mac: Boolean) = if (mac) 372f else 128f
 /** The slot for Now playing, the next event and the rain note: where the weather used to be (lower in the Mac look). */
 fun homeSlotY(mac: Boolean) = if (mac) 440f else 392f
 const val GRID_COLS = 3

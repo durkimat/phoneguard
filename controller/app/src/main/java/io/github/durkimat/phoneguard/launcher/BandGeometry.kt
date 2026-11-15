@@ -19,6 +19,8 @@ object BandGeometry {
     /** Where the right-hand block starts (its ink edge). */
     fun rightEdge(div: Float) = div + GAP
     fun rainIconCx(div: Float) = rightEdge(div) + RAIN_ICON / 2
-    /** Where the rain-due text lines start; dry text starts at [rightEdge]. */
+    /** The dry text's ink is drawn two columns right of [rightEdge]: measured on the emulator, the ink lands one column left of where the outline says, and the line's own pixels end one column after [divider]. */
+    fun dryTextX(div: Float) = rightEdge(div) + 2f
+    /** Where the rain-due text lines start. */
     fun rainTextX(div: Float) = rightEdge(div) + RAIN_ICON + TEXT_AFTER_ICON
 }

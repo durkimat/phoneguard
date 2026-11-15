@@ -167,7 +167,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 if (b < i.signalBars) c.drawRect(r, fill) else { stroke.strokeWidth = 2 * u; c.drawRect(r, stroke) }
             }
             // battery: outline, level, nub
-            val bx = 480f - 14 - 56
+            val bx = 480f - 14 - 56 + 1f // the nub's last ink column is 466, like the data bar's and the right soft key's
             stroke.strokeWidth = 3 * u
             c.drawRect(bx * u, 10 * u, (bx + 52) * u, 36 * u, stroke)
             c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
@@ -236,7 +236,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             c.drawLine(0f, (640 - 64) * u, width.toFloat(), (640 - 64) * u, stroke)
             val cy = 606f
             if (left.isNotEmpty()) {
-                arrow(c, 22f, cy, -1, u)
+                arrow(c, 23f, cy, -1, u) // the triangle's ink starts at column 14, like the signal bars and the data text
                 text(c, left, 46f, 614f, 30f, u, bold = true, role = LABEL)
             }
             if (right.isNotEmpty()) {
@@ -403,7 +403,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             weatherIcon(c, w.icon, x0 + rb.left - 14f - 31f, cy, 62f, u)                                    // the symbol sits just left of it
             stroke.strokeWidth = 2f * u; stroke.color = ink
             c.drawLine(div * u, (cy - 28f) * u, div * u, (cy + 28f) * u, stroke)
-            val x = if (band.due) BandGeometry.rainTextX(div) else BandGeometry.rightEdge(div)
+            val x = if (band.due) BandGeometry.rainTextX(div) else BandGeometry.dryTextX(div)
             if (band.due) band.icon?.let { weatherIcon(c, it, BandGeometry.rainIconCx(div), cy, BandGeometry.RAIN_ICON, u) }
             textInk(c, band.line1, x, cy, 36f, u, bold = true)
             if (band.line2.isNotEmpty()) textInk(c, band.line2, x, cy + 26f, 24f, u)
@@ -636,7 +636,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 77f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
                 return
             }
-            text(c, v.leftText, 14f, 78f + y, 26f, u, bold = true)
+            textInk(c, v.leftText, 14f, 78f + y, 26f, u, bold = true) // its first ink column is 14, like the signal bars
             stroke.strokeWidth = 2f * u; stroke.color = ink
             c.drawRect(230f * u, (58f + y) * u, 466f * u, (80f + y) * u, stroke)
             fill.color = ink; c.drawRect(230f * u, (58f + y) * u, (230f + 236f * v.fraction) * u, (80f + y) * u, fill)

@@ -1194,3 +1194,6 @@ Band y 90..158 (Mac: centre y 372): current weather at the left (symbol cx 56, t
 
 ## 0.4.12: weather band geometry on the clock's colon
 The band's divider stands on the clock's colon (measured at draw time from the clock's own font and the time shown; kept to 232..252, default 242 for the monospace default) with the same 22 px gap each side: the temperature's INK ends at divider-22 (outline bounds, not rounded text bounds), the symbol sits 14 left of its ink edge; the forecast block starts at divider+22 (rain symbol size 44 centred 22 in, text 10 after it; dry text at the edge), both text lines ink-aligned. Geometry constants and invariants are in `BandGeometry` (tested); the colon measurement itself needs real fonts, so it is not unit-tested.
+
+## 0.4.13: home screen alignment pass (owner is picky)
+Left ink edge column 14 for the signal bars, the data text (ink-measured) and the left soft-key triangle (shifted +1); right ink column 466 for the battery nub (+1), the data bar and the right soft key; the dry text moves two columns right (ink at 265 = line pixels 241..242 + 22 gap); the weather band moves down 4 px (cy 128, Mac stays 372) so the gap below the data strip (about 18) matches the gap above the clock (about 19). Based on PC measurements of 0.4.12; not measured here (no emulator).

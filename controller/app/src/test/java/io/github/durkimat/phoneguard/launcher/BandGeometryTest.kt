@@ -14,6 +14,8 @@ class BandGeometryTest {
         assertEquals(264f, BandGeometry.rightEdge(d), 0f)
     }
 
+    @Test fun theDryTextStartsTwoColumnsInsideSoItsInkLandsOnColumn265() { assertEquals(266f, BandGeometry.dryTextX(242f), 0f) }
+
     @Test fun theRainBlockStartsAtTheEdgeAndItsTextAfterTheSymbol() {
         val d = BandGeometry.divider(242f)
         assertEquals(BandGeometry.rightEdge(d), BandGeometry.rainIconCx(d) - BandGeometry.RAIN_ICON / 2, 0f) // the symbol's left edge is the block's edge
