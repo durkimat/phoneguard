@@ -40,7 +40,7 @@ class LauncherActivity : Activity() {
     private var lockedLook: Set<String> = emptySet()
     private val model = LauncherModel()
     private val ui = Handler(Looper.getMainLooper())
-    private val calendar by lazy { io.github.durkimat.phoneguard.calendar.AndroidCalendar(this) }
+    private val calendar by lazy { io.github.durkimat.phoneguard.calendar.CompositeCalendar(this) }
     private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
 
     private val changes = object : BroadcastReceiver() {

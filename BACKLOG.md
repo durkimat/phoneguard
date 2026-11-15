@@ -1110,3 +1110,8 @@ Screen lights up, dims, goes off, repeats: the same symptom as before. The ims37
 
 ### Status line wording with a boost (PC session observation, 2026-11-14)
 The status page and notification read "Night + boost until Sun 07:00" when a Day boost of 20 minutes is active. `Controller.evaluate` builds it as `<mode name> + boost` and `until` = `Engine.nextChange(...)`, which looks like the next scheduled change, not the boost end. Better: "Night, boosted to Day until 20:20" (name the boosted mode and the boost's own end), then the next scheduled change. Check what `nextChange` returns when a boost is active before changing; shared with the HA path, so keep the HA wording in step.
+
+## Email and calendar from the wizard: phone side built (2026-11-15, app 0.3.20)
+- WorkerLink opens `secrets["email.password"]` and calls `Mail.setup` only when a fingerprint of account+password changed (wrong password: not retried until a new one is sent; network failure: config re-sent at the next check-in). Parent removes the account: phone removes it (only if parent-provisioned). Reports `state.mail {configured, error?}`.
+- Calendars: `config.calendars` + `secrets["calendar.<id>"]` become read-only ICS subscriptions (`calendar/Ics.kt` parser with RRULE/EXDATE/RECURRENCE-ID/TZID, `calendar/Subscriptions.kt` store + hourly fetch at the companion check-in, https only, 5 MB cap, link sealed with the Keystore Vault, never logged). Shown in the launcher beside the phone's own calendar via `CompositeCalendar`; not writable. Reports `state.calendars [{id, ok, events, error?}]`.
+- Not live-tested: needs a real mailbox and calendar link on the J36. Windows time-zone names fall back to the phone's zone. DAVx5 write-back is a separate later item.

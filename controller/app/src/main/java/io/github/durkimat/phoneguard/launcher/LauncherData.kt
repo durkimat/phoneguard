@@ -59,9 +59,9 @@ object LauncherData {
     private fun nextUp(c: Context, now: Long): String {
         if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
         val text = try {
-            if (c.checkSelfPermission(android.Manifest.permission.READ_CALENDAR) != android.content.pm.PackageManager.PERMISSION_GRANTED) "" else {
+            run {
                 val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
-                val ev = io.github.durkimat.phoneguard.calendar.AndroidCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(2), z))
+                val ev = io.github.durkimat.phoneguard.calendar.CompositeCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(2), z))
                 val next = io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, 2, z).firstOrNull { !it.event.allDay && it.event.end > now }
                 if (next == null) "" else io.github.durkimat.phoneguard.calendar.Cal.agendaRow(next, today, z).let { r -> if (next.day == today) r.removePrefix("Today ") else r }
             }

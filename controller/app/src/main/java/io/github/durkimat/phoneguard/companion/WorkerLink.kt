@@ -54,7 +54,7 @@ object WorkerLink {
     } catch (e: Exception) { Build.MODEL }
 
     /** Disconnect: forget the Worker, device id and keys' use; everything else on the phone stays as it is. */
-    fun disconnect(c: Context) { forget(c); EncKey.delete(); Log.log(c, "companion: disconnected") }
+    fun disconnect(c: Context) { removeProvisioned(c); forget(c); EncKey.delete(); Log.log(c, "companion: disconnected") }
 
     fun forget(c: Context) { sp(c).edit().clear().apply(); cancelPoll(c) }
 
@@ -116,7 +116,7 @@ object WorkerLink {
         val ctr = s.getLong("ctr", 0) + 1
         s.edit().putLong("ctr", ctr).apply() // persist first: a counter is never reused, even if the reply is lost
         val n = Wire.nonce()
-        val p = Link.payload(c, s.getString("cfgh", "").orEmpty()).toString()
+        val p = payloadWithExtras(c, s.getString("cfgh", "").orEmpty()).toString()
         val env = JSONObject().put("v", V).put("did", did).put("ctr", ctr).put("n", n).put("p", p)
             .put("s", Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, p).toByteArray(Charsets.UTF_8)))
         val result = try {
@@ -132,6 +132,7 @@ object WorkerLink {
             Log.log(c, "companion sync($reason) failed #$f: ${e.javaClass.simpleName}: ${e.message}")
             return "failed: ${e.message}"
         }
+        try { io.github.durkimat.phoneguard.calendar.Subscriptions.refresh(c) } catch (e: Exception) { Log.log(c, "calendar refresh crashed: ${e.javaClass.simpleName}") }
         schedulePoll(c, POLL_MS)
         Log.log(c, "companion sync($reason) $result")
         return result
@@ -152,7 +153,10 @@ object WorkerLink {
 
     private fun applyConfig(c: Context, rp: JSONObject, serverT: Long): String {
         val v = rp.optInt("configVersion", 0)
-        val what = Link.applyShared(c, rp, serverT, { withOpenedSecrets(c, it) }, { sp(c).edit().putString("cfgh", it).putInt("cfgVersion", v).apply() }, { forget(c); EncKey.delete() })
+        mailRetry = false
+        val what = Link.applyShared(c, rp, serverT, { withOpenedSecrets(c, it) },
+            { sp(c).edit().putString("cfgh", if (mailRetry) "" else it).putInt("cfgVersion", v).apply() }, // an empty hash makes the server send the config again next time
+            { removeProvisioned(c); forget(c); EncKey.delete() })
         return "$what (v$v)"
     }
 
@@ -162,7 +166,7 @@ object WorkerLink {
      */
     private fun withOpenedSecrets(c: Context, profile: JSONObject): JSONObject {
         val out = JSONObject(profile.toString())
-        val secrets = out.optJSONObject("secrets") ?: return out
+        val secrets = out.optJSONObject("secrets") ?: JSONObject()
         out.remove("secrets")
         val did = sp(c).getString("did", "").orEmpty()
         val key = EncKey.privateKey()
@@ -171,7 +175,91 @@ object WorkerLink {
             if (plain != null) { out.put("spotifyRefresh", plain); Log.log(c, "companion: opened sealed spotify.refresh") }
             else Log.log(c, "companion: could not open sealed spotify.refresh")
         }
+        provisionMail(c, out, secrets, did, key)
+        provisionCalendars(c, out, secrets, did, key)
         return out
+    }
+
+    // ---- email and calendars given by the parent ----------------------------------------------------
+
+    /** Set when this config pass hit a network problem setting up the mail account, so the same config is sent again at the next check-in. */
+    @Volatile private var mailRetry = false
+
+    private fun shortErr(s: String) = s.replace(Regex("[\\r\\n]+"), " ").take(60)
+
+    /**
+     * `config.email` + `secrets["email.password"]`: signs in and keeps the account (Mail.setup) only when the account or password changed (a fingerprint
+     * is kept, never the password). A wrong password is not retried until the parent sends a new one; a network failure is. If the parent removes the
+     * account, the phone removes it too, but only an account the parent provisioned (never one typed on the phone).
+     */
+    private fun provisionMail(c: Context, cfg: JSONObject, secrets: JSONObject, did: String, key: java.security.PrivateKey?) {
+        val s = sp(c)
+        val e = cfg.optJSONObject("email")
+        if (e == null) {
+            if (s.getBoolean("mailProvisioned", false)) {
+                io.github.durkimat.phoneguard.mail.Mail.remove(c); s.edit().remove("mailProvisioned").remove("mailFp").remove("mailErr").apply()
+                Log.log(c, "companion: email removed by the parent")
+            }
+            return
+        }
+        try {
+            val slot = e.optString("secret", "email.password")
+            val plain = secrets.optJSONObject(slot)?.let { if (key == null) null else SealedSecret.open(key, did, slot, it) }
+            if (plain == null) { s.edit().putString("mailErr", "Password could not be opened").apply(); Log.log(c, "companion: could not open sealed $slot"); return }
+            val imap = e.getJSONObject("imap"); val smtp = e.getJSONObject("smtp")
+            val address = e.getString("address"); val user = e.optString("user", address).ifBlank { address }
+            val acct = io.github.durkimat.phoneguard.mail.MailAccount(address, user = user, smtpUser = user,
+                imapHost = imap.getString("host"), imapPort = imap.getInt("port"), imapSec = imap.getString("security"),
+                smtpHost = smtp.getString("host"), smtpPort = smtp.getInt("port"), smtpSec = smtp.getString("security"))
+            val fp = CompanionCrypto.sha256Hex(listOf(acct.address, acct.user, acct.imapHost, acct.imapPort, acct.imapSec, acct.smtpHost, acct.smtpPort, acct.smtpSec, plain).joinToString("|"))
+            val have = io.github.durkimat.phoneguard.mail.Mail.account(c)
+            if (s.getString("mailFp", "") == fp && have != null && s.getString("mailErr", "").isNullOrEmpty()) return // nothing changed: no new sign-in
+            if (s.getString("mailFp", "") == fp && s.getString("mailErr", "").orEmpty().startsWith("Wrong")) return // already refused: wait for a new password
+            val err = io.github.durkimat.phoneguard.mail.Mail.setup(c, acct, plain)
+            if (err.isEmpty()) { s.edit().putString("mailFp", fp).putBoolean("mailProvisioned", true).remove("mailErr").apply(); Log.log(c, "companion: email account set up") }
+            else {
+                s.edit().putString("mailFp", fp).putString("mailErr", shortErr(err)).apply()
+                if (!err.startsWith("Wrong")) mailRetry = true
+                Log.log(c, "companion: email setup failed: ${shortErr(err)}") // the reason from the mail code never contains the password
+            }
+        } catch (ex: Exception) { s.edit().putString("mailErr", "Bad email settings").apply(); Log.log(c, "companion: email config unusable: ${ex.javaClass.simpleName}") }
+    }
+
+    /** `config.calendars` + `secrets["calendar.<id>"]` become read-only subscriptions; what the parent removed is removed here. */
+    private fun provisionCalendars(c: Context, cfg: JSONObject, secrets: JSONObject, did: String, key: java.security.PrivateKey?) {
+        val list = cfg.optJSONArray("calendars")
+        val wanted = ArrayList<Triple<String, String, String?>>()
+        if (list != null) for (i in 0 until list.length()) {
+            val o = list.optJSONObject(i) ?: continue
+            val id = o.optString("id"); if (id.isEmpty()) continue
+            val slot = o.optString("secret", "calendar.$id")
+            val url = secrets.optJSONObject(slot)?.let { if (key == null) null else SealedSecret.open(key, did, slot, it) }
+            if (url == null) Log.log(c, "companion: could not open sealed calendar link")
+            wanted += Triple(id, o.optString("name", "Calendar").ifBlank { "Calendar" }, url)
+        }
+        io.github.durkimat.phoneguard.calendar.Subscriptions.apply(c, wanted)
+    }
+
+    /** Disconnecting or being released: the mail account and calendars the parent provisioned go with the link. */
+    private fun removeProvisioned(c: Context) {
+        val s = sp(c)
+        if (s.getBoolean("mailProvisioned", false)) io.github.durkimat.phoneguard.mail.Mail.remove(c)
+        io.github.durkimat.phoneguard.calendar.Subscriptions.clear(c)
+    }
+
+    private fun payloadWithExtras(c: Context, cfgh: String): JSONObject {
+        val p = Link.payload(c, cfgh)
+        val st = p.optJSONObject("state") ?: JSONObject().also { p.put("state", it) }
+        val s = sp(c)
+        val prov = s.getBoolean("mailProvisioned", false) || !s.getString("mailErr", "").isNullOrEmpty()
+        if (prov) {
+            val m = JSONObject().put("configured", s.getBoolean("mailProvisioned", false) && io.github.durkimat.phoneguard.mail.Mail.account(c) != null)
+            s.getString("mailErr", "")?.takeIf { it.isNotEmpty() }?.let { m.put("error", it) }
+            st.put("mail", m)
+        }
+        val cals = io.github.durkimat.phoneguard.calendar.Subscriptions.status(c)
+        if (cals.length() > 0) st.put("calendars", cals)
+        return p
     }
 
     // ---- network and scheduling ----------------------------------------------------------------

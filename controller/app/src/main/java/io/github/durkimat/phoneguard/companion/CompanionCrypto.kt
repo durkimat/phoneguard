@@ -12,6 +12,7 @@ import java.util.Base64
  */
 object CompanionCrypto {
     private fun sha256(b: ByteArray) = MessageDigest.getInstance("SHA-256").digest(b)
+    fun sha256Hex(s: String): String = sha256(s.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
 
     /** Token as typed or sent: upper case, everything outside A-Z0-9 removed. */
     fun normaliseToken(t: String): String = t.uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
