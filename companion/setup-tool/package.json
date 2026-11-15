@@ -7,7 +7,7 @@
   "bundle": "node ../worker/scripts/build-page.mjs && node bundle-worker.mjs",
   "start": "node server.mjs",
   "release": "node release.mjs",
-  "test": "node test/engine.test.mjs && node test/server.test.mjs && node test/checks.test.mjs && node test/update.test.mjs && node test/release.test.mjs",
+  "test": "node test/engine.test.mjs && node test/server.test.mjs && node test/checks.test.mjs && node test/update.test.mjs && node test/release.test.mjs && node test/spotify-app.test.mjs",
   "test:wizard": "node test/wizard-api.test.mjs"
  },
  "dependencies": {

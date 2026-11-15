@@ -2,11 +2,28 @@
 
 Phone Guard does not play music itself. It signs in to your Spotify account and tells the **Spotify app on the phone** what to play. Spotify only publishes its app on Google Play, so it is not part of the Phone Guard image and has to be put on the phone once.
 
-> This is a workaround for now. A built-in player that needs no Spotify app, no app store and no Spotify developer account is being looked into.
+> Spotify only lets its own app play its music dependably (the open-source players others use have recently stopped working for newer Spotify accounts), so the official app is what Phone Guard controls.
 
 You need: the phone on **Wi-Fi**, your **Spotify Premium** account, and a Family phone already connected to your companion (so you can approve apps on your parent page).
 
-## Steps
+## The easy way: let the setup wizard do it
+
+In the setup wizard's **Spotify** step (or any time you run the wizard again), press **Install it for me**.
+
+You need: the child's phone **plugged into this computer** with USB debugging on, **on Wi-Fi**, and `adb` on this computer (running `node pg-install.mjs check` in the phoneguard folder downloads it). It takes about 5 minutes and you do not need to touch the phone.
+
+What it does, so nothing is a surprise:
+1. Downloads Aurora Store from F-Droid and checks it against a fixed checksum, then installs it on the phone.
+2. Allows Aurora and Spotify on your companion for Day mode (you can see this on your parent page, Apps tab).
+3. Opens Aurora on the phone, signs in anonymously (no Google account), and installs Spotify from it.
+4. Removes Aurora Store again and takes its approval back, so the child has no app store.
+5. For a minute or two the phone's animations are switched off (Aurora's screens need it) and then put back exactly as they were.
+
+Then **sign in to Spotify on the phone** with your Premium account (use the touchscreen). The wizard shows a tick once the phone has reported the Spotify app.
+
+If it stops, it says why in plain words. The usual causes are that the phone is not on Wi-Fi, the cable is not connected, or the phone has not synced yet (press **Sync now** on its status page and press the button again). The by-hand route below always works.
+
+## By hand
 
 1. **Put Aurora Store on the phone.** Aurora is a free, open-source client for Google Play. Download `com.aurora.store_76.apk` from <https://f-droid.org/packages/com.aurora.store/> on your computer, plug the phone in, and in a terminal in the folder where it saved type:
 

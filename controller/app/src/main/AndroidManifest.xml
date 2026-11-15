@@ -189,6 +189,9 @@
         <receiver android:name=".companion.EnrolReceiver" android:directBootAware="true" android:exported="true"
             android:permission="android.permission.DUMP" />
 
+        <receiver android:name=".SyncReceiver" android:directBootAware="true" android:exported="true"
+            android:permission="android.permission.DUMP" />
+
         <receiver android:name=".NudgeReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="io.github.durkimat.phoneguard.SYNC" />

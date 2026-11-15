@@ -4,12 +4,15 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import QRCode from "qrcode";
 import { setUp, CfError, newEnrolment, waitUntilLive, updateWorker, verifyFamily, currentVersion, pickBundle, cf, listAccounts } from "./engine.mjs";
 import { seal } from "../worker/src/seal.js";
 import { PROVIDERS, UNSUPPORTED } from "./providers.mjs";
 import { testImap, testSmtp, checkCalendarUrl } from "./checks.mjs";
+import { installSpotifyApp, adbRunner, StepError } from "./spotify-app.mjs";
+import { existsSync } from "node:fs";
+import { join as pjoin, resolve as presolve } from "node:path";
 
 // The live checks can be replaced in tests (they talk to real mail servers and calendars).
 export const hooks = { testImap, testSmtp, checkCalendarUrl };
@@ -58,6 +61,25 @@ async function startUpdate({ token, name }) {
   } catch (e) { job.error = friendly(e); const cur = job.steps.find((s) => s.state === "doing"); if (cur) cur.state = "failed"; job.done = true; }
 }
 
+// The Spotify app, installed from this computer over the USB cable (spotify-app.mjs).
+let spJob = null;
+export const hooksSpotify = { run: installSpotifyApp };   // replaced in tests
+function findAdb() {
+  const exe = process.platform === "win32" ? "adb.exe" : "adb", here = new URL(".", import.meta.url).pathname;
+  const cands = [process.env.PG_ADB, "adb", presolve(here, "../../../platform-tools", exe), presolve(process.cwd(), "platform-tools", exe), presolve(process.cwd(), "../../../platform-tools", exe), pjoin(homedir(), "phoneguard", "platform-tools", exe)].filter(Boolean);
+  return cands.find((c) => (c === "adb" || existsSync(c)) && spawnSync(c, ["version"], { timeout: 15_000 }).status === 0) ?? null;
+}
+async function startSpotifyInstall(did) {
+  spJob = { steps: [], done: false };
+  try {
+    const adbPath = process.env.PG_ADB_FAKE ? null : findAdb();
+    if (!adbPath && !process.env.PG_ADB_FAKE) throw new StepError("adb was not found. Run `node pg-install.mjs check` in the phoneguard folder: it downloads adb. Then try again.");
+    const post = (pkg, body, sub) => wk(`/devices/${encodeURIComponent(did)}/apps/${sub}`, "POST", { pkg, ...body });
+    const r = await hooksSpotify.run({ adb: hooksSpotify.adb ?? adbRunner(adbPath, spawnSync), say: (t) => { spJob.steps.push(t); }, approve: async (pkgs) => { for (const k of pkgs) await post(k, { modes: ["day"] }, "approve"); }, unapprove: async (pkgs) => { for (const k of pkgs) await post(k, { mode: "day", allowed: false }, "mode"); } });
+    spJob.result = r; spJob.done = true;
+  } catch (e) { spJob.error = e instanceof StepError ? e.message : `Something unexpected went wrong: ${e.message}`; spJob.done = true; }
+}
+
 async function families() {
   try { return (await Promise.all((await readdir(DIR)).filter((f) => /^family-.*\.json$/.test(f)).map(async (f) => { const j = JSON.parse(await readFile(`${DIR}/${f}`, "utf8")); return { name: j.name, host: j.host }; }))); } catch { return []; }
 }
@@ -104,6 +126,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (!family) return json(409, { error: "Set up or resume first." });
     if (req.method === "GET" && p === "/info") return json(200, { host: family.host, link: parentLink(), welcomeLink: parentLink("&welcome=1"), parentQr: await QRCode.toString(parentLink(), { type: "svg", margin: 1 }), redirectUri: `https://${family.host}/spotify/callback`, guide: `https://${family.host}/guide`, waGuide: `https://${family.host}/guide#whatsapp`, waQr: await QRCode.toString(`https://${family.host}/guide#whatsapp`, { type: "svg", margin: 1 }) });
+    if (req.method === "POST" && p === "/spotify-install") { if (spJob && !spJob.done) return json(409, { error: "already running" }); if (!/^[a-z0-9]+$/.test(String(body.did))) return json(400, { error: "Connect the child's phone first." }); startSpotifyInstall(body.did); return json(202, { started: true }); }
+    if (req.method === "GET" && p === "/spotify-install-status") return json(200, spJob ?? { steps: [], done: false });
     if (req.method === "POST" && p === "/enrol") { const e = await newEnrolment(family.host, family.adminToken, fetch, base()); return json(200, { address: e.typed.address, code: e.typed.code, expires: e.expires, qr: await QRCode.toString(e.qr, { type: "svg", margin: 1 }) }); }
     if (req.method === "GET" && p === "/pairings") { const r = await wk("/pairings"); return json(r.status, r.ok ? r.body.map(({ id, model, app, created }) => ({ id, model, app, created })) : r.body); }   // the 4 digits are NOT passed on: the parent types what the phone shows
     if (req.method === "POST" && p === "/approve") { const r = await wk(`/pairings/${encodeURIComponent(body.id)}/confirm`, "POST", { match: String(body.match ?? "") }); return json(r.status, r.body); }

@@ -23,7 +23,7 @@ process.env.CF_API = `http://127.0.0.1:${mock.address().port}/client/v4`; proces
 await fs.writeFile(`${dir}/family-gonefam.json`, JSON.stringify({ name: "gonefam", account: "a", host: "gone.example.workers.dev", parentKey: "x" }));
 await fs.writeFile(`${dir}/family-testfam.json`, JSON.stringify({ name: "testfam", account: "a", host: "wiz.example.workers.dev", parentKey: "dev-admin-token" }));
 process.env.NO_OPEN = "1"; process.env.WORKER_BASE = W; process.env.PHONEGUARD_DIR = dir;
-const { server, session, hooks } = await import("../server.mjs");
+const { server, session, hooks, hooksSpotify } = await import("../server.mjs");
 import { openSealed } from "../../worker/test/helpers/open-sealed.mjs";
 await new Promise((r) => (server.listening ? r() : server.once("listening", r)));
 const B = `http://127.0.0.1:${server.address().port}`;
@@ -77,5 +77,13 @@ c1 = await wcfg(); assert.equal(c1.calendars.length, 1); const slot = c1.calenda
 await api("/calendar-add", { did: ap.did, name: "School terms", url: "https://cal.example.com/ical/terms.ics" }); assert.equal((await api(`/accounts?did=${ap.did}`)).body.calendars.length, 2); ok("more than one calendar can be added");
 const rm = (await api(`/accounts?did=${ap.did}`)).body.calendars[0].id; assert.equal((await api("/calendar-remove", { did: ap.did, id: rm })).status, 200); c1 = await wcfg(); assert.equal(c1.calendars.length, 1); assert.ok(!c1.secrets["calendar." + rm]); ok("removing a calendar removes its sealed link");
 assert.equal((await api("/email-clear", { did: ap.did })).status, 200); assert.ok(!(await wcfg()).email); ok("clearing email removes the account and its password");
+{ process.env.PG_ADB_FAKE = "1"; const seen = []; hooksSpotify.adb = async () => ({ ok: true, out: "" });
+  hooksSpotify.run = async ({ say, approve, unapprove }) => { say("Checking the phone"); await approve(["com.aurora.store", "com.spotify.music"]); const v = await wcfg(); seen.push([...(v.modes?.day?.allow ?? [])]); say("Removing Aurora Store"); await unapprove(["com.aurora.store"]); return { installed: true }; };
+  assert.equal((await api("/spotify-install", { did: "../x" })).status, 400); assert.equal((await api("/spotify-install", { did: ap.did })).status, 202);
+  let j; for (let i = 0; i < 50; i++) { j = (await api("/spotify-install-status")).body; if (j.done) break; await new Promise((r) => setTimeout(r, 100)); }
+  assert.deepEqual(j.steps, ["Checking the phone", "Removing Aurora Store"]); assert.equal(j.result.installed, true); const after = await wcfg();
+  assert.ok(seen[0].includes("com.spotify.music") && seen[0].includes("com.aurora.store")); assert.ok(after.modes.day.allow.includes("com.spotify.music") && !after.modes.day.allow.includes("com.aurora.store")); ok("the wizard's Spotify install runs the installer, approves Aurora and Spotify on the companion for Day mode, and takes Aurora's approval back afterwards");
+  hooksSpotify.run = async () => { throw Object.assign(new Error("The phone is not on Wi-Fi."), { name: "StepError" }); }; assert.equal((await api("/spotify-install", { did: ap.did })).status, 202); for (let i = 0; i < 50; i++) { j = (await api("/spotify-install-status")).body; if (j.done) break; await new Promise((r) => setTimeout(r, 100)); }
+  assert.ok(j.error); ok("a failure in the install is reported to the page, not hidden"); delete process.env.PG_ADB_FAKE; }
 assert.equal((await fetch(B + "/pairings")).status, 403); ok("every wizard call needs the session key");
 server.close(); mock.close(); console.log(`\n${n} checks passed`);

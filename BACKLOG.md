@@ -1166,3 +1166,6 @@ Still untested on a device: the first-run wizard screens (needs a wipe flash), t
 - Sync state now carries `wa: {linked, status, all, allowed}`. APK only (no image change); the AAR was rebuilt (Go toolchain installed under ~/.local/gotool on the build PC).
 
 Spotify Connect (librespot) rejected 2026-11-15: Spotify's audio-key restriction (see docs/spotify-connect-spike.md). v0.4.5 parent-page app update proven live (Wi-Fi-gated install within seconds, device owner kept). Possible next spikes (owner decides): easier/automatic Spotify app install; Web Playback SDK in the WebView (needs Widevine).
+
+## 0.4.6: adb-callable sync
+`am broadcast -n io.github.durkimat.phoneguard/.SyncReceiver` makes the phone sync with the companion now (protected by DUMP, so only shell/root can send it; rate limited to one per 3 s). Used by the setup tool's Spotify install. `spotifyInstalled` is already in the sync state (0.4.4).
