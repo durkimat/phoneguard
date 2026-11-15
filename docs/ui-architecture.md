@@ -35,7 +35,7 @@ Status: plan agreed with the owner 2026-11-12. Slice 1 (this branch, `feat/ui-na
 
 ## Slice 4a: the classic-Mac look (first cut)
 
-A theme now carries a `skin` as well as its colours. The two new themes, "Classic Mac" and "Classic Mac dark" (Settings > Theme), draw
+A theme now carries a `skin` as well as its colours. The two new themes, "Classic Mac" and "Classic Mac dark" (Settings > Look > Theme), draw
 every screen inside one window on a dithered desktop:
 
 - A menu bar across the top carries the status symbols. The window has a pinstriped title bar, and a close box appears when Back has
