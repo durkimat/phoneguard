@@ -98,4 +98,10 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   rt.state = { lock: { supported: true, set: false, by: null, rev: 3 } }; const v = H.view(ch, rt, null, null, T0); assert.equal(v.lock.sent.rev, 3); assert.equal(v.lock.phone.rev, 3); assert.ok(!JSON.stringify(v).includes('"ct"'));
   ok("the screen-lock PIN travels sealed with a rising revision, and a clear removes the secret"); }
 
+
+{ const { ch } = fresh();
+  assert.ok(!("dataWidget" in S.buildConfig(ch, T0).modes.day)); H.updateChild(ch, { modes: { ...ch.modes, school: { ...ch.modes.school, data_widget: false } } }, T0);
+  const cfg = S.buildConfig(ch, T0); assert.equal(cfg.modes.school.dataWidget, false); assert.ok(!("dataWidget" in cfg.modes.day));
+  throwsMsg(() => H.updateChild(ch, { modes: { ...ch.modes, day: { ...ch.modes.day, data_widget: "yes" } } }, T0), /data_widget must be true or false/); ok("the mobile-data widget can be switched off per mode; only 'off' is sent to the phone"); }
+
 console.log(`\n${n} checks passed`);

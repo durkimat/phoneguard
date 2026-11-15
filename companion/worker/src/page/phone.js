@@ -22,7 +22,7 @@ const MODE_ROWS = [
   ["Grey screen", "gray", "bool"], ["Home screen", "launcher", [["default", "Normal"], ["nokia", "Nokia screens"]]], ["Touchscreen works", "touch", "bool"], ["Pull-down shade works", "shade", "bool"],
   ["Sound", "sound", [["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]]], ["WhatsApp checks", "wa", [["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]]],
   ["WhatsApp app", "wa_app", [["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]]], ["Internet radio", "radio", [["any", "Any station"], ["presets", "My list only"], ["off", "Off"]]],
-  ["Radios sleep when locked", "radios_sleep", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"],
+  ["Radios sleep when locked", "radios_sleep", "bool"], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"],
   ["Location", "location", [["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]]], ["Location every", "loc_every", LOC_EVERY],
   ["Notifications", "notes", [["show", "Listed"], ["off", "Cleared"]]], ["Locked to allowed apps", "kiosk", "bool"],
   ["Screen off after", "screen_off_min", [[1, "1 min"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [0, "Never"]]], ["Close idle apps after", "idle_min", [[0, "Never"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]],
@@ -51,6 +51,7 @@ export async function phoneScreen(ctx, did) {
   const st0 = v.device.state ?? {}, fix = v.device.fix, pw = v.power ?? {};
   const hmin = (sec_) => (sec_ >= 3600 ? `${Math.floor(sec_ / 3600)} h ${Math.round((sec_ % 3600) / 60)} min` : `${Math.max(1, Math.round(sec_ / 60))} min`);
   let todayKey = ""; try { todayKey = new Date().toLocaleDateString("en-CA", { timeZone: v.tz || undefined }); } catch { todayKey = new Date().toLocaleDateString("en-CA"); }
+  const dataGb = (b) => (b >= 1e9 ? `${Math.round(b / 1e8) / 10} GB` : `${Math.round(b / 1e6)} MB`), dataLeft = (d) => dataGb(Math.max(0, d.allowance - d.used));
   const todaySec = Object.values(v.usage?.[todayKey] ?? {}).reduce((x, y) => x + y, 0);
   const tile = (label, value, sub, cls = "") => h("div", { class: "tile" }, h("div", { class: "mut" }, label), h("div", { class: "tv " + cls }, value), sub ? h("div", { class: "mut" }, sub) : null);
   const mapLink = (f) => h("a", { href: `https://www.openstreetmap.org/?mlat=${f[1]}&mlon=${f[2]}#map=16/${f[1]}/${f[2]}`, target: "_blank", rel: "noopener noreferrer" }, "Open the map");
@@ -59,6 +60,7 @@ export async function phoneScreen(ctx, did) {
     tile("Battery", st0.battery != null ? `${st0.battery}%` : "unknown", pw.plugged ? "charging" : pw.hours_left ? `about ${pw.hours_left} h left` : "", st0.battery != null && st0.battery <= 15 && !pw.plugged ? "bad" : ""),
     tile("Last seen", ago(v.device.last_seen), v.device.version ? `Phone Guard ${v.device.version}${st0.owner === false ? ", not managed" : ""}` : ""),
     h("div", { class: "tile" }, h("div", { class: "mut" }, "Location"), h("div", { class: "tv" }, fix ? ago(fix[0]) : "Not shared"), h("div", { class: "mut" }, fix ? ["within ", Math.round(fix[3]), " m. ", mapLink(fix)] : "Switch on in Mode settings, Location")),
+    st0.data?.allowance > 0 ? tile("Mobile data", `${dataLeft(st0.data)} left`, `${dataGb(st0.data.used)} of ${dataGb(st0.data.allowance)} used`, st0.data.used >= st0.data.allowance * 0.9 ? "bad" : "") : null,
     tile("Screen time today", todaySec ? hmin(todaySec) : "none yet", "as reported by the phone"),
     tile("WhatsApp", st0.wa?.linked ? "Linked" : "Not linked", st0.wa?.linked ? "" : "Set up in the Services tab"));
   const header = h("div", {},

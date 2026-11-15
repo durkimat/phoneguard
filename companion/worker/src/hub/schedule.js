@@ -91,7 +91,7 @@ export function buildConfig(child, nowMs, options = null) {
       launcher: m.launcher === "nokia" ? "nokia" : "default", touch: Boolean(m.touch), shade: Boolean(m.shade), kiosk: Boolean(m.kiosk),
       sound: SOUNDS.includes(m.sound) ? m.sound : "normal", inbound: Boolean(m.inbound),
       wa: WA_CHECKS.includes(m.wa) ? m.wa : "open", waApp: WA_APPS.includes(m.wa_app) ? m.wa_app : "auto", camera: Boolean(m.camera),
-      radio: RADIO_MODES.includes(m.radio) ? m.radio : "any", radiosSleep: Boolean(m.radios_sleep),
+      radio: RADIO_MODES.includes(m.radio) ? m.radio : "any", radiosSleep: Boolean(m.radios_sleep), ...(m.data_widget === false ? { dataWidget: false } : {}),
       location: LOC_MODES.includes(m.location) ? m.location : "off", locEvery: Math.max(0, intOr(m.loc_every, 30)),
       notes: NOTE_MODES.includes(m.notes) ? m.notes : "show",
       idleMin: Math.max(0, Math.min(intOr(m.idle_min, 10), 1440)), screenOffMin: Math.max(0, Math.min(intOr(m.screen_off_min, 5), 1440)),
