@@ -29,8 +29,12 @@ object StoreApp {
     /** The command as the phone will run it: only the pinned values, whatever else was sent. */
     fun pinned(cmd: AppCmd) = cmd.copy(pkg = PKG, url = URL, sha256 = SHA256, size = SIZE)
 
-    fun versionCode(c: Context): Long? = try { c.packageManager.getPackageInfo(PKG, 0).longVersionCode } catch (_: Exception) { null }
-    fun versionName(c: Context): String? = try { c.packageManager.getPackageInfo(PKG, 0).versionName } catch (_: Exception) { null }
+    // the store is hidden from the child (a new app starts hidden): a plain lookup says "not installed", so ask for uninstalled/hidden packages too and check it really is installed
+    private fun info(c: Context) = try {
+        c.packageManager.getPackageInfo(PKG, android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES).takeIf { it.applicationInfo?.let { a -> (a.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) != 0 } == true }
+    } catch (_: Exception) { null }
+    fun versionCode(c: Context): Long? = info(c)?.longVersionCode
+    fun versionName(c: Context): String? = info(c)?.versionName
     fun installed(c: Context) = versionCode(c) != null
 
     /**
@@ -41,12 +45,16 @@ object StoreApp {
     fun ensureGrants(c: Context) {
         if (!installed(c) || !Dpm.isOwner(c)) return
         val d = Dpm.dpm(c); val a = Dpm.admin(c)
+        val got = ArrayList<String>(); val missed = ArrayList<String>()
         for (perm in listOf("android.permission.POST_NOTIFICATIONS", "android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.MANAGE_EXTERNAL_STORAGE")) {
+            val short = perm.substringAfterLast('.')
             try {
                 if (d.getPermissionGrantState(a, PKG, perm) != android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
                     d.setPermissionGrantState(a, PKG, perm, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
-            } catch (e: Exception) { Log.log(c, "app store: could not grant ${perm.substringAfterLast('.')}: ${e.javaClass.simpleName}") }
+                if (d.getPermissionGrantState(a, PKG, perm) == android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) got += short else missed += short
+            } catch (e: Exception) { missed += short + "(" + e.javaClass.simpleName + ")" }
         }
+        Log.log(c, "app store grants: granted=${got.joinToString(",").ifEmpty { "none" }} not granted=${missed.joinToString(",").ifEmpty { "none" }}")
     }
 
     /** For the sync state. */

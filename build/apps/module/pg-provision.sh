@@ -56,9 +56,12 @@ appops() {
   timeout 20 cmd appops set $PKG GET_USAGE_STATS allow
   timeout 20 cmd appops set $PKG SYSTEM_ALERT_WINDOW allow
   # Aurora Store (the one app a parent may have Phone Guard install): what its downloads and installs need, if it is there. Idempotent, every boot.
-  case "$(timeout 20 cmd package path com.aurora.store 2>/dev/null)" in package:*)
+  # (-u: it is hidden from the child, and `path` does not show a hidden package)
+  case "$(timeout 20 cmd package list packages -u com.aurora.store 2>/dev/null)" in *package:com.aurora.store*)
     timeout 20 cmd appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow
+    timeout 20 cmd appops set --uid com.aurora.store MANAGE_EXTERNAL_STORAGE allow
     timeout 20 cmd appops set com.aurora.store MANAGE_EXTERNAL_STORAGE allow
+    say "aurora appops: $(timeout 20 cmd appops get com.aurora.store REQUEST_INSTALL_PACKAGES 2>&1 | head -1) / $(timeout 20 cmd appops get com.aurora.store MANAGE_EXTERNAL_STORAGE 2>&1 | head -1)"
     timeout 20 pm grant com.aurora.store android.permission.POST_NOTIFICATIONS;;
   esac
 }
