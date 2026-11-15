@@ -316,7 +316,7 @@ export async function main(argv, { out = console.log, input = process.stdin, too
       out("\n== Flashing");
       if (!o.dryRun && preflight(t).mode === "adb") { t.adb(["reboot", "bootloader"], { mutates: true }); if (!(await wait.fastboot())) throw new Error("The phone did not appear in fastboot mode."); }
       await flash(t, o.kit, { keepData: o.keepData, ask, wait });
-      out(o.dryRun ? "\nDry run finished: nothing was changed on the phone." : "\nDone. The first start takes several minutes. When you see the Phone Guard status page, continue with the setup wizard (docs/family-setup.md).");
+      out(o.dryRun ? "\nDry run finished: nothing was changed on the phone." : "\nDone. The first start takes several minutes. When the phone shows its first-run screen, choose Open phone or Family phone. For a Family phone, continue with the setup wizard (docs/family-setup.md).");
     }
     out(`\nA log of everything this run did is in ${logFile}`);
     return 0;

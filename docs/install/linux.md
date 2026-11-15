@@ -78,9 +78,15 @@ curl -LO https://raw.githubusercontent.com/durkimat/phoneguard/main/installer/pg
 
 ### 11. Wait for the first start
 - The first start takes several minutes. Do not interrupt it.
-- *You'll know it worked when:* you see the Phone Guard status page and the Nokia-style home screen.
+- *You'll know it worked when:* the phone shows its first-run screen.
 
-### 12. Start the setup wizard
+### 12. Choose how to use the phone
+- On the phone, follow the first-run screen: language, time zone and Wi-Fi.
+- Choose **Open phone** or **Family phone**. This is a one-time choice.
+- **Open phone:** nothing is locked and you set everything up on the phone. You are finished with this guide: see [Using your Open phone](../open-phone.md).
+- **Family phone:** continue with step 13.
+
+### 13. Start the setup wizard (Family phone)
 - You need a free [Cloudflare account](https://dash.cloudflare.com/sign-up) and your own smartphone.
 - In the same terminal type these lines, pressing Enter after each:
 
@@ -94,12 +100,12 @@ npm start
 
 - *You'll know it worked when:* a page opens in your browser with a progress bar.
 
-### 13. Follow the wizard
+### 14. Follow the wizard
 - Work through the wizard's steps. The optional ones (Spotify, email, calendars, WhatsApp) have a **Skip** button.
 - The wizard guide shows each step: [family-setup.md](../family-setup.md).
 - *You'll know it worked when:* the wizard says **All set**.
 
-### 14. Set the timetable
+### 15. Set the timetable
 - Open your private parent link on your own phone and add the school and night times.
 - [Everyday controls](../family-setup.md#everyday-controls).
 

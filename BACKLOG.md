@@ -1138,3 +1138,7 @@ Today: the phone app updates via the parent page (check GitHub, update a phone);
 - Data migrations for the per-family database (only migration tag v1 exists): add a migration step or keep changes backward compatible; a written rule that a Worker change must work with the previous phone app.
 - Image updates still need a PC re-flash (separate item).
 Do not start until the owner's end-to-end test is finished.
+
+## ims41 live results and what remains (2026-11-15, PC session)
+ims41 all pass on the J36 (wipe flash, Family pair/sync/override/boost/release, Open path, guided reset); release image-20261115 published (--latest=false). Fixed: Sound option applies, mobile data state/toggle, readable confirmations, data fail-safe after pairing, confirm cursor on "No, go back", doze/wake cycle.
+Remaining: explanation lines on confirm screens still show row numbers; IntentReceiverLeaked not proven fixed; Open WhatsApp/email/PIN untested; Open lacks timetable/modes, allow lists, hiding apps, calendar entry on the phone, silent updates; flash from a stock phone untested; Windows/macOS installer untested.

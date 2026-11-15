@@ -5,8 +5,9 @@ The [Start page](../getting-started.md) has one guide per operating system. This
 ## Status: what has been tested
 
 - The installer's checks, its download of `adb` and `fastboot`, and its image download have been run against a real J36 on Linux.
-- The flash stage uses exactly the commands in [flash](flash.md) but has not yet been run on a phone straight from stock.
-- Windows and macOS are tested with simulated phones only. The Windows USB driver help has not been tried on real Windows ([Windows USB help](windows-usb.md)).
+- The image itself has been flashed to a real J36 over a previous test image (with and without a wipe), and both editions have been tested on it: pairing a Family phone, locking and unlocking it from the parent side, boosting it, releasing it to Open, switching an Open phone to Family (erase), and choosing Open from fresh.
+- Not yet run: the flash on a phone straight from stock firmware, Windows and macOS (tested with simulated phones only), and the Windows USB driver help ([Windows USB help](windows-usb.md)).
+- Not yet tested end to end: WhatsApp linking, email and calendars on a real account, and a PIN on an Open phone.
 - Calendar, Spotify and the other wizard steps are described in [family-setup](../family-setup.md), including [known limits](../family-setup.md#known-limits).
 
 ## Doing the steps by hand instead of with the installer
