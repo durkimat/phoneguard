@@ -80,7 +80,7 @@ curl -LO https://raw.githubusercontent.com/durkimat/phoneguard/main/installer/pg
 ### 12. Choose how to use the phone
 - On the phone, follow the first-run screen: language, time zone and Wi-Fi.
 - Choose **Open phone** or **Family phone**. This is a one-time choice.
-- **Open phone:** nothing is locked and you set everything up on the phone. You are finished with this guide: see [Using your Open phone](../open-phone.md).
+- **Open phone:** nothing is locked and you set everything up on the phone. You are finished with this guide: see [Using your Open phone](open-phone.md).
 - **Family phone:** continue with step 13.
 
 ### 13. Start the setup wizard (Family phone)
