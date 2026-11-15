@@ -41,7 +41,7 @@ Download the newest Phone Guard ZIP again (the same steps as the install), run `
 1. Open your parent page, then the phone.
 2. Under **Updates and removals**, switch on **Allow updating Phone Guard from here** (it is off until you do, so it cannot be pressed by accident).
 3. Press **Check for updates**. If there is a newer app, it shows the version and **Update this phone**.
-4. Press it and confirm. The phone downloads the app from GitHub, checks it against its published checksum, and installs it at its next check-in.
+4. Press it and confirm. The phone downloads the app from GitHub (about 34 MB), checks it against its published checksum, and installs it. **It waits until the phone is on Wi-Fi**, so it does not use the child's mobile data; until then the phone's entry in **Updates and removals** says it is waiting. If a phone is never on Wi-Fi, connect it to your Wi-Fi once (Settings, Connections, Wi-Fi).
 
 An Open phone has no companion, so it has no remote update. Update it by flashing the newest image over the old one (below), which keeps its data.
 

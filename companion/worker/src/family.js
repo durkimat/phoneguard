@@ -61,7 +61,7 @@ export class Family extends DurableObject {
 
   async fetch(req) {
     const url = new URL(req.url), path = url.pathname, m = req.method;
-    if (path === "/version") { const r = this.sql.exec("SELECT v FROM meta WHERE k='schema'").toArray()[0]; return json({ data_schema: r ? Number(r.v) : 0, needs_newer_code: Boolean(this.db.tooNew) }); }   // answers even when the code is too old for the data
+    if (path === "/version") { const r = this.sql.exec("SELECT v FROM meta WHERE k='schema'").toArray()[0]; return json({ data_schema: r ? Number(r.v) : 0, code_version: COMPANION_VERSION, needs_newer_code: Boolean(this.db.tooNew) }); }   // answers even when the code is too old for the data
     if (this.db.tooNew) return json({ error: `This family's data is newer (schema ${this.db.stored}) than this Worker's code (schema ${SCHEMA}). Update the companion with the setup tool; nothing was changed.` }, 503);
     const body = m === "POST" ? await req.json().catch(() => ({})) : {};
     if (path === "/info") return json({ v: V, serverKey: (await this.keys()).pub });

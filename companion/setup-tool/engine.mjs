@@ -105,7 +105,7 @@ export async function setUp({ token, account, name = workerName(), subdomainWant
 /** What a Worker reports at /api/version. A Worker made before versions existed answers /api/info but not /api/version: it is reported as "0.0.0" so it counts as updatable. */
 export async function currentVersion(host, { fetchImpl = fetch, base = `https://${host}` } = {}) {
   try {
-    const r = await fetchImpl(`${base}/api/version`); if (r.ok) { const j = await r.json(); if (/^\d+\.\d+\.\d+$/.test(String(j.version))) return { version: j.version, schema: Math.max(j.schema ?? 0, j.data_schema ?? 0) || null, codeSchema: j.schema ?? null, dataSchema: j.data_schema ?? null }; }
+    const r = await fetchImpl(`${base}/api/version`); if (r.ok) { const j = await r.json(); if (/^\d+\.\d+\.\d+$/.test(String(j.version))) return { version: j.version, schema: Math.max(j.schema ?? 0, j.data_schema ?? 0) || null, codeSchema: j.schema ?? null, dataSchema: j.data_schema ?? null, storage: j.storage_version ?? null }; }
     const i = await fetchImpl(`${base}/api/info`); if (i.ok) return { version: "0.0.0", schema: null };
   } catch { /* not reachable */ }
   return null;
@@ -157,9 +157,9 @@ export async function updateWorker({ token, family, source = "auto", force = fal
   progress("upload", `Installing version ${b.info.version}`);
   await uploadWorker(call, { account: family.account, name: family.name, code: b.code, exists: true });
   progress("wait", "Waiting for the new version to start");
-  let seen = null;
-  for (let i = 0; i < tries; i++) { seen = await currentVersion(family.host, { fetchImpl, base: root }); if (seen && seen.version === b.info.version) break; await sleep(2000); }
-  if (!seen || seen.version !== b.info.version) throw new Error(`The new version was uploaded but the companion still reports ${seen?.version ?? "nothing"}. Cloudflare can take a minute: check your parent page, and run the update again if it still shows the old version.`);
+  let seen = null;   // the Worker script and its database object switch to the new code a few seconds apart, so wait for both
+  for (let i = 0; i < tries; i++) { seen = await currentVersion(family.host, { fetchImpl, base: root }); if (seen && seen.version === b.info.version && (seen.storage == null || seen.storage === b.info.version)) break; await sleep(2000); }
+  if (!seen || seen.version !== b.info.version || (seen.storage != null && seen.storage !== b.info.version)) throw new Error(`The new version was uploaded but the companion still reports ${seen?.version ?? "nothing"}. Cloudflare can take a minute: check your parent page, and run the update again if it still shows the old version.`);
   return { from: now?.version ?? null, to: b.info.version, host: family.host, source: b.source, schema: seen.schema, notes: b.info.notes ?? "" };
 }
 
