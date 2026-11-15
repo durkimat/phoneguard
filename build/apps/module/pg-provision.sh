@@ -55,6 +55,12 @@ appops() {
   # Usage access (screen time, idle apps) and the draw-over permission need an app-op that only root may set without a device owner.
   timeout 20 cmd appops set $PKG GET_USAGE_STATS allow
   timeout 20 cmd appops set $PKG SYSTEM_ALERT_WINDOW allow
+  # Aurora Store (the one app a parent may have Phone Guard install): what its downloads and installs need, if it is there. Idempotent, every boot.
+  case "$(timeout 20 cmd package path com.aurora.store 2>/dev/null)" in package:*)
+    timeout 20 cmd appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow
+    timeout 20 cmd appops set com.aurora.store MANAGE_EXTERNAL_STORAGE allow
+    timeout 20 pm grant com.aurora.store android.permission.POST_NOTIFICATIONS;;
+  esac
 }
 i=0
 while [ $i -lt 20 ]; do

@@ -19,6 +19,7 @@ class BootReceiver : BroadcastReceiver() {
         Controller.evaluateAsync(c, i.action?.substringAfterLast('.') ?: "boot") {
             try {
                 if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+                    StoreApp.ensureGrants(c) // the app store keeps what it needs to download and install, after every boot and update
                     Link.schedulePoll(c, 30_000) // soon after boot, once the network is up
                     io.github.durkimat.phoneguard.companion.WorkerLink.schedulePoll(c, 45_000)
                 }

@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
  * Two jobs for a parent, sent in the settings from HA: updating Phone Guard itself ("Update this phone") and removing an app the parent does
  * not want ("Remove" on the app's row). As device owner it does both silently. It waits for Wi-Fi, enough battery and storage; downloads over https; checks the SHA-256 HA sent; and installs through the
  * package installer (Android itself refuses an update signed by a different key). Each job is done once and its result goes back to
- * HA with the next sync. Other apps are never installed from here: people install their own apps with Aurora and HA only decides who sees them.
+ * HA with the next sync. The one other app it installs is the Aurora Store, pinned by address and checksum in [StoreApp] (owner decision 2026-11-15); any other app is refused, and people install their own apps with Aurora while HA only decides who sees them.
  * Protected apps (phone, messages, settings, Home Assistant and Phone Guard itself) can never be removed.
  */
 object AppInstaller {
@@ -79,6 +79,7 @@ object AppInstaller {
             if (wait != null) { Log.log(c, "app job ${cmd.id} waits: $wait"); continue }
             when {
                 cmd.kind == "update" && cmd.pkg == c.packageName -> install(c, cmd)
+                cmd.kind == "install" -> installStore(c, cmd)
                 cmd.kind == "remove" && (cmd.pkg in Protected.all(c, cfg) || cmd.pkg == c.packageName) -> record(c, cmd.id, "failed", "protected app")
                 cmd.kind == "remove" -> remove(c, cmd)
                 else -> record(c, cmd.id, "failed", "not a job this phone does")
@@ -147,6 +148,15 @@ object AppInstaller {
             if (r?.status == PackageInstaller.STATUS_SUCCESS) record(c, cmd.id, "done", "installed ${cmd.name}") else record(c, cmd.id, "failed", r?.message ?: "install failed")
         } catch (e: Exception) { record(c, cmd.id, "failed", "install: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
         finally { waiting.remove(cmd.id); apk.delete() }
+    }
+
+    /** The one app this phone installs for a parent: Aurora Store, exactly as pinned in [StoreApp]. Anything else is refused. */
+    private fun installStore(c: Context, cmd: AppCmd) {
+        StoreApp.refusal(cmd)?.let { record(c, cmd.id, "failed", it); return }
+        if ((StoreApp.versionCode(c) ?: 0L) >= StoreApp.VERSION_CODE) { StoreApp.ensureGrants(c); record(c, cmd.id, "done", "already installed"); return }
+        val pinned = StoreApp.pinned(cmd)
+        install(c, pinned)
+        if (StoreApp.installed(c)) StoreApp.ensureGrants(c)
     }
 
     private fun remove(c: Context, cmd: AppCmd) {
