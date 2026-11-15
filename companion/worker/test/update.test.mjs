@@ -1,8 +1,8 @@
 // The update path: schema migrations (data is kept, old code refuses newer data), release parsing, version comparison.
 import assert from "node:assert/strict";
-import { DatabaseSync } from "node:sqlite";
+let DatabaseSync; try { ({ DatabaseSync } = await import("node:sqlite")); } catch { console.log("skipped: these tests use Node's built-in SQLite (Node 22.13 or newer; on 22.5 to 22.12 add --experimental-sqlite)"); process.exit(0); }
 import { MIGRATIONS, migrate } from "../src/migrations.js";
-import { parseRelease, parseCompanionInfo, cmpVer } from "../src/hub/store.js";
+import { parseRelease, parseReleaseJson, parseCompanionInfo, cmpVer } from "../src/hub/store.js";
 import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "../src/version.js";
 
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
@@ -26,4 +26,7 @@ assert.ok(cmpVer("0.5.1", "0.5.0") > 0 && cmpVer("0.5.0", "0.5.1") < 0 && cmpVer
   const comp = parseRelease({ tag_name: "v0.5.0", assets: assets(["worker.bundle.js", "worker-version.json"]) }); assert.equal(comp.url, ""); assert.ok(comp.companion_url);
   assert.equal(parseRelease({ tag_name: "v1", assets: assets(["notes.txt"]) }), null); assert.equal(parseRelease(null), null); ok("a release can carry the phone app, the companion, or both; one with neither is ignored"); }
 { const sha = "a".repeat(64); const c = parseCompanionInfo({ version: "0.6.0", schema: 4, protocol: 1, sha256: sha, size: 12345, notes: "x" }); assert.deepEqual([c.version, c.schema, c.sha256, c.size], ["0.6.0", 4, sha, 12345]); assert.equal(parseCompanionInfo({ version: "latest" }), null); assert.equal(parseCompanionInfo(null), null); assert.equal(parseCompanionInfo({ version: "1.0.0", sha256: "zz" }).sha256, ""); ok("the companion entry of a release is checked; anything malformed is ignored"); }
+{ const sha = "a".repeat(64), repo = "https://github.com/durkimat/phoneguard/", good = { tag: "v0.4.3", html_url: repo + "releases/tag/v0.4.3", notes: "n", apk: { name: "p.apk", size: 9, url: repo + "releases/download/v0.4.3/p.apk", sha256: sha }, companion: { version: "0.5.0", schema: 3, protocol: 1, sha256: sha, size: 5 } };
+  const r = parseReleaseJson(good); assert.deepEqual([r.version, r.url, r.sha256, r.companion.version, r.html_url], ["0.4.3", good.apk.url, sha, "0.5.0", good.html_url]);
+  assert.equal(parseReleaseJson({ ...good, apk: { ...good.apk, url: "https://evil.example/p.apk" } }).url, ""); assert.equal(parseReleaseJson({ ...good, html_url: "https://evil.example/" }).html_url, ""); assert.equal(parseReleaseJson({ ...good, apk: null }).companion.version, "0.5.0"); assert.equal(parseReleaseJson({ ...good, apk: null, companion: null }), null); assert.equal(parseReleaseJson({ ...good, tag: "latest" }), null); assert.equal(parseReleaseJson({ ...good, apk: { ...good.apk, sha256: "zz" }, companion: null }), null); assert.equal(parseReleaseJson(null), null); ok("release.json is read as one small file; an app link outside this project's GitHub, or a bad checksum, is dropped"); }
 console.log(`\n${n} checks passed`);

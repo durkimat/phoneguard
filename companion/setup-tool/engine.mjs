@@ -6,6 +6,7 @@ import { cmpVer, parseRelease, parseCompanionInfo } from "../worker/src/hub/stor
 
 export const WORKER_FILE = new URL("./dist/worker.bundle.js", import.meta.url);
 export const WORKER_INFO = new URL("./dist/worker-version.json", import.meta.url);
+export const RELEASE_DIRECT = process.env.PG_RELEASE_DIRECT ?? "https://github.com/durkimat/phoneguard/releases/latest/download/";   // overridden only by the tests
 export const RELEASES = process.env.PG_RELEASES_URL ?? "https://api.github.com/repos/durkimat/phoneguard/releases/latest";
 const API = process.env.CF_API ?? "https://api.cloudflare.com/client/v4";   // overridden only by the tests
 
@@ -116,16 +117,21 @@ export async function localBundle() {
 }
 
 /** The newest release's companion bundle from GitHub, checked against the size and sha256 in its worker-version.json. Null if the newest release carries none. */
-export async function releaseBundle({ fetchImpl = fetch, url = RELEASES } = {}) {
+export async function releaseBundle({ fetchImpl = fetch, url = RELEASES, direct = RELEASE_DIRECT } = {}) {
   const head = { "user-agent": "phoneguard-setup", accept: "application/vnd.github+json" };
-  const r = await fetchImpl(url, { headers: head }); if (!r.ok) throw new Error(`GitHub answered ${r.status} when looking for the newest release.`);
-  const rel = parseRelease(await r.json()); if (!rel?.companion_url) return null;
-  const info = parseCompanionInfo(await (await fetchImpl(rel.companion_url, { headers: head })).json().catch(() => null)); if (!info || !info.sha256) throw new Error("The newest release's companion file is not valid. Nothing was changed.");
-  const assetUrl = rel.companion_url.replace(/worker-version\.json$/, "worker.bundle.js");
-  const b = await fetchImpl(assetUrl, { headers: head }); if (!b.ok) throw new Error(`Downloading the companion from the release failed (${b.status}).`);
+  let infoUrl = direct + "worker-version.json", bundleUrl = direct + "worker.bundle.js", tag = null, html_url = "";
+  let ir = await fetchImpl(infoUrl, { headers: head }).catch(() => null);   // the download link first: no API rate limit
+  if (!ir?.ok) {   // then the API (older releases, or the download link not answering)
+    const r = await fetchImpl(url, { headers: head }); if (!r.ok) throw new Error(`GitHub answered ${r.status} when looking for the newest release.`);
+    const rel = parseRelease(await r.json()); if (!rel?.companion_url) return null;
+    infoUrl = rel.companion_url; bundleUrl = infoUrl.replace(/worker-version\.json$/, "worker.bundle.js"); tag = rel.tag; html_url = rel.html_url;
+    ir = await fetchImpl(infoUrl, { headers: head });
+  }
+  const info = parseCompanionInfo(await ir.json().catch(() => null)); if (!info || !info.sha256) throw new Error("The newest release's companion file is not valid. Nothing was changed.");
+  const b = await fetchImpl(bundleUrl, { headers: head }); if (!b.ok) throw new Error(`Downloading the companion from the release failed (${b.status}).`);
   const code = Buffer.from(await b.arrayBuffer());
   if ((info.size && code.length !== info.size) || crypto.createHash("sha256").update(code).digest("hex") !== info.sha256) throw new Error("The downloaded companion did not match its checksum. Nothing was changed; try again.");
-  return { code: code.toString("utf8"), info, source: `release ${rel.tag}`, tag: rel.tag, html_url: rel.html_url };
+  return { code: code.toString("utf8"), info, source: tag ? `release ${tag}` : "the newest release", tag, html_url };
 }
 
 /** Picks the newer of the two sources (this computer wins a tie). `source` can force one: "release" or "local". */

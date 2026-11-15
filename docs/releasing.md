@@ -14,7 +14,7 @@ A release publishes the phone app and the companion together, so that parents ca
    ```
 
    It rebuilds the companion bundle, compares it with the one in the newest published release, and stops if something is wrong (the code changed but the version did not, the version went backwards, the schema went down, the tag exists, the APK name does not match the tag).
-4. **Publish**: add `--publish`. This creates the GitHub release `vX.Y.Z` with the APK, its `.sha256`, `worker.bundle.js` and `worker-version.json`. It becomes the newest release, which is what parents' pages and phones check.
+4. **Publish**: add `--publish`. This creates the GitHub release `vX.Y.Z` with the APK, its `.sha256`, `worker.bundle.js`, `worker-version.json` and `release.json` (one small summary file: tag, notes, the app's link and checksum, the companion's version and checksum). It becomes the newest release, which is what parents' pages and phones check.
 5. **Tell parents**: nothing to do. Their parent page shows "A newer companion is available" the next time they open it (it checks at most every 12 hours), and "Update this phone" appears under Updates when the app is newer.
 
 A release with no app change still needs an APK for the phone side to stay quiet (the same version is "up to date"). To publish only the companion, use `--companion-only --tag vX.Y.Z`.
@@ -26,6 +26,10 @@ A release with no app change still needs an APK for the phone side to stay quiet
 - **Old code never runs on newer data.** The Worker stores the schema number in the database and refuses to start if it is newer than its code; the setup tool also refuses to upload code with an older schema than the one the family is on.
 - **Bumping the phone protocol** (`PROTOCOL` in version.js) is a breaking change: keep the old protocol working in the Worker for at least one release.
 - **Updating is by version number**, `major.minor.patch`. `0.10.0` is newer than `0.9.0`.
+
+## Why release.json
+
+A parent's Worker asks GitHub for the newest release from Cloudflare's shared addresses, where GitHub's API refuses requests (rate limit). Download links (`https://github.com/durkimat/phoneguard/releases/latest/download/release.json`) are not limited, so the Worker and the setup tool read that one file. Do not rename it, and keep the repository public.
 
 ## What a parent's update does
 

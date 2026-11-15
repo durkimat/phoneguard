@@ -10,7 +10,7 @@ const bundle = (version, schema = 3) => { const code = `// worker ${version}`; r
 const FAM = { account: "A1", name: "phoneguard-abc123", host: "phoneguard-abc123.x.workers.dev", parentKey: "KEY" };
 
 // One fake world: a Worker that reports a version (and changes it when the code is uploaded), a Cloudflare API and GitHub.
-const world = ({ version = "0.5.0", schema = 3, exists = true, release = null, reportsAfter = null, noVersionRoute = false, devices = 2, keyOk = true } = {}) => {
+const world = ({ version = "0.5.0", schema = 3, exists = true, release = null, direct = false, reportsAfter = null, noVersionRoute = false, devices = 2, keyOk = true } = {}) => {
   const w = { version, uploads: [], gets: [] };
   w.fetch = async (url, init = {}) => {
     const u = String(url); w.gets.push(u);
@@ -23,6 +23,7 @@ const world = ({ version = "0.5.0", schema = 3, exists = true, release = null, r
     if (u.endsWith("/api/version")) return noVersionRoute ? { ok: false, status: 404, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ version: w.version, schema: w.codeSchema ?? schema, protocol: 1, data_schema: schema }) };
     if (u.endsWith("/api/info")) return { ok: true, status: 200, json: async () => ({ v: 1 }) };
     if (u.endsWith("/api/devices")) return keyOk && init.headers?.authorization === "Bearer KEY" ? { ok: true, status: 200, json: async () => Array.from({ length: devices }, (_, i) => ({ did: "d" + i })) } : { ok: false, status: 401, json: async () => ({}) };
+    if (u.startsWith("https://github.com/durkimat/phoneguard/releases/latest/download/") && !(release && direct)) return { ok: false, status: 404, json: async () => ({}) };
     if (release && u === "https://api.github.com/latest") return { ok: true, status: 200, json: async () => release.json };
     if (release && u.endsWith("worker-version.json")) return { ok: true, status: 200, json: async () => release.info };
     if (release && u.endsWith("worker.bundle.js")) return { ok: true, status: 200, arrayBuffer: async () => Buffer.from(release.code) };
@@ -36,6 +37,8 @@ const mkRelease = (version, { tamper = false, withCompanion = true } = {}) => { 
   assert.deepEqual(await currentVersion("h", { fetchImpl: world({ noVersionRoute: true }).fetch }), { version: "0.0.0", schema: null }); assert.equal(await currentVersion("h", { fetchImpl: async () => { throw new Error("down"); } }), null); ok("a Worker's version is read; one made before versions existed counts as 0.0.0; an unreachable one is null"); }
 { const w = world({ release: mkRelease("0.6.0") }); const b = await releaseBundle({ fetchImpl: w.fetch, url: "https://api.github.com/latest" }); assert.equal(b.info.version, "0.6.0"); assert.equal(b.code, "// worker 0.6.0"); assert.match(b.source, /release v9\.9\.9/);
   await assert.rejects(releaseBundle({ fetchImpl: world({ release: mkRelease("0.6.0", { tamper: true }) }).fetch, url: "https://api.github.com/latest" }), /checksum/); assert.equal(await releaseBundle({ fetchImpl: world({ release: mkRelease("0.6.0", { withCompanion: false }) }).fetch, url: "https://api.github.com/latest" }), null); ok("a release's companion is downloaded and checked against its sha256; a tampered download is refused; a release without one is skipped"); }
+{ const w = world({ release: mkRelease("0.6.0"), direct: true }); const b = await releaseBundle({ fetchImpl: w.fetch, url: "https://api.github.com/latest" }); assert.equal(b.info.version, "0.6.0"); assert.ok(!w.gets.some((u) => u.includes("api.github.com")), "the API was not needed"); assert.ok(w.gets.some((u) => u.includes("/releases/latest/download/worker-version.json")));
+  await assert.rejects(releaseBundle({ fetchImpl: world({ release: mkRelease("0.6.0", { tamper: true }), direct: true }).fetch, url: "https://api.github.com/latest" }), /checksum/); ok("the companion is fetched through GitHub's download link without touching the rate-limited API; a tampered file is still refused"); }
 { const rel = world({ release: mkRelease("0.6.0") }).fetch, norel = world().fetch;
   assert.equal((await pickBundle({ fetchImpl: rel, local: bundle("0.5.0") })).info.version, "0.6.0"); assert.equal((await pickBundle({ fetchImpl: rel, local: bundle("0.7.0") })).info.version, "0.7.0"); assert.equal((await pickBundle({ fetchImpl: rel, local: bundle("0.6.0") })).source, "this computer");
   assert.equal((await pickBundle({ source: "local", fetchImpl: rel, local: bundle("0.5.0") })).info.version, "0.5.0"); assert.equal((await pickBundle({ source: "release", fetchImpl: rel, local: bundle("0.9.0") })).info.version, "0.6.0");

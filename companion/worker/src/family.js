@@ -3,7 +3,7 @@
 import { DurableObject } from "cloudflare:workers";
 import * as S from "./hub/schedule.js";
 import * as H from "./hub/hub.js";
-import { parseRelease, parseSha256Text, parseCompanionInfo } from "./hub/store.js";
+import { parseRelease, parseReleaseJson, parseSha256Text, parseCompanionInfo } from "./hub/store.js";
 import { migrate } from "./migrations.js";
 import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { b64, unb64, importPub, importPriv, newServerKeys, signDer, verifyDer, sha256, hex, matchNumber, randomCode } from "./crypto.js";
@@ -157,13 +157,19 @@ export class Family extends DurableObject {
 
     // parent: look for the newest Phone Guard release on GitHub (the only thing the companion fetches from the web)
     if (path === "/check-updates" && m === "POST") {
+      const head = { "user-agent": "phoneguard-companion" };
       try {
-        const r = await fetch("https://api.github.com/repos/durkimat/phoneguard/releases/latest", { headers: { accept: "application/vnd.github+json", "user-agent": "phoneguard-companion" } });
-        if (!r.ok) return json({ error: `GitHub answered ${r.status}` }, 502);
-        const rel = parseRelease(await r.json()); if (!rel) return json({ error: "the newest release has no Phone Guard app or companion files" }, 404);
-        if (rel.companion_url?.startsWith("https://")) { const c = await fetch(rel.companion_url, { headers: { "user-agent": "phoneguard-companion" } }); rel.companion = c.ok ? parseCompanionInfo(await c.json().catch(() => null)) : null; }
+        // First choice: release.json through GitHub's download link (not the API, which rate-limits the shared Cloudflare addresses).
+        let rel = null; const direct = await fetch("https://github.com/durkimat/phoneguard/releases/latest/download/release.json", { headers: head }).catch(() => null);
+        if (direct?.ok) rel = parseReleaseJson(await direct.json().catch(() => null));
+        if (!rel) {   // older releases have no release.json: ask the API (assets: the .apk, its .sha256, worker-version.json)
+          const r = await fetch("https://api.github.com/repos/durkimat/phoneguard/releases/latest", { headers: { accept: "application/vnd.github+json", ...head } });
+          if (!r.ok) return json({ error: `GitHub answered ${r.status}` }, 502);
+          rel = parseRelease(await r.json()); if (!rel) return json({ error: "the newest release has no Phone Guard app or companion files" }, 404);
+          if (rel.companion_url?.startsWith("https://")) { const c = await fetch(rel.companion_url, { headers: head }); rel.companion = c.ok ? parseCompanionInfo(await c.json().catch(() => null)) : null; }
+          if (rel.sha256_url?.startsWith("https://")) { const t = await fetch(rel.sha256_url, { headers: head }); rel.sha256 = t.ok ? parseSha256Text(await t.text()) : ""; }
+        }
         rel.checked = Date.now();
-        if (rel.sha256_url?.startsWith("https://")) { const t = await fetch(rel.sha256_url, { headers: { "user-agent": "phoneguard-companion" } }); rel.sha256 = t.ok ? parseSha256Text(await t.text()) : ""; }
         this.sql.exec("INSERT OR REPLACE INTO meta VALUES ('latest', ?)", JSON.stringify(rel)); return json(rel);
       } catch (e) { return json({ error: "could not reach GitHub: " + e.message }, 502); }
     }

@@ -11,14 +11,14 @@ const mock = http.createServer((req, res) => {
   const out = (o) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); };
   const u = req.url, base = `http://127.0.0.1:${mock.address().port}`;
   if (u === "/rel") return out({ tag_name: "v0.0.1", html_url: "https://github.com/x/y/releases/tag/v0.0.1", assets: [{ name: "worker-version.json", browser_download_url: base + "/worker-version.json" }, { name: "worker.bundle.js", browser_download_url: base + "/worker.bundle.js" }] });
-  if (u === "/worker-version.json") return out(MOCKINFO);
-  if (u === "/worker.bundle.js") { res.writeHead(200); return res.end(MOCKCODE); }
+  if (u === "/worker-version.json" || u === "/direct/worker-version.json") return out(MOCKINFO);
+  if (u === "/worker.bundle.js" || u === "/direct/worker.bundle.js") { res.writeHead(200); return res.end(MOCKCODE); }
   if (/^\/client\/v4\/accounts\/a\/workers\/scripts\/testfam\/settings$/.test(u)) return out({ success: true, result: {} });
   res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ success: false, errors: [{ code: 10007 }] }));
 });
 await new Promise((r) => mock.listen(0, "127.0.0.1", r));
 const MOCKCODE = "// the same worker as the one running", MOCKINFO = { version: JSON.parse(await fs.readFile(new URL("../dist/worker-version.json", import.meta.url), "utf8")).version, schema: 3, protocol: 1, sha256: crypto.createHash("sha256").update(MOCKCODE).digest("hex"), size: MOCKCODE.length };
-process.env.CF_API = `http://127.0.0.1:${mock.address().port}/client/v4`; process.env.PG_RELEASES_URL = `http://127.0.0.1:${mock.address().port}/rel`;
+process.env.CF_API = `http://127.0.0.1:${mock.address().port}/client/v4`; process.env.PG_RELEASES_URL = `http://127.0.0.1:${mock.address().port}/rel`; process.env.PG_RELEASE_DIRECT = `http://127.0.0.1:${mock.address().port}/direct/`;
 await fs.writeFile(`${dir}/family-gonefam.json`, JSON.stringify({ name: "gonefam", account: "a", host: "gone.example.workers.dev", parentKey: "x" }));
 await fs.writeFile(`${dir}/family-testfam.json`, JSON.stringify({ name: "testfam", account: "a", host: "wiz.example.workers.dev", parentKey: "dev-admin-token" }));
 process.env.NO_OPEN = "1"; process.env.WORKER_BASE = W; process.env.PHONEGUARD_DIR = dir;

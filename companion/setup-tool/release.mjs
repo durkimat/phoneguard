@@ -35,8 +35,11 @@ export async function plan({ apk, tag, notes, companionOnly = false, published =
   const notesText = String(notes ?? "").trim();
   const info = { ...bundleInfo, notes: notesText.slice(0, 400) };
   files.push({ name: "worker.bundle.js", data: Buffer.from(bundleCode) }, { name: "worker-version.json", data: Buffer.from(JSON.stringify(info, null, 2) + "\n") });
-  if (!companionOnly && apk && existsSync(apk)) { const data = readFileSync(apk); files.push({ name: basename(apk), data }, { name: basename(apk) + ".sha256", data: Buffer.from(`${sha(data)}  ${basename(apk)}\n`) }); }
+  let apkInfo = null;
+  if (!companionOnly && apk && existsSync(apk)) { const data = readFileSync(apk); apkInfo = { name: basename(apk), size: data.length, url: `https://github.com/${REPO}/releases/download/${tag}/${basename(apk)}`, sha256: sha(data) }; files.push({ name: basename(apk), data }, { name: basename(apk) + ".sha256", data: Buffer.from(`${apkInfo.sha256}  ${basename(apk)}\n`) }); }
   else if (!companionOnly && apk) problems.push(`${apk} was not found.`);
+  // release.json: everything a parent's page needs to know about this release in one small file (read through GitHub's download link, not the API)
+  files.push({ name: "release.json", data: Buffer.from(JSON.stringify({ tag, html_url: `https://github.com/${REPO}/releases/tag/${tag}`, notes: notesText.slice(0, 600), apk: apkInfo, companion: info }, null, 2) + "\n") });
   return { tag, problems, files, info, notes: notesText };
 }
 

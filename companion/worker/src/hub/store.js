@@ -15,6 +15,14 @@ export function parseRelease(data) {
   if (!apk && !comp) return null;   // a release can carry the phone app, the companion, or both
   return { tag: data.tag_name, version: String(data.tag_name).replace(/^v/, ""), notes: String(data.body ?? "").slice(0, 600), url: apk?.browser_download_url ?? "", size: Math.trunc(apk?.size ?? 0), sha256_url: assets.find((a) => String(a.name ?? "").endsWith(".sha256"))?.browser_download_url ?? "", companion_url: comp?.browser_download_url ?? "", html_url: String(data.html_url ?? "") };
 }
+/** The newest release as ONE small file, release.json, fetched through GitHub's normal download link (no API, so no API rate limit):
+ *  {tag, html_url, notes, apk: {name, size, url, sha256} | null, companion: {version, schema, protocol, sha256, size, notes} | null}. Anything malformed is ignored. */
+export function parseReleaseJson(j, repo = "https://github.com/durkimat/phoneguard/") {
+  if (!j || typeof j !== "object" || !/^v\d+\.\d+\.\d+$/.test(String(j.tag))) return null;
+  const own = (u) => typeof u === "string" && u.startsWith(repo), apk = j.apk && own(j.apk.url) && /^[0-9a-f]{64}$/.test(String(j.apk.sha256)) ? j.apk : null, companion = parseCompanionInfo(j.companion);
+  if (!apk && !companion) return null;
+  return { tag: j.tag, version: j.tag.slice(1), notes: String(j.notes ?? "").slice(0, 600), url: apk?.url ?? "", size: Math.trunc(apk?.size ?? 0), sha256: apk?.sha256 ?? "", sha256_url: "", companion_url: "", companion, html_url: own(j.html_url) ? j.html_url : "" };
+}
 /** The companion's own entry in a release: worker-version.json = {version, schema, protocol, sha256, size, notes}. Anything malformed is ignored. */
 export function parseCompanionInfo(j) {
   if (!j || typeof j !== "object" || !/^\d+\.\d+\.\d+$/.test(String(j.version))) return null;
