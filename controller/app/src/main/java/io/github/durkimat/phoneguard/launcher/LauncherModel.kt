@@ -607,7 +607,7 @@ class LauncherModel(
     private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
-        if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
+        if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
         return route(key, digit, nowMs)
     }
 
@@ -1120,6 +1120,9 @@ class LauncherModel(
         else -> listOf("Wi-Fi", "Time and language", "Open phone", "Family phone")
     }
 
+    /** On a question that erases or cannot be undone a number key must never choose: only Select on the highlighted row does. */
+    private fun inConfirm() = (screen == Screen.FIRSTRUN && firstConfirm != null) || (screen == Screen.PHONETYPE && confirmErase)
+
     private fun firstRunKey(key: Key): Action = move(key, firstRunRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (firstConfirm == "open") when (selected) {
             4 -> { edition = "open"; firstConfirm = null; goHome(); Action.ChooseOpen }
@@ -1128,7 +1131,7 @@ class LauncherModel(
         } else when (selected) {
             0 -> { enter(Screen.WIFI); Action.WifiLoad }
             1 -> Action.Launch("com.android.settings")
-            2 -> { firstConfirm = "open"; selected = 4; Action.Redraw }
+            2 -> { firstConfirm = "open"; selected = 5; Action.Redraw }
             else -> Action.StartFamily
         }
         Key.RIGHT, Key.SOFT_RIGHT -> if (firstConfirm != null) { firstConfirm = null; selected = 2; Action.Redraw } else Action.None
@@ -1145,7 +1148,7 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
             edition == "family" -> Action.None
             confirmErase -> when (selected) { 4 -> Action.EraseAndRestart; 5 -> { confirmErase = false; selected = 2; Action.Redraw }; else -> Action.None }
-            selected == 2 -> { confirmErase = true; selected = 4; Action.Redraw }
+            selected == 2 -> { confirmErase = true; selected = 5; Action.Redraw }
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> if (confirmErase) { confirmErase = false; selected = 2; Action.Redraw } else { leave(); Action.Redraw }

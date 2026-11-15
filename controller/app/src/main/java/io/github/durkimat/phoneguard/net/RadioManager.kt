@@ -53,7 +53,7 @@ object RadioManager {
     /** What the child wants. The first time we look, it is simply how the radios are now (so nothing the child had switched off is switched on). */
     fun intent(c: Context): RadioIntent {
         val p = prefs(c)
-        if (!p.contains("seeded")) p.edit().putBoolean("wifi", WifiControl.enabled(c)).putBoolean("bt", BluetoothControl.enabled(c)).putBoolean("data", dataOn(c)).putBoolean("seeded", true).apply()
+        if (!p.contains("seeded")) p.edit().putBoolean("wifi", WifiControl.enabled(c)).putBoolean("bt", BluetoothControl.enabled(c)).putBoolean("data", true).putBoolean("seeded", true).apply()
         return RadioIntent(p.getBoolean("wifi", true), p.getBoolean("bt", true), p.getBoolean("data", true))
     }
 
@@ -97,6 +97,17 @@ object RadioManager {
 
     fun end(c: Context, why: String) {
         if (jobs.decrementAndGet() <= 0) { jobs.set(0); windowUntil = minOf(windowUntil, System.currentTimeMillis() + TAIL_MS); evaluate(c, "window done: $why") }
+    }
+
+    /**
+     * Fail safe for a job that cannot reach the internet (the companion sync, after a pairing or any check-in): mobile data is switched on and kept on as
+     * the wanted state, so the phone is never left unreachable by its own radio rules. Blocking only for the Android call; use off the main thread.
+     */
+    fun ensureReachable(c: Context, why: String) {
+        val app = c.applicationContext
+        if (!dataSupported(app)) return
+        saveIntent(app, "data", true)
+        if (!dataOn(app)) { Log.log(app, "radios: no network for $why, mobile data switched on"); apply(app, "data", true, why) }
     }
 
     /** Waits (off the main thread) until some network is up, for a job that has just opened a window. True if there is one. */

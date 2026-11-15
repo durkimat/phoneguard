@@ -98,6 +98,7 @@ object WorkerLink {
                     s.edit().putString("did", did).putLong("ctr", 0).putInt("cfgVersion", 0).remove("pairingId").apply()
                     applyConfig(c, rp, t)
                     Log.log(c, "companion: PAIRED did=$did")
+                    io.github.durkimat.phoneguard.net.RadioManager.holdFor(c, "first sync", 5 * 60_000L) // no radio sleep until the first sync has had its chance
                     schedulePoll(c, 5_000)
                     "paired"
                 }
@@ -130,6 +131,7 @@ object WorkerLink {
             if (e.message?.contains("HTTP 409") == true) s.edit().putLong("ctr", ctr + 1000).apply() // the server is ahead of us: skip forward
             schedulePoll(c, BACKOFF[(f - 1).coerceAtMost(BACKOFF.size - 1)])
             Log.log(c, "companion sync($reason) failed #$f: ${e.javaClass.simpleName}: ${e.message}")
+            if (e is java.net.UnknownHostException || e is java.net.ConnectException || e is java.net.SocketTimeoutException) io.github.durkimat.phoneguard.net.RadioManager.ensureReachable(c, "companion sync")
             return "failed: ${e.message}"
         }
         try { io.github.durkimat.phoneguard.calendar.Subscriptions.refresh(c) } catch (e: Exception) { Log.log(c, "calendar refresh crashed: ${e.javaClass.simpleName}") }
@@ -282,7 +284,12 @@ object WorkerLink {
         if (!isPaired(app)) { pending?.finish(); return }
         io.github.durkimat.phoneguard.net.RadioManager.begin(app, "companion $reason")
         pool.execute {
-            try { io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000); sync(app, reason) }
+            try {
+                val radio = io.github.durkimat.phoneguard.net.RadioManager
+                // no usable network in the window (Wi-Fi switched on but not connected, data off): turn mobile data on and wait again, rather than failing the sync
+                if (!radio.awaitNetwork(app, 20_000)) { radio.ensureReachable(app, "companion $reason"); radio.awaitNetwork(app, 40_000) }
+                sync(app, reason)
+            }
             catch (e: Exception) { Log.log(app, "companion sync($reason) crashed: ${e.message}") }
             finally { io.github.durkimat.phoneguard.net.RadioManager.end(app, "companion $reason"); pending?.finish() }
         }

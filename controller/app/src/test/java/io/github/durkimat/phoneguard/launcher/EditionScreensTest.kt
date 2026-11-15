@@ -27,7 +27,9 @@ class EditionScreensTest {
         m.onKey(Key.SOFT_RIGHT) // back out of the question
         assertEquals(listOf("Wi-Fi", "Time and language", "Open phone", "Family phone"), m.rows)
         down(m, 0); m.onKey(Key.OK) // the cursor stays on Open phone: ask again
-        assertEquals(Action.ChooseOpen, m.onKey(Key.OK)) // the cursor starts on "Yes"
+        assertEquals(5, m.selected) // the cursor starts on "No, go back"
+        m.onKey(Key.DIGIT.let { Key.UP }); // one step up is "Yes, Open phone"
+        assertEquals(Action.ChooseOpen, m.onKey(Key.OK))
         assertEquals(Screen.HOME, m.screen)
     }
 
@@ -56,7 +58,11 @@ class EditionScreensTest {
         down(m, 2); m.onKey(Key.OK)
         assertEquals(listOf("This erases the", "whole phone:", "contacts, messages", "and settings.", "Erase and restart", "No, go back"), m.rows)
         assertTrue(m.rows.all { it.length <= 20 })
-        assertEquals(Action.EraseAndRestart, m.onKey(Key.OK)) // the cursor starts on "Erase and restart"
+        assertEquals(5, m.selected) // the cursor starts on "No, go back": one stray Enter erases nothing
+        assertEquals(Action.None.javaClass, m.onKey(Key.DIGIT, 5).javaClass) // a number key does not choose here (5 is Erase)
+        assertEquals(Screen.PHONETYPE, m.screen)
+        m.onKey(Key.UP)
+        assertEquals(Action.EraseAndRestart, m.onKey(Key.OK))
     }
 
     @Test fun familyPhoneShowsNoSwitchAndNoOptions() {
