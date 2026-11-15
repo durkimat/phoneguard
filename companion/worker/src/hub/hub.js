@@ -170,7 +170,7 @@ export function mergeAppResults(ch, results) {
 export function updateFor(rt, latest, options) {
   if (!latest) return null;
   const have = String(rt.state?.version ?? "");
-  return { version: latest.version, notes: latest.notes ?? "", installed: have, available: isNewer(latest.version, have), ready: Boolean(latest.sha256), enabled: Boolean(options?.updates_enabled) };
+  return { version: latest.version, notes: latest.notes ?? "", installed: have, available: Boolean(latest.url) && isNewer(latest.version, have), ready: Boolean(latest.sha256), enabled: Boolean(options?.updates_enabled) };
 }
 export function queueUpdate(ch, rt, latest, options, nowMs, override = null) {
   if (!options?.updates_enabled) fail("updates are switched off (the switch is in the Updates and removals section)");

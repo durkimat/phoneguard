@@ -2,7 +2,7 @@
 import { qrSvg } from "/qr.js";
 import { enrolPayload } from "/enrol.js";
 import { exchangeCode, storeRefreshToken } from "/spotify.js";
-import { h, ago, left } from "/ui.js";
+import { h, ago, left, cmpVer } from "/ui.js";
 import { phoneScreen } from "/phone.js";
 import { trackScreen } from "/track-view.js";
 
@@ -25,10 +25,22 @@ async function render() {
   $app.replaceChildren();
   if (!key) return $app.append(signIn());
   try {
-    const [waiting, phones] = await Promise.all([api("/pairings"), api("/devices")]);
+    const [waiting, phones, fam] = await Promise.all([api("/pairings"), api("/devices"), api("/options")]);
     if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return open(d.did); }
-    $app.append(waitingView(waiting), phonesView(phones));
+    $app.append(updateNotice(fam), waitingView(waiting), phonesView(phones));
   } catch (e) { $app.append(h("p", { class: "bad" }, e.message)); }
+}
+
+// "A newer companion is available": compares this Worker's version with the newest GitHub release (checked at most every 12 hours when the page is opened).
+function updateNotice(fam) {
+  const box = h("div", {}), show = (f) => {
+    const c = f?.latest?.companion, mine = f?.companion?.version; if (!c || !mine || cmpVer(c.version, mine) <= 0) return box.replaceChildren();
+    const more = String(f.latest.html_url ?? "").startsWith("https://github.com/") ? h("a", { href: f.latest.html_url, target: "_blank", rel: "noopener" }, "What is new") : null;
+    box.replaceChildren(h("div", { class: "card" }, h("strong", {}, `A newer companion is available: ${c.version} (this one is ${mine})`), h("p", { class: "mut" }, "Nothing is lost when you update. On the computer you set this up with, run the setup tool and choose ", h("strong", {}, "Update my companion"), ". It takes about a minute. ", more)));
+  };
+  show(fam);
+  if (!fam.latest?.checked || Date.now() - fam.latest.checked > 12 * 3600_000) api("/check-updates", "POST", {}).then(() => api("/options")).then(show).catch(() => {});
+  return box;
 }
 
 function signIn() {

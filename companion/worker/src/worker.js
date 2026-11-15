@@ -1,15 +1,21 @@
 // Front door: routes phone calls (signed, no login) and parent calls (bearer token) to the family's Durable Object.
 import { safeEqual } from "./crypto.js";
+import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { INDEX, APP, TIMETABLE, SPOTIFY, SEAL, CRYPTO, QR, ENROL, GUIDE, UI, PHONE as PHONE_JS, LOOKOPT, TRACK, TRACKVIEW, LEAFLET, LEAFLETCSS, PROVIDERS } from "./page-assets.js";
 export { Family } from "./family.js";
 
-const PHONE = [/^\/api\/info$/, /^\/api\/pair$/, /^\/api\/pair\/[A-Z0-9]+$/, /^\/api\/sync$/];
+const PHONE = [/^\/api\/info$/, /^\/api\/version$/, /^\/api\/pair$/, /^\/api\/pair\/[A-Z0-9]+$/, /^\/api\/sync$/];
 const PARENT = [/^\/api\/enrol\/new$/, /^\/api\/pairings(\/[A-Z0-9]+\/confirm)?$/, /^\/api\/devices(\/[a-z0-9]+(\/[a-z0-9-]+(\/[a-z-]+)?)?)?$/, /^\/api\/options$/, /^\/api\/check-updates$/];
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (!url.pathname.startsWith("/api/")) return staticPage(url.pathname);
+    if (url.pathname === "/api/version") {   // public: the setup tool and the page use it. `schema` is what this code knows; `data_schema` is what the family's data is at.
+      const mine = { version: COMPANION_VERSION, schema: SCHEMA, protocol: PROTOCOL };
+      try { const d = await (await env.FAMILY.get(env.FAMILY.idFromName("family")).fetch("https://family/version")).json(); Object.assign(mine, { data_schema: d.data_schema, ...(d.needs_newer_code ? { needs_newer_code: true } : {}) }); } catch { /* the version still answers */ }
+      return Response.json(mine, { headers: { "cache-control": "no-store" } });
+    }
     const isPhone = PHONE.some((r) => r.test(url.pathname)), isParent = PARENT.some((r) => r.test(url.pathname));
     if (!isPhone && !isParent) return Response.json({ error: "not found" }, { status: 404 });
     if (isParent) {

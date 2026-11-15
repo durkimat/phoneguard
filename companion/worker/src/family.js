@@ -3,7 +3,9 @@
 import { DurableObject } from "cloudflare:workers";
 import * as S from "./hub/schedule.js";
 import * as H from "./hub/hub.js";
-import { parseRelease, parseSha256Text } from "./hub/store.js";
+import { parseRelease, parseSha256Text, parseCompanionInfo } from "./hub/store.js";
+import { migrate } from "./migrations.js";
+import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { b64, unb64, importPub, importPriv, newServerKeys, signDer, verifyDer, sha256, hex, matchNumber, randomCode } from "./crypto.js";
 
 const V = 1;
@@ -15,14 +17,8 @@ export class Family extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
-    this.sql.exec(`CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
-      CREATE TABLE IF NOT EXISTS tokens (hash TEXT PRIMARY KEY, expires INTEGER, tries INTEGER DEFAULT 0, used INTEGER DEFAULT 0);
-      CREATE TABLE IF NOT EXISTS pairings (id TEXT PRIMARY KEY, token TEXT, pub TEXT, enc_pub TEXT, model TEXT, app TEXT, nonce TEXT, match TEXT, created INTEGER, status TEXT, did TEXT);
-      CREATE TABLE IF NOT EXISTS devices (did TEXT PRIMARY KEY, pub TEXT, enc_pub TEXT, model TEXT, app TEXT, ctr INTEGER DEFAULT 0, last_seen INTEGER, state TEXT, recovery_hash TEXT, created INTEGER);
-      CREATE TABLE IF NOT EXISTS config (did TEXT PRIMARY KEY, version INTEGER, body TEXT, hash TEXT);
-      CREATE TABLE IF NOT EXISTS hub (did TEXT PRIMARY KEY, child TEXT, rt TEXT);
-      CREATE TABLE IF NOT EXISTS fixes (did TEXT, t INTEGER, lat REAL, lon REAL, acc INTEGER, prov TEXT, mode TEXT, PRIMARY KEY (did, t))`);
-    try { this.sql.exec("ALTER TABLE config ADD COLUMN hash TEXT"); } catch { /* column exists */ }
+    const run = () => migrate(this.sql);
+    this.db = ctx.storage.transactionSync ? ctx.storage.transactionSync(run) : run();
   }
 
   // ---- the guarded phone's settings (child), what it reported (rt) and the family options ----------------------------------------
@@ -65,6 +61,8 @@ export class Family extends DurableObject {
 
   async fetch(req) {
     const url = new URL(req.url), path = url.pathname, m = req.method;
+    if (path === "/version") { const r = this.sql.exec("SELECT v FROM meta WHERE k='schema'").toArray()[0]; return json({ data_schema: r ? Number(r.v) : 0, needs_newer_code: Boolean(this.db.tooNew) }); }   // answers even when the code is too old for the data
+    if (this.db.tooNew) return json({ error: `This family's data is newer (schema ${this.db.stored}) than this Worker's code (schema ${SCHEMA}). Update the companion with the setup tool; nothing was changed.` }, 503);
     const body = m === "POST" ? await req.json().catch(() => ({})) : {};
     if (path === "/info") return json({ v: V, serverKey: (await this.keys()).pub });
 
@@ -145,7 +143,7 @@ export class Family extends DurableObject {
     }
 
     // parent: family options (the Spotify app's public Client ID, switches)
-    if (path === "/options" && m === "GET") return json({ ...this.options(), latest: this.latest() });
+    if (path === "/options" && m === "GET") return json({ ...this.options(), latest: this.latest(), companion: { version: COMPANION_VERSION, schema: SCHEMA, protocol: PROTOCOL } });
     if (path === "/options" && m === "POST") {
       const o = this.options();
       for (const [k, val] of Object.entries(body)) {
@@ -162,7 +160,9 @@ export class Family extends DurableObject {
       try {
         const r = await fetch("https://api.github.com/repos/durkimat/phoneguard/releases/latest", { headers: { accept: "application/vnd.github+json", "user-agent": "phoneguard-companion" } });
         if (!r.ok) return json({ error: `GitHub answered ${r.status}` }, 502);
-        const rel = parseRelease(await r.json()); if (!rel) return json({ error: "no release with an .apk was found" }, 404);
+        const rel = parseRelease(await r.json()); if (!rel) return json({ error: "the newest release has no Phone Guard app or companion files" }, 404);
+        if (rel.companion_url?.startsWith("https://")) { const c = await fetch(rel.companion_url, { headers: { "user-agent": "phoneguard-companion" } }); rel.companion = c.ok ? parseCompanionInfo(await c.json().catch(() => null)) : null; }
+        rel.checked = Date.now();
         if (rel.sha256_url?.startsWith("https://")) { const t = await fetch(rel.sha256_url, { headers: { "user-agent": "phoneguard-companion" } }); rel.sha256 = t.ok ? parseSha256Text(await t.text()) : ""; }
         this.sql.exec("INSERT OR REPLACE INTO meta VALUES ('latest', ?)", JSON.stringify(rel)); return json(rel);
       } catch (e) { return json({ error: "could not reach GitHub: " + e.message }, 502); }

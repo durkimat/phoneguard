@@ -168,11 +168,12 @@ Open a phone from your parent page. Each section opens and closes; every control
 | **Email**, **Calendars** | Set or change the child's mail account (with an app password) and the family calendars shown on the phone. Passwords and private calendar links are locked so only the phone can read them. |
 | **Location history** | Where the phone has been over the last week (you choose 1 to 14 days, or off), played back on a map: pick a day and press Play. Quiet stretches such as school or home play fast and journeys play slowly so movements are easy to follow; the stops list ("Stayed 08:19 to 15:03") jumps to each stay. Positions are kept only in your Cloudflare account and can be cleared at any time. Location must be switched on for a mode first (Mode settings, Location). |
 | **Screen time**, **Battery and power saver** | What the phone reported: app time per day, battery use by screen, mode, location and Wi-Fi, and what the power saver closed. The latest position is shown at the top with a map link. |
-| **Updates and removals** | Switch on updating Phone Guard from here, check GitHub for the newest release, update a phone, and see waiting and finished jobs. |
+| **Updates and removals** | Shows the companion's version, switch on updating Phone Guard from here, check GitHub for the newest release, update a phone, and see waiting and finished jobs. See [updating](updating.md). |
 | **Manage this phone** | Rename, copy timetable, holiday, restrictions, mode settings or WhatsApp from another phone (app lists are never copied), release the phone (it gives up control) or forget it. |
 
 Other everyday jobs:
 
+* **Update your companion or a phone:** a notice appears at the top of your parent page when a newer companion is available. See [updating](updating.md). Nothing is lost and nobody has to pair again.
 * **Add another phone, or the code ran out:** press **Add a phone** at the top of the parent page.
 * **Start again with the same phone:** on the phone's enrol screen press **Disconnect from the family companion**, then connect again. Secrets sealed before a disconnect will not open afterwards, so reconnect Spotify.
 

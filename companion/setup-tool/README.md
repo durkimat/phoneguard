@@ -24,6 +24,8 @@ Run `npm run bootstrap` once, then `npm start`. A wizard opens in the browser wi
 Later: *Add a phone* on the parent page; *Disconnect from the family companion* on the phone to pair again.
 
 ## Commands
+* `npm start`, then **Update my companion** on the first step (or `CF_TOKEN=... node cli.mjs update [name] [--source local|release] [--force]`): installs the newest companion code for an existing family and keeps its phones, settings and parent link. It uses the newer of the newest GitHub release and this computer's build, checks the release's sha256, refuses to go back to code older than the family's data, and checks the parent key still works afterwards. See `docs/updating.md`.
+* `node release.mjs --apk <file> --notes "..." [--publish]`: the maintainer's release command (dry run unless `--publish`). See `docs/releasing.md`.
 * `node server.mjs`: the guided local page (use `PORT=8790 NO_OPEN=1` to fix the port and not open a browser).
 * `CF_TOKEN=... node cli.mjs`: same job on the command line; `CF_TOKEN=... node cli.mjs delete <worker-name>` removes a Worker.
 * `npm run bundle`: rebuild `dist/worker.bundle.js` from `../worker/src` (run `node scripts/build-page.mjs` in `../worker` first if the parent page changed).

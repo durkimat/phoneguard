@@ -6,7 +6,8 @@
   "bootstrap": "npm --prefix ../worker install && npm install && npm run bundle",
   "bundle": "node ../worker/scripts/build-page.mjs && node bundle-worker.mjs",
   "start": "node server.mjs",
-  "test": "node test/engine.test.mjs && node test/server.test.mjs && node test/checks.test.mjs",
+  "release": "node release.mjs",
+  "test": "node test/engine.test.mjs && node test/server.test.mjs && node test/checks.test.mjs && node test/update.test.mjs && node test/release.test.mjs",
   "test:wizard": "node test/wizard-api.test.mjs"
  },
  "dependencies": {

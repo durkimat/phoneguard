@@ -27,6 +27,7 @@ const VIEWS = {
     v.replaceChildren(...[
       h("p", {}, "This sets up your family's private companion in your own Cloudflare account. It takes about 20 minutes and you only do it once. You can skip the optional steps and do them later."),
       saved.length ? h("div", { class: "card" }, h("strong", {}, "Continue an earlier setup"), h("p", { class: "mut" }, "Already installed your companion? Pick it to carry on from connecting a phone."), ...saved.map((f) => h("p", {}, h("button", { class: "sec", on: async () => { const r = await post("/resume", { name: f.name }); if (!r.ok) return (err.textContent = r.error); await loadInfo(); go("phone"); } }, f.host)))) : null,
+      saved.length ? await updateCard(saved) : null,
       h("div", { class: "card" }, h("strong", {}, "1. Get a key from Cloudflare"), h("p", { class: "mut" }, "Cloudflare holds your family's settings. The free plan is enough. Create a free account first if you do not have one."),
         h("a", { class: "btn", href: TOKEN_LINK, target: "_blank", rel: "noopener noreferrer" }, "Open Cloudflare"), h("p", { class: "mut" }, "On that page press Continue to summary, then Create token, and copy the key it shows.")),
       h("div", { class: "card" }, h("strong", {}, "2. Paste it here"), h("p", { class: "mut" }, "The key stays on this computer and is forgotten when you close this page."), key, err, h("p", {}, h("button", { on: () => install({ token: key.value.trim() }, err) }, "Install my companion")))].filter(Boolean));
@@ -60,6 +61,30 @@ const VIEWS = {
 };
 
 async function loadInfo() { state.info = await call("/info"); }
+
+// Update mode: new companion code for an existing family, keeping its phones, settings and parent link. Needs the Cloudflare key again.
+async function updateCard(saved) {
+  const info = await call("/update-info"), key = h("input", { type: "password", placeholder: "Paste the Cloudflare key", autocomplete: "off", "aria-label": "Cloudflare key for the update" }), err = h("p", { class: "bad" });
+  const rows = (Array.isArray(info) ? info : []).map((f) => {
+    const newer = f.current && f.latest && f.current !== f.latest, text = f.current ? (newer ? `version ${f.current}, newest ${f.latest}` : `version ${f.current}, up to date`) : "not answering";
+    return h("p", {}, h("strong", {}, f.name), " ", h("span", { class: "mut" }, text), " ", h("button", { class: newer ? "" : "sec", on: () => { if (key.value.trim().length < 20) { err.textContent = "Please paste the Cloudflare key first (the same link as for the install, below)."; return; } updateFlow({ name: f.name, token: key.value.trim() }, err); } }, newer ? "Update" : "Check again"));
+  });
+  return h("div", { class: "card" }, h("strong", {}, "Update my companion"), h("p", { class: "mut" }, "Installs the newest version. Your phones, settings and parent link are kept. Takes about a minute."), ...rows, key, err);
+}
+async function updateFlow(body, err) {
+  const r = await post("/update", body); if (!r.ok) { err.textContent = r.error; return; }
+  const list = h("ul", {}), out = h("div", {}); v.replaceChildren(h("h2", {}, "Updating your companion"), list, out);
+  every(async () => {
+    const j = await call("/status");
+    list.replaceChildren(...(j.steps ?? []).map((s) => h("li", { class: s.state }, s.text)));
+    if (j.error) { stop(); out.replaceChildren(h("p", { class: "bad" }, j.error), h("p", { class: "mut" }, "Nothing was lost. You can try again."), h("button", { on: () => go("cf") }, "Back")); }
+    if (j.result) {
+      stop(); const x = j.result; await loadInfo();
+      out.replaceChildren(h("p", { class: "ok" }, x.upToDate ? `Already up to date (version ${x.version}).` : `Updated ${x.from && x.from !== "0.0.0" ? x.from : "your companion"} to ${x.to}. ${x.phones != null ? `${x.phones} phone${x.phones === 1 ? " is" : "s are"} still connected and your parent link still works.` : ""}`),
+        h("p", {}, h("a", { class: "btn", href: state.info.link, target: "_blank", rel: "noopener noreferrer" }, "Open my parent page")), h("p", {}, h("button", { class: "sec", on: () => go("cf") }, "Back")));
+    }
+  }, 1500);
+}
 
 async function install(body, err) {
   const r = await post("/run", body); if (!r.ok) { err.textContent = r.error; return; }

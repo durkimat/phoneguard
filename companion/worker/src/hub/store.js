@@ -11,7 +11,15 @@ export function isNewer(latest, installed) {
 // The newest GitHub release: tag, notes, the .apk asset address and the address of its .sha256 asset.
 export function parseRelease(data) {
   if (!data || typeof data !== "object" || !data.tag_name) return null;
-  const assets = Array.isArray(data.assets) ? data.assets : [], apk = assets.find((a) => String(a.name ?? "").endsWith(".apk")); if (!apk) return null;
-  return { tag: data.tag_name, version: String(data.tag_name).replace(/^v/, ""), notes: String(data.body ?? "").slice(0, 600), url: apk.browser_download_url ?? "", size: Math.trunc(apk.size ?? 0), sha256_url: assets.find((a) => String(a.name ?? "").endsWith(".sha256"))?.browser_download_url ?? "" };
+  const assets = Array.isArray(data.assets) ? data.assets : [], apk = assets.find((a) => String(a.name ?? "").endsWith(".apk")), comp = assets.find((a) => a.name === "worker-version.json");
+  if (!apk && !comp) return null;   // a release can carry the phone app, the companion, or both
+  return { tag: data.tag_name, version: String(data.tag_name).replace(/^v/, ""), notes: String(data.body ?? "").slice(0, 600), url: apk?.browser_download_url ?? "", size: Math.trunc(apk?.size ?? 0), sha256_url: assets.find((a) => String(a.name ?? "").endsWith(".sha256"))?.browser_download_url ?? "", companion_url: comp?.browser_download_url ?? "", html_url: String(data.html_url ?? "") };
 }
+/** The companion's own entry in a release: worker-version.json = {version, schema, protocol, sha256, size, notes}. Anything malformed is ignored. */
+export function parseCompanionInfo(j) {
+  if (!j || typeof j !== "object" || !/^\d+\.\d+\.\d+$/.test(String(j.version))) return null;
+  return { version: j.version, schema: Number.isInteger(j.schema) ? j.schema : null, protocol: Number.isInteger(j.protocol) ? j.protocol : null, sha256: /^[0-9a-f]{64}$/.test(String(j.sha256)) ? j.sha256 : "", size: Math.trunc(Number(j.size) || 0), notes: String(j.notes ?? "").slice(0, 400) };
+}
+/** Compares x.y.z version strings: negative if a is older than b, 0 if equal, positive if newer. Non-numeric parts count as 0. */
+export const cmpVer = (a, b) => { const p = (v) => String(v ?? "0").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0); const x = p(a), y = p(b); for (let i = 0; i < Math.max(x.length, y.length, 3); i++) { const d = (x[i] ?? 0) - (y[i] ?? 0); if (d) return d; } return 0; };
 export const parseSha256Text = (text) => (/\b[0-9a-fA-F]{64}\b/.exec(text ?? "")?.[0] ?? "").toLowerCase();

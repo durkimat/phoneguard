@@ -23,3 +23,6 @@ export const section = (title, open, ...kids) => h("details", { class: "sec", op
 export const field = (label, control, hint) => h("label", { class: "fld" }, h("span", {}, label, hint ? h("small", {}, hint) : null), control);
 export const select = (opts, current, onchange, attrs = {}) => h("select", { ...attrs, on: { change: (e) => onchange(e.target.value) } }, opts.map(([v, t]) => h("option", { value: v, selected: String(v) === String(current) }, t)));
 export const check = (on, onchange, attrs = {}) => h("input", { type: "checkbox", checked: !!on, ...attrs, on: { change: (e) => onchange(e.target.checked) } });
+
+/** Compares x.y.z version strings: negative if a is older than b, 0 if equal, positive if newer. */
+export const cmpVer = (a, b) => { const p = (v) => String(v ?? "0").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0); const x = p(a), y = p(b); for (let i = 0; i < Math.max(x.length, y.length, 3); i++) { const d = (x[i] ?? 0) - (y[i] ?? 0); if (d) return d; } return 0; };

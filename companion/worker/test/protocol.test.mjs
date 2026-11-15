@@ -190,4 +190,8 @@ assert.equal((await post("release", {})).status, 200);
 const rel = JSON.parse((await sync({ battery: 50, cfgVersion: 9999 })).body.p); assert.deepEqual(rel.cmds, [{ type: "release" }]); ok("a release request reaches the phone as a signed release command");
 assert.equal((await sync({ battery: 50 })).status, 403); assert.equal((await api("GET", "/api/devices", { parent: true })).body.length, 0); ok("a released phone is forgotten and can no longer check in");
 
+console.log("Versions");
+{ const v = await api("GET", "/api/version"); assert.equal(v.status, 200); assert.match(v.body.version, /^\d+\.\d+\.\d+$/); assert.ok(Number.isInteger(v.body.schema) && Number.isInteger(v.body.protocol)); assert.equal(v.body.data_schema, v.body.schema); assert.equal(v.body.needs_newer_code, undefined); ok("/api/version is public and reports the companion version, schema, protocol and the schema of the stored data");
+  const o = await api("GET", "/api/options", { parent: true }); assert.deepEqual(o.body.companion, { version: v.body.version, schema: v.body.schema, protocol: v.body.protocol }); ok("the parent's options carry the same companion version, so the page can say 'update available'"); }
+
 console.log(`\n${passed} checks passed`);

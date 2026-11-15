@@ -5,6 +5,21 @@ import fs from "node:fs/promises";
 import os from "node:os";
 const W = process.env.WORKER_BASE ?? "http://127.0.0.1:8787";
 const dir = await fs.mkdtemp(os.tmpdir() + "/pgwiz-");
+import http from "node:http";
+// A fake Cloudflare and GitHub for the update mode (set before the server module loads: it reads these when it starts).
+const mock = http.createServer((req, res) => {
+  const out = (o) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(o)); };
+  const u = req.url, base = `http://127.0.0.1:${mock.address().port}`;
+  if (u === "/rel") return out({ tag_name: "v0.0.1", html_url: "https://github.com/x/y/releases/tag/v0.0.1", assets: [{ name: "worker-version.json", browser_download_url: base + "/worker-version.json" }, { name: "worker.bundle.js", browser_download_url: base + "/worker.bundle.js" }] });
+  if (u === "/worker-version.json") return out(MOCKINFO);
+  if (u === "/worker.bundle.js") { res.writeHead(200); return res.end(MOCKCODE); }
+  if (/^\/client\/v4\/accounts\/a\/workers\/scripts\/testfam\/settings$/.test(u)) return out({ success: true, result: {} });
+  res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ success: false, errors: [{ code: 10007 }] }));
+});
+await new Promise((r) => mock.listen(0, "127.0.0.1", r));
+const MOCKCODE = "// the same worker as the one running", MOCKINFO = { version: JSON.parse(await fs.readFile(new URL("../dist/worker-version.json", import.meta.url), "utf8")).version, schema: 3, protocol: 1, sha256: crypto.createHash("sha256").update(MOCKCODE).digest("hex"), size: MOCKCODE.length };
+process.env.CF_API = `http://127.0.0.1:${mock.address().port}/client/v4`; process.env.PG_RELEASES_URL = `http://127.0.0.1:${mock.address().port}/rel`;
+await fs.writeFile(`${dir}/family-gonefam.json`, JSON.stringify({ name: "gonefam", account: "a", host: "gone.example.workers.dev", parentKey: "x" }));
 await fs.writeFile(`${dir}/family-testfam.json`, JSON.stringify({ name: "testfam", account: "a", host: "wiz.example.workers.dev", parentKey: "dev-admin-token" }));
 process.env.NO_OPEN = "1"; process.env.WORKER_BASE = W; process.env.PHONEGUARD_DIR = dir;
 const { server, session, hooks } = await import("../server.mjs");
@@ -15,9 +30,16 @@ const api = (p, body) => fetch(B + p, { method: body ? "POST" : "GET", headers: 
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
 
 assert.equal((await api("/info")).status, 409); ok("nothing works before a setup is chosen");
-assert.deepEqual((await api("/families")).body, [{ name: "testfam", host: "wiz.example.workers.dev" }]); ok("saved setups are listed without their keys");
+assert.deepEqual((await api("/families")).body.map((f) => f.name).sort(), ["gonefam", "testfam"]); ok("saved setups are listed without their keys");
 assert.equal((await api("/resume", { name: "../etc/passwd" })).status, 404); ok("resume refuses odd names");
 assert.equal((await api("/resume", { name: "testfam" })).status, 200); ok("resume loads a saved setup and checks the companion answers");
+{ const ui = (await api("/update-info")).body; const t = ui.find((f) => f.name === "testfam"); assert.equal(t.current, MOCKINFO.version); assert.equal(t.latest, MOCKINFO.version); assert.equal(ui.length, 2); ok("update mode lists each saved companion with its version and the newest version, without needing the Cloudflare key"); }
+assert.equal((await api("/update", { name: "testfam", token: "short" })).status, 400); assert.equal((await api("/update", { name: "../x", token: "x".repeat(30) })).status, 400); ok("an update needs the key and a sane name");
+{ assert.equal((await api("/update", { name: "testfam", token: "x".repeat(40) })).status, 202); let j; for (let i = 0; i < 50; i++) { j = (await api("/status")).body; if (j.done) break; await new Promise((r) => setTimeout(r, 100)); }
+  assert.equal(j.error, undefined); assert.equal(j.result.upToDate, true); assert.deepEqual(j.steps.map((x) => x.state).filter((x) => x === "failed"), []); ok("updating a companion that is already current says so and changes nothing");
+  assert.equal((await api("/update", { name: "gonefam", token: "x".repeat(40) })).status, 202); for (let i = 0; i < 50; i++) { j = (await api("/status")).body; if (j.done) break; await new Promise((r) => setTimeout(r, 100)); }
+  assert.match(j.error, /no companion called gonefam/); ok("a key from the wrong account reports it plainly"); }
+assert.equal((await api("/resume", { name: "testfam" })).status, 200);
 const info = (await api("/info")).body; assert.match(info.link, /^https:\/\/wiz\.example\.workers\.dev\/#k=/); assert.equal(info.redirectUri, "https://wiz.example.workers.dev/spotify/callback"); assert.match(info.parentQr, /^<svg/); ok("parent link, QR and Spotify redirect URI are built from the host");
 
 const e = (await api("/enrol", {})).body; assert.match(e.code, /^[A-Z0-9]{5}-[A-Z0-9]{5}$/); assert.match(e.qr, /^<svg/); ok("new enrolment code and QR");
@@ -54,4 +76,4 @@ await api("/calendar-add", { did: ap.did, name: "School terms", url: "https://ca
 const rm = (await api(`/accounts?did=${ap.did}`)).body.calendars[0].id; assert.equal((await api("/calendar-remove", { did: ap.did, id: rm })).status, 200); c1 = await wcfg(); assert.equal(c1.calendars.length, 1); assert.ok(!c1.secrets["calendar." + rm]); ok("removing a calendar removes its sealed link");
 assert.equal((await api("/email-clear", { did: ap.did })).status, 200); assert.ok(!(await wcfg()).email); ok("clearing email removes the account and its password");
 assert.equal((await fetch(B + "/pairings")).status, 403); ok("every wizard call needs the session key");
-server.close(); console.log(`\n${n} checks passed`);
+server.close(); mock.close(); console.log(`\n${n} checks passed`);

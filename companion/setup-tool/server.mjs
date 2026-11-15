@@ -6,7 +6,7 @@ import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import QRCode from "qrcode";
-import { setUp, CfError, newEnrolment, waitUntilLive } from "./engine.mjs";
+import { setUp, CfError, newEnrolment, waitUntilLive, updateWorker, verifyFamily, currentVersion, pickBundle } from "./engine.mjs";
 import { seal } from "../worker/src/seal.js";
 import { PROVIDERS, UNSUPPORTED } from "./providers.mjs";
 import { testImap, testSmtp, checkCalendarUrl } from "./checks.mjs";
@@ -45,6 +45,19 @@ async function start({ token, account }) {
   } catch (e) { job.error = friendly(e); const cur = job.steps.find((s) => s.state === "doing"); if (cur) cur.state = "failed"; job.done = true; }
 }
 
+// Update mode: new companion code for an existing family. Their data and parent key are not touched (engine.updateWorker).
+const UPDATE_STEPS = [["check", "Looking at your companion"], ["find", "Finding the newest version"], ["upload", "Installing the new version"], ["wait", "Waiting for it to start"], ["verify", "Checking your data is still there"]];
+async function saved(name) { const j = JSON.parse(await readFile(`${DIR}/family-${name}.json`, "utf8")); return { name: j.name, account: j.account, host: j.host, parentKey: j.parentKey }; }
+async function startUpdate({ token, name }) {
+  job = { kind: "update", steps: UPDATE_STEPS.map(([id, text]) => ({ id, text, state: "todo" })), done: false };
+  const mark = (id) => { let hit = false; for (const s of job.steps) { if (s.id === id) { s.state = "doing"; hit = true; } else if (!hit) s.state = "done"; } };
+  try {
+    const f = await saved(name), r = await updateWorker({ token, family: f, base: process.env.WORKER_BASE, progress: (id) => mark(id) });
+    if (!r.upToDate) { mark("verify"); const v = await verifyFamily({ host: f.host, parentKey: f.parentKey, base: process.env.WORKER_BASE }); r.phones = v.phones; }
+    job.steps.forEach((s) => (s.state = "done")); job.result = r; family = { name: f.name, account: f.account, host: f.host, adminToken: f.parentKey }; job.done = true;
+  } catch (e) { job.error = friendly(e); const cur = job.steps.find((s) => s.state === "doing"); if (cur) cur.state = "failed"; job.done = true; }
+}
+
 async function families() {
   try { return (await Promise.all((await readdir(DIR)).filter((f) => /^family-.*\.json$/.test(f)).map(async (f) => { const j = JSON.parse(await readFile(`${DIR}/${f}`, "utf8")); return { name: j.name, host: j.host }; }))); } catch { return []; }
 }
@@ -71,6 +84,12 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "POST" && p === "/run") { if (job && !job.done && !job.needAccount) return json(409, { error: "already running" }); if (typeof body.token !== "string" || body.token.length < 20) return json(400, { error: "Please paste the key from Cloudflare." }); start(body); return json(200, {}); }
     if (req.method === "GET" && p === "/status") return json(200, job ?? { steps: [], done: false });
+    if (req.method === "GET" && p === "/update-info") {   // no key needed: asks each saved companion for its version and finds the newest one
+      let best = null; try { best = await pickBundle({}); } catch { /* offline: the list still shows versions */ }
+      const out = []; for (const f of await families()) out.push({ name: f.name, host: f.host, current: (await currentVersion(f.host, { base: process.env.WORKER_BASE }))?.version ?? null, latest: best?.info.version ?? null, source: best?.source ?? null });
+      return json(200, out);
+    }
+    if (req.method === "POST" && p === "/update") { if (job && !job.done) return json(409, { error: "already running" }); if (typeof body.token !== "string" || body.token.length < 20) return json(400, { error: "Please paste the key from Cloudflare first." }); if (!/^[\w-]+$/.test(String(body.name))) return json(400, { error: "Unknown companion." }); startUpdate({ token: body.token, name: body.name }); return json(202, { started: true }); }
     if (req.method === "GET" && p === "/families") return json(200, await families());
     if (req.method === "POST" && p === "/resume") {
       const f = (await readdir(DIR).catch(() => [])).find((n) => n === `family-${body.name}.json`); if (!f || !/^[\w-]+$/.test(body.name)) return json(404, { error: "That setup was not found on this computer." });
