@@ -32,7 +32,13 @@ object IdleReaper {
     /** Stop an app now: hide it for a moment (Android ends all its processes) and show it again. Returns whether Android accepted it. */
     fun stop(c: Context, pkg: String, reason: String = "by hand"): Boolean = try {
         val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
-        if (dpm.isApplicationHidden(admin, pkg)) false // hidden by a mode: nothing of it runs anyway
+        if (!Dpm.isOwner(c)) { // an Open phone has no device owner: ask Android to stop the app directly (FORCE_STOP_PACKAGES, a privileged permission we hold)
+            val am = c.getSystemService(android.app.ActivityManager::class.java)
+            val ok = try { am.javaClass.getMethod("forceStopPackage", String::class.java).invoke(am, pkg); true } catch (_: Exception) { try { am.killBackgroundProcesses(pkg); true } catch (_: Exception) { false } }
+            if (ok) { prefs(c).edit().putLong("stopped_$pkg", System.currentTimeMillis()).apply(); record(c, pkg, reason, false) }
+            ok
+        }
+        else if (dpm.isApplicationHidden(admin, pkg)) false // hidden by a mode: nothing of it runs anyway
         else {
             val ok = dpm.setApplicationHidden(admin, pkg, true)
             try { Thread.sleep(600) } finally { dpm.setApplicationHidden(admin, pkg, false) }
@@ -87,7 +93,7 @@ object IdleReaper {
         val protectedApps = Protected.all(c, cfg)
         val pm = c.packageManager
         val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
-        Enforcer.launcherPackages(c).filter { it !in protectedApps && !dpm.isApplicationHidden(admin, it) }.mapNotNull { pkg ->
+        Enforcer.launcherPackages(c).filter { it !in protectedApps && !(Dpm.isOwner(c) && dpm.isApplicationHidden(admin, it)) }.mapNotNull { pkg ->
             val recent = maxOf(stats[pkg]?.lastTimeUsed ?: 0L, p.getLong("play_$pkg", 0))
             val st = media[pkg]
             val playing = st == PlaybackState.STATE_PLAYING || st == PlaybackState.STATE_BUFFERING

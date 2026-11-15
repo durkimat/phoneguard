@@ -17,12 +17,13 @@ class JourneyTest {
         MenuItem(LOGSET_PKG, "Logs"), MenuItem(RUNNING_PKG, "Running"), MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(MAIL_PKG, "Email"),
     )
 
-    private class Setup(val menuStyle: String, val whatsApp: Boolean, val theme: String = "green", val linked: Boolean = whatsApp) {
-        override fun toString() = "menu=$menuStyle whatsapp=$whatsApp${if (whatsApp && !linked) "(unlinked)" else ""} theme=$theme"
+    private class Setup(val menuStyle: String, val whatsApp: Boolean, val theme: String = "green", val linked: Boolean = whatsApp, val edition: String = "") {
+        override fun toString() = "menu=$menuStyle whatsapp=$whatsApp${if (whatsApp && !linked) "(unlinked)" else ""} theme=$theme${if (edition.isNotEmpty()) " edition=$edition" else ""}"
     }
 
     private fun phone(s: Setup): LauncherModel = LauncherModel(items, contactsApp = "com.android.contacts", messagesApp = "com.android.messaging", dialerApp = "com.android.dialer").also {
         it.menuStyle = s.menuStyle; it.theme = s.theme
+        it.edition = s.edition
         it.androidSettings = true
         it.waEnabled = s.whatsApp; it.waLinked = s.whatsApp && s.linked
         it.contacts = listOf(Contact("Dad", listOf("0111")), Contact("Mum", listOf("0222", "0333")), Contact("Nan", listOf("0444")))
@@ -52,7 +53,7 @@ class JourneyTest {
         it.spDevices = listOf(io.github.durkimat.phoneguard.music.SpDevice("d1", "Kitchen", "Speaker", false, 50))
     }
 
-    private val setups = listOf(Setup("list", false), Setup("grid", false), Setup("list", true), Setup("grid", true), Setup("list", false, "mac"), Setup("grid", true, "macdark"), Setup("list", true, linked = false))
+    private val setups = listOf(Setup("list", false), Setup("grid", false), Setup("list", true), Setup("grid", true), Setup("list", false, "mac"), Setup("grid", true, "macdark"), Setup("list", true, linked = false), Setup("list", true, edition = "open"), Setup("grid", false, edition = "family"))
 
     /** One key press: a [Key], and the digit when it is [Key.DIGIT]. */
     private data class Press(val key: Key, val digit: Int = -1) { override fun toString() = if (key == Key.DIGIT) "D$digit" else key.name }
@@ -177,7 +178,7 @@ class JourneyTest {
     @Test fun everyScreenCanBeReached() {
         val reached = explored.values.flatMap { it.seen.keys.map { s -> s.screen } }.toSet()
         // a live call, and typed text sent to Spotify, which the keys alone cannot produce
-        val needsSomethingElse = setOf(Screen.CALL, Screen.CALLMENU, Screen.SEARCHRES)
+        val needsSomethingElse = setOf(Screen.CALL, Screen.CALLMENU, Screen.SEARCHRES, Screen.FIRSTRUN) // FIRSTRUN is only on a new phone and cannot be left: EditionScreensTest
         val missing = Screen.values().filter { it !in reached && it !in needsSomethingElse }
         assertEquals("screens no key path reaches (add data to the test phone or fix the route): $missing", emptyList<Screen>(), missing)
     }

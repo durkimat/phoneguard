@@ -1,7 +1,12 @@
 #!/system/bin/sh
-# First-boot provisioning: make Phone Guard the device owner, once, without the user doing anything (docs/integration-plan.md).
-# Runs from init as root (uid 0 counts as "adb" for DevicePolicyManagerService.setDeviceOwner, which is why it works without the platform key).
-# Idempotent: does nothing if Phone Guard already is the device owner. Gives up after ~5 minutes.
+# First-boot provisioning (docs/plan-two-editions.md). Two jobs, both run from init as root:
+#  1. PLUMBING (always, idempotent): skip the Lineage setup wizard, system look, no-pop-up baseline, usage-access app-op, data enable retry,
+#     hand a pushed enrolment bundle to Phone Guard. Phone Guard is NOT made device owner here any more.
+#  2. OWNER ON REQUEST (only while the phone has no edition yet): the person picks "Family phone" on the first-run screen, the app pairs with the
+#     parent's companion and then writes Settings.Global pg_owner_req=1. This script (uid 0 counts as "adb" for DevicePolicyManagerService.setDeviceOwner,
+#     so no platform key is needed) sets Phone Guard as device owner and clears the request. The app mirrors its edition into Settings.Global pg_edition
+#     (open or family); once that is set the loop ends. A phone that already is device owner (an upgraded Family phone) just gets the plumbing.
+# Gives up on the plumbing after ~5 minutes of the package not being there.
 PKG=io.github.durkimat.phoneguard
 ADMIN=$PKG/.AdminReceiver
 say() { /system/bin/log -t pgprov "$*"; }
@@ -32,7 +37,7 @@ finish() {
   timeout 20 cmd settings put global heads_up_notifications_enabled 0
   timeout 20 cmd settings put global hide_error_dialogs 1
   timeout 20 cmd settings put secure theme_customization_overlay_packages '{"android.theme.customization.color_source":"preset","android.theme.customization.system_palette":"3DDC84","android.theme.customization.accent_color":"3DDC84","_applied_timestamp":1}'
-  timeout 20 cmd activity start-activity --user 0 -n $PKG/.MainActivity
+  timeout 20 cmd activity start-activity --user 0 -a android.intent.action.MAIN -c android.intent.category.HOME
   enrol
   # A wiped phone has mobile data off; Phone Guard manages it per mode afterwards. `cmd phone data enable` only works once the SIM
   # subscription exists (23 s or more after boot), so retry until a mobile_data<subId>=1 setting appears (max ~5 min).
@@ -44,14 +49,34 @@ finish() {
   done
   say "provisioned, wizard disabled"
 }
+appops() {
+  # Usage access (screen time, idle apps) and the draw-over permission need an app-op that only root may set without a device owner.
+  timeout 20 cmd appops set $PKG GET_USAGE_STATS allow
+  timeout 20 cmd appops set $PKG SYSTEM_ALERT_WINDOW allow
+}
 i=0
 while [ $i -lt 20 ]; do
-  if timeout 20 cmd device_policy list-owners 2>/dev/null | grep -q "$PKG"; then say "already device owner"; enrol; exit 0; fi
   p=$(timeout 20 cmd package path "$PKG" 2>&1); rc=$?
-  case "$p" in package:*) ;; *) say "attempt $i: package path rc=$rc: $p"; sleep 15; i=$((i+1)); continue;; esac
-  out=$(timeout 30 cmd device_policy set-device-owner --user 0 "$ADMIN" 2>&1) && { say "device owner set: $out"; finish; exit 0; }
-  say "attempt $i: $out"
-  sleep 15; i=$((i+1))
+  case "$p" in package:*) break;; esac
+  say "attempt $i: package path rc=$rc: $p"; sleep 15; i=$((i+1))
 done
-say "gave up"
-exit 1
+if [ $i -ge 20 ]; then say "gave up: package not found"; exit 1; fi
+
+if timeout 20 cmd device_policy list-owners 2>/dev/null | grep -q "$PKG"; then
+  say "already device owner (Family phone)"; appops; enrol; exit 0
+fi
+finish; appops
+say "plumbing done, no device owner (edition chosen on the phone)"
+
+# Wait for the phone's edition and for an owner request. The loop ends as soon as an edition is recorded.
+while :; do
+  ed=$(timeout 20 cmd settings get global pg_edition 2>/dev/null)
+  case "$ed" in open|family) say "edition is $ed: done"; exit 0;; esac
+  req=$(timeout 20 cmd settings get global pg_owner_req 2>/dev/null)
+  if [ "$req" = "1" ]; then
+    out=$(timeout 30 cmd device_policy set-device-owner --user 0 "$ADMIN" 2>&1)
+    if [ $? -eq 0 ]; then say "device owner set: $out"; timeout 20 cmd settings put global pg_owner_req 0
+    else say "set-device-owner refused: $out"; timeout 20 cmd settings put global pg_owner_req -1; fi
+  fi
+  sleep 3
+done

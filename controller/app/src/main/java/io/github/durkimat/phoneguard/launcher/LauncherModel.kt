@@ -1,5 +1,6 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.phoneguard.core.OpenConfig
 import io.github.durkimat.phoneguard.calendar.AgendaItem
 import io.github.durkimat.phoneguard.calendar.Cal
 import io.github.durkimat.phoneguard.calendar.CalEvent
@@ -16,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, LOGSET, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -128,6 +129,14 @@ sealed class Action {
     data class SaveMenuStyle(val id: String) : Action()
     /** An Appearance setting was chosen: [key] is one of [Choices.keys], [id] empty for "same as Font". */
     data class SaveOption(val key: String, val id: String) : Action()
+    /** First-run: the person chose the Open phone. */
+    object ChooseOpen : Action()
+    /** First-run: the person chose the Family phone (starts the pairing screen). */
+    object StartFamily : Action()
+    /** Factory reset behind "switch the phone type". */
+    object EraseAndRestart : Action()
+    /** An Open phone's own option (sound, notifications, ...). */
+    data class SaveOpenOption(val key: String, val value: String) : Action()
     data class SavePreset(val id: String) : Action()
     data class SavePredictive(val on: Boolean) : Action()
     data class SaveSpeaker(val shown: Boolean) : Action()
@@ -286,7 +295,7 @@ class LauncherModel(
 
     /** Whether the Settings list offers Android's own settings (only where touch works: Android's screens are made for it). */
     var androidSettings = false
-    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
+    private val settingsRows: List<String> get() = listOf("Theme", "Font", "Menu style", "Appearance", "Predictive text", "Speakerphone", "Sound test", "Connections") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) + (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList()) + listOf("Battery")
 
     // ---- Messages state
     /** Conversations, newest first. The activity fills this in. */
@@ -447,6 +456,9 @@ class LauncherModel(
         Screen.SPOTIFYMENU -> "Spotify menu"
         Screen.RADIOBROWSE -> "Browse"
         Screen.CONNECTIONS -> "Connections"
+        Screen.FIRSTRUN -> if (firstConfirm == null) "Welcome" else "Are you sure?"
+        Screen.PHONETYPE -> "Phone type"
+        Screen.OPENOPTS -> "Phone options"
         Screen.RADIORES -> radioResTitle
         Screen.LOGSET -> "Logs & Settings"
         Screen.RUNNING -> "Running Apps"
@@ -493,7 +505,9 @@ class LauncherModel(
         Screen.BATTERY -> "" to "Back"
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.RADIOMENU, Screen.SPOTIFYMENU -> "Select" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
-        Screen.RADIOBROWSE, Screen.CONNECTIONS -> "Select" to "Back"
+        Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
+        Screen.FIRSTRUN -> "Select" to ""
+        Screen.OPENOPTS -> "Change" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
         Screen.SOUNDTEST -> "Play" to "Back"
@@ -532,6 +546,9 @@ class LauncherModel(
         Screen.RADIO -> radioRows
         Screen.RADIOBROWSE -> radioBrowseRows
         Screen.CONNECTIONS -> connectionRows
+        Screen.FIRSTRUN -> firstRunRows
+        Screen.PHONETYPE -> phoneTypeRows
+        Screen.OPENOPTS -> OpenConfig.options.map { it.label + ": " + OpenConfig.nameOf(openOpts, it) }
         Screen.RADIORES -> if (radioRes.isEmpty()) listOf(radioStatus.ifEmpty { "Nothing found" }) else radioRes.map { it.name }
         Screen.RADIOMENU -> radioMenuRows
         Screen.SPOTIFYMENU -> spotifyMenuRows
@@ -587,7 +604,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -607,6 +624,9 @@ class LauncherModel(
         Screen.RADIO -> radioKey(key)
         Screen.RADIOBROWSE -> radioBrowseKey(key)
         Screen.CONNECTIONS -> connectionsKey(key)
+        Screen.FIRSTRUN -> firstRunKey(key)
+        Screen.PHONETYPE -> phoneTypeKey(key)
+        Screen.OPENOPTS -> openOptsKey(key)
         Screen.RADIORES -> radioResKey(key)
         Screen.RADIOMENU -> radioMenuKey(key)
         Screen.SPOTIFYMENU -> spotifyMenuKey(key)
@@ -1084,6 +1104,64 @@ class LauncherModel(
         else -> Action.Launch(item.pkg)
     }
 
+    // ---- editions (docs/plan-two-editions.md) ----
+    /** "first_boot", "open" or "family"; set by the activity. A first-boot phone shows the first-run screen until the person chooses. */
+    var edition = ""
+        set(v) { field = v; if (v == "first_boot" && screen != Screen.FIRSTRUN && !firstRunLeft()) { trail.clear(); screen = Screen.FIRSTRUN; selected = 0; firstConfirm = null } }
+    /** The options of an Open phone, as saved on the phone. */
+    var openOpts: Map<String, String> = emptyMap()
+    private var firstConfirm: String? = null
+    private var confirmErase = false
+    /** True while the person is in a screen reached from first-run (Wi-Fi and so on), so the first-run screen is not forced back over it. */
+    private fun firstRunLeft() = trail.any { it.screen == Screen.FIRSTRUN } || screen in setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
+
+    private val firstRunRows: List<String> get() = when (firstConfirm) {
+        "open" -> listOf("Open phone: nothing locked, set up on the phone", "To switch later the phone must be erased", "Yes, make it an Open phone", "No, go back")
+        else -> listOf("Wi-Fi", "Time and language", "Open phone", "Family phone")
+    }
+
+    private fun firstRunKey(key: Key): Action = move(key, firstRunRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (firstConfirm == "open") when (selected) {
+            2 -> { edition = "open"; firstConfirm = null; goHome(); Action.ChooseOpen }
+            3 -> { firstConfirm = null; selected = 2; Action.Redraw }
+            else -> Action.None
+        } else when (selected) {
+            0 -> { enter(Screen.WIFI); Action.WifiLoad }
+            1 -> Action.Launch("com.android.settings")
+            2 -> { firstConfirm = "open"; selected = 2; Action.Redraw }
+            else -> Action.StartFamily
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> if (firstConfirm != null) { firstConfirm = null; selected = 2; Action.Redraw } else Action.None
+        else -> Action.None // the first-run screen cannot be left: End and Back do nothing until a choice is made
+    }
+
+    private val phoneTypeRows: List<String> get() = when {
+        edition == "family" -> listOf("Family phone", "Set up by your parent", "Only your parent can release it")
+        confirmErase -> listOf("This erases the phone", "Contacts, messages, settings", "Erase and restart", "No, go back")
+        else -> listOf("Open phone", "Forgotten PIN: phone must be erased", "Switch to Family (erases the phone)")
+    }
+
+    private fun phoneTypeKey(key: Key): Action = move(key, phoneTypeRows.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
+            edition == "family" -> Action.None
+            confirmErase -> when (selected) { 2 -> Action.EraseAndRestart; 3 -> { confirmErase = false; selected = 2; Action.Redraw }; else -> Action.None }
+            selected == 2 -> { confirmErase = true; selected = 3; Action.Redraw }
+            else -> Action.None
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> if (confirmErase) { confirmErase = false; selected = 2; Action.Redraw } else { leave(); Action.Redraw }
+        Key.END -> { confirmErase = false; goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun openOptsKey(key: Key): Action = move(key, OpenConfig.options.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> OpenConfig.options.getOrNull(selected)?.let { o ->
+            val v = OpenConfig.step(openOpts, o, 1); openOpts = openOpts + (o.key to v); Action.SaveOpenOption(o.key, v)
+        } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
     private fun settings(key: Key, digit: Int): Action = move(key, settingsRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
             var out: Action = Action.Redraw
@@ -1099,6 +1177,8 @@ class LauncherModel(
                 "Android settings" -> out = Action.Launch("com.android.settings")
                 "Battery" -> enter(Screen.BATTERY)
                 "Connections" -> enter(Screen.CONNECTIONS)
+                "Phone options" -> enter(Screen.OPENOPTS)
+                "Phone type" -> { confirmErase = false; enter(Screen.PHONETYPE) }
             }
             out
         }
@@ -1192,7 +1272,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.LOGSET, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
@@ -1604,7 +1684,7 @@ class LauncherModel(
 
     private fun wifiKey(key: Key): Action = move(key, rows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) Action.WifiToggle else wifiNets.getOrNull(selected - 1)?.let { wifiSel = it; screen = Screen.WIFINET; selected = 0; Action.Redraw } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONNECTIONS; selected = 0; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = if (edition == "first_boot") Screen.FIRSTRUN else Screen.CONNECTIONS; selected = 0; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1631,7 +1711,7 @@ class LauncherModel(
             selected == 1 -> Action.BtSearch
             else -> btDevs.getOrNull(selected - 2)?.let { btSel = it; screen = Screen.BTDEV; selected = 0; Action.Redraw } ?: Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONNECTIONS; selected = 1; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { screen = if (edition == "first_boot") Screen.FIRSTRUN else Screen.CONNECTIONS; selected = if (edition == "first_boot") 0 else 1; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }

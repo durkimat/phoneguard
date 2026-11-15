@@ -433,6 +433,8 @@ class LauncherActivity : Activity() {
 
     /** Takes what the background read found into the model (main thread) and draws. */
     private fun apply(r: Loaded, bits: Int, screen: Screen) {
+        model.openOpts = io.github.durkimat.phoneguard.Edition.openOptions(this)
+        model.edition = io.github.durkimat.phoneguard.Edition.get(this).name.lowercase()
         val reading = model.screen == Screen.THREAD || model.screen == Screen.WRITE // not while reading or writing, so a message arriving cannot shift what is on the screen
         r.info?.let {
             model.weather = r.weather; model.androidSettings = r.androidSettings; model.notes = r.notes
@@ -565,6 +567,10 @@ class LauncherActivity : Activity() {
                 if (r == "sent") io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, a.body, ::knownWord)
                 ui.post { if (r != "sent") model.notify("Not sent: $r"); invalidate(D.WA or D.INFO); refresh() }
             }.start()
+            Action.ChooseOpen -> Thread { io.github.durkimat.phoneguard.Edition.chooseOpen(this); ui.post { refresh() } }.start()
+            Action.StartFamily -> start(Intent(this, io.github.durkimat.phoneguard.companion.EnrolActivity::class.java))
+            Action.EraseAndRestart -> io.github.durkimat.phoneguard.Edition.eraseAndRestart(this)
+            is Action.SaveOpenOption -> { io.github.durkimat.phoneguard.Edition.setOpenOption(this, a.key, a.value); io.github.durkimat.phoneguard.Controller.evaluateAsync(this, "open option"); refresh() }
             is Action.SaveSpeaker -> { prefs().edit().putBoolean("speaker", a.shown).apply(); refresh() }
             is Action.SavePredictive -> { prefs().edit().putBoolean("predictive", a.on).apply(); refresh() }
             is Action.SaveOption -> {

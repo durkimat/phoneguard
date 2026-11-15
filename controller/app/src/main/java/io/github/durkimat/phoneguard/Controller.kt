@@ -48,12 +48,8 @@ object Controller {
         val app = c.applicationContext
         val t0 = System.nanoTime(); var last = t0; val laps = StringBuilder()
         fun lap(what: String) { val n = System.nanoTime(); if (n - last > 150_000_000L) laps.append(" $what=${(n - last) / 1_000_000}ms"); last = n }
-        if (!Dpm.isOwner(app)) {
-            lap("rest"); if (System.nanoTime() - t0 > 1_000_000_000L) Log.log(app, "EVAL slow (${(System.nanoTime() - t0) / 1_000_000}ms):$laps")
-        Log.log(app, "EVAL $reason: not device owner, nothing enforced")
-            Store.summary(app, "Not device owner")
-            Notifier.status(app, "Not set up as device owner")
-            return
+        if (!Edition.enforcing(app)) {
+            evaluateOpen(app, reason); return
         }
         Enforcer.grantOwnPermissions(app); lap("grant")
         Enforcer.ensureSideButton(app); Enforcer.ensureNoteListener(app); lap("services")
@@ -113,6 +109,22 @@ object Controller {
             "allow=${eff.allowed.pkgs.size} gray=${eff.gray} sound=$soundNote wa=${eff.wa} inbound=${if (eff.inbound) "allowed" else "BLOCKED"} hid=${res.hid} unhid=${res.unhid} failed=${res.failed} " +
             "lock=${eff.lockdown.launcher}/touch${if (eff.lockdown.touch) "On" else "Off"}/shade${if (eff.lockdown.shade) "On" else "Off"}/kiosk${if (eff.lockdown.kiosk) "On" else "Off"} " +
             "ours=${Store.hidden(app).size} next=${change?.first?.let { Date(it) }} alarm=${Date(alarmAt)}$warnNote")
+    }
+
+    /**
+     * Everything that is not enforcement, for a phone that is not an enforcing Family phone (first boot, Open, or a Family phone whose owner rights are
+     * gone): no hiding, no restrictions, no lockdown, no reporting. Each step is optional and must never need a device owner.
+     */
+    private fun evaluateOpen(app: Context, reason: String) {
+        val ed = Edition.get(app)
+        val why = if (ed == EditionState.FAMILY) "not device owner, nothing enforced" else "${ed.name.lowercase()} phone, nothing enforced"
+        try { Enforcer.ensureSideButton(app); Enforcer.ensureNoteListener(app) } catch (e: Exception) { Log.log(app, "open services: ${e.javaClass.simpleName}") }
+        try { NoPopups.baseline(app) } catch (e: Exception) { Log.log(app, "open no-popups: ${e.javaClass.simpleName}") }
+        try { io.github.durkimat.phoneguard.net.RadioManager.evaluate(app, "config") } catch (e: Exception) { Log.log(app, "open radio: ${e.javaClass.simpleName}") }
+        Log.log(app, "EVAL $reason: $why")
+        val line = when (ed) { EditionState.FAMILY -> "Not device owner"; EditionState.OPEN -> "Open phone"; EditionState.FIRST_BOOT -> "Not set up yet" }
+        Store.summary(app, line)
+        Notifier.status(app, if (ed == EditionState.FAMILY) "Not set up as device owner" else line)
     }
 
     private fun arm(c: Context, at: Long) {
