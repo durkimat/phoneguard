@@ -5,13 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { parseArgs, makeTools, preflight, verifyKit, backup, flashSteps, main, prepareKit, downloadImage } from "../pg-install.mjs";
-import { gzipSync } from "node:zlib";
+import { parseArgs, makeTools, preflight, verifyKit, backup, flashSteps, main, prepareKit, downloadImage, findArchive, unzip, getPlatformTools, getUsbDriver, patchInf, windowsUsbDevices, windowsAdvice } from "../pg-install.mjs";
+import { gzipSync, deflateRawSync, crc32 } from "node:zlib";
+import { statSync } from "node:fs";
+import { Readable } from "node:stream";
 
 const FAKES = fileURLToPath(new URL("./fakebin", import.meta.url));
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
 const work = mkdtempSync(join(tmpdir(), "pginst-"));
-const env = (o = {}) => { for (const k of ["FAKE_MODEL", "FAKE_BATT", "FAKE_UNLOCKED", "FAKE_FAIL_FLASH", "FAKE_FASTBOOT", "FAKE_NO_PULL", "FAKE_ADB_STATE", "FAKE_USERSPACE"]) delete process.env[k]; Object.assign(process.env, o); const log = join(work, "log-" + Math.random().toString(36).slice(2) + ".txt"); process.env.FAKE_LOG = log; writeFileSync(log, ""); return log; };
+const env = (o = {}) => { for (const k of ["FAKE_MODEL", "FAKE_BATT", "FAKE_UNLOCKED", "FAKE_FAIL_FLASH", "FAKE_FASTBOOT", "FAKE_NO_PULL", "FAKE_ADB_STATE", "FAKE_USERSPACE", "FAKE_DAEMON_NOISE"]) delete process.env[k]; Object.assign(process.env, o); const log = join(work, "log-" + Math.random().toString(36).slice(2) + ".txt"); process.env.FAKE_LOG = log; writeFileSync(log, ""); return log; };
 const cmds = (log) => readFileSync(log, "utf8").split("\n").filter(Boolean);
 const mkKit = (bad = false) => { const k = mkdtempSync(join(work, "kit-")); const img = Buffer.from("pretend system image ".repeat(1000)); writeFileSync(join(k, "system.img"), img); writeFileSync(join(k, "SHA256SUMS"), `${createHash("sha256").update(bad ? "x" : img).digest("hex")}  system.img\n`); return k; };
 const quiet = [], out = (s) => quiet.push(s), wait = { fastboot: async () => true, adb: async () => true };
@@ -21,6 +23,7 @@ const writes = (log) => cmds(log).filter((c) => /^fastboot (flash|erase|resize-l
 assert.deepEqual(parseArgs(["flash", "--kit", "/k", "--dry-run", "--yes"]), { cmd: "flash", kit: "/k", dryRun: true, yes: true, skipBackup: false, keepData: false, backupDir: null, download: false }); assert.throws(() => parseArgs(["--nope"])); assert.throws(() => parseArgs(["explode"])); ok("command line options are parsed and unknown ones refused");
 
 { env(); const r = preflight(makeTools({ dir: FAKES })); assert.ok(r.ok && r.mode === "adb"); ok("preflight passes for a J36 with enough battery"); }
+{ env({ FAKE_DAEMON_NOISE: "1" }); const r = preflight(makeTools({ dir: FAKES })); assert.ok(r.ok && r.mode === "adb"); ok("adb's \"daemon not running, starting now\" lines on the first run are not mistaken for extra phones"); }
 { env({ FAKE_MODEL: "Pixel 7" }); const r = preflight(makeTools({ dir: FAKES })); assert.ok(!r.ok); assert.ok(r.checks.some((c) => c.name.includes("J36") && !c.ok)); ok("another phone model is refused"); }
 { env({ FAKE_BATT: "30" }); assert.ok(!preflight(makeTools({ dir: FAKES })).ok); ok("a low battery is refused"); }
 { env({ FAKE_ADB_STATE: "unauthorized" }); const r = preflight(makeTools({ dir: FAKES })); assert.ok(!r.ok); assert.match(r.checks.find((c) => !c.ok).detail, /Allow/); ok("an unauthorised phone says what to do"); }
@@ -60,4 +63,48 @@ await assert.rejects(downloadImage(mkdtempSync(join(work, "dl0-")), { fetchImpl:
 { const log = env(), k = mkdtempSync(join(work, "full-")); const code = await main(["all", "--kit", k, "--download", "--yes", "--backup-dir", join(work, "run9")], { out, toolDir: FAKES, wait, fetchImpl: releaseFetch(), reserve: 0 }); assert.equal(code, 0); assert.ok(existsSync(join(k, "system.img"))); assert.ok(cmds(log).some((x) => x.startsWith("fastboot flash system_a") && x.endsWith("system.img"))); ok("one command downloads, unpacks, checks, backs up and flashes"); }
 { const log = env(), k = mkdtempSync(join(work, "noimg-")); const code = await main(["all", "--kit", k, "--yes", "--backup-dir", join(work, "run10")], { out, toolDir: FAKES, wait }); assert.equal(code, 1); assert.ok(quiet.some((l) => l.includes("--download"))); assert.deepEqual(writes(log), []); ok("without an image or --download it says what to do and writes nothing"); }
 { const k = mkdtempSync(join(work, "dlonly-")); const code = await main(["download", "--kit", k, "--yes", "--backup-dir", join(work, "run11")], { out, toolDir: FAKES, wait, fetchImpl: releaseFetch(), reserve: 0 }); assert.equal(code, 0); assert.ok(existsSync(join(k, "system.img"))); ok("the download command fetches, unpacks and verifies without touching a phone"); }
+
+// ---- getting adb and fastboot, and the Windows USB driver ----
+const makeZip = (entries) => {   // entries: [{ name, data, mode?, store? }]
+  const locals = [], cents = []; let off = 0;
+  for (const e of entries) {
+    const raw = Buffer.from(e.data), body = e.store ? raw : deflateRawSync(raw), name = Buffer.from(e.name), crc = crc32(raw) >>> 0;
+    const lh = Buffer.alloc(30); lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4); lh.writeUInt16LE(e.store ? 0 : 8, 8); lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(body.length, 18); lh.writeUInt32LE(raw.length, 22); lh.writeUInt16LE(name.length, 26);
+    const ch = Buffer.alloc(46); ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6); ch.writeUInt16LE(e.store ? 0 : 8, 10); ch.writeUInt32LE(crc, 16); ch.writeUInt32LE(body.length, 20); ch.writeUInt32LE(raw.length, 24); ch.writeUInt16LE(name.length, 28); ch.writeUInt32LE(((e.mode ?? 0o644) << 16) >>> 0, 38); ch.writeUInt32LE(off, 42);
+    locals.push(lh, name, body); cents.push(ch, name); off += 30 + name.length + body.length;
+  }
+  const cd = Buffer.concat(cents), end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10); end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(off, 16);
+  return Buffer.concat([...locals, cd, end]);
+};
+const fakeScript = (n) => readFileSync(join(FAKES, n));
+const toolsZip = makeZip([{ name: "platform-tools/", data: "", store: true }, { name: "platform-tools/adb", data: fakeScript("adb"), mode: 0o755 }, { name: "platform-tools/fastboot", data: fakeScript("fastboot"), mode: 0o755 }, { name: "platform-tools/NOTICE.txt", data: "notice ".repeat(500), mode: 0o644 }]);
+const usbZip = makeZip([{ name: "usb_driver/", data: "", store: true }, { name: "usb_driver/android_winusb.inf", data: "[Version]\r\n[Google.NTx86]\r\n;Google Nexus One\r\n%SingleAdbInterface% = USB_Install, USB\\VID_18D1&PID_0D02\r\n[Google.NTamd64]\r\n%SingleAdbInterface% = USB_Install, USB\\VID_18D1&PID_0D02\r\n[USB_Install]\r\n" }]);
+const sha1 = (b) => createHash("sha1").update(b).digest("hex");
+const pkgXml = (zip, wrongSha = false) => `<root><remotePackage path="platform-tools"><revision><major>99</major></revision><channelRef ref="channel-2"/><archives><archive><complete><size>5</size><checksum type="sha1">${"a".repeat(40)}</checksum><url>preview-linux.zip</url></complete><host-os>linux</host-os></archive></archives></remotePackage>
+<remotePackage path="platform-tools"><revision><major>37</major></revision><channelRef ref="channel-0"/><archives><archive><complete><size>${zip.length}</size><checksum type="sha1">${wrongSha ? "b".repeat(40) : sha1(zip)}</checksum><url>pt-linux.zip</url></complete><host-os>linux</host-os></archive><archive><complete><size>${zip.length}</size><checksum type="sha1">${sha1(zip)}</checksum><url>pt-win.zip</url></complete><host-os>windows</host-os></archive></archives></remotePackage>
+<remotePackage obsolete="true" path="extras;google;usb_driver"><channelRef ref="channel-0"/><archives><archive><complete><size>${usbZip.length}</size><checksum>${sha1(usbZip)}</checksum><url>usb.zip</url></complete><host-os>windows</host-os></archive></archives></remotePackage></root>`;
+const googleFetch = (zip, { wrongSha = false } = {}) => async (url) => {
+  if (url.endsWith(".xml")) return { ok: true, status: 200, text: async () => pkgXml(zip, wrongSha) };
+  if (/\.zip$/.test(url)) { const z = url.endsWith("usb.zip") ? usbZip : zip; return { ok: true, status: 200, arrayBuffer: async () => z.buffer.slice(z.byteOffset, z.byteOffset + z.length) }; }
+  return { ok: false, status: 404 };
+};
+{ const x = pkgXml(toolsZip); const a = findArchive(x, "platform-tools", "linux"); assert.equal(a.url, "pt-linux.zip"); assert.equal(a.sha1, sha1(toolsZip)); assert.equal(findArchive(x, "platform-tools", "macosx"), null); assert.equal(findArchive(x, "extras;google;usb_driver", "windows").url, "usb.zip"); ok("Google's package list is read: the stable release, the right operating system, an obsolete-flagged add-on still found"); }
+{ const d = mkdtempSync(join(work, "zip-")); const files = unzip(toolsZip, d); assert.ok(files.includes("platform-tools/adb")); assert.equal(readFileSync(join(d, "platform-tools/adb")).toString(), fakeScript("adb").toString()); assert.ok(statSync(join(d, "platform-tools/adb")).mode & 0o111); assert.ok(!(statSync(join(d, "platform-tools/NOTICE.txt")).mode & 0o111)); ok("a zip is unpacked (stored and compressed entries) and adb and fastboot keep their run permission"); }
+assert.throws(() => unzip(makeZip([{ name: "../evil.txt", data: "x" }]), mkdtempSync(join(work, "zip2-"))), /unsafe path/); assert.throws(() => unzip(Buffer.from("not a zip at all, definitely not"), mkdtempSync(join(work, "zip3-"))), /not a zip/); ok("a zip that tries to write outside its folder, or is not a zip, is refused");
+{ const d = mkdtempSync(join(work, "gpt-")), lines = []; const dir = await getPlatformTools(d, { fetchImpl: googleFetch(toolsZip), out: (m) => lines.push(m), plat: "linux" }); assert.equal(dir, join(d, "platform-tools")); assert.ok(existsSync(join(dir, "adb")) && existsSync(join(dir, "fastboot"))); assert.ok(lines.some((l) => l.includes("dl.google.com")));
+  await assert.rejects(getPlatformTools(mkdtempSync(join(work, "gpt2-")), { fetchImpl: googleFetch(toolsZip, { wrongSha: true }), plat: "linux" }), /did not match Google's checksum/); await assert.rejects(getPlatformTools(mkdtempSync(join(work, "gpt3-")), { fetchImpl: googleFetch(toolsZip), plat: "freebsd" }), /no automatic download/); ok("platform-tools are downloaded and checked against Google's checksum; a mismatch or an unsupported system is refused"); }
+{ const savedPath = process.env.PATH, empty = mkdtempSync(join(work, "nopath-")); process.env.PATH = empty;   // no adb or fastboot anywhere
+  try { const log = env(), k = mkdtempSync(join(work, "notools-")), lines = []; const code = await main(["check", "--kit", k, "--yes", "--backup-dir", join(work, "run12")], { out: (m) => lines.push(m), fetchImpl: googleFetch(toolsZip), plat: "linux" });
+    assert.equal(code, 0, lines.join("\n")); assert.ok(existsSync(join(k, "platform-tools", "adb"))); assert.ok(lines.some((l) => l.includes("Getting adb and fastboot"))); assert.ok(cmds(log).some((x) => x === "adb devices")); ok("with no adb or fastboot installed, the installer fetches them, then goes on to find the phone");
+    const lines2 = []; const code2 = await main(["check", "--kit", k, "--yes", "--backup-dir", join(work, "run13")], { out: (m) => lines2.push(m), fetchImpl: async () => { throw new Error("must not download again"); }, plat: "linux" }); assert.equal(code2, 0); assert.ok(!lines2.some((l) => l.includes("Getting adb"))); ok("on the next run the downloaded tools are used and nothing is downloaded again");
+    const k2 = mkdtempSync(join(work, "notools2-")), lines3 = []; const code3 = await main(["check", "--kit", k2, "--backup-dir", join(work, "run14")], { out: (m) => lines3.push(m), input: Readable.from(["no\n"]), fetchImpl: googleFetch(toolsZip), plat: "linux" }); assert.equal(code3, 1); assert.ok(!existsSync(join(k2, "platform-tools"))); assert.ok(lines3.some((l) => l.includes("STOPPED") && l.includes("needed"))); ok("saying no to the download stops with instructions and downloads nothing");
+  } finally { process.env.PATH = savedPath; } }
+{ const r = patchInf("[Google.NTx86]\r\nA\r\n[Google.NTamd64]\r\nB\r\n[Other]\r\n"); assert.equal(r.split("PID_201C&MI_00").length - 1, 2); assert.ok(r.indexOf("VID_0E8D") > r.indexOf("[Google.NTx86]") && r.indexOf("VID_0E8D") < r.indexOf("A\r\n")); assert.ok(r.includes("[Other]\r\n")); assert.throws(() => patchInf("nothing here"), /unexpected layout/); ok("the J36's USB ID is added to both the 32-bit and 64-bit lists of Google's driver, and an unexpected file is refused, not guessed at"); }
+{ const rows = JSON.stringify([{ Status: "Error", Class: "USB", FriendlyName: "Android", InstanceId: "USB\\VID_0E8D&PID_201C\\X" }]); assert.deepEqual(windowsUsbDevices(() => rows).map((d) => d.Status), ["Error"]); assert.deepEqual(windowsUsbDevices(() => JSON.stringify({ Status: "OK" })).length, 1); assert.deepEqual(windowsUsbDevices(() => ""), []); assert.equal(windowsUsbDevices(() => null), null);
+  assert.match(windowsAdvice([]).join(" "), /cable/); assert.match(windowsAdvice([{ Status: "Error", FriendlyName: "Android" }]).join(" "), /no working driver/); assert.match(windowsAdvice([{ Status: "OK" }]).join(" "), /driver is working/); assert.deepEqual(windowsAdvice(null), []); ok("Windows USB state is read (one device or several) and turned into the right advice: no device, no driver, driver fine, unknown"); }
+{ const k = mkdtempSync(join(work, "win-")), lines = []; const savedPath = process.env.PATH; process.env.PATH = mkdtempSync(join(work, "nopath2-"));
+  try { env({ FAKE_ADB_STATE: "offline" }); writeFileSync(join(work, "unused"), ""); const code = await main(["check", "--kit", k, "--yes", "--backup-dir", join(work, "run15")], { out: (m) => lines.push(m), fetchImpl: googleFetch(toolsZip), plat: "win32", winUsb: () => [{ Status: "Error", FriendlyName: "Android" }] });
+    assert.equal(code, 1); assert.ok(lines.some((l) => l.includes("no working driver"))); assert.ok(existsSync(join(k, "usb_driver", "android_winusb.inf")) && /VID_0E8D&PID_201C&MI_01/.test(readFileSync(join(k, "usb_driver", "phoneguard_j36.inf"), "latin1")) && lines.some((l) => l.includes("phoneguard_j36.inf"))); ok("on Windows, a phone with no driver gets a clear message, Google's USB driver is downloaded and the install steps are shown"); }
+  finally { process.env.PATH = savedPath; } }
+
 console.log(`\n${n} checks passed`);

@@ -2,7 +2,7 @@
 echo "adb $*" >> "$FAKE_LOG"
 case "$1" in
   version) echo "Android Debug Bridge version 1.0.41" ;;
-  devices) printf 'List of devices attached\n%s\t%s\n' "${FAKE_SERIAL:-ABC123}" "${FAKE_ADB_STATE:-device}" ;;
+  devices) [ -n "$FAKE_DAEMON_NOISE" ] && printf '* daemon not running; starting now at tcp:5037\n* daemon started successfully\n'; printf 'List of devices attached\n%s\t%s\n' "${FAKE_SERIAL:-ABC123}" "${FAKE_ADB_STATE:-device}" ;;
   reboot) : ;;
   pull) mkdir -p "$(dirname "$3")"; [ -n "$FAKE_NO_PULL" ] && { echo "adb: error: remote object does not exist" >&2; exit 1; }; echo fake > "$3" ;;
   shell) shift; case "$*" in

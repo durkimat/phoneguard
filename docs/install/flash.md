@@ -7,8 +7,7 @@
 The `installer/` folder has a script that checks your computer and phone, makes a backup, verifies the image and runs the commands below for you, stopping at the first problem:
 
 ```bash
-cd installer
-node pg-install.mjs all --kit <folder with system.img>      # add --dry-run first to see the plan
+node pg-install.mjs all      # in the folder from step 1, where the image was downloaded; add --dry-run first to see the plan
 ```
 
 Status: tested against simulated phones, and its read-only parts on a real J36. Its flash stage uses exactly the commands below but has not yet been run on a stock-unlocked phone, so keep these manual steps to hand. See [installer/README.md](../../installer/README.md).
@@ -16,7 +15,7 @@ Status: tested against simulated phones, and its read-only parts on a real J36. 
 ## The manual way
 
 
-Do these in a terminal in the folder that holds `system.img`. The same commands work on Windows, Linux and macOS.
+Do these in a terminal in the folder that holds `system.img`. The same commands work on Windows, Linux and macOS. If `fastboot` is not found, the installer saved it in the `platform-tools` folder next to it: type `./platform-tools/fastboot` (Windows: `platform-tools\fastboot`).
 
 1. Check the image ([step 3](get-the-image.md)) and that the phone is unlocked:
 

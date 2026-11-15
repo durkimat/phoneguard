@@ -11,12 +11,13 @@ The image is published as a **release on this repository's GitHub page** (releas
 
 The installer downloads the newest image release, unpacks it, checks it and flashes it in one go (it asks before writing anything):
 
+In the `phoneguard` folder from [step 1](computer-setup.md):
+
 ```bash
-cd installer
-node pg-install.mjs all --download --kit ~/phoneguard-kit
+node pg-install.mjs download
 ```
 
-To only download and check it, without touching a phone: `node pg-install.mjs download --kit ~/phoneguard-kit`. You need about 5 GB of free disk space.
+That fetches the newest image (about 1 GB), unpacks it (about 2.4 GB) and checks it against its checksum, without touching the phone. *Worked when:* every line says `OK`. You need about 5 GB of free disk space. (To fetch and flash in one go: `node pg-install.mjs all --download`.)
 
 ## By hand
 

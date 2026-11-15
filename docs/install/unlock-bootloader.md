@@ -8,7 +8,7 @@ The bootloader decides which system software the phone may start. A locked one r
 
 1. Do [step 1](computer-setup.md) first (USB debugging on, `adb devices` shows the phone).
 2. On the phone open **Settings, System, Developer options** and switch on **OEM unlocking**. If it is greyed out, connect the phone to Wi-Fi, wait a few minutes and look again.
-3. On the computer:
+3. On the computer (the installer saved the tools in the `platform-tools` folder next to it, so type `./platform-tools/adb` and `./platform-tools/fastboot`; on Windows `platform-tools\adb` and `platform-tools\fastboot`. The commands below are written without that prefix):
 
 ```bash
 adb reboot bootloader
