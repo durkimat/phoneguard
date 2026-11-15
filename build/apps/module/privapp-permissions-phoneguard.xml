@@ -18,5 +18,6 @@
         <permission name="android.permission.CONTROL_INCALL_EXPERIENCE"/>
         <permission name="android.permission.INSTALL_PACKAGES"/>
         <permission name="android.permission.REBOOT"/>
+        <permission name="android.permission.MASTER_CLEAR"/>
     </privapp-permissions>
 </permissions>

@@ -51,7 +51,7 @@ class MainActivity : Activity() {
         thread {
             val r = try { Link.pair(this, text) } catch (e: Exception) { "pairing failed: ${e.javaClass.simpleName}: ${e.message}" }
             Log.log(this, "pair: $r")
-            if (r.startsWith("ok")) Link.runAsync(this, "after pairing")
+            if (r.startsWith("ok")) { val why = Edition.becomeFamily(this); if (why.isNotEmpty()) Log.log(this, "pair: $why"); Link.runAsync(this, "after pairing") }
             ui.post { refresh() }
         }
     }

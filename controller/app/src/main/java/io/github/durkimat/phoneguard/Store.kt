@@ -32,6 +32,7 @@ object Store {
     fun clearConfig(c: Context) { sp(c).edit().remove("config").apply(); cached = null }
 
     fun config(c: Context): Config? {
+        if (Edition.get(c) != EditionState.FAMILY) return Edition.openConfig(c)
         val t = configText(c) ?: return null
         cached?.let { if (it.first == t) return it.second }
         return try {

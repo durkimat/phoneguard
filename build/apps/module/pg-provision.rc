@@ -1,4 +1,4 @@
-# Phone Guard first-boot provisioning (pg-provision.sh). Idempotent: the script exits at once when Phone Guard already is the device owner.
+# Phone Guard first-boot provisioning (pg-provision.sh): plumbing always; device owner only on request from the app (family edition).
 service pg_provision /system_ext/bin/pg-provision.sh
     class late_start
     user root

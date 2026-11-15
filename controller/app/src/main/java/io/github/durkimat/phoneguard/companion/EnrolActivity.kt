@@ -69,6 +69,7 @@ class EnrolActivity : Activity() {
 
     private fun begin(p: EnrolPayload?) {
         if (p == null) { info.text = "Check the address and the code."; return }
+        if (io.github.durkimat.phoneguard.Edition.get(this) == io.github.durkimat.phoneguard.EditionState.OPEN) { info.text = "This is an Open phone. To make it a Family phone, erase it first (Settings, Phone type)."; return }
         if (inFlight || polling || WorkerLink.isPaired(this)) return // a second submit (Enter and Done, a double tap) must not start another pairing
         inFlight = true
         info.text = "Connecting to ${p.host} ..."
@@ -98,7 +99,14 @@ class EnrolActivity : Activity() {
         var tries = 0
         while (polling && tries++ < 200) { // about 10 minutes
             when (val r = WorkerLink.pollPair(this)) {
-                "paired" -> { EnrolStore.clear(this); polling = false; WorkerLink.runAsync(this, "after pairing"); ui.post { matchView.text = ""; info.text = "Connected. The parent can now set this phone up." }; return }
+                "paired" -> {
+                    EnrolStore.clear(this); polling = false
+                    ui.post { matchView.text = ""; info.text = "Connected. Making this a Family phone..." }
+                    val why = io.github.durkimat.phoneguard.Edition.becomeFamily(this)
+                    WorkerLink.runAsync(this, "after pairing")
+                    ui.post { info.text = if (why.isEmpty()) "Connected. The parent can now set this phone up." else "Connected, but: $why" }
+                    return
+                }
                 "waiting" -> {}
                 else -> if (r.startsWith("failed")) { polling = false; ui.post { matchView.text = ""; info.text = "Pairing ended ($r). Try again with a new code." }; return }
             }

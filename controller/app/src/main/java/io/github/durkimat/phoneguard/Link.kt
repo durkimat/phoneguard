@@ -142,6 +142,7 @@ object Link {
         forget()
         Store.clearConfig(c); Store.setBoost(c, null)
         try { Dpm.dpm(c).clearDeviceOwnerApp(c.packageName) } catch (e: Exception) { Log.log(c, "release failed: ${e.message}") }
+        Edition.afterRelease(c)
     }
 
     /**
