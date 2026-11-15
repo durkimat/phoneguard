@@ -82,7 +82,19 @@ type Bridge struct {
 	perMin      int
 	perDay      int
 	sent        []time.Time
+
+	// the history WhatsApp sends once, when the account is linked, is kept in memory (never on disk) until the app says the
+	// allow list is up to date, or holdFor has passed, and only then looked at: see HoldHistory
+	hmu  sync.Mutex
+	hold bool
+	held []*events.HistorySync
+	htmr *time.Timer
 }
+
+const (
+	holdFor        = 90 * time.Second
+	maxHeldBundles = 20
+)
 
 var setupOnce sync.Once
 
@@ -377,6 +389,7 @@ func (b *Bridge) onEvent(evt interface{}) {
 	case *events.Disconnected:
 		b.l.OnStatus("disconnected")
 	case *events.PairSuccess:
+		b.HoldHistory() // before anything else: the history follows straight away, and the allow list may not be up to date yet
 		b.l.OnStatus("paired")
 	case *events.LoggedOut:
 		b.l.OnStatus("logged_out")
@@ -690,6 +703,47 @@ func (b *Bridge) onHistory(v *events.HistorySync) {
 	if v == nil || v.Data == nil || b.cli == nil {
 		return
 	}
+	b.hmu.Lock()
+	if b.hold {
+		if len(b.held) < maxHeldBundles { // bounded; whatever does not fit is dropped, as everything not allowed is
+			b.held = append(b.held, v)
+		}
+		b.hmu.Unlock()
+		return
+	}
+	b.hmu.Unlock()
+	b.processHistory(v)
+}
+
+// HoldHistory keeps incoming history bundles in memory instead of dealing with them, for at most 90 seconds (then they are
+// processed with whatever allow list is set by then). It starts by itself when the account is paired. Nothing is written to disk.
+func (b *Bridge) HoldHistory() {
+	b.hmu.Lock()
+	defer b.hmu.Unlock()
+	b.hold = true
+	if b.htmr != nil {
+		b.htmr.Stop()
+	}
+	b.htmr = time.AfterFunc(holdFor, b.ReleaseHistory)
+}
+
+// ReleaseHistory ends the hold and processes what was kept, with the allow list as it is now (call it after SetAllowed and
+// SetAllowAll have been brought up to date).
+func (b *Bridge) ReleaseHistory() {
+	b.hmu.Lock()
+	held := b.held
+	b.held, b.hold = nil, false
+	if b.htmr != nil {
+		b.htmr.Stop()
+		b.htmr = nil
+	}
+	b.hmu.Unlock()
+	for _, v := range held {
+		b.processHistory(v)
+	}
+}
+
+func (b *Bridge) processHistory(v *events.HistorySync) {
 	// WhatsApp sends names (and more messages) in further bundles that can arrive after this one: tell the app each
 	// time one has been dealt with, so it can look the senders' names up again
 	defer b.l.OnStatus("history")

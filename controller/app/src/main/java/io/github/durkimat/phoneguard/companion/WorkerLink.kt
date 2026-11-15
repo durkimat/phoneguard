@@ -261,6 +261,9 @@ object WorkerLink {
         }
         val cals = io.github.durkimat.phoneguard.calendar.Subscriptions.status(c)
         if (cals.length() > 0) st.put("calendars", cals)
+        io.github.durkimat.phoneguard.whatsapp.WhatsApp.allowSummary(c).let { (all, n) ->
+            st.put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("all", all).put("allowed", n))
+        }
         st.put("spotifyInstalled", io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(c))
         return p
     }

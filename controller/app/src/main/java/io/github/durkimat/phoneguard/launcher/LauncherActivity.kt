@@ -548,6 +548,7 @@ class LauncherActivity : Activity() {
             Action.None -> {}
             Action.Redraw -> { saveBest(); refresh() }
             is Action.PairWa -> Thread {
+                if (io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(this)) ui.post { model.notify("Checking settings..."); refresh() }
                 val r = WhatsApp.pair(this, a.number)
                 ui.post { if (r.startsWith("error")) model.notify("Could not start: " + r.removePrefix("error: ").take(40)); invalidate(D.WA or D.INFO); refresh() }
             }.start()

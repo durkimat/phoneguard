@@ -150,25 +150,42 @@ async function spotifyStep() {
 async function whatsappStep() {
   const i = state.info, devs = await call("/devices"), did = state.did ?? (Array.isArray(devs) && devs[0]?.did);
   const all = h("input", { type: "checkbox", id: "waall", checked: "checked" }), list = h("textarea", { rows: "4", "aria-label": "WhatsApp numbers and groups the child may message", placeholder: "447700900111\ng:Family" }), msg = h("p", { class: "mut" }), linked = h("p", { class: "mut" }, "The phone tells your companion when it is linked, at its next check-in (up to 15 minutes; press Sync now on the phone to speed it up).");
-  let saved = false;
+  const phoneHas = h("p", { class: "mut" });
+  let saved = false, want = null, ready = false;
+  const entries = () => list.value.split("\n").map((x) => x.trim()).filter(Boolean);
+  const linkBox = h("div", {});
+  const setReady = (on, note, cls) => { ready = on; linkBox.style.opacity = on ? "1" : "0.45"; phoneHas.className = cls; phoneHas.textContent = note; };
   const save = async () => {
     if (!did) { msg.className = "bad"; msg.textContent = "Connect the child's phone first, then come back."; return false; }
     const r = await post("/whatsapp-allowed", { did, all: all.checked, allowed: list.value.split("\n") });
-    msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? "Saved. The phone picks it up at its next check-in." : (r.error ?? "That did not save."); saved = Boolean(r.ok); return saved;
+    msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? "Saved." : (r.error ?? "That did not save."); saved = Boolean(r.ok);
+    if (saved) { want = { all: all.checked, n: entries().length }; setReady(false, "Waiting for the child's phone to pick this up. Press Sync now on its status page, or wait up to 15 minutes. Link WhatsApp only after this turns green: WhatsApp sends the recent messages once, when linking.", "mut"); }
+    return saved;
   };
+  const row = (n, text, ...more) => h("div", { class: "card" }, h("strong", {}, n), ...more);
+  linkBox.append(
+    row("2. On the child's phone", "", h("p", { class: "mut" }, "Open the pairing screen: Messages, then WhatsApp (or Settings, then WhatsApp). Messages only offers WhatsApp when the current mode allows WhatsApp checks. The screen is called Link WhatsApp and asks for Your WhatsApp number: type it with the country code and no plus (for example 447700900123) and press Get code. The phone shows a code.")),
+    row("3. On the smartphone that has that WhatsApp account", "", h("p", { class: "mut" }, "Open WhatsApp, then Settings (or the three dots), Linked devices, Link a device, then Link with phone number instead, and type the code from the child's phone."),
+      h("details", { class: "plain" }, h("summary", {}, "Doing this on your smartphone? Open these steps there"), h("p", { class: "mut" }, "WhatsApp cannot be opened straight onto that screen. Scan this with the smartphone's camera to open the same steps, with a button to open WhatsApp:"), h("div", { class: "qr", html: i.waQr }), h("p", { class: "link" }, i.waGuide))),
+    row("4. The phone says Linked", "", linked));
+  linkBox.style.opacity = "0.45";
   v.replaceChildren(h("h2", {}, "WhatsApp (optional)"),
     h("p", {}, "This lets the child's phone read and send WhatsApp messages through its own simple screens, with only the people you choose. Messages stay on the phone. The phone becomes a linked device of one WhatsApp account, like WhatsApp Web. You need the smartphone that has that WhatsApp account (the child's own number, or yours). It takes about five minutes and you can skip it and do it later."),
     h("div", { class: "card" }, h("strong", {}, "1. Who may the child message? (do this first)"),
       h("p", { class: "mut" }, "WhatsApp sends a month of recent chats to the phone only once, at the moment it is linked, and the phone keeps only the chats you allow. If you choose later, the older messages are not there. Nobody is allowed until you choose."),
       h("label", { class: "chk" }, all, h("span", {}, "Allow everyone and every group")),
       h("p", { class: "mut" }, "Or list people instead (leave the tick off): one per line, a phone number with country code and no plus, or g: and a group's name (g:Family)."), list,
-      h("p", {}, h("button", { on: save }, "Save who is allowed")), msg),
-    h("div", { class: "card" }, h("strong", {}, "2. On the child's phone"), h("p", { class: "mut" }, "Open the pairing screen: Messages, then WhatsApp (or Settings, then WhatsApp). Messages only offers WhatsApp when the current mode allows WhatsApp checks. The screen is called Link WhatsApp and asks for Your WhatsApp number: type it with the country code and no plus (for example 447700900123) and press Get code. The phone shows a code.")),
-    h("div", { class: "card" }, h("strong", {}, "3. On the smartphone that has that WhatsApp account"), h("p", { class: "mut" }, "Open WhatsApp, then Settings (or the three dots), Linked devices, Link a device, then Link with phone number instead, and type the code from the child's phone."),
-      h("details", { class: "plain" }, h("summary", {}, "Doing this on your smartphone? Open these steps there"), h("p", { class: "mut" }, "WhatsApp cannot be opened straight onto that screen. Scan this with the smartphone's camera to open the same steps, with a button to open WhatsApp:"), h("div", { class: "qr", html: i.waQr }), h("p", { class: "link" }, i.waGuide))),
-    h("div", { class: "card" }, h("strong", {}, "4. The phone says Linked"), linked),
+      h("p", {}, h("button", { on: save }, "Save who is allowed")), msg, phoneHas),
+    linkBox,
     h("div", { class: "row" }, h("button", { on: async () => { if (!saved && !(await save())) return; next(); } }, "Continue"), h("button", { class: "sec", on: skip }, "Skip WhatsApp, I will do it later")));
-  every(async () => { const d = await call("/devices"); const x = Array.isArray(d) ? d.find((q) => q.did === did) : null; if (x?.state?.wa?.linked) { linked.className = "ok"; linked.textContent = "The child's phone says it is linked to WhatsApp."; } }, 4000);
+  every(async () => {
+    const d = await call("/devices"), x = Array.isArray(d) ? d.find((q) => q.did === did) : null, wa = x?.state?.wa;
+    if (wa?.linked) { linked.className = "ok"; linked.textContent = "The child's phone says it is linked to WhatsApp."; }
+    if (saved && !ready && wa) {
+      if (typeof wa.all === "boolean") { if (wa.all === want.all && (want.all || wa.allowed === want.n)) setReady(true, "The child's phone has your choice. Now link WhatsApp with steps 2 and 3.", "ok"); }
+      else if (x?.app) setReady(true, "This phone does not report which chats it allows, so press Sync now on its status page, wait a few seconds, then link WhatsApp with steps 2 and 3.", "bad");   // an older Phone Guard build
+    }
+  }, 3000);
 }
 
 async function emailStep() {

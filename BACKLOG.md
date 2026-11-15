@@ -1159,3 +1159,8 @@ Not done / notes:
 ### ims42 live results (2026-11-15, PC session)
 No-wipe flash on the owner's J36: boots in ~110 s, app 0.4.4, device owner kept, SET_TIME_ZONE and CHANGE_CONFIGURATION granted, doze_enabled=0. Time zone (Paris and back to London) and language (English UK, no `regional: language not set`) both verified. WhatsApp list shows no false "Not connected". Published: release v0.4.4 (APK 0.4.4 + companion 0.5.1) and image-20261115-ims42. Owner's Cloudflare is at 0.5.1.
 Still untested on a device: the first-run wizard screens (needs a wipe flash), the themed Connect screen, and WhatsApp relink after removing the device on the main phone.
+
+## 0.4.5 (2026-11-15): WhatsApp history waits for the allow list
+- The Go bridge now keeps the link-time history in memory (at most 20 bundles, never on disk, never logged) from the moment of pairing. The app brings the companion's allow list up to date first (an immediate sync), then calls `releaseHistory`; if the companion is unreachable the bridge releases it itself after 90 s with whatever list the phone has. Go tests cover: allow-all arriving after the history, nothing allowed (nothing imported), and the bound/timeout.
+- Pressing "Get code" on the Link screen syncs first ("Checking settings...") so the code is only shown once the list is fresh.
+- Sync state now carries `wa: {linked, status, all, allowed}`. APK only (no image change); the AAR was rebuilt (Go toolchain installed under ~/.local/gotool on the build PC).

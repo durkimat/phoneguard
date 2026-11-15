@@ -394,3 +394,59 @@ func TestReadNoticesAreGroupedBySender(t *testing.T) {
 		t.Fatalf("dm %v %v", order, g)
 	}
 }
+
+func historyFixture() (*rec, *Bridge, *events.HistorySync) {
+	r := &rec{}
+	b := &Bridge{l: r, allowed: map[string]bool{}, groups: map[string]bool{}, gnames: map[string]string{}, cli: whatsmeow.NewClient(store.NoopDevice, nil)}
+	m := &waHistorySync.HistorySyncMsg{Message: &waWeb.WebMessageInfo{
+		Key:              &waCommon.MessageKey{RemoteJID: proto.String("x"), FromMe: proto.Bool(false), ID: proto.String("1")},
+		Message:          &waE2E.Message{Conversation: proto.String("hello")},
+		MessageTimestamp: proto.Uint64(100),
+	}}
+	conv := &waHistorySync.Conversation{ID: proto.String("447700900111@s.whatsapp.net"), Messages: []*waHistorySync.HistorySyncMsg{m}}
+	return r, b, &events.HistorySync{Data: &waHistorySync.HistorySync{Conversations: []*waHistorySync.Conversation{conv}}}
+}
+
+func TestHistoryHeldAtLinkTimeIsReadWithTheAllowListOfWhenItIsReleased(t *testing.T) {
+	r, b, h := historyFixture()
+	b.HoldHistory()
+	b.onHistory(h)
+	if len(r.msgs) != 0 {
+		t.Fatalf("history was processed while held: %v", r.msgs)
+	}
+	b.SetAllowAll(true) // the choice arrives after the history did
+	b.ReleaseHistory()
+	if len(r.msgs) != 1 {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestHistoryHeldAndStillNotAllowedImportsNothing(t *testing.T) {
+	r, b, h := historyFixture()
+	b.HoldHistory()
+	b.onHistory(h)
+	b.ReleaseHistory()
+	if len(r.msgs) != 0 {
+		t.Fatalf("got %v", r.msgs)
+	}
+	b.onHistory(h) // no longer held: handled at once, as before
+	if len(r.msgs) != 0 {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestHeldHistoryIsBoundedAndTheHoldTimesOut(t *testing.T) {
+	r, b, h := historyFixture()
+	b.SetAllowAll(true)
+	b.HoldHistory()
+	for i := 0; i < maxHeldBundles+5; i++ {
+		b.onHistory(h)
+	}
+	if len(b.held) != maxHeldBundles {
+		t.Fatalf("held %d", len(b.held))
+	}
+	b.ReleaseHistory()
+	if len(r.msgs) != maxHeldBundles {
+		t.Fatalf("got %d", len(r.msgs))
+	}
+}

@@ -75,7 +75,7 @@ object WhatsApp {
                 override fun onStatus(state: String) {
                     if (state == "connecting" || state == "connected") quiet = false
                     status = if (state == "disconnected" && quiet) "idle" else state; Log.log(app, "whatsapp: $state")
-                    if (state == "paired") { setLinked(app, true); pairCode = null }
+                    if (state == "paired") { setLinked(app, true); pairCode = null; Thread { settleHistory(app) }.start() }
                     // names arrive in bundles of their own, often after the messages: look the senders up again
                     if (state == "history" || state == "connected") scheduleRename(app)
                     if (state == "logged_out") {
@@ -170,6 +170,39 @@ object WhatsApp {
         val groups = parts.filter { it.startsWith("g:", ignoreCase = true) }.map { it.substring(2).trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
         val numbers = parts.filterNot { it.startsWith("g:", ignoreCase = true) }.map { n -> n.filter { it.isDigit() } }.filter { it.isNotEmpty() }.toSet()
         store(c).keepOnly(numbers, groups, all)
+    }
+
+    /**
+     * The bridge keeps the 30-day history in memory from the moment of pairing (it never reaches the disk) so that the allow list can be made
+     * current first: bring the companion's choice in (at most about a minute if it is unreachable), then let the bridge read what it kept.
+     */
+    private fun settleHistory(app: Context) {
+        try {
+            if (io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(app)) {
+                io.github.durkimat.phoneguard.companion.WorkerLink.sync(app, "whatsapp linked")
+                freshAllowList(app)
+            }
+        } catch (e: Throwable) { Log.log(app, "whatsapp: settings check before history failed: ${e.javaClass.simpleName}") }
+        try { bridge?.releaseHistory() } catch (e: Throwable) { Log.log(app, "whatsapp: history release failed: ${e.javaClass.simpleName}") }
+    }
+
+    /** Makes the bridge use the allow list the config on the phone says, right now (a sync only stores the config; applying follows soon after). */
+    private fun freshAllowList(app: Context) {
+        io.github.durkimat.phoneguard.Store.config(app)?.whatsapp?.let { setAllowed(app, it.allowed.joinToString("\n"), it.all) }
+    }
+
+    /** Link screen opened: have the companion's latest choice before a code is shown. Returns quickly when there is no companion. */
+    fun refreshBeforeLinking(c: Context) {
+        val app = c.applicationContext
+        if (!io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(app)) return
+        try { io.github.durkimat.phoneguard.companion.WorkerLink.sync(app, "before whatsapp link"); freshAllowList(app) } catch (e: Throwable) { Log.log(app, "whatsapp: settings check failed: ${e.javaClass.simpleName}") }
+    }
+
+    /** What the phone has applied, for the sync state: everyone allowed, and how many entries (numbers and groups) are. */
+    fun allowSummary(c: Context): Pair<Boolean, Int> {
+        val p = prefs(c)
+        val n = (p.getString("wa_allowed", "") ?: "").split(',', ';', '\n').count { it.isNotBlank() }
+        return p.getBoolean("wa_all", false) to n
     }
 
     /** Decline incoming WhatsApp calls (the mode blocks incoming calls). */
@@ -291,6 +324,7 @@ object WhatsApp {
 
     fun pair(c: Context, number: String): String {
         pairCode = null // never show the code from an earlier attempt
+        refreshBeforeLinking(c)
         main.removeCallbacks(idleOff)
         fire()
         for (attempt in 1..2) {
