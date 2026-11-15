@@ -194,6 +194,12 @@ export function setEmail(ch, email, sealedPassword, nowMs, options) {
   if (sealedPassword !== undefined) setSecret(ch, "email.password", sealedPassword);
 }
 export function clearEmail(ch, nowMs, options) { updateChild(ch, { email: null }, nowMs, options); setSecret(ch, "email.password", null); }
+// The screen-lock PIN: the parent's PIN is sealed to the phone (name "lock.pin"); cfg.lock.rev tells the phone it is new. A later rev always wins over a PIN the child chose.
+export function setLock(ch, op, sealedPin) {
+  if (op !== "set" && op !== "clear") fail("lock must be set or clear");
+  if (op === "set") { if (sealedPin == null) fail("a PIN is needed"); setSecret(ch, "lock.pin", sealedPin); } else setSecret(ch, "lock.pin", null);
+  ch.lock = { rev: (ch.lock?.rev ?? 0) + 1, op };
+}
 export function addCalendar(ch, name, sealedUrl, nowMs, options, newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 8)) {
   const id = newId(); updateChild(ch, { calendars: [...(ch.calendars ?? []), { id, name }] }, nowMs, options); setSecret(ch, "calendar." + id, sealedUrl); return id;
 }
@@ -268,6 +274,7 @@ export function view(ch, rt, options, latest, nowMs) {
     app_commands: (ch.commands ?? []).map((c) => ({ id: c.id, kind: c.kind, pkg: c.pkg, name: c.name })), app_log: [...(ch.app_log ?? [])].reverse().slice(0, 8),
     update: updateFor(rt, latest, options),
     power: PW.summarize(rt.power ?? [], nowMs), reaped: PW.summarizeReaped(rt.reaped ?? [], nowMs),
+    lock: { sent: ch.lock ?? null, phone: rt.state?.lock ?? null },
     spotify: { connected: Boolean(ch.secrets?.["spotify.refresh"]) },
     email: ch.email ?? null, email_password_set: Boolean(ch.secrets?.["email.password"]), calendars: (ch.calendars ?? []).map((c) => ({ ...c, url_set: Boolean(ch.secrets?.["calendar." + c.id]) })),
   };

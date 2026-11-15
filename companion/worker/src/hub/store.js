@@ -21,7 +21,7 @@ export function parseReleaseJson(j, repo = "https://github.com/durkimat/phonegua
   if (!j || typeof j !== "object" || !/^v\d+\.\d+\.\d+$/.test(String(j.tag))) return null;
   const own = (u) => typeof u === "string" && u.startsWith(repo), apk = j.apk && own(j.apk.url) && /^[0-9a-f]{64}$/.test(String(j.apk.sha256)) ? j.apk : null, companion = parseCompanionInfo(j.companion);
   if (!apk && !companion) return null;
-  return { tag: j.tag, version: j.tag.slice(1), notes: String(j.notes ?? "").slice(0, 600), url: apk?.url ?? "", size: Math.trunc(apk?.size ?? 0), sha256: apk?.sha256 ?? "", sha256_url: "", companion_url: "", companion, html_url: own(j.html_url) ? j.html_url : "" };
+  return { tag: j.tag, version: /^\d+\.\d+\.\d+$/.test(String(apk?.version)) ? apk.version : j.tag.slice(1), notes: String(j.notes ?? "").slice(0, 600), url: apk?.url ?? "", size: Math.trunc(apk?.size ?? 0), sha256: apk?.sha256 ?? "", sha256_url: "", companion_url: "", companion, html_url: own(j.html_url) ? j.html_url : "" };
 }
 /** The companion's own entry in a release: worker-version.json = {version, schema, protocol, sha256, size, notes}. Anything malformed is ignored. */
 export function parseCompanionInfo(j) {

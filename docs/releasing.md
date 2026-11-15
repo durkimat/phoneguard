@@ -34,3 +34,6 @@ A parent's Worker asks GitHub for the newest release from Cloudflare's shared ad
 ## What a parent's update does
 
 The setup tool reads the newest release, downloads `worker.bundle.js`, checks its size and sha256 against `worker-version.json`, uploads it to the parent's Worker with the existing secrets and Durable Object kept (`keep_bindings`), waits until `/api/version` reports the new version, and checks the parent key still works. See [updating.md](updating.md).
+
+## Companion-only releases and older Workers
+A companion-only release (no new phone app) carries the last phone app forward in `release.json` with `apk.version`. A Worker older than 0.7.0 does not read that field and may label the app version wrongly in its update notice. This is harmless; the release path updates the Worker straight away, so the mislabel is short-lived.

@@ -14,6 +14,10 @@ export const MIGRATIONS = [
   (sql) => { try { sql.exec("ALTER TABLE config ADD COLUMN hash TEXT"); } catch { /* column exists (data made before schema numbers) */ } },
   // 3: location history
   (sql) => sql.exec("CREATE TABLE IF NOT EXISTS fixes (did TEXT, t INTEGER, lat REAL, lon REAL, acc INTEGER, prov TEXT, mode TEXT, PRIMARY KEY (did, t))"),
+  // 4: parent passkeys, signed-in browsers (only a hash of each session token) and short-lived sign-in challenges / add-a-device links
+  (sql) => sql.exec(`CREATE TABLE IF NOT EXISTS passkeys (id TEXT PRIMARY KEY, alg INTEGER, jwk TEXT, name TEXT, created INTEGER, last_used INTEGER, counter INTEGER DEFAULT 0);
+      CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, name TEXT, created INTEGER, last_used INTEGER, expires INTEGER);
+      CREATE TABLE IF NOT EXISTS challenges (id TEXT PRIMARY KEY, kind TEXT, extra TEXT, expires INTEGER);`),
 ];
 
 /** Brings the database up to the newest schema. Returns {stored, schema, tooNew}. `stored` is what was there before (0 = a database made before schema numbers existed). */

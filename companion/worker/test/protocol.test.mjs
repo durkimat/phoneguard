@@ -183,6 +183,11 @@ console.log("Email and calendars");
   const cfgC = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.equal(cfgC.calendars.length, 1); assert.equal(cfgC.calendars[0].name, "Family"); assert.ok(!JSON.stringify(cfgC.calendars).includes("calendar.google.com")); ok("a calendar is listed by name only; its private link is sealed");
   const wrongSlot = await seal({ recipientSpki: encPubB64, did: conf.did, name: "calendar.other", plaintext: "x" }); assert.throws(() => open2(wrongSlot, "calendar." + cfgC.calendars[0].id)); ok("a link sealed for one slot cannot be opened as another");
   const cid = cfgC.calendars[0].id; assert.equal((await post("calendar/remove", { id: cid })).status, 200); const cfgC2 = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.ok(!cfgC2.calendars && !cfgC2.secrets?.["calendar." + cid]); ok("removing a calendar removes its sealed link from the config");
+  const sealedPin = await seal({ recipientSpki: encPubB64, did: conf.did, name: "lock.pin", plaintext: "4821" });
+  assert.equal((await post("lock", { op: "set", sealed: sealedPin })).status, 200);
+  const cfgL = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.deepEqual(cfgL.lock, { rev: 1, op: "set", secret: "lock.pin" }); assert.equal(open2(cfgL.secrets["lock.pin"], "lock.pin"), "4821");
+  assert.ok(!JSON.stringify((await api("GET", `${D}/view`, { parent: true })).body).includes("4821")); assert.equal((await post("lock", { op: "set" })).status, 400);
+  assert.equal((await post("lock", { op: "clear" })).status, 200); const cfgL2 = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.equal(cfgL2.lock.rev, 2); assert.ok(!cfgL2.secrets?.["lock.pin"]); ok("a screen-lock PIN reaches the phone sealed; clear removes it; the parent view never holds it");
   assert.equal((await post("email/clear", {})).status, 200); assert.ok(!JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config.email); ok("clearing email removes the account");
   assert.equal((await post("secret", { name: "email.password", sealed: { alg: "none" } })).status, 400); }
 

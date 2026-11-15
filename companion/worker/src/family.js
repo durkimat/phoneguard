@@ -5,6 +5,7 @@ import * as S from "./hub/schedule.js";
 import * as H from "./hub/hub.js";
 import { parseRelease, parseReleaseJson, parseSha256Text, parseCompanionInfo } from "./hub/store.js";
 import { migrate } from "./migrations.js";
+import { passkeyRoute } from "./passkey-routes.js";
 import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { b64, unb64, importPub, importPriv, newServerKeys, signDer, verifyDer, sha256, hex, matchNumber, randomCode } from "./crypto.js";
 
@@ -65,6 +66,8 @@ export class Family extends DurableObject {
     if (this.db.tooNew) return json({ error: `This family's data is newer (schema ${this.db.stored}) than this Worker's code (schema ${SCHEMA}). Update the companion with the setup tool; nothing was changed.` }, 503);
     const body = m === "POST" ? await req.json().catch(() => ({})) : {};
     if (path === "/info") return json({ v: V, serverKey: (await this.keys()).pub });
+    const pk = await passkeyRoute({ sql: this.sql, path, method: m, body, origin: req.headers.get("x-pg-origin") ?? "", bearer: req.headers.get("x-pg-bearer") ?? "", now: Date.now() });
+    if (pk) return pk;
 
     // parent: create a one-time enrolment token (the QR / typed code)
     if (path === "/enrol/new" && m === "POST") {
@@ -216,6 +219,7 @@ export class Family extends DurableObject {
         if (sub === "copy") { const src = this.load(String(body.from)); if (!src || body.from === did) throw new Error("choose a different phone to copy from"); const parts = H.copySettings(src.ch, h.ch, body.parts ?? [], now, opts); return done({ copied: parts }); }
         if (sub === "rename") { const name = String(body.name ?? "").trim().slice(0, 60); if (!name) throw new Error("a name is needed"); H.updateChild(h.ch, { name, person: body.person ?? h.ch.person }, now, opts); return done(); }
         if (sub === "secret") { H.setSecret(h.ch, String(body.name ?? ""), body.sealed ?? null); return done(); }
+        if (sub === "lock") { H.setLock(h.ch, body.op, body.sealed); return done(); }
         if (sub === "email") { H.setEmail(h.ch, body.email, body.sealedPassword, now, opts); return done(); }
         if (sub === "email/clear") { H.clearEmail(h.ch, now, opts); return done(); }
         if (sub === "calendar/add") { const id = H.addCalendar(h.ch, String(body.name ?? ""), body.sealedUrl, now, opts, body.id ? () => String(body.id) : undefined); return done({ id }); }

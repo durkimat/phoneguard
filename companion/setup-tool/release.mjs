@@ -8,8 +8,8 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
-import { cmpVer } from "../worker/src/hub/store.js";
-import { releaseBundle, RELEASES } from "./engine.mjs";
+import { cmpVer, parseReleaseJson } from "../worker/src/hub/store.js";
+import { releaseBundle, RELEASES, RELEASE_DIRECT } from "./engine.mjs";
 
 const REPO = "durkimat/phoneguard";
 const arg = (n) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; }, flag = (n) => process.argv.includes(n);
@@ -36,8 +36,9 @@ export async function plan({ apk, tag, notes, companionOnly = false, published =
   const info = { ...bundleInfo, notes: notesText.slice(0, 400) };
   files.push({ name: "worker.bundle.js", data: Buffer.from(bundleCode) }, { name: "worker-version.json", data: Buffer.from(JSON.stringify(info, null, 2) + "\n") });
   let apkInfo = null;
-  if (!companionOnly && apk && existsSync(apk)) { const data = readFileSync(apk); apkInfo = { name: basename(apk), size: data.length, url: `https://github.com/${REPO}/releases/download/${tag}/${basename(apk)}`, sha256: sha(data) }; files.push({ name: basename(apk), data }, { name: basename(apk) + ".sha256", data: Buffer.from(`${apkInfo.sha256}  ${basename(apk)}\n`) }); }
+  if (!companionOnly && apk && existsSync(apk)) { const data = readFileSync(apk); apkInfo = { version: tag.slice(1), name: basename(apk), size: data.length, url: `https://github.com/${REPO}/releases/download/${tag}/${basename(apk)}`, sha256: sha(data) }; files.push({ name: basename(apk), data }, { name: basename(apk) + ".sha256", data: Buffer.from(`${apkInfo.sha256}  ${basename(apk)}\n`) }); }
   else if (!companionOnly && apk) problems.push(`${apk} was not found.`);
+  if (companionOnly && published?.url && published.sha256) apkInfo = { name: published.url.split("/").pop(), size: published.size, url: published.url, sha256: published.sha256, version: published.version };   // keep offering the newest phone app
   // release.json: everything a parent's page needs to know about this release in one small file (read through GitHub's download link, not the API)
   files.push({ name: "release.json", data: Buffer.from(JSON.stringify({ tag, html_url: `https://github.com/${REPO}/releases/tag/${tag}`, notes: notesText.slice(0, 600), apk: apkInfo, companion: info }, null, 2) + "\n") });
   return { tag, problems, files, info, notes: notesText };
@@ -49,6 +50,7 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith
   const b = spawnSync("npm", ["run", "bundle"], { cwd: new URL(".", import.meta.url).pathname, encoding: "utf8" }); if (b.status !== 0) die("npm run bundle failed:\n" + b.stderr);
   const bundleInfo = JSON.parse(readFileSync(new URL("./dist/worker-version.json", import.meta.url), "utf8")), bundleCode = readFileSync(new URL("./dist/worker.bundle.js", import.meta.url), "utf8");
   let published = null; try { published = await releaseBundle({ url: RELEASES }); } catch (e) { console.log(`(Could not read the published release: ${e.message})`); }
+  if (published) { try { const prev = parseReleaseJson(await (await fetch(RELEASE_DIRECT + "release.json")).json()); if (prev?.url) Object.assign(published, { version: prev.version, url: prev.url, size: prev.size, sha256: prev.sha256 }); } catch { /* no phone app in the newest release */ } }   // for a companion-only release to carry forward
   const notes = arg("--notes-file") ? readFileSync(arg("--notes-file"), "utf8") : arg("--notes") ?? "";
   const tag = arg("--tag") ?? undefined;
   const tagCheck = (t) => t && spawnSync("gh", ["release", "view", t, "-R", REPO], { encoding: "utf8" }).status === 0;

@@ -2,14 +2,15 @@
 import { qrSvg } from "/qr.js";
 import { enrolPayload } from "/enrol.js";
 import { exchangeCode, storeRefreshToken } from "/spotify.js";
-import { h, ago, left, cmpVer } from "/ui.js";
+import { h, ago, left, cmpVer, section } from "/ui.js";
+import { supported, signInWithPasskey, addPasskey, addWithInvite } from "/passkey.js";
 import { phoneScreen } from "/phone.js";
 import { trackScreen } from "/track-view.js";
 
 const $app = document.getElementById("app");
 
-let key = null, deepSpotify = null, onHome = false, welcome = false;   // the quiet refresh below only runs on the home view
-try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (/[#&]welcome=1/.test(location.hash)) { welcome = true; localStorage.removeItem("pgWelcomeDone"); } if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
+let key = null, deepSpotify = null, onHome = false, welcome = false, invite = null;   // the quiet refresh below only runs on the home view
+try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (/[#&]welcome=1/.test(location.hash)) { welcome = true; localStorage.removeItem("pgWelcomeDone"); } if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } const iv = /[#&]add=([\w-]+)/.exec(location.hash); if (iv) { invite = iv[1]; history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
 
 async function api(path, method = "GET", body) {
   const r = await fetch("/api" + path, { method, headers: { authorization: "Bearer " + key, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -23,13 +24,14 @@ async function api(path, method = "GET", body) {
 async function render() {
   onHome = true;
   $app.replaceChildren();
+  if (invite) return $app.append(addDeviceView());
   if (!key) return $app.append(signIn());
   try {
     const [waiting, phones, fam] = await Promise.all([api("/pairings"), api("/devices"), api("/options")]);
     if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return open(d.did); }
-    const top = h("div", {}, welcomeCard(), updateNotice(fam));
+    const top = h("div", {}, welcomeCard(), updateNotice(fam), passkeyPrompt());
     if (phones.length === 1 && !waiting.length) return open(phones[0].did, top, true);   // one phone: its page is the home page
-    $app.append(top, waitingView(waiting), phonesView(phones));
+    $app.append(top, waitingView(waiting), phonesView(phones), accountSection());
   } catch (e) { $app.append(h("p", { class: "bad" }, e.message)); }
 }
 
@@ -56,8 +58,52 @@ function updateNotice(fam) {
 }
 
 function signIn() {
-  const i = h("input", { type: "password", placeholder: "Parent key", "aria-label": "Parent key", autocomplete: "off" });
-  return h("div", { class: "card" }, h("p", {}, "Open the private link the setup tool gave you, or paste your parent key here."), h("div", { class: "row" }, i, h("button", { class: "pri", on: { click: () => { key = i.value.trim(); try { localStorage.setItem("pgKey", key); } catch {} render(); } } }, "Sign in")));
+  const i = h("input", { type: "password", placeholder: "Parent key", "aria-label": "Parent key", autocomplete: "off" }), msg = h("p", { class: "bad" });
+  const save = (k) => { key = k; try { localStorage.setItem("pgKey", key); } catch { /* private mode */ } render(); };
+  const pass = supported() ? h("div", {}, h("p", {}, "Use this device's fingerprint, face or screen PIN."), h("div", { class: "row" }, h("button", { class: "pri", on: { click: async () => { msg.textContent = ""; try { save(await signInWithPasskey()); } catch (e) { msg.textContent = e.message; } } } }, "Sign in with a passkey")), h("p", { class: "mut" }, "No passkey on this device yet? Use your parent key below, then add one from the page.")) : null;
+  return h("div", { class: "card" }, pass, h("p", {}, "Open the private link the setup tool gave you, or paste your parent key here."), h("div", { class: "row" }, i, h("button", { class: pass ? "" : "pri", on: { click: () => save(i.value.trim()) } }, "Sign in")), msg);
+}
+
+// Opened from another signed-in browser's "Add another device" link (one use, 10 minutes).
+function addDeviceView() {
+  const msg = h("p", { class: "bad" });
+  if (!supported()) return h("div", { class: "card" }, h("strong", {}, "Add this device"), h("p", {}, "This browser cannot make passkeys. Try the device's main browser, or sign in with your parent key."));
+  return h("div", { class: "card" }, h("strong", {}, "Add this device"), h("p", {}, "You were sent here from a device that is already signed in. Press the button and use this device's fingerprint, face or screen PIN. After that you can sign in here without the long parent key."),
+    h("div", { class: "row" }, h("button", { class: "pri", on: { click: async () => { msg.textContent = ""; try { key = await addWithInvite(invite); try { localStorage.setItem("pgKey", key); } catch { /* private mode */ } invite = null; render(); } catch (e) { msg.textContent = e.message; } } } }, "Add this device")), msg);
+}
+
+// Offered once on a browser that signed in with the long key and has no passkey yet.
+function passkeyPrompt() {
+  let have = false, hide = false; try { have = localStorage.getItem("pgPasskey") === "1"; hide = localStorage.getItem("pgPasskeyHide") === "1"; } catch { /* private mode */ }
+  if (!supported() || have || hide) return h("div", {});
+  const msg = h("p", { class: "bad" }), box = h("div", { class: "card" }, h("strong", {}, "Sign in with your fingerprint or face"), h("p", { class: "mut" }, "Set up a passkey on this device so you do not need the long parent key here. The parent key keeps working as a way back in."),
+    h("div", { class: "row" }, h("button", { class: "pri", on: { click: async () => { try { await addPasskey(api); box.replaceChildren(h("strong", {}, "Passkey added."), h("p", { class: "mut" }, "Next time, press Sign in with a passkey.")); } catch (e) { msg.textContent = e.message; } } } }, "Set up a passkey"),
+      h("button", { on: { click: () => { try { localStorage.setItem("pgPasskeyHide", "1"); } catch { /* private mode */ } box.remove(); } } }, "Not now")), msg);
+  return box;
+}
+
+async function signOut() {
+  if (key?.startsWith("s.")) { try { await api("/session/signout", "POST", {}); } catch { /* already signed out */ } }
+  try { localStorage.removeItem("pgKey"); } catch { /* private mode */ } key = null; render();
+}
+
+// Under "The phone": passkeys, other signed-in browsers and the add-a-device link.
+function accountSection() {
+  const body = h("div", {}, h("p", { class: "mut" }, "Loading...")), sec = section("Sign-in and passkeys", false, body), msg = h("p", { class: "bad" });
+  const when = (t) => (t ? ago(t) : "never"), fail = (e) => { msg.textContent = e.message; };
+  async function draw(invited) {
+    const d = await api("/passkeys");
+    const invite_ = invited ? h("div", { class: "card" }, h("strong", {}, "Add another device"), h("p", { class: "mut" }, "On the other device open this link (or scan the code). It works once, for 10 minutes."), h("div", { class: "qr", html: qrSvg(invited) }), h("input", { readonly: true, value: invited, "aria-label": "One-time link", on: { click: (e) => e.target.select() } })) : null;
+    body.replaceChildren(...[h("p", { class: "mut" }, "A passkey is a device's fingerprint, face or screen PIN. Your parent key keeps working too, so you cannot lock yourself out."),
+      d.passkeys.length ? h("div", {}, d.passkeys.map((p) => h("div", { class: "row" }, h("span", {}, `${p.name}: added ${when(p.created)}, last used ${when(p.last_used)}`), h("button", { on: { click: async () => { if (!confirm(`Remove the passkey for ${p.name}?`)) return; try { await api("/passkey/remove", "POST", { id: p.id }); draw(); } catch (e) { fail(e); } } } }, "Remove")))) : h("p", { class: "mut" }, "No passkeys yet."),
+      h("div", { class: "row" }, supported() ? h("button", { class: "pri", on: { click: async () => { msg.textContent = ""; try { await addPasskey(api); draw(); } catch (e) { fail(e); } } } }, "Add a passkey on this device") : null,
+        h("button", { on: { click: async () => { msg.textContent = ""; try { const r = await api("/passkey/invite", "POST", {}); draw(`${location.origin}/#add=${r.token}`); } catch (e) { fail(e); } } } }, "Add another device")), invite_,
+      h("p", { class: "mut" }, `Signed-in browsers: ${d.sessions.length}${d.sessions.length ? " (" + d.sessions.map((x) => `${x.name}${x.current ? ", this one" : ""}`).join("; ") + ")" : ""}.`),
+      h("div", { class: "row" }, h("button", { on: { click: () => { if (confirm("Sign out of this browser? You will need a passkey or your parent link to get back in.")) signOut(); } } }, "Sign out of this browser"),
+        h("button", { on: { click: async () => { if (!confirm("Sign out of every browser that used a passkey? Your parent key and the link still work.")) return; try { await api("/session/signout-all", "POST", {}); draw(); } catch (e) { fail(e); } } } }, "Sign out everywhere")), msg].filter(Boolean));
+  }
+  sec.addEventListener("toggle", () => { if (sec.open) draw().catch(fail); });
+  return sec;
 }
 
 async function addPhone() {
@@ -89,7 +135,7 @@ function phonesView(list) {
     h("button", { on: { click: () => open(d.did) } }, "Open"))));
 }
 
-async function open(did, top = null, single = false) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, top, single, add: addPhone, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
+async function open(did, top = null, single = false) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, top, single, account: accountSection(), add: addPhone, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
 
 async function spotifyCallback() {
   $app.replaceChildren(h("p", { class: "mut" }, "Finishing the Spotify sign-in..."));
@@ -103,5 +149,7 @@ async function spotifyCallback() {
   } catch (e) { $app.replaceChildren(h("h2", {}, "Spotify did not connect"), h("p", { class: "bad" }, e.message), h("a", { href: "/" }, "Back")); }
 }
 
+// A one-time add-a-device link pasted into a tab that is already open: the address only changes after the #, so the page does not reload by itself.
+addEventListener("hashchange", () => { const iv = /[#&]add=([\w-]+)/.exec(location.hash); if (iv) { invite = iv[1]; history.replaceState(null, "", location.pathname); render(); } });
 if (location.pathname === "/spotify/callback") { if (key) spotifyCallback(); else $app.append(signIn()); } else render();
-setInterval(() => { if (key && onHome && document.visibilityState === "visible" && !document.activeElement?.matches("input,select,textarea")) render(); }, 15000);
+setInterval(() => { if (key && onHome && document.visibilityState === "visible" && !document.activeElement?.matches("input,select,textarea") && !document.querySelector("details.sec[open]")) render(); }, 15000);

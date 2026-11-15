@@ -112,6 +112,7 @@ export function buildConfig(child, nowMs, options = null) {
   if (child.secrets && Object.keys(child.secrets).length) cfg.secrets = child.secrets;   // Cloudflare only: sealed to the phone, never readable by the backend
   if (child.email) cfg.email = { address: child.email.address, user: child.email.user, imap: child.email.imap, smtp: child.email.smtp, secret: "email.password" };
   if (child.calendars?.length) cfg.calendars = child.calendars.map((c) => ({ id: c.id, name: c.name, secret: "calendar." + c.id }));
+  if (child.lock?.rev) cfg.lock = { rev: child.lock.rev, op: child.lock.op, secret: "lock.pin" };
   const cmds = (child.commands ?? []).filter((c) => c && typeof c === "object");
   if (cmds.length) cfg.appCommands = cmds.map((c) => ({ id: c.id ?? "", kind: c.kind ?? "", pkg: c.pkg ?? "", name: c.name ?? "", url: c.url ?? "", sha256: c.sha256 ?? "", size: intOr(c.size, 0) }));
   const stations = (child.radio_stations ?? []).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? "").trim().slice(0, 40), url: String(x.url ?? "").trim() })).filter((x) => x.name && x.url.startsWith("https://"));

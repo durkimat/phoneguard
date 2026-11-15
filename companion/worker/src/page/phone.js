@@ -35,7 +35,13 @@ export async function phoneScreen(ctx, did) {
   const { api, back, app } = ctx;
   const v = await api(`/devices/${did}/view`), all = await api("/devices"), fam = await api("/options");
   const modeIds = Object.keys(v.modes), mname = (id) => v.modes[id]?.name ?? id;
-  const redraw = () => phoneScreen(ctx, did);
+  // Redrawing rebuilds the page, which would jump back to the top: keep the page and inner scroll boxes where they were.
+  const redraw = async () => {
+    const y = window.scrollY, boxes = [...app.querySelectorAll(".scroll")].map((e) => [e.scrollTop, e.scrollLeft]);
+    await phoneScreen(ctx, did);
+    app.querySelectorAll(".scroll").forEach((e, i) => { if (boxes[i]) { e.scrollTop = boxes[i][0]; e.scrollLeft = boxes[i][1]; } });
+    window.scrollTo(0, y);
+  };
   const act = async (sub, body, st, ok = "Saved.") => { st?.("mut", "Saving..."); try { const r = await api(`/devices/${did}${sub}`, "POST", body); if (st) st("ok", ok); return r; } catch (e) { st?.("bad", e.message); throw e; } };
   const patchChild = (patch, st, ok) => act("/child", { patch }, st, ok).then(redraw, () => {});
   const sec = (title, ...kids) => { const el = section(title, !closedSet.has(title), ...kids); el.addEventListener("toggle", () => (el.open ? closedSet.delete(title) : closedSet.add(title))); return el; };
@@ -145,6 +151,21 @@ export async function phoneScreen(ctx, did) {
     h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => patchChild({ location: lat.value && lon.value ? { lat: Number(lat.value), lon: Number(lon.value) } : null }, stLoc, "Saved.") } }, "Save"), h("button", { on: { click: () => patchChild({ location: null }, stLoc, "Cleared.") } }, "No weather")), stLoc.el, v.location ? h("p", { class: "mut" }, `Now: ${v.location.lat}, ${v.location.lon}`) : null);
   const lookVals = { ...(v.look ?? {}) }, stLook = status();
   const lookFields = [["theme", "Theme"], ["font", "Font"], ["menu_style", "Menu style"], ["windows", "Windows"], ["colour", "Colour"], ["wall", "Wall"], ["shadow", "Shadow"], ["bars", "Bars"], ["font_display", "Display font"], ["font_text", "Text font"], ["font_label", "Label font"]].filter(([k]) => LOOK[k] || (k.startsWith("font_") && LOOK.font));
+  // ---- screen lock: a PIN the parent can set, change or clear; the child can also set their own on the phone ----------------
+  const stLock = status(), lockPin = h("input", { type: "password", inputmode: "numeric", autocomplete: "off", maxlength: 8, placeholder: "4 to 8 digits", "aria-label": "New PIN" });
+  const lk = v.lock?.phone, sent = v.lock?.sent, waiting = sent && lk?.rev !== sent.rev;
+  const lockNow = !lk ? "The phone has not reported its lock yet." : lk.error ? `Problem: ${lk.error}` : lk.set ? (lk.by === "child" ? "A PIN is set (chosen on the phone)." : "A PIN is set (by you).") : "No PIN is set.";
+  const setLockOp = async (op) => {
+    try {
+      let sealed; if (op === "set") { if (!/^\d{4,8}$/.test(lockPin.value)) return stLock("bad", "The PIN must be 4 to 8 digits."); const { encKey } = await api(`/devices/${did}/enckey`); sealed = await seal({ recipientSpki: encKey, did, name: "lock.pin", plaintext: lockPin.value }); }
+      stLock("mut", "Saving..."); await api(`/devices/${did}/lock`, "POST", { op, ...(sealed ? { sealed } : {}) }); lockPin.value = ""; stLock("ok", op === "set" ? "Sent. The PIN is locked so only the phone can read it. It applies at the phone's next check-in." : "Sent. The PIN is removed at the phone's next check-in."); redraw();
+    } catch (e) { stLock("bad", e.message); }
+  };
+  const lockSec = sec("Screen lock (PIN)", h("p", { class: "mut" }, "Your child can set their own PIN on the phone (Phone Guard settings). A PIN you set here replaces theirs, and clearing it removes any PIN, so you can always get back in."),
+    h("p", {}, lockNow, waiting ? " A change is waiting for the phone to check in." : ""),
+    lk && lk.supported === false ? h("p", { class: "mut" }, "This phone cannot be controlled from here (it is an Open phone). Its PIN is set on the phone only, and a forgotten PIN means erasing it.") : [
+      field("New PIN", lockPin, "Numbers only. The phone asks for this to unlock."),
+      h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => setLockOp("set") } }, "Set this PIN"), h("button", { on: { click: () => { if (confirm("Remove the PIN from this phone?")) setLockOp("clear"); } } }, "Remove the PIN"))], stLock.el);
   const look = sec("Look of the phone", h("p", { class: "mut" }, "A choice here wins over the phone's own for that setting. Leave 'Phone's own' to let the phone decide."),
     ...lookFields.map(([k, label]) => field(label, select([["", "Phone's own"], ...(LOOK[k] ?? LOOK.font)], lookVals[k] ?? "", (x) => (lookVals[k] = x)))), field("Accent colour", h("input", { type: "color", value: lookVals.accent || "#d42a1e", on: { change: (e) => (lookVals.accent = e.target.value) } })),
     h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => patchChild({ look: lookVals }, stLook, "Saved.") } }, "Save look"), h("button", { on: { click: () => patchChild({ look: null }, stLook, "The phone chooses its own look.") } }, "Let the phone choose")), stLook.el);
@@ -228,7 +249,7 @@ export async function phoneScreen(ctx, did) {
     h("div", { class: "row" }, h("button", { class: "small", on: { click: () => { try { localStorage.setItem("pgTodoHidden", "1"); } catch { /* private mode */ } todoCard.remove(); } } }, "Hide this"))) : null;
 
   // ---- tabs: day-to-day first, set-up things behind their own tabs -------------------------------------------------------------
-  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, updates, manage]]];
+  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, lockSec, ctx.account, updates, manage]]];
   const body = h("div", { class: "cols" }), bar = h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label]) => h("button", { class: "tab", role: "tab", "data-tab": id, on: { click: () => tabShow(id) } }, label)));
   tabShow = (id) => { if (!TABS.some((t) => t[0] === id)) id = "today"; openTab = id; for (const b of bar.children) { const on = b.dataset.tab === id; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); } body.replaceChildren(...TABS.find((t) => t[0] === id)[2].filter(Boolean)); };
   tabShow(openTab);

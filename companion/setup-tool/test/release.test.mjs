@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const { plan } = await import("../release.mjs");
+const { parseReleaseJson } = await import("../../worker/src/hub/store.js");
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
 const dir = mkdtempSync(join(tmpdir(), "pgrel-")), apk = join(dir, "phoneguard-0.4.3-release.apk"); writeFileSync(apk, "apk bytes");
 const info = (version, sha = "a".repeat(64), schema = 3) => ({ version, schema, protocol: 1, sha256: sha, size: 10 });
@@ -18,4 +19,8 @@ assert.deepEqual((await plan({ ...base, bundleInfo: info("0.6.0", "c".repeat(64)
 assert.match((await plan({ ...base, apk: join(dir, "app.apk") })).problems.join(), /should be called phoneguard-X\.Y\.Z-release\.apk/); assert.match((await plan({ ...base, tag: "v9.9.9" })).problems.join(), /does not match the APK name/); assert.match((await plan({ ...base, apk: join(dir, "phoneguard-1.0.0-release.apk") })).problems.join(), /was not found/); ok("the APK name, the tag and the file are checked");
 assert.match((await plan({ ...base, tagExists: true })).problems.join(), /already exists/); ok("a tag that already exists is stopped");
 { const r = await plan({ ...base, apk: undefined, companionOnly: true, tag: "v0.5.1" }); assert.deepEqual(r.problems, []); assert.deepEqual(r.files.map((f) => f.name), ["worker.bundle.js", "worker-version.json", "release.json"]); assert.match((await plan({ ...base, apk: undefined, companionOnly: true })).problems.join(), /--tag is needed/); ok("a companion-only release carries just the companion and needs an explicit tag"); }
+{ const sha = "b".repeat(64), pub = { info: info("0.5.0"), version: "0.4.8", url: "https://github.com/durkimat/phoneguard/releases/download/v0.4.8/phoneguard-0.4.8-release.apk", size: 5, sha256: sha };
+  const r = await plan({ ...base, apk: undefined, companionOnly: true, tag: "v0.6.0", bundleInfo: info("0.6.0"), published: pub }); assert.deepEqual(r.problems, []); const j = JSON.parse(r.files.find((f) => f.name === "release.json").data.toString());
+  assert.equal(j.apk.version, "0.4.8"); assert.equal(j.apk.url, pub.url); assert.equal(j.apk.sha256, sha); assert.equal(j.tag, "v0.6.0"); assert.deepEqual(r.files.map((f) => f.name), ["worker.bundle.js", "worker-version.json", "release.json"]);
+  const back = parseReleaseJson(j); assert.equal(back.version, "0.4.8"); assert.equal(back.url, pub.url); ok("a companion-only release keeps offering the last phone app, with that app's own version"); }
 console.log(`\n${n} checks passed`);

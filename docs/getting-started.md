@@ -15,6 +15,7 @@ Pick your computer's system and follow that guide from the top. Each guide is a 
 
 ## More
 
+- [Signing in to the parent page](sign-in.md): parent link and passkeys
 - [Updating later](updating.md): update your companion or a phone without installing again
 - [Troubleshooting](install/troubleshooting.md)
 - [Other ways to install, and what has been tested](install/other-ways.md)

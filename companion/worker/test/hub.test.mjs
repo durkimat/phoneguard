@@ -89,4 +89,13 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   throwsMsg(() => H.addCalendar(ch, "", sealed, T0, null, () => "x1"), /needs a name/); throwsMsg(() => H.addCalendar(ch, "Dup", sealed, T0, null, () => "cal1"), /same id/); assert.equal(ch.calendars.length, 2); ok("a nameless or duplicate calendar is refused");
   for (let i = 3; i <= 8; i++) H.addCalendar(ch, "c" + i, sealed, T0, null, () => "cal" + i); throwsMsg(() => H.addCalendar(ch, "ninth", sealed, T0, null, () => "cal9"), /at most 8/); ok("at most eight calendars");
   H.removeCalendar(ch, "cal1", T0); assert.ok(!ch.secrets["calendar.cal1"]); assert.equal(ch.calendars.some((c) => c.id === "cal1"), false); throwsMsg(() => H.removeCalendar(ch, "nope", T0), /no such/); const v = H.view(ch, newRuntime(), null, null, T0); assert.equal(v.calendars[0].url_set, true); ok("removing a calendar removes its sealed link; the page view says which links are set"); }
+
+{ const { ch, rt } = fresh(); const sealed = { alg: "ECDH-P256+HKDF-SHA256+AES-256-GCM", epk: "e", ct: "c" };
+  assert.ok(!("lock" in S.buildConfig(ch, T0))); throwsMsg(() => H.setLock(ch, "set", null), /PIN is needed/); throwsMsg(() => H.setLock(ch, "wipe"), /set or clear/);
+  H.setLock(ch, "set", sealed); let cfg = S.buildConfig(ch, T0); assert.deepEqual(cfg.lock, { rev: 1, op: "set", secret: "lock.pin" }); assert.deepEqual(cfg.secrets["lock.pin"], sealed);
+  H.setLock(ch, "set", sealed); assert.equal(S.buildConfig(ch, T0).lock.rev, 2);
+  H.setLock(ch, "clear"); cfg = S.buildConfig(ch, T0); assert.deepEqual(cfg.lock, { rev: 3, op: "clear", secret: "lock.pin" }); assert.ok(!cfg.secrets?.["lock.pin"]);
+  rt.state = { lock: { supported: true, set: false, by: null, rev: 3 } }; const v = H.view(ch, rt, null, null, T0); assert.equal(v.lock.sent.rev, 3); assert.equal(v.lock.phone.rev, 3); assert.ok(!JSON.stringify(v).includes('"ct"'));
+  ok("the screen-lock PIN travels sealed with a rising revision, and a clear removes the secret"); }
+
 console.log(`\n${n} checks passed`);
