@@ -22,14 +22,13 @@ class EditionScreensTest {
     @Test fun openPhoneNeedsConfirmationThenChoosesOnce() {
         val m = model("first_boot")
         down(m, 2); assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertTrue(m.rows.contains("Yes, Open phone"))
-        down(m, 0); m.onKey(Key.SOFT_RIGHT) // back out of the question
+        assertEquals(listOf("Nothing is locked.", "No parent controls", "it. Changing this", "later erases it.", "Yes, Open phone", "No, go back"), m.rows)
+        assertTrue(m.rows.all { it.length <= 20 }) // the confirmation text must not be cut off on the screen
+        m.onKey(Key.SOFT_RIGHT) // back out of the question
         assertEquals(listOf("Wi-Fi", "Time and language", "Open phone", "Family phone"), m.rows)
-        m.onKey(Key.OK); down(m, 0)
-        // confirm: rows 2 is "Yes"
-        val m2 = model("first_boot"); down(m2, 2); m2.onKey(Key.OK)
-        assertEquals(Action.ChooseOpen, m2.onKey(Key.OK))
-        assertEquals(Screen.HOME, m2.screen)
+        down(m, 0); m.onKey(Key.OK) // the cursor stays on Open phone: ask again
+        assertEquals(Action.ChooseOpen, m.onKey(Key.OK)) // the cursor starts on "Yes"
+        assertEquals(Screen.HOME, m.screen)
     }
 
     @Test fun familyPhoneStartsThePairingScreen() {
@@ -51,19 +50,13 @@ class EditionScreensTest {
         val m = model("open")
         m.onKey(Key.OK); m.onKey(Key.OK) // menu, then Settings
         assertEquals(Screen.SETTINGS, m.screen)
-        val rows = m.rows
-        assertTrue(rows.contains("Phone type") && rows.contains("Phone options"))
-        // go to Phone type
-        down(m, rows.indexOf("Phone type")); m.onKey(Key.OK)
+        assertTrue(m.rows.contains("Phone type") && m.rows.contains("Phone options"))
+        down(m, m.rows.indexOf("Phone type")); m.onKey(Key.OK)
         assertEquals(Screen.PHONETYPE, m.screen)
         down(m, 2); m.onKey(Key.OK)
-        assertTrue(m.rows.contains("Erase and restart"))
-        assertEquals(Action.None, m.onKey(Key.UP).let { Action.None }) // moving is harmless
-        val erase = model("open").also { it.onKey(Key.OK); it.onKey(Key.OK) }
-        down(erase, erase.rows.indexOf("Phone type")); erase.onKey(Key.OK); down(erase, 2); erase.onKey(Key.OK)
-        down(erase, 0) // the cursor is already on "Erase and restart"? it starts on the last row, so move up one
-        erase.onKey(Key.UP)
-        assertEquals(Action.EraseAndRestart, erase.onKey(Key.OK))
+        assertEquals(listOf("This erases the", "whole phone:", "contacts, messages", "and settings.", "Erase and restart", "No, go back"), m.rows)
+        assertTrue(m.rows.all { it.length <= 20 })
+        assertEquals(Action.EraseAndRestart, m.onKey(Key.OK)) // the cursor starts on "Erase and restart"
     }
 
     @Test fun familyPhoneShowsNoSwitchAndNoOptions() {

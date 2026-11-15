@@ -210,7 +210,7 @@ object LauncherData {
     /** Mobile data for the status line: only on a phone with a SIM, and not in the locked-down mode; 2 when switched off, 1 when it is the connection in use. */
     internal fun dataState(c: Context): Int = try {
         if (Engine.effective(Store.config(c), Store.boost(c), Clock.now()).lockdown.kiosk || !io.github.durkimat.phoneguard.net.RadioManager.dataSupported(c)) -1
-        else if (android.provider.Settings.Global.getInt(c.contentResolver, "mobile_data", 1) != 1) 2
+        else if (!io.github.durkimat.phoneguard.net.RadioManager.dataOn(c)) 2
         else { val cm = c.getSystemService(android.net.ConnectivityManager::class.java); if (cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true) 1 else 0 }
     } catch (_: Exception) { -1 }
 

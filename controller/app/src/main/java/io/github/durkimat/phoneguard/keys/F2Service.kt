@@ -105,17 +105,29 @@ class F2Service : AccessibilityService() {
     override fun onInterrupt() {}
 
     /** Debug builds only: lets a test show the volume bar without a physical key (injected keys never reach this service). */
+    private var bondReceiver: android.content.BroadcastReceiver? = null
+
+    override fun onDestroy() {
+        try { pin.stop() } catch (_: Exception) { }
+        bondReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }; bondReceiver = null
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         pin.start()
+        if (bondReceiver != null) return // connected again without being destroyed: the receivers below are already registered
         // the pairing is settled (paired, or given up): take the panel down
-        registerReceiver(object : android.content.BroadcastReceiver() {
+        val bond = object : android.content.BroadcastReceiver() {
             override fun onReceive(c: android.content.Context?, i: Intent?) {
                 val st = i?.getIntExtra(android.bluetooth.BluetoothDevice.EXTRA_BOND_STATE, -1) ?: return
                 if (st == android.bluetooth.BluetoothDevice.BOND_BONDED || st == android.bluetooth.BluetoothDevice.BOND_NONE) { pairing = false; main.postDelayed({ cover.hide() }, 400) }
             }
-        }, android.content.IntentFilter(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED), android.content.Context.RECEIVER_EXPORTED)
+        }
+        bondReceiver = bond
+        registerReceiver(bond, android.content.IntentFilter(android.bluetooth.BluetoothDevice.ACTION_BOND_STATE_CHANGED), android.content.Context.RECEIVER_EXPORTED)
         if (io.github.durkimat.phoneguard.BuildConfig.DEBUG) {
             val r = object : android.content.BroadcastReceiver() {
                 override fun onReceive(c: android.content.Context?, i: Intent?) { volume.press(i?.getBooleanExtra("up", true) ?: true) }

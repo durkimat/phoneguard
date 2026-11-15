@@ -119,6 +119,16 @@ object Controller {
         val ed = Edition.get(app)
         val why = if (ed == EditionState.FAMILY) "not device owner, nothing enforced" else "${ed.name.lowercase()} phone, nothing enforced"
         try { Enforcer.ensureSideButton(app); Enforcer.ensureNoteListener(app) } catch (e: Exception) { Log.log(app, "open services: ${e.javaClass.simpleName}") }
+        try { // the options an Open phone chose (sound, notifications, WhatsApp checks) take effect here, with no device owner
+            val eff = Engine.effective(Store.config(app), null, Clock.now())
+            val hide = Store.config(app)?.notesHide ?: emptySet()
+            if (io.github.durkimat.phoneguard.notes.Notes.enabled != (eff.notes == "show") || io.github.durkimat.phoneguard.notes.Notes.extraHidden != hide) {
+                io.github.durkimat.phoneguard.notes.Notes.enabled = eff.notes == "show"; io.github.durkimat.phoneguard.notes.Notes.extraHidden = hide
+                io.github.durkimat.phoneguard.notes.NoteService.instance?.reapply()
+            }
+            SoundEnforcer.apply(app, eff.sound)
+            io.github.durkimat.phoneguard.whatsapp.WhatsApp.apply(app, Store.config(app), eff)
+        } catch (e: Throwable) { Log.log(app, "open options: ${e.javaClass.simpleName}") }
         try { NoPopups.baseline(app) } catch (e: Exception) { Log.log(app, "open no-popups: ${e.javaClass.simpleName}") }
         try { io.github.durkimat.phoneguard.net.RadioManager.evaluate(app, "config") } catch (e: Exception) { Log.log(app, "open radio: ${e.javaClass.simpleName}") }
         Log.log(app, "EVAL $reason: $why")

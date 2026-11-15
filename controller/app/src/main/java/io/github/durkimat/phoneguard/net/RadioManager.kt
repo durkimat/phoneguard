@@ -112,7 +112,10 @@ object RadioManager {
 
     fun dataSupported(c: Context): Boolean = try { c.getSystemService(TelephonyManager::class.java).simState == TelephonyManager.SIM_STATE_READY } catch (_: Exception) { false }
 
-    private fun dataOn(c: Context) = try { Settings.Global.getInt(c.contentResolver, "mobile_data", 1) == 1 } catch (_: Exception) { true }
+    /** Mobile data as the phone really has it (per subscription), not the old global setting, which stays 0 on some phones while data works. */
+    fun dataOn(c: Context): Boolean = try { c.getSystemService(TelephonyManager::class.java).isDataEnabled } catch (_: Exception) {
+        try { Settings.Global.getInt(c.contentResolver, "mobile_data", 1) == 1 } catch (_: Exception) { true }
+    }
 
     private fun inputs(c: Context, now: Long): RadioInputs {
         val cfg = Store.config(c)
@@ -169,7 +172,10 @@ object RadioManager {
         when (radio) {
             "wifi" -> WifiControl.setEnabled(c, on)
             "bt" -> BluetoothControl.setEnabled(c, on)
-            "data" -> try { Settings.Global.putInt(c.contentResolver, "mobile_data", if (on) 1 else 0) } catch (e: Exception) { Log.log(c, "radios: mobile data: ${e.javaClass.simpleName}") }
+            "data" -> try {
+                try { c.getSystemService(TelephonyManager::class.java).setDataEnabled(on) } // MODIFY_PHONE_STATE, a privileged permission we hold
+                catch (_: SecurityException) { Settings.Global.putInt(c.contentResolver, "mobile_data", if (on) 1 else 0) }
+            } catch (e: Exception) { Log.log(c, "radios: mobile data: ${e.javaClass.simpleName}") }
         }
     }
 

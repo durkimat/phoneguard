@@ -37,15 +37,23 @@ class PinCover(private val svc: AccessibilityService, private val cover: ScreenC
         override fun run() { update(); if (pm.isInteractive) ui.postDelayed(this, 400) }
     }
 
+    private var screenReceiver: BroadcastReceiver? = null
+
+    /** Takes the screen on/off receiver down again (the service is going away), so it is not leaked. */
+    fun stop() { screenReceiver?.let { try { svc.unregisterReceiver(it) } catch (_: Exception) { } }; screenReceiver = null; ui.removeCallbacks(tick) }
+
     fun start() {
-        svc.registerReceiver(object : BroadcastReceiver() {
+        if (screenReceiver != null) return
+        val r = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, i: Intent?) {
                 when (i?.action) {
                     Intent.ACTION_SCREEN_ON -> { ui.removeCallbacks(tick); ui.post(tick) }
                     Intent.ACTION_SCREEN_OFF -> { ui.removeCallbacks(tick); hide() }
                 }
             }
-        }, IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }, Context.RECEIVER_NOT_EXPORTED)
+        }
+        screenReceiver = r
+        svc.registerReceiver(r, IntentFilter().apply { addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_SCREEN_OFF) }, Context.RECEIVER_NOT_EXPORTED)
         if (pm.isInteractive) ui.post(tick)
     }
 

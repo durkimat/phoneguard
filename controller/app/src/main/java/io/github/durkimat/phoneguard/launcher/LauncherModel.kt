@@ -1116,19 +1116,19 @@ class LauncherModel(
     private fun firstRunLeft() = trail.any { it.screen == Screen.FIRSTRUN } || screen in setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
 
     private val firstRunRows: List<String> get() = when (firstConfirm) {
-        "open" -> listOf("Nothing locked, no parent", "Switching later erases it", "Yes, Open phone", "No, go back")
+        "open" -> listOf("Nothing is locked.", "No parent controls", "it. Changing this", "later erases it.", "Yes, Open phone", "No, go back")
         else -> listOf("Wi-Fi", "Time and language", "Open phone", "Family phone")
     }
 
     private fun firstRunKey(key: Key): Action = move(key, firstRunRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (firstConfirm == "open") when (selected) {
-            2 -> { edition = "open"; firstConfirm = null; goHome(); Action.ChooseOpen }
-            3 -> { firstConfirm = null; selected = 2; Action.Redraw }
+            4 -> { edition = "open"; firstConfirm = null; goHome(); Action.ChooseOpen }
+            5 -> { firstConfirm = null; selected = 2; Action.Redraw }
             else -> Action.None
         } else when (selected) {
             0 -> { enter(Screen.WIFI); Action.WifiLoad }
             1 -> Action.Launch("com.android.settings")
-            2 -> { firstConfirm = "open"; selected = 2; Action.Redraw }
+            2 -> { firstConfirm = "open"; selected = 4; Action.Redraw }
             else -> Action.StartFamily
         }
         Key.RIGHT, Key.SOFT_RIGHT -> if (firstConfirm != null) { firstConfirm = null; selected = 2; Action.Redraw } else Action.None
@@ -1137,15 +1137,15 @@ class LauncherModel(
 
     private val phoneTypeRows: List<String> get() = when {
         edition == "family" -> listOf("Family phone", "Set by your parent", "Parent can release it")
-        confirmErase -> listOf("This erases the phone", "Contacts and settings", "Erase and restart", "No, go back")
+        confirmErase -> listOf("This erases the", "whole phone:", "contacts, messages", "and settings.", "Erase and restart", "No, go back")
         else -> listOf("Open phone", "Lost PIN = erase phone", "Switch to Family (erases)")
     }
 
     private fun phoneTypeKey(key: Key): Action = move(key, phoneTypeRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
             edition == "family" -> Action.None
-            confirmErase -> when (selected) { 2 -> Action.EraseAndRestart; 3 -> { confirmErase = false; selected = 2; Action.Redraw }; else -> Action.None }
-            selected == 2 -> { confirmErase = true; selected = 3; Action.Redraw }
+            confirmErase -> when (selected) { 4 -> Action.EraseAndRestart; 5 -> { confirmErase = false; selected = 2; Action.Redraw }; else -> Action.None }
+            selected == 2 -> { confirmErase = true; selected = 4; Action.Redraw }
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> if (confirmErase) { confirmErase = false; selected = 2; Action.Redraw } else { leave(); Action.Redraw }
