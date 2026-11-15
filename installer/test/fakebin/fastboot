@@ -4,10 +4,11 @@ case "$1" in
   --version) echo "fastboot version 35.0.0" ;;
   devices) [ -n "$FAKE_FASTBOOT" ] && printf 'ABC123\tfastboot\n' ;;
   getvar) case "$2" in
-    unlocked) echo "unlocked: ${FAKE_UNLOCKED:-yes}" >&2 ;;
+    unlocked) echo "unlocked: $(cat "$FAKE_LOG.unlocked" 2>/dev/null || echo "${FAKE_UNLOCKED:-yes}")" >&2 ;;
     is-userspace) echo "is-userspace: ${FAKE_USERSPACE:-yes}" >&2 ;;
     all) echo "(bootloader) product: j36" >&2 ;;
   esac ;;
-  flash) [ -n "$FAKE_FAIL_FLASH" ] && { echo "FAILED (remote: error)" >&2; exit 1; } ;;
+  flashing) if [ "$2" = unlock ]; then [ -n "$FAKE_FAIL_UNLOCK" ] && { echo "FAILED (remote: 'unlock not allowed')" >&2; exit 1; }; [ -z "$FAKE_UNLOCK_NOOP" ] && echo yes > "$FAKE_LOG.unlocked"; fi ;;
+  flash) echo "Sending sparse 'system_a' 1/2 (262140 KB)  OKAY [  7.6s]" >&2; echo "Writing 'system_a'  OKAY [  4.0s]" >&2; [ -n "$FAKE_FAIL_FLASH" ] && { echo "FAILED (remote: error)" >&2; exit 1; } ;;
 esac
 exit 0

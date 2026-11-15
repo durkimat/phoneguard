@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Phone Guard installer: preflight, backup, verify, flash. Works on Windows, Linux and macOS with Node 20+.
-//   node pg-install.mjs [check|backup|download|verify|flash|all] [--kit DIR] [--backup-dir DIR] [--dry-run] [--yes] [--skip-backup] [--keep-data]
+//   node pg-install.mjs [check|unlock|backup|download|verify|flash|all] [--kit DIR] [--backup-dir DIR] [--dry-run] [--yes] [--skip-backup] [--keep-data]
 // It only ever writes system_a, userdata and md_udc (see FLASH_STEPS). It never touches the radio, identity or boot partitions.
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { openSync, readSync, closeSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync, statSync, statfsSync, appendFileSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { createGunzip, inflateRawSync } from "node:zlib";
@@ -26,7 +26,7 @@ export function parseArgs(argv) {
     else if (k === "--dry-run") o.dryRun = true; else if (k === "--yes") o.yes = true; else if (k === "--skip-backup") o.skipBackup = true; else if (k === "--keep-data") o.keepData = true; else if (k === "--download") o.download = true;
     else throw new Error(`unknown option ${k}`);
   }
-  if (!["check", "backup", "verify", "flash", "all", "download"].includes(o.cmd)) throw new Error(`unknown command ${o.cmd}`);
+  if (!["check", "unlock", "backup", "verify", "flash", "all", "download"].includes(o.cmd)) throw new Error(`unknown command ${o.cmd}`);
   return o;
 }
 
@@ -43,7 +43,20 @@ export function makeTools({ dir = null, log = () => {}, dryRun = false } = {}) {
     if (r.error) return { ok: false, out: r.error.code === "ENOENT" ? `${tool} was not found` : r.error.code === "ETIMEDOUT" ? `${tool} timed out (is the phone in the right mode?)` : r.error.message, missing: r.error.code === "ENOENT" };
     return { ok: r.status === 0, out };
   };
-  return { adb: (args, o) => run("adb", args, o), fastboot: (args, o) => run("fastboot", args, o), setDir: (d) => { st.dir = d; } };
+  // Like run(), but shows what the tool prints while it works (a flash is silent for minutes otherwise).
+  const live = (tool, args, { mutates = false, timeout = 90_000, onLine = () => {} } = {}) => new Promise((resolve) => {
+    const line = `${tool} ${args.join(" ")}`;
+    if (mutates && dryRun) { log(`DRY RUN: ${line}`); return resolve({ ok: true, out: "", dry: true }); }
+    log(`+ ${line}`);
+    let out = "", buf = "", done = false; const finish = (r) => { if (done) return; done = true; clearTimeout(timer); resolve(r); };
+    let child; try { child = spawn(exe(tool), args); } catch (e) { return resolve({ ok: false, out: e.message }); }
+    const timer = setTimeout(() => { child.kill(); finish({ ok: false, out: `${tool} timed out (is the phone in the right mode?)` }); }, timeout);
+    const feed = (d) => { const t = d.toString(); out += t; buf += t; const parts = buf.split(/[\r\n]+/); buf = parts.pop(); for (const l of parts) if (l.trim()) onLine(l.trim()); };
+    child.stdout.on("data", feed); child.stderr.on("data", feed);
+    child.on("error", (e) => finish({ ok: false, out: e.code === "ENOENT" ? `${tool} was not found` : e.message, missing: e.code === "ENOENT" }));
+    child.on("close", (code) => { if (buf.trim()) onLine(buf.trim()); finish({ ok: code === 0, out }); });
+  });
+  return { adb: (args, o) => run("adb", args, o), fastboot: (args, o) => run("fastboot", args, o), fastbootLive: (args, o) => live("fastboot", args, o), setDir: (d) => { st.dir = d; } };
 }
 
 // ---- getting adb and fastboot (Google's platform-tools) and, on Windows, Google's USB driver -----------------------------------
@@ -246,28 +259,46 @@ export async function backup(t, dir, { manifest = null, wait = { fastboot: async
 // The ONLY partitions this installer writes. Order matters: fastbootd first, then room, then the image, then a clean start.
 export function flashSteps({ systemBytes, keepData }) {
   const steps = [
-    { title: "Restart into fastbootd", args: ["reboot", "fastboot"], wait: 8, expect: ["is-userspace", "yes"] },
-    { title: "Make room for the image", args: ["resize-logical-partition", "system_a", String(systemBytes)] },
-    { title: "Write the system image (several minutes, do not unplug)", args: ["flash", "system_a", "system.img"] },
+    { title: "Restart the phone into its flashing mode", hint: "it shows a text menu: do not touch it", args: ["reboot", "fastboot"], wait: 8, expect: ["is-userspace", "yes"] },
+    { title: "Make room for the image", hint: "a few seconds", args: ["resize-logical-partition", "system_a", String(systemBytes)] },
+    { title: "Write the system image", hint: "about 2 minutes; do not unplug the phone", args: ["flash", "system_a", "system.img"] },
   ];
-  if (!keepData) steps.push({ title: "Erase user data", args: ["erase", "userdata"] }, { title: "Erase /metadata (md_udc on this phone)", args: ["erase", "md_udc"] });
-  steps.push({ title: "Restart", args: ["reboot"] });
+  if (!keepData) steps.push({ title: "Erase the phone's user data", hint: "a few seconds", args: ["erase", "userdata"] }, { title: "Erase /metadata (md_udc on this phone)", hint: "a few seconds", args: ["erase", "md_udc"] });
+  steps.push({ title: "Restart the phone", hint: "its first start takes a few minutes", args: ["reboot"] });
   return steps;
 }
 
-export async function flash(t, kit, { keepData, ask, wait = { fastboot: async () => true } }) {
+export async function flash(t, kit, { keepData, ask, out = () => {}, wait = { fastboot: async () => true } }) {
   const img = join(kit, "system.img"), bytes = statSync(img).size;
   if (!t.dryRun) { const pre = getvar(t, "unlocked"); if (pre !== "yes") throw new Error(`The bootloader is not unlocked (fastboot says unlocked: ${pre || "unknown"}).`); }
   await ask(keepData ? "This REPLACES the system image and KEEPS your data." : "This REPLACES the system image and ERASES everything on the phone.");
-  for (const s of flashSteps({ systemBytes: bytes, keepData })) {
+  const plan = flashSteps({ systemBytes: bytes, keepData });
+  for (const [n, s] of plan.entries()) {
     const args = s.args.map((x) => (x === "system.img" ? img : x));
-    const r = t.fastboot(args, { mutates: true, timeout: args[0] === "flash" ? 40 * 60_000 : 5 * 60_000 });
+    out(`\nStep ${n + 1} of ${plan.length}: ${s.title}${s.hint ? ` (${s.hint})` : ""}`);
+    const r = await t.fastbootLive(args, { mutates: true, timeout: args[0] === "flash" ? 40 * 60_000 : 5 * 60_000, onLine: (l) => { if (!t.dryRun && /sending|writing|erasing|resizing|rebooting|okay|finished|failed/i.test(l)) out("    " + l); } });
     if (!r.ok && !r.dry) throw new Error(`${s.title} failed: ${r.out.trim().slice(0, 300)}`);
     if (s.expect && !t.dryRun) {
       if (!(await wait.fastboot())) throw new Error("The phone did not come back in fastbootd.");
       const v = getvar(t, s.expect[0]); if (v !== s.expect[1]) throw new Error(`Expected ${s.expect[0]}: ${s.expect[1]} but the phone says ${v || "nothing"}.`);
     }
   }
+}
+
+// Unlocks the bootloader (this erases the phone). Uses whichever adb and fastboot were found, so the guide needs no paths.
+export async function unlock(t, { ask, out = () => {}, wait }) {
+  const r = preflight(t); if (!r.mode) throw new Error("The phone was not found. Plug it in with USB debugging on and run `node pg-install.mjs check` first.");
+  if (r.mode === "adb") { if (!r.ok) throw new Error("The phone did not pass the checks above. Fix them and run again."); out("Restarting the phone into its bootloader..."); t.adb(["reboot", "bootloader"], { mutates: true }); if (!t.dryRun && !(await wait.fastboot())) throw new Error("The phone did not appear in fastboot mode."); }
+  const now = t.dryRun ? "no" : getvar(t, "unlocked");
+  if (now === "yes") { out("The bootloader is already unlocked. Restarting the phone..."); t.fastboot(["reboot"], { mutates: true }); return { already: true }; }
+  await ask("Unlocking ERASES everything on the phone and cannot be undone. Nothing else is changed.");
+  out("\nLook at the phone now. It asks you to confirm: use the volume keys to choose to unlock and press the power key.");
+  const u = await t.fastbootLive(["flashing", "unlock"], { mutates: true, timeout: 5 * 60_000, onLine: (l) => { if (!t.dryRun) out("    " + l); } });
+  if (!u.ok && !u.dry) throw new Error(`The phone did not accept the unlock: ${u.out.trim().slice(0, 200)}. Check "OEM unlocking" is on in Developer options, then run this again.`);
+  if (!t.dryRun) { const after = getvar(t, "unlocked"); if (after === "no") throw new Error("The phone says it is still locked. Run this again and confirm on the phone with the volume and power keys."); }
+  t.fastboot(["reboot"], { mutates: true });   // the phone may already be restarting by itself; that is fine
+  out("\nThe phone is erasing itself and restarting. This takes a few minutes. Skip its welcome screens, then turn USB debugging on again if it is off (step 4 of the guide) and run `node pg-install.mjs check`.");
+  return { already: false };
 }
 
 // ---- command line ----------------------------------------------------------------------------------------------------------------
@@ -282,7 +313,7 @@ export async function main(argv, { out = console.log, input = process.stdin, too
   const show = (r) => { for (const c of r.checks) out(`${c.ok ? "  OK  " : " FAIL "} ${c.name}${c.detail ? ": " + c.detail : ""}${c.ok ? "" : "\n        -> " + c.fix}`); };
   try {
     if (o.dryRun) out("DRY RUN: nothing will be written to the phone.");
-    if (["check", "backup", "flash", "all"].includes(o.cmd) && !(t.adb(["version"]).ok && t.fastboot(["--version"]).ok)) {   // no adb or fastboot yet: fetch Google's
+    if (["check", "unlock", "backup", "flash", "all"].includes(o.cmd) && !(t.adb(["version"]).ok && t.fastboot(["--version"]).ok)) {   // no adb or fastboot yet: fetch Google's
       out("\n== Getting adb and fastboot");
       if (!(await confirm(`adb and fastboot (Google's "platform-tools") were not found. Download them from Google (about 10 to 17 MB) into ${join(o.kit, "platform-tools")}?`))) throw new Error("adb and fastboot are needed. Install them yourself (docs/install/computer-setup.md) and run again.");
       t.setDir(await getPlatformTools(o.kit, { fetchImpl, out: (m) => out("  " + m), plat })); out("  Done.");
@@ -296,6 +327,7 @@ export async function main(argv, { out = console.log, input = process.stdin, too
           out("  This has not been tried on a real Windows computer yet. If it does not work, see docs/install/windows-usb.md.");
         }
       } if (!r.ok && o.cmd === "check") return 1; if (!r.ok) throw new Error("Fix the problems above and run again."); }
+    if (o.cmd === "unlock") { out("\n== Unlocking the bootloader"); await unlock(t, { ask, out, wait }); out(`\nA log of everything this run did is in ${logFile}`); return 0; }
     const have = existsSync(join(o.kit, "system.img")) || existsSync(join(o.kit, "system.img.gz"));
     if (o.cmd === "download" || (!have && (o.cmd === "all" || o.cmd === "flash"))) {
       if (!o.download && o.cmd !== "download") throw new Error(`No image was found in ${o.kit}. Put the kit there, or add --download to fetch the published image.`);
@@ -307,16 +339,16 @@ export async function main(argv, { out = console.log, input = process.stdin, too
       if (preflight(t).mode !== "adb") { if (!o.dryRun) throw new Error("Put the phone in normal Android mode with USB debugging on, then run again."); }
       const manifestFile = join(o.kit, "proprietary-manifest.json"), manifest = existsSync(manifestFile) ? JSON.parse(readFileSync(manifestFile, "utf8")) : null;
       const b = await backup(t, join(logDir, "backup"), { manifest, wait }); out(`Saved to ${b.dir}`); for (const n of b.notes) out(`  ${n}`);
-      out("\nFor the phone's IMEI and radio calibration, a deeper read-only backup with mtkclient is strongly recommended and takes about half an hour: docs/recovery-guide.md section 4.");
-      if (!o.yes) await ask("Have you done that (or decided to go without it)?");
+      out("\nBefore we flash: this script has NOT backed up your phone's IMEI and radio calibration. That is a separate, optional job (about 30 minutes) that needs a different program. It is worth doing on a phone you care about: if that data is ever lost, the phone cannot connect to the mobile network. The steps are here:\nhttps://github.com/durkimat/phoneguard/blob/main/docs/recovery-guide.md\nWhat this script saved is only a list of the phone's settings and apps.");
+      if (!o.yes) await ask("Continue without the IMEI backup?");
     }
     if (o.cmd === "verify" || o.cmd === "flash" || o.cmd === "all") { out("\n== Checking the image"); if (!o.dryRun || existsSync(join(o.kit, "system.img.gz"))) await prepareKit(o.kit, { out }); const v = await verifyKit(o.kit); for (const l of v.lines) out("  " + l); if (!v.ok) throw new Error("The image did not pass its check. Download the kit again; do not flash it."); }
     if (o.cmd === "flash" || o.cmd === "all") {
       if (o.cmd === "flash" && !o.skipBackup && !existsSync(join(logDir, "backup")) && !o.yes) await ask("No backup was made by this run. Flash without one?");
       out("\n== Flashing");
       if (!o.dryRun && preflight(t).mode === "adb") { t.adb(["reboot", "bootloader"], { mutates: true }); if (!(await wait.fastboot())) throw new Error("The phone did not appear in fastboot mode."); }
-      await flash(t, o.kit, { keepData: o.keepData, ask, wait });
-      out(o.dryRun ? "\nDry run finished: nothing was changed on the phone." : "\nDone. The first start takes several minutes. When the phone shows its first-run screen, choose Open phone or Family phone. For a Family phone, continue with the setup wizard (docs/family-setup.md).");
+      await flash(t, o.kit, { keepData: o.keepData, ask, out, wait });
+      out(o.dryRun ? "\nDry run finished: nothing was changed on the phone." : "\nDone. The phone is restarting by itself: leave it alone for about 5 minutes, it is slow the first time. When it shows its first-run screen, choose Open phone or Family phone. For a Family phone, continue with the setup wizard (docs/family-setup.md).");
     }
     out(`\nA log of everything this run did is in ${logFile}`);
     return 0;

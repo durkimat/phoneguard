@@ -28,7 +28,7 @@ export default {
   },
 };
 
-const SECURITY = { "content-security-policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://accounts.spotify.com; frame-ancestors 'none'", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff", "cache-control": "no-store" };
+const SECURITY = { "content-security-policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://accounts.spotify.com https://api.postcodes.io https://geocoding-api.open-meteo.com; frame-ancestors 'none'", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff", "cache-control": "no-store" };
 const JS = "text/javascript; charset=utf-8";
 const FILES = { "/": [INDEX, "text/html; charset=utf-8"], "/app.js": [APP, JS], "/spotify/callback": [INDEX, "text/html; charset=utf-8"], "/timetable.js": [TIMETABLE, JS], "/spotify.js": [SPOTIFY, JS], "/seal.js": [SEAL, JS], "/crypto.js": [CRYPTO, JS], "/qr.js": [QR, JS], "/guide": [GUIDE, "text/html; charset=utf-8"], "/enrol.js": [ENROL, JS], "/ui.js": [UI, JS], "/phone.js": [PHONE_JS, JS], "/look-options.js": [LOOKOPT, JS], "/track.js": [TRACK, JS], "/providers.js": [PROVIDERS, JS], "/track-view.js": [TRACKVIEW, JS], "/map.js": [LEAFLET, JS], "/map.css": [LEAFLETCSS, "text/css; charset=utf-8"] };
 function staticPage(path) {

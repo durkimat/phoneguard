@@ -22,15 +22,19 @@ const copyRow = (label, text) => { const b = h("button", { class: "sec", on: () 
 
 const VIEWS = {
   async cf() {
-    const key = h("input", { type: "password", placeholder: "Paste the key from Cloudflare", autocomplete: "off", "aria-label": "Cloudflare key" }), err = h("p", { class: "bad" });
+    const key = h("input", { type: "password", placeholder: "Paste the key from Cloudflare", autocomplete: "off", "aria-label": "Cloudflare key" }), err = h("p", { class: "bad" }), check = h("p", { class: "mut" });
     const saved = await call("/families");
     v.replaceChildren(...[
       h("p", {}, "This sets up your family's private companion in your own Cloudflare account. It takes about 20 minutes and you only do it once. You can skip the optional steps and do them later."),
       saved.length ? h("div", { class: "card" }, h("strong", {}, "Continue an earlier setup"), h("p", { class: "mut" }, "Already installed your companion? Pick it to carry on from connecting a phone."), ...saved.map((f) => h("p", {}, h("button", { class: "sec", on: async () => { const r = await post("/resume", { name: f.name }); if (!r.ok) return (err.textContent = r.error); await loadInfo(); go("phone"); } }, f.host)))) : null,
       saved.length ? await updateCard(saved) : null,
-      h("div", { class: "card" }, h("strong", {}, "1. Get a key from Cloudflare"), h("p", { class: "mut" }, "Cloudflare holds your family's settings. The free plan is enough. Create a free account first if you do not have one."),
-        h("a", { class: "btn", href: TOKEN_LINK, target: "_blank", rel: "noopener noreferrer" }, "Open Cloudflare"), h("p", { class: "mut" }, "On that page press Continue to summary, then Create token, and copy the key it shows.")),
-      h("div", { class: "card" }, h("strong", {}, "2. Paste it here"), h("p", { class: "mut" }, "The key stays on this computer and is forgotten when you close this page."), key, err, h("p", {}, h("button", { on: () => install({ token: key.value.trim() }, err) }, "Install my companion")))].filter(Boolean));
+      h("div", { class: "card" }, h("strong", {}, "1. Get a key from Cloudflare"), h("p", { class: "mut" }, "Cloudflare holds your family's settings. The free plan is enough. A Cloudflare account is free: the page below lets you sign in or create one."),
+        h("a", { class: "btn", href: TOKEN_LINK, target: "_blank", rel: "noopener noreferrer" }, "Open Cloudflare"),
+        h("ol", { class: "how" }, h("li", {}, "Sign in (or create a free account) when Cloudflare asks."), h("li", {}, "You arrive at \"Create API token\" with the permission already chosen (Workers Scripts: Edit). Do not change anything on that page."),
+          h("li", {}, "Scroll to the bottom and press ", h("strong", {}, "Continue to summary"), ", then ", h("strong", {}, "Create token"), "."), h("li", {}, "Cloudflare shows the key once. Press ", h("strong", {}, "Copy"), " and come back here.")),
+        h("p", { class: "mut" }, "Afterwards you can delete this key in Cloudflare (your profile, API Tokens). It is only needed to install and to update; you make a new one next time.")),
+      h("div", { class: "card" }, h("strong", {}, "2. Paste it here"), h("p", { class: "mut" }, "The key stays on this computer and is forgotten when you close this page."), key, check, err,
+        h("div", { class: "row" }, h("button", { class: "sec", on: async () => { check.className = "mut"; check.textContent = "Checking..."; const r = await post("/check-key", { token: key.value.trim() }); if (r.ok) { check.className = "ok"; check.textContent = `Key accepted. It can use your Cloudflare account: ${r.accounts.join(", ")}.`; } else { check.className = "bad"; check.textContent = r.error ?? "Cloudflare did not accept that key."; } } }, "Check my key"), h("button", { on: () => install({ token: key.value.trim() }, err) }, "Install my companion")))].filter(Boolean));
   },
   async install() {},
   async phone() { await phoneStep(); },
@@ -47,7 +51,7 @@ const VIEWS = {
   async whatsapp() { await whatsappStep(); },
   async done() {
     const i = state.info, sk = (id) => state.skipped.has(id);
-    v.replaceChildren(h("h2", { class: "ok" }, "All set"), h("ul", {},
+    v.replaceChildren(h("h2", { class: "ok" }, "Setup finished"), h("p", {}, "Your family's companion is installed. From here on you manage the phone from your parent page, not from this tool."), h("ul", {},
       h("li", { class: "done" }, "Your companion is installed in your Cloudflare account"),
       h("li", { class: sk("phone") ? "todo" : "done" }, sk("phone") ? "Child's phone: not connected yet. Press Add a phone on your parent page any time." : "Child's phone is connected"),
       h("li", { class: sk("yours") ? "todo" : "done" }, sk("yours") ? "Your phone: open the private link when you are ready (shown below)." : "Your phone has the parent page"),
@@ -55,8 +59,8 @@ const VIEWS = {
       h("li", { class: sk("email") ? "todo" : "done" }, sk("email") ? "Email: skipped. On your parent page open the phone, then the Email section." : "Email is set up (the phone finishes it at its next check-in)"),
       h("li", { class: sk("calendar") ? "todo" : "done" }, sk("calendar") ? "Calendar: skipped. On your parent page open the phone, then the Calendars section." : "Calendars are set up"),
       h("li", { class: sk("whatsapp") ? "todo" : "done" }, sk("whatsapp") ? "WhatsApp: skipped. The steps are in the guide: https://" + i.host + "/guide#whatsapp" : "WhatsApp is linked (or you chose to finish later)")),
-      h("div", { class: "card" }, h("strong", {}, "What next"), h("p", { class: "mut" }, "Set the timetable from your parent page: open the phone, then Timetable, add blocks for each day and Save."),
-        h("p", {}, h("a", { class: "btn", href: i.link, target: "_blank", rel: "noopener noreferrer" }, "Open my parent page")), h("p", {}, h("a", { href: i.guide, target: "_blank", rel: "noopener noreferrer" }, "How it all works"))));
+      h("div", { class: "card" }, h("strong", {}, "What next"), h("p", { class: "mut" }, "Open your parent page. It starts with how the phone is doing; set the timetable in its Timetable tab (add blocks for each day and Save). Bookmark it, and keep its link private."),
+        h("p", {}, h("a", { class: "btn", href: i.welcomeLink ?? i.link, target: "_blank", rel: "noopener noreferrer" }, "Open my parent page")), h("p", {}, h("a", { href: i.guide, target: "_blank", rel: "noopener noreferrer" }, "How it all works"))));
   },
 };
 
@@ -128,29 +132,42 @@ async function phoneStep() {
 
 async function spotifyStep() {
   const i = state.info, devs = await call("/devices"), did = state.did ?? (Array.isArray(devs) && devs[0]?.did);
-  const cid = h("input", { placeholder: "Client ID (32 letters and numbers)", autocomplete: "off", "aria-label": "Spotify Client ID" }), ok = h("span", { class: "mut" }), msg = h("p", { class: "bad" }), conn = h("p", { class: "mut" });
+  const cid = h("input", { placeholder: "Client ID (32 letters and numbers)", autocomplete: "off", "aria-label": "Spotify Client ID" }), ok = h("span", { class: "mut" }), msg = h("p", { class: "bad" }), conn = h("p", { class: "mut" }), appCheck = h("p", { class: "mut" }, "Checking the phone...");
   cid.addEventListener("input", () => { const good = /^[0-9a-f]{32}$/i.test(cid.value.trim()); ok.textContent = good ? "Looks right" : cid.value ? "Not 32 letters and numbers yet" : ""; ok.className = good ? "ok" : "mut"; });
   const open = h("button", { on: async () => { if (!did) { msg.textContent = "Connect the child's phone first, then come back to Spotify."; return; } const r = await post("/spotify-client", { did, clientId: cid.value.trim() }); if (!r.ok) { msg.textContent = r.error; return; } msg.textContent = ""; window.open(r.link, "_blank", "noopener,noreferrer"); conn.textContent = "Sign in to Spotify on the page that opened. This page will tick when it is connected."; every(async () => { const s = await call(`/spotify-status?did=${encodeURIComponent(did)}`); if (s.connected) { conn.className = "ok"; conn.textContent = "Spotify is connected. The child's phone collects the key at its next check-in."; document.getElementById("sp-next").disabled = false; } }, 3000); } }, "Save and connect Spotify");
   v.replaceChildren(h("h2", {}, "Spotify (optional)"),
     h("p", {}, "This lets the child's phone play your Spotify. You need a Spotify Premium account. Spotify does not allow tools to create these apps for you, so this takes about five minutes of copying and pasting. You can skip it and do it later."),
     h("div", { class: "card" }, h("strong", {}, "1. Create an app in Spotify"), h("p", { class: "mut" }, "Open the dashboard, sign in with your Premium account, accept the terms and press Create app."), h("a", { class: "btn", href: "https://developer.spotify.com/dashboard", target: "_blank", rel: "noopener noreferrer" }, "Open the Spotify dashboard")),
     h("div", { class: "card" }, h("strong", {}, "2. Fill in the form with these values"), copyRow("App name", "Phone Guard family"), copyRow("App description", "My family's Phone Guard companion"), copyRow("Redirect URI (must match exactly)", i.redirectUri), h("p", { class: "mut" }, "Tick Web API, accept the terms and Save.")),
+    h("div", { class: "card" }, h("strong", {}, "Spotify app on the child's phone"), appCheck, h("p", { class: "mut" }, "The child's phone plays music through the Spotify app, which Spotify only publishes on Google Play, so it is not in the Phone Guard image. If it is missing, see the guide: ", h("a", { href: "https://github.com/durkimat/phoneguard/blob/main/docs/install/spotify-app.md", target: "_blank", rel: "noopener noreferrer" }, "Installing Spotify on the phone"), ". You then sign in to Spotify on the phone itself.")),
     h("div", { class: "card" }, h("strong", {}, "3. Add the people who will use it"), h("p", { class: "mut" }, "In the app's Settings open User management and add the email address of each Spotify account that will be used (up to five).")),
     h("div", { class: "card" }, h("strong", {}, "4. Paste the Client ID"), h("p", { class: "mut" }, "In the app's Settings, copy the Client ID and paste it here."), cid, ok, msg, h("p", {}, open), conn),
     h("div", { class: "row" }, h("button", { id: "sp-next", disabled: true, on: next }, "Continue"), h("button", { class: "sec", on: skip }, "Skip Spotify, I will do it later")));
+  every(async () => { if (!did) return; const x = await call(`/spotify-status?did=${encodeURIComponent(did)}`); appCheck.className = x.appInstalled === true ? "ok" : x.appInstalled === false ? "bad" : "mut";
+    appCheck.textContent = x.appInstalled === true ? "The Spotify app is on the phone." : x.appInstalled === false ? "The Spotify app is not on the phone yet." : "Not known yet: the phone tells your companion at its next check-in."; }, 5000);
 }
 
 async function whatsappStep() {
   const i = state.info, devs = await call("/devices"), did = state.did ?? (Array.isArray(devs) && devs[0]?.did);
-  const all = h("input", { type: "checkbox", id: "waall" }), list = h("textarea", { rows: "4", "aria-label": "WhatsApp numbers and groups the child may message", placeholder: "447700900111\ng:Family" }), msg = h("p", { class: "mut" }), linked = h("p", { class: "mut" }, "The phone tells your companion when it is linked, at its next check-in (up to 15 minutes; press Sync now on the phone to speed it up).");
+  const all = h("input", { type: "checkbox", id: "waall", checked: "checked" }), list = h("textarea", { rows: "4", "aria-label": "WhatsApp numbers and groups the child may message", placeholder: "447700900111\ng:Family" }), msg = h("p", { class: "mut" }), linked = h("p", { class: "mut" }, "The phone tells your companion when it is linked, at its next check-in (up to 15 minutes; press Sync now on the phone to speed it up).");
+  let saved = false;
+  const save = async () => {
+    if (!did) { msg.className = "bad"; msg.textContent = "Connect the child's phone first, then come back."; return false; }
+    const r = await post("/whatsapp-allowed", { did, all: all.checked, allowed: list.value.split("\n") });
+    msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? "Saved. The phone picks it up at its next check-in." : (r.error ?? "That did not save."); saved = Boolean(r.ok); return saved;
+  };
   v.replaceChildren(h("h2", {}, "WhatsApp (optional)"),
     h("p", {}, "This lets the child's phone read and send WhatsApp messages through its own simple screens, with only the people you choose. Messages stay on the phone. The phone becomes a linked device of one WhatsApp account, like WhatsApp Web. You need the smartphone that has that WhatsApp account (the child's own number, or yours). It takes about five minutes and you can skip it and do it later."),
-    h("div", { class: "card" }, h("strong", {}, "1. On the child's phone"), h("p", { class: "mut" }, "Open the pairing screen: Messages, then WhatsApp (or Settings, then WhatsApp). Messages only offers WhatsApp when the current mode allows WhatsApp checks. The screen is called Link WhatsApp and asks for Your WhatsApp number: type it with the country code and no plus (for example 447700900123) and press Get code. The phone shows a code.")),
-    h("div", { class: "card" }, h("strong", {}, "2. On the smartphone that has that WhatsApp account"), h("p", { class: "mut" }, "Open WhatsApp, then Settings (or the three dots), Linked devices, Link a device, then Link with phone number instead, and type the code from the child's phone. WhatsApp cannot be opened straight onto that screen, so scan this with the smartphone's camera to open the same steps there, with a button to open WhatsApp:"), h("div", { class: "qr", html: i.waQr }), h("p", { class: "link" }, i.waGuide)),
-    h("div", { class: "card" }, h("strong", {}, "3. The phone says Linked"), linked),
-    h("div", { class: "card" }, h("strong", {}, "4. Who may the child message?"), h("p", { class: "mut" }, "Nobody is allowed until you choose. One per line: a phone number with country code and no plus, or g: and a group's name (g:Family)."), h("label", {}, all, " Allow everyone and every group"), list,
-      h("p", {}, h("button", { on: async () => { if (!did) { msg.className = "bad"; msg.textContent = "Connect the child's phone first, then come back."; return; } const r = await post("/whatsapp-allowed", { did, all: all.checked, allowed: list.value.split("\n") }); msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? "Saved. The phone picks it up at its next check-in." : (r.error ?? "That did not save."); } }, "Save who is allowed")), msg),
-    h("div", { class: "row" }, h("button", { on: next }, "Continue"), h("button", { class: "sec", on: skip }, "Skip WhatsApp, I will do it later")));
+    h("div", { class: "card" }, h("strong", {}, "1. Who may the child message? (do this first)"),
+      h("p", { class: "mut" }, "WhatsApp sends a month of recent chats to the phone only once, at the moment it is linked, and the phone keeps only the chats you allow. If you choose later, the older messages are not there. Nobody is allowed until you choose."),
+      h("label", { class: "chk" }, all, h("span", {}, "Allow everyone and every group")),
+      h("p", { class: "mut" }, "Or list people instead (leave the tick off): one per line, a phone number with country code and no plus, or g: and a group's name (g:Family)."), list,
+      h("p", {}, h("button", { on: save }, "Save who is allowed")), msg),
+    h("div", { class: "card" }, h("strong", {}, "2. On the child's phone"), h("p", { class: "mut" }, "Open the pairing screen: Messages, then WhatsApp (or Settings, then WhatsApp). Messages only offers WhatsApp when the current mode allows WhatsApp checks. The screen is called Link WhatsApp and asks for Your WhatsApp number: type it with the country code and no plus (for example 447700900123) and press Get code. The phone shows a code.")),
+    h("div", { class: "card" }, h("strong", {}, "3. On the smartphone that has that WhatsApp account"), h("p", { class: "mut" }, "Open WhatsApp, then Settings (or the three dots), Linked devices, Link a device, then Link with phone number instead, and type the code from the child's phone."),
+      h("details", { class: "plain" }, h("summary", {}, "Doing this on your smartphone? Open these steps there"), h("p", { class: "mut" }, "WhatsApp cannot be opened straight onto that screen. Scan this with the smartphone's camera to open the same steps, with a button to open WhatsApp:"), h("div", { class: "qr", html: i.waQr }), h("p", { class: "link" }, i.waGuide))),
+    h("div", { class: "card" }, h("strong", {}, "4. The phone says Linked"), linked),
+    h("div", { class: "row" }, h("button", { on: async () => { if (!saved && !(await save())) return; next(); } }, "Continue"), h("button", { class: "sec", on: skip }, "Skip WhatsApp, I will do it later")));
   every(async () => { const d = await call("/devices"); const x = Array.isArray(d) ? d.find((q) => q.did === did) : null; if (x?.state?.wa?.linked) { linked.className = "ok"; linked.textContent = "The child's phone says it is linked to WhatsApp."; } }, 4000);
 }
 

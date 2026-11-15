@@ -6,7 +6,7 @@ import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import QRCode from "qrcode";
-import { setUp, CfError, newEnrolment, waitUntilLive, updateWorker, verifyFamily, currentVersion, pickBundle } from "./engine.mjs";
+import { setUp, CfError, newEnrolment, waitUntilLive, updateWorker, verifyFamily, currentVersion, pickBundle, cf, listAccounts } from "./engine.mjs";
 import { seal } from "../worker/src/seal.js";
 import { PROVIDERS, UNSUPPORTED } from "./providers.mjs";
 import { testImap, testSmtp, checkCalendarUrl } from "./checks.mjs";
@@ -90,6 +90,11 @@ const server = http.createServer(async (req, res) => {
       return json(200, out);
     }
     if (req.method === "POST" && p === "/update") { if (job && !job.done) return json(409, { error: "already running" }); if (typeof body.token !== "string" || body.token.length < 20) return json(400, { error: "Please paste the key from Cloudflare first." }); if (!/^[\w-]+$/.test(String(body.name))) return json(400, { error: "Unknown companion." }); startUpdate({ token: body.token, name: body.name }); return json(202, { started: true }); }
+    if (req.method === "POST" && p === "/check-key") {   // does Cloudflare accept the pasted key, and which account will hold the companion?
+      if (typeof body.token !== "string" || body.token.trim().length < 20) return json(400, { error: "Paste the key from Cloudflare first." });
+      try { const call = cf(body.token.trim()), accounts = await listAccounts(call); if (!accounts.length) return json(200, { ok: false, error: "That key works but cannot see any Cloudflare account. Create it again with the button on this page." }); return json(200, { ok: true, accounts: accounts.map((x) => x.name) }); }
+      catch (e) { return json(200, { ok: false, error: friendly(e) }); }
+    }
     if (req.method === "GET" && p === "/families") return json(200, await families());
     if (req.method === "POST" && p === "/resume") {
       const f = (await readdir(DIR).catch(() => [])).find((n) => n === `family-${body.name}.json`); if (!f || !/^[\w-]+$/.test(body.name)) return json(404, { error: "That setup was not found on this computer." });
@@ -98,7 +103,7 @@ const server = http.createServer(async (req, res) => {
       return alive ? json(200, { host: family.host }) : json(502, { error: "That companion did not answer. It may have been deleted from Cloudflare." });
     }
     if (!family) return json(409, { error: "Set up or resume first." });
-    if (req.method === "GET" && p === "/info") return json(200, { host: family.host, link: parentLink(), parentQr: await QRCode.toString(parentLink(), { type: "svg", margin: 1 }), redirectUri: `https://${family.host}/spotify/callback`, guide: `https://${family.host}/guide`, waGuide: `https://${family.host}/guide#whatsapp`, waQr: await QRCode.toString(`https://${family.host}/guide#whatsapp`, { type: "svg", margin: 1 }) });
+    if (req.method === "GET" && p === "/info") return json(200, { host: family.host, link: parentLink(), welcomeLink: parentLink("&welcome=1"), parentQr: await QRCode.toString(parentLink(), { type: "svg", margin: 1 }), redirectUri: `https://${family.host}/spotify/callback`, guide: `https://${family.host}/guide`, waGuide: `https://${family.host}/guide#whatsapp`, waQr: await QRCode.toString(`https://${family.host}/guide#whatsapp`, { type: "svg", margin: 1 }) });
     if (req.method === "POST" && p === "/enrol") { const e = await newEnrolment(family.host, family.adminToken, fetch, base()); return json(200, { address: e.typed.address, code: e.typed.code, expires: e.expires, qr: await QRCode.toString(e.qr, { type: "svg", margin: 1 }) }); }
     if (req.method === "GET" && p === "/pairings") { const r = await wk("/pairings"); return json(r.status, r.ok ? r.body.map(({ id, model, app, created }) => ({ id, model, app, created })) : r.body); }   // the 4 digits are NOT passed on: the parent types what the phone shows
     if (req.method === "POST" && p === "/approve") { const r = await wk(`/pairings/${encodeURIComponent(body.id)}/confirm`, "POST", { match: String(body.match ?? "") }); return json(r.status, r.body); }
@@ -132,7 +137,13 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && p === "/calendar-remove") { const r = await wk(`/devices/${encodeURIComponent(body.did)}/calendar/remove`, "POST", { id: body.id }); return json(r.status, r.body); }
     if (req.method === "GET" && p === "/accounts") { const r = await wk(`/devices/${encodeURIComponent(url.searchParams.get("did") ?? "")}/view`); return json(r.status, r.ok ? { email: r.body.email, email_password_set: r.body.email_password_set, calendars: r.body.calendars, mail: r.body.device?.state?.mail ?? null, calendarStatus: r.body.device?.state?.calendars ?? null } : r.body); }
-    if (req.method === "GET" && p === "/spotify-status") { const c = await wk(`/devices/${encodeURIComponent(url.searchParams.get("did") ?? "")}/config`); return json(200, { connected: Boolean(c.ok && c.body.config?.secrets?.["spotify.refresh"]), clientId: c.ok ? c.body.config?.spotifyClientId ?? "" : "" }); }
+    if (req.method === "GET" && p === "/spotify-status") {
+      const did = encodeURIComponent(url.searchParams.get("did") ?? ""), c = await wk(`/devices/${did}/config`), v = await wk(`/devices/${did}/view`);
+      // is the Spotify app on the child's phone? The phone lists the apps it has (and newer builds say so in its state); null = not known yet
+      const apps = v.ok && Array.isArray(v.body.apps) && v.body.apps.length ? v.body.apps : null, flag = v.ok ? v.body.device?.state?.spotifyInstalled : undefined;
+      const appInstalled = typeof flag === "boolean" ? flag : apps ? (apps.some((a) => a.pkg === "com.spotify.music") || (v.body.pending_apps ?? []).some((a) => a.pkg === "com.spotify.music")) : null;
+      return json(200, { connected: Boolean(c.ok && c.body.config?.secrets?.["spotify.refresh"]), clientId: c.ok ? c.body.config?.spotifyClientId ?? "" : "", appInstalled });
+    }
   } catch (e) { return json(500, { error: e.message }); }
   send(404, "text/plain", "not found");
 });

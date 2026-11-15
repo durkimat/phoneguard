@@ -13,6 +13,7 @@ const mock = http.createServer((req, res) => {
   if (u === "/rel") return out({ tag_name: "v0.0.1", html_url: "https://github.com/x/y/releases/tag/v0.0.1", assets: [{ name: "worker-version.json", browser_download_url: base + "/worker-version.json" }, { name: "worker.bundle.js", browser_download_url: base + "/worker.bundle.js" }] });
   if (u === "/worker-version.json" || u === "/direct/worker-version.json") return out(MOCKINFO);
   if (u === "/worker.bundle.js" || u === "/direct/worker.bundle.js") { res.writeHead(200); return res.end(MOCKCODE); }
+  if (u.startsWith("/client/v4/accounts?")) { if (String(req.headers.authorization).includes("goodkey")) return out({ success: true, result: [{ id: "a", name: "Family account" }] }); res.writeHead(403, { "content-type": "application/json" }); return res.end(JSON.stringify({ success: false, errors: [{ code: 9109 }] })); }
   if (/^\/client\/v4\/accounts\/a\/workers\/scripts\/testfam\/settings$/.test(u)) return out({ success: true, result: {} });
   res.writeHead(404, { "content-type": "application/json" }); res.end(JSON.stringify({ success: false, errors: [{ code: 10007 }] }));
 });
@@ -34,6 +35,7 @@ assert.deepEqual((await api("/families")).body.map((f) => f.name).sort(), ["gone
 assert.equal((await api("/resume", { name: "../etc/passwd" })).status, 404); ok("resume refuses odd names");
 assert.equal((await api("/resume", { name: "testfam" })).status, 200); ok("resume loads a saved setup and checks the companion answers");
 { const ui = (await api("/update-info")).body; const t = ui.find((f) => f.name === "testfam"); assert.equal(t.current, MOCKINFO.version); assert.equal(t.latest, MOCKINFO.version); assert.equal(ui.length, 2); ok("update mode lists each saved companion with its version and the newest version, without needing the Cloudflare key"); }
+{ assert.equal((await api("/check-key", { token: "short" })).status, 400); const g = (await api("/check-key", { token: "goodkey-".padEnd(40, "x") })).body; assert.deepEqual([g.ok, g.accounts], [true, ["Family account"]]); const bad = (await api("/check-key", { token: "wrongkey-".padEnd(40, "x") })).body; assert.equal(bad.ok, false); assert.match(bad.error, /did not accept that key/); ok("the pasted Cloudflare key is checked before installing: the account it can use is shown, a wrong key is explained"); }
 assert.equal((await api("/update", { name: "testfam", token: "short" })).status, 400); assert.equal((await api("/update", { name: "../x", token: "x".repeat(30) })).status, 400); ok("an update needs the key and a sane name");
 { assert.equal((await api("/update", { name: "testfam", token: "x".repeat(40) })).status, 202); let j; for (let i = 0; i < 50; i++) { j = (await api("/status")).body; if (j.done) break; await new Promise((r) => setTimeout(r, 100)); }
   assert.equal(j.error, undefined); assert.equal(j.result.upToDate, true); assert.deepEqual(j.steps.map((x) => x.state).filter((x) => x === "failed"), []); ok("updating a companion that is already current says so and changes nothing");
@@ -53,7 +55,7 @@ assert.equal((await api("/devices")).body.length, 1); ok("the phone appears in t
 assert.equal((await api("/spotify-client", { did: ap.did, clientId: "short" })).status, 400); ok("a bad Spotify Client ID is refused");
 const cid = "a1b2c3d4e5f60718293a4b5c6d7e8f90"; const sp = (await api("/spotify-client", { did: ap.did, clientId: cid })).body;
 assert.match(sp.link, new RegExp(`#k=.+&spotify=${ap.did}$`)); ok("Client ID saved and a deep link to the parent page's Spotify box returned");
-const st = (await api(`/spotify-status?did=${ap.did}`)).body; assert.deepEqual(st, { connected: false, clientId: cid }); ok("status says not connected yet and echoes the saved Client ID");
+const st = (await api(`/spotify-status?did=${ap.did}`)).body; assert.deepEqual(st, { connected: false, clientId: cid, appInstalled: null }); ok("status says not connected yet, echoes the saved Client ID, and says the Spotify app on the phone is not known yet");
 assert.match(info.waGuide, /\/guide#whatsapp$/); assert.match(info.waQr, /^<svg/); ok("the WhatsApp guide link and its QR are built from the host");
 assert.equal((await api("/whatsapp-allowed", { did: ap.did, all: false, allowed: [" 447700900111 ", "g:Family", ""] })).status, 200);
 const waCfg = (await fetch(W + `/api/devices/${ap.did}/config`, { headers: { authorization: "Bearer dev-admin-token" } }).then((r) => r.json())).config.whatsapp; assert.deepEqual(waCfg.allowed, ["447700900111", "g:Family"]); assert.equal(waCfg.all, false); ok("who WhatsApp may talk to is saved from the wizard and reaches the phone's config");

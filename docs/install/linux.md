@@ -49,21 +49,17 @@ curl -LO https://raw.githubusercontent.com/durkimat/phoneguard/main/installer/pg
 
 ### 7. Unlock the bootloader
 - **This erases everything on the phone.**
-- Type these three commands, pressing Enter after each:
-
-```
-./platform-tools/adb reboot bootloader
-./platform-tools/fastboot devices
-./platform-tools/fastboot flashing unlock
-```
-
-- The second command should list your phone.
-- On the phone, confirm the unlock (usually the volume keys choose and the power key confirms).
-- The phone erases itself and restarts. Skip its welcome screens.
+- Type `node pg-install.mjs unlock` and press Enter.
+- It restarts the phone into its bootloader, then asks you to type `yes`.
+- On the phone, confirm the unlock when it asks (usually the volume keys choose and the power key confirms).
+- The phone erases itself and restarts. This takes a few minutes; skip its welcome screens.
 - A warning screen at every start is now normal.
+- *You'll know it worked when:* the installer says the phone is erasing itself and restarting, and the phone starts up.
 
-### 8. Turn USB debugging on again
-- The erase switched it off. Repeat step 4.
+### 8. Check the phone is still visible
+- Type `node pg-install.mjs check` and press Enter.
+- If it lists your phone and every line says `OK`, go on to step 9.
+- If it cannot see the phone, the erase switched USB debugging off. Repeat step 4, then run the check again.
 
 ### 9. Download the Phone Guard image
 - Type `node pg-install.mjs download` and press Enter.
@@ -71,19 +67,24 @@ curl -LO https://raw.githubusercontent.com/durkimat/phoneguard/main/installer/pg
 - *You'll know it worked when:* every line says `OK`.
 
 ### 10. Flash the phone
+- Recommended on a phone you care about: first back up its IMEI and radio data. It is a separate job (about 30 minutes) that this installer does **not** do: [how to do it](../recovery-guide.md). If that data is lost, the phone cannot connect to the mobile network.
 - Type `node pg-install.mjs all` and press Enter.
-- It checks the phone, saves a backup of the phone's details, checks the image, then asks you to type `yes`.
+- It checks the phone, saves a list of the phone's settings and apps, checks the image, and asks you to type `yes` twice: once about the IMEI backup, once before it writes anything.
+- **What you will see:**
+  - Numbered stages in the terminal ("Step 1 of 6", and so on), with fastboot's own progress lines.
+  - The phone restarts into a **text menu** (its flashing mode). **Do not touch the menu**: the installer controls it.
+  - The whole flash takes about 3 to 5 minutes, and the phone then restarts by itself.
 - Do not unplug the phone or let the computer sleep until it says `Done`.
 - *You'll know it worked when:* it says `Done` and the phone restarts.
 
 ### 11. Wait for the first start
-- The first start takes several minutes. Do not interrupt it.
+- Leave the phone alone for about 5 minutes: the first start is slow. Do not interrupt it.
 - *You'll know it worked when:* the phone shows its first-run screen.
 
 ### 12. Choose how to use the phone
 - On the phone, follow the first-run screen: language, time zone and Wi-Fi.
 - Choose **Open phone** or **Family phone**. This is a one-time choice.
-- **Open phone:** nothing is locked and you set everything up on the phone. You are finished with this guide: see [Using your Open phone](open-phone.md).
+- **Open phone:** nothing is locked and you set everything up on the phone. You are finished with this guide: see [Using your Open phone](../open-phone.md).
 - **Family phone:** continue with step 13.
 
 ### 13. Start the setup wizard (Family phone)
@@ -102,6 +103,7 @@ npm start
 
 ### 14. Follow the wizard
 - Work through the wizard's steps. The optional ones (Spotify, email, calendars, WhatsApp) have a **Skip** button.
+- If you use Spotify, the child's phone needs the Spotify app: [installing Spotify on the phone](spotify-app.md).
 - The wizard guide shows each step: [family-setup.md](../family-setup.md).
 - *You'll know it worked when:* the wizard says **All set**.
 

@@ -8,8 +8,8 @@ import { trackScreen } from "/track-view.js";
 
 const $app = document.getElementById("app");
 
-let key = null, deepSpotify = null, onHome = false;   // the quiet refresh below only runs on the home view
-try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
+let key = null, deepSpotify = null, onHome = false, welcome = false;   // the quiet refresh below only runs on the home view
+try { const m = /[#&]k=([\w-]+)/.exec(location.hash); deepSpotify = /[#&]spotify=(\w+)/.exec(location.hash)?.[1] ?? null; if (/[#&]welcome=1/.test(location.hash)) { welcome = true; localStorage.removeItem("pgWelcomeDone"); } if (m) { localStorage.setItem("pgKey", m[1]); history.replaceState(null, "", location.pathname); } key = localStorage.getItem("pgKey"); } catch { /* private mode */ }
 
 async function api(path, method = "GET", body) {
   const r = await fetch("/api" + path, { method, headers: { authorization: "Bearer " + key, "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -27,8 +27,20 @@ async function render() {
   try {
     const [waiting, phones, fam] = await Promise.all([api("/pairings"), api("/devices"), api("/options")]);
     if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return open(d.did); }
-    $app.append(updateNotice(fam), waitingView(waiting), phonesView(phones));
+    const top = h("div", {}, welcomeCard(), updateNotice(fam));
+    if (phones.length === 1 && !waiting.length) return open(phones[0].did, top, true);   // one phone: its page is the home page
+    $app.append(top, waitingView(waiting), phonesView(phones));
   } catch (e) { $app.append(h("p", { class: "bad" }, e.message)); }
+}
+
+// Shown once after the wizard: the move from setting up to looking after the phone.
+function welcomeCard() {
+  let done = false; try { done = localStorage.getItem("pgWelcomeDone") === "1"; } catch { /* private mode */ }
+  if (!welcome || done) return h("div", {});
+  const box = h("div", { class: "card welcome" }, h("strong", {}, "Setup finished"), h("p", {}, "Your family's companion is set up and the phone is connected. From now on this is your control page."),
+    h("p", { class: "mut" }, "At the top you can see how the phone is doing: what it is doing now, battery, where it was last seen and screen time. The tabs below hold the settings; anything you skipped in the wizard is under Still to set up. Bookmark this page, and keep the link private."),
+    h("button", { class: "pri", on: { click: () => { welcome = false; try { localStorage.setItem("pgWelcomeDone", "1"); } catch { /* private mode */ } box.remove(); } } }, "Got it"));
+  return box;
 }
 
 // "A newer companion is available": compares this Worker's version with the newest GitHub release (checked at most every 12 hours when the page is opened).
@@ -50,7 +62,8 @@ function signIn() {
 
 async function addPhone() {
   const e = await api("/enrol/new", "POST"), p = await enrolPayload({ host: location.host, token: e.token, serverKey: e.serverKey });
-  document.getElementById("add").replaceChildren(h("div", { class: "card" }, h("strong", {}, "Add a phone"), h("p", { class: "mut" }, "On the child's phone open Phone Guard and scan this, or type the address and code. It works for about 10 minutes."),
+  let slot = document.getElementById("add"); if (!slot) { slot = h("div", { id: "add" }); $app.prepend(slot); }
+  slot.replaceChildren(h("div", { class: "card" }, h("strong", {}, "Add a phone"), h("p", { class: "mut" }, "On the child's phone open Phone Guard and scan this, or type the address and code. It works for about 10 minutes."),
     h("div", { class: "qr", html: qrSvg(p.qr) }), h("p", { class: "mut" }, "Address"), h("div", { class: "big" }, p.address), h("p", { class: "mut" }, "Code"), h("div", { class: "big" }, p.code)));
 }
 
@@ -76,7 +89,7 @@ function phonesView(list) {
     h("button", { on: { click: () => open(d.did) } }, "Open"))));
 }
 
-async function open(did) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
+async function open(did, top = null, single = false) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, top, single, add: addPhone, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
 
 async function spotifyCallback() {
   $app.replaceChildren(h("p", { class: "mut" }, "Finishing the Spotify sign-in..."));

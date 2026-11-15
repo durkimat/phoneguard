@@ -50,14 +50,15 @@ The wizard shows a progress bar along the top ("Step 3 of 9"). It does everythin
 
 ### Step 1: Cloudflare
 
-1. Press **Open Cloudflare**. A Cloudflare page opens with the permission already filled in (Workers Scripts: Edit).
-2. Press **Continue to summary**, then **Create token**. Copy the key it shows.
-3. Paste the key into the wizard and press **Install my companion**.
+1. Press **Open Cloudflare** and sign in (or create a free account) when asked.
+2. You arrive at "Create API token" with the permission already chosen (Workers Scripts: Edit). **Change nothing on that page.**
+3. Scroll to the bottom, press **Continue to summary**, then **Create token**.
+4. Cloudflare shows the key once. Press **Copy**, paste it into the wizard, press **Check my key** (it shows which Cloudflare account it can use), then **Install my companion**.
 
 ![The wizard's first step: get the Cloudflare key, then paste it. The progress bar shows where you are.](images/wizard-step1.png)
 *The wizard's first step: get the Cloudflare key, then paste it. The progress bar shows where you are.*
 
-The key stays on your computer, is used only to talk to Cloudflare and is forgotten when you close the page. If you have already installed your companion and closed the wizard, pick it under **Continue an earlier setup** to carry on from step 3.
+The key stays on your computer, is used only to talk to Cloudflare and is forgotten when you close the page. Afterwards you can delete it in Cloudflare (your profile, API Tokens); you make a new one when you update. If you have already installed your companion and closed the wizard, pick it under **Continue an earlier setup** to carry on from step 3.
 
 ### Step 2: Install
 
@@ -89,6 +90,8 @@ The wizard shows a QR code for your **private parent link**. Scan it with your o
 *Your parent page: add phones, approve new phones, see your phones.*
 
 ### Step 5 (optional): Spotify
+
+> **The child's phone needs the Spotify app.** It is not part of the Phone Guard image (Spotify only publishes it on Google Play), so install it once: [installing Spotify on the phone](install/spotify-app.md). The wizard shows whether the phone has reported it.
 
 Spotify does not let tools create developer apps or add users for you, so this step is a guided hand-off. It takes about five minutes, needs a Spotify Premium account, and you can **Skip** it and do it later.
 
@@ -128,16 +131,18 @@ You can also do this later from your parent page: open the phone, then **Calenda
 
 This lets the child's phone read and send WhatsApp messages through its own simple screens, with only the people you choose. Messages stay on the phone. The phone becomes a "linked device" of one WhatsApp account, like WhatsApp Web, so you need the smartphone that has that WhatsApp account (the child's own number, or yours). You can **Skip** this step and do it later.
 
-1. **On the child's phone** open the pairing screen: Messages, then WhatsApp (or Settings, then WhatsApp; Messages only offers WhatsApp when the current mode allows WhatsApp checks). It is called **Link WhatsApp** and asks for **Your WhatsApp number**: type it with the country code and no plus (for example `447700900123`) and press **Get code**. The phone shows a code.
-2. **On the smartphone that has that WhatsApp account** open WhatsApp, then Settings (or the three dots), **Linked devices**, **Link a device**, **Link with phone number instead**, and type the code. WhatsApp cannot be opened straight onto that screen, so the wizard shows a QR code: scan it with the smartphone's camera to open the same steps there, with a button that opens WhatsApp.
-3. The child's phone says **Linked**, and the wizard ticks once the phone has told your companion (at its next check-in, up to 15 minutes, or press **Sync now** on the phone).
-4. **Choose who the child may message.** Nobody is allowed until you do. Type one per line: a phone number with country code and no plus, or `g:` and a group's name (`g:Family`), or tick "Allow everyone". You can change this later on the parent page under the phone's **WhatsApp** section.
+1. **Choose who the child may message first.** Nobody is allowed until you do. Tick "Allow everyone and every group", or type one per line a phone number with country code and no plus, or `g:` and a group's name (`g:Family`), and press **Save who is allowed**. Do this before linking: WhatsApp sends a month of recent chats to the phone only once, at the moment it is linked, and the phone keeps only the chats you allow. You can change it later on the parent page, but older messages will not come back unless you link again.
+2. **On the child's phone** open the pairing screen: Messages, then WhatsApp (or Settings, then WhatsApp; Messages only offers WhatsApp when the current mode allows WhatsApp checks). It is called **Link WhatsApp** and asks for **Your WhatsApp number**: type it with the country code and no plus (for example `447700900123`) and press **Get code**. The phone shows a code.
+3. **On the smartphone that has that WhatsApp account** open WhatsApp, then Settings (or the three dots), **Linked devices**, **Link a device**, **Link with phone number instead**, and type the code. (If you are reading the wizard on a computer and doing this on a smartphone, the wizard has a "open these steps there" link with a QR code.)
+4. The child's phone says **Linked**, and the wizard ticks once the phone has told your companion (at its next check-in, up to 15 minutes, or press **Sync now** on the phone).
+
+To unlink and link again, use **Unlink** in the phone's WhatsApp settings. If you remove the linked device from your own WhatsApp first, the phone detects that, clears itself, and offers a new link.
 
 WhatsApp can lapse a linked device if the main smartphone has not been online for about two weeks; if messages stop, link again from step 1. The same steps are on your parent page at `/guide#whatsapp`.
 
 ### Step 9: Finish
 
-A summary shows what is done and what you skipped, with how to do each skipped part later, plus a button to open your parent page.
+**Setup finished.** A summary shows what is done and what you skipped, with how to do each skipped part later, plus a button to open your parent page. From here on you manage the phone from that page, not from the wizard.
 
 ## Set a timetable
 
@@ -154,7 +159,7 @@ Times follow the time zone shown on the page, including clock changes. The page 
 
 ## Everyday controls
 
-Open a phone from your parent page. Each section opens and closes; every control saves straight away and the phone picks the change up at its next check-in (about 15 minutes), or at once if you press **Sync now** on the phone.
+Your parent page opens on the phone's status: what it is doing now, battery, when it was last seen, **where it was last seen**, screen time today and WhatsApp. Below that are tabs: **Today** (force a mode, boost, location history, screen time, battery), **Timetable**, **Apps**, **Services** (WhatsApp, Spotify, email, calendars, radio, weather) and **The phone** (look, updates, manage). Each section opens and closes; every control saves straight away and the phone picks the change up at its next check-in (about 15 minutes), or at once if you press **Sync now** on the phone.
 
 | Section | What it does |
 |---|---|
@@ -163,7 +168,7 @@ Open a phone from your parent page. Each section opens and closes; every control
 | **Apps and modes** | A tick grid of which apps each mode allows, with select-all. New apps appear for you to **approve** or leave blocked. A **Remove** button asks the phone to uninstall an app. |
 | **Mode settings** | Per mode: grey screen, home screen, touch, pull-down shade, sound, WhatsApp checks and app, internet radio, radios sleeping, incoming calls, camera, location and how often, notifications, locking to allowed apps, screen-off and idle times, allowing new apps automatically. |
 | **Phone restrictions** | Factory reset, safe mode, date and time, adding users, VPN and other Android settings the phone may block. |
-| **WhatsApp**, **Radio stations**, **Apps on the Nokia menu**, **Weather place**, **Look of the phone** | Who WhatsApp may talk to and how fast, your station list, which apps are in the main menu and which notifications are cleared, the weather location, and the phone's theme, fonts and colours. |
+| **WhatsApp**, **Radio stations**, **Apps on the Nokia menu**, **Weather place** (type a postcode or town), **Look of the phone** | Who WhatsApp may talk to and how fast, your station list, which apps are in the main menu and which notifications are cleared, the weather location, and the phone's theme, fonts and colours. |
 | **Spotify** | Connect or disconnect (see above). |
 | **Email**, **Calendars** | Set or change the child's mail account (with an app password) and the family calendars shown on the phone. Passwords and private calendar links are locked so only the phone can read them. |
 | **Location history** | Where the phone has been over the last week (you choose 1 to 14 days, or off), played back on a map: pick a day and press Play. Quiet stretches such as school or home play fast and journeys play slowly so movements are easy to follow; the stops list ("Stayed 08:19 to 15:03") jumps to each stay. Positions are kept only in your Cloudflare account and can be cleared at any time. Location must be switched on for a mode first (Mode settings, Location). |

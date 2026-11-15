@@ -28,7 +28,8 @@ const MODE_ROWS = [
   ["Screen off after", "screen_off_min", [[1, "1 min"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [0, "Never"]]], ["Close idle apps after", "idle_min", [[0, "Never"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]],
   ["Allow new apps automatically", "auto_new", "bool"],
 ];
-const openSet = new Set(["Right now"]);   // which sections the parent had open survives a redraw
+const closedSet = new Set();   // sections the parent closed stay closed after a redraw (everything else is open)
+let openTab = "today";
 
 export async function phoneScreen(ctx, did) {
   const { api, back, app } = ctx;
@@ -37,18 +38,26 @@ export async function phoneScreen(ctx, did) {
   const redraw = () => phoneScreen(ctx, did);
   const act = async (sub, body, st, ok = "Saved.") => { st?.("mut", "Saving..."); try { const r = await api(`/devices/${did}${sub}`, "POST", body); if (st) st("ok", ok); return r; } catch (e) { st?.("bad", e.message); throw e; } };
   const patchChild = (patch, st, ok) => act("/child", { patch }, st, ok).then(redraw, () => {});
-  const sec = (title, ...kids) => { const el = section(title, openSet.has(title), ...kids); el.addEventListener("toggle", () => (el.open ? openSet.add(title) : openSet.delete(title))); return el; };
+  const sec = (title, ...kids) => { const el = section(title, !closedSet.has(title), ...kids); el.addEventListener("toggle", () => (el.open ? closedSet.delete(title) : closedSet.add(title))); return el; };
   const lbl = (pkg) => v.labels[pkg] ?? v.apps.find((a) => a.pkg === pkg)?.label ?? pkg;
 
-  // ---- header ------------------------------------------------------------------------------------------------------
-  const st0 = v.device.state ?? {}, fix = v.device.fix;
+  // ---- header: the phone's status at a glance (what a parent looks at day to day) ----------------------------------------------
+  const st0 = v.device.state ?? {}, fix = v.device.fix, pw = v.power ?? {};
+  const hmin = (sec_) => (sec_ >= 3600 ? `${Math.floor(sec_ / 3600)} h ${Math.round((sec_ % 3600) / 60)} min` : `${Math.max(1, Math.round(sec_ / 60))} min`);
+  let todayKey = ""; try { todayKey = new Date().toLocaleDateString("en-CA", { timeZone: v.tz || undefined }); } catch { todayKey = new Date().toLocaleDateString("en-CA"); }
+  const todaySec = Object.values(v.usage?.[todayKey] ?? {}).reduce((x, y) => x + y, 0);
+  const tile = (label, value, sub, cls = "") => h("div", { class: "tile" }, h("div", { class: "mut" }, label), h("div", { class: "tv " + cls }, value), sub ? h("div", { class: "mut" }, sub) : null);
+  const mapLink = (f) => h("a", { href: `https://www.openstreetmap.org/?mlat=${f[1]}&mlon=${f[2]}#map=16/${f[1]}/${f[2]}`, target: "_blank", rel: "noopener noreferrer" }, "Open the map");
+  const tiles = h("div", { class: "tiles" },
+    tile("Now", mname(v.mode_now), v.override ? "forced, ignoring the timetable" : v.boost ? `boost for ${left(v.boost.until)} more` : "following the timetable", v.override ? "bad" : v.boost ? "ok" : ""),
+    tile("Battery", st0.battery != null ? `${st0.battery}%` : "unknown", pw.plugged ? "charging" : pw.hours_left ? `about ${pw.hours_left} h left` : "", st0.battery != null && st0.battery <= 15 && !pw.plugged ? "bad" : ""),
+    tile("Last seen", ago(v.device.last_seen), v.device.version ? `Phone Guard ${v.device.version}${st0.owner === false ? ", not managed" : ""}` : ""),
+    h("div", { class: "tile" }, h("div", { class: "mut" }, "Location"), h("div", { class: "tv" }, fix ? ago(fix[0]) : "Not shared"), h("div", { class: "mut" }, fix ? ["within ", Math.round(fix[3]), " m. ", mapLink(fix)] : "Switch on in Mode settings, Location")),
+    tile("Screen time today", todaySec ? hmin(todaySec) : "none yet", "as reported by the phone"),
+    tile("WhatsApp", st0.wa?.linked ? "Linked" : "Not linked", st0.wa?.linked ? "" : "Set up in the Services tab"));
   const header = h("div", {},
-    h("div", { class: "row" }, h("button", { on: { click: back } }, "Back"), h("h2", { style: "margin:0" }, v.name)),
-    h("div", { class: "card" },
-      h("div", {}, h("strong", {}, `Now: ${mname(v.mode_now)}`), v.override ? h("span", { class: "bad" }, ` (forced, ignoring the timetable)`) : null),
-      v.boost ? h("div", { class: "ok" }, `Boost: ${mname(v.boost.mode)} for ${left(v.boost.until)} more`) : null,
-      h("div", { class: "mut" }, `Seen ${ago(v.device.last_seen)}`, st0.battery != null ? ` · battery ${st0.battery}%` : "", v.device.version ? ` · Phone Guard ${v.device.version}` : "", st0.owner === false ? " · not device owner" : ""),
-      fix ? h("div", { class: "mut" }, `Last position ${ago(fix[0])}, within ${Math.round(fix[3])} m: `, h("a", { href: `https://www.openstreetmap.org/?mlat=${fix[1]}&mlon=${fix[2]}#map=16/${fix[1]}/${fix[2]}`, target: "_blank", rel: "noopener noreferrer" }, "open map")) : null));
+    h("div", { class: "row topbar" }, !ctx.single ? h("button", { on: { click: back } }, "All phones") : null, h("h2", { style: "margin:0;flex:1" }, v.name), h("button", { on: { click: () => ctx.add?.() } }, "Add a phone"), h("a", { href: "/guide", class: "mut" }, "Guide")),
+    tiles);
 
   // ---- right now: override, boost, holiday -------------------------------------------------------------------------------
   const stOv = status(), stBoost = status(), stHol = status();
@@ -115,8 +124,25 @@ export async function phoneScreen(ctx, did) {
 
   // ---- weather location and look -------------------------------------------------------------------------------------------
   const lat = h("input", { type: "number", step: "0.001", value: v.location?.lat ?? "", placeholder: "51.750", "aria-label": "Latitude" }), lon = h("input", { type: "number", step: "0.001", value: v.location?.lon ?? "", placeholder: "-0.340", "aria-label": "Longitude" }), stLoc = status();
-  const weather = sec("Weather place", h("p", { class: "mut" }, "The weather on the home screen comes from Open-Meteo for the place below. The phone never asks for its own location for this. Rounded to about 100 m."), h("div", { class: "row" }, lat, lon),
-    h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => patchChild({ location: lat.value && lon.value ? { lat: Number(lat.value), lon: Number(lon.value) } : null }, stLoc, "Saved.") } }, "Save"), h("button", { on: { click: () => patchChild({ location: null }, stLoc, "Cleared.") } }, "No weather")), stLoc.el);
+  const place = h("input", { placeholder: "Postcode (AL1 3AB) or town", "aria-label": "Postcode or town", autocomplete: "off" }), placeOut = h("div", {});
+  const setPlace = (name, la, lo) => { lat.value = Number(la).toFixed(3); lon.value = Number(lo).toFixed(3); placeOut.replaceChildren(h("p", { class: "ok" }, `${name}: ${lat.value}, ${lon.value}. Press Save to use it.`)); };
+  const search = async () => {
+    const q = place.value.trim(); if (!q) return; placeOut.replaceChildren(h("p", { class: "mut" }, "Looking..."));
+    try {
+      if (/^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$/.test(q)) {   // a UK postcode: postcodes.io, asked from this browser
+        const r = await fetch("https://api.postcodes.io/postcodes/" + encodeURIComponent(q.replace(/\s+/g, ""))), j = await r.json(); if (!r.ok || !j.result) throw new Error("That postcode was not found.");
+        return setPlace(`${j.result.postcode} (${j.result.admin_district ?? j.result.region ?? "UK"})`, j.result.latitude, j.result.longitude);
+      }
+      const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&format=json&name=" + encodeURIComponent(q)), j = await r.json(); if (!j.results?.length) throw new Error("No place found. Try a postcode or a bigger town nearby.");
+      placeOut.replaceChildren(h("p", { class: "mut" }, "Pick the right one:"), ...j.results.map((x) => h("div", { class: "row" }, h("button", { on: { click: () => setPlace([x.name, x.admin1, x.country].filter(Boolean).join(", "), x.latitude, x.longitude) } }, [x.name, x.admin1, x.country].filter(Boolean).join(", ")))));
+    } catch (e) { placeOut.replaceChildren(h("p", { class: "bad" }, e.message)); }
+  };
+  place.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+  const weather = sec("Weather place", h("p", { class: "mut" }, "The weather on the home screen comes from Open-Meteo for the place below. The phone never asks for its own location for this."),
+    h("div", { class: "row" }, place, h("button", { on: { click: search } }, "Find")), placeOut,
+    h("p", { class: "mut" }, "Your browser looks the postcode up on postcodes.io (towns on Open-Meteo); nothing goes through your companion. The place is stored to about 100 m."),
+    h("details", {}, h("summary", {}, "Or type the coordinates"), h("div", { class: "row" }, lat, lon)),
+    h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => patchChild({ location: lat.value && lon.value ? { lat: Number(lat.value), lon: Number(lon.value) } : null }, stLoc, "Saved.") } }, "Save"), h("button", { on: { click: () => patchChild({ location: null }, stLoc, "Cleared.") } }, "No weather")), stLoc.el, v.location ? h("p", { class: "mut" }, `Now: ${v.location.lat}, ${v.location.lon}`) : null);
   const lookVals = { ...(v.look ?? {}) }, stLook = status();
   const lookFields = [["theme", "Theme"], ["font", "Font"], ["menu_style", "Menu style"], ["windows", "Windows"], ["colour", "Colour"], ["wall", "Wall"], ["shadow", "Shadow"], ["bars", "Bars"], ["font_display", "Display font"], ["font_text", "Text font"], ["font_label", "Label font"]].filter(([k]) => LOOK[k] || (k.startsWith("font_") && LOOK.font));
   const look = sec("Look of the phone", h("p", { class: "mut" }, "A choice here wins over the phone's own for that setting. Leave 'Phone's own' to let the phone decide."),
@@ -188,7 +214,23 @@ export async function phoneScreen(ctx, did) {
       h("div", { class: "row" }, Object.keys(copyFrom.parts).map((p) => h("label", {}, check(copyFrom.parts[p], (c) => (copyFrom.parts[p] = c)), " " + ({ timetable: "Timetable", holiday: "Holiday", restrictions: "Restrictions", mode_options: "Mode settings", whatsapp: "WhatsApp" })[p]))),
       h("button", { on: { click: () => act("/copy", { from: copyFrom.id, parts: Object.keys(copyFrom.parts).filter((p) => copyFrom.parts[p]) }, stM, "Copied.").then(redraw, () => {}) } }, "Copy")) : null,
     h("div", { class: "row" }, h("button", { on: { click: () => { if (confirm("Release this phone? It will switch off all of Phone Guard's controls and stop being managed.")) act("/release", {}, stM, "The phone will be released at its next check-in.").catch(() => {}); } } }, "Release the phone"),
-      h("button", { on: { click: async () => { if (confirm("Forget this phone? It is removed from this page and can no longer check in. Release it first if you want it unlocked.")) { await act("/forget", {}, stM).catch(() => {}); back(); } } } }, "Forget the phone")), stM.el);
+      h("button", { on: { click: async () => { if (confirm("Forget this phone? It is removed from this page and can no longer check in. Release it first if you want it unlocked.")) { await act("/forget", {}, stM).catch(() => {}); (back ?? (() => location.reload()))(); } } } }, "Forget the phone")), stM.el);
 
-  app.replaceChildren(header, right, timetable, apps, modes, restr, whatsapp, radioSec, nokia, weather, look, histSec, spotify, emailSec, calSec, usage, battery, updates, manage);
+  // ---- what is still to set up (until the parent dismisses it) ----------------------------------------------------------------
+  let tabShow = () => {};
+  const todo = [];
+  if (!Object.values(v.week ?? {}).some((d) => d?.length)) todo.push(["Timetable", "timetable", "Add the school and night times."]);
+  if (!st0.wa?.linked) todo.push(["WhatsApp", "services", "Link the child's WhatsApp."]);
+  if (!v.email) todo.push(["Email", "services", "Add the child's mail account."]);
+  if (!v.calendars?.length) todo.push(["Calendars", "services", "Add the family calendars."]);
+  let hideTodo = false; try { hideTodo = localStorage.getItem("pgTodoHidden") === "1"; } catch { /* private mode */ }
+  const todoCard = todo.length && !hideTodo ? h("div", { class: "card" }, h("strong", {}, "Still to set up"), h("p", { class: "mut" }, "Optional, any time:"), ...todo.map(([name, tab, text]) => h("div", { class: "row" }, h("button", { class: "small", on: { click: () => tabShow(tab) } }, name), h("span", { class: "mut" }, text))),
+    h("div", { class: "row" }, h("button", { class: "small", on: { click: () => { try { localStorage.setItem("pgTodoHidden", "1"); } catch { /* private mode */ } todoCard.remove(); } } }, "Hide this"))) : null;
+
+  // ---- tabs: day-to-day first, set-up things behind their own tabs -------------------------------------------------------------
+  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, updates, manage]]];
+  const body = h("div", { class: "cols" }), bar = h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label]) => h("button", { class: "tab", role: "tab", "data-tab": id, on: { click: () => tabShow(id) } }, label)));
+  tabShow = (id) => { if (!TABS.some((t) => t[0] === id)) id = "today"; openTab = id; for (const b of bar.children) { const on = b.dataset.tab === id; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); } body.replaceChildren(...TABS.find((t) => t[0] === id)[2].filter(Boolean)); };
+  tabShow(openTab);
+  app.replaceChildren(...(ctx.top ? [ctx.top] : []), header, bar, body);
 }

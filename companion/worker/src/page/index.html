@@ -6,7 +6,7 @@
 :root{color-scheme:light dark;--bg:#fff;--fg:#1c1b1a;--mut:#6b6a66;--line:#d9d7d0;--acc:#185fa5;--card:#f6f5f1;--bad:#a32d2d;--ok:#3b6d11}
 @media(prefers-color-scheme:dark){:root{--bg:#1c1b1a;--fg:#ecebe6;--mut:#a3a199;--line:#3a3935;--acc:#85b7eb;--card:#262522;--bad:#f09595;--ok:#97c459}}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,sans-serif}
-main{max-width:34rem;margin:0 auto;padding:16px}
+main{max-width:76rem;margin:0 auto;padding:16px}
 h1{font-size:22px;font-weight:500;margin:8px 0 16px}h2{font-size:18px;font-weight:500;margin:24px 0 8px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
 .mut{color:var(--mut);font-size:14px}.bad{color:var(--bad)}.ok{color:var(--ok)}
@@ -22,6 +22,13 @@ details.sec{background:var(--card);border:1px solid var(--line);border-radius:12
 .scroll{overflow-x:auto;max-height:28rem}table.mx{border-collapse:collapse;width:100%;font-size:14px}table.mx th,table.mx td{border-top:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:middle}table.mx td input[type=checkbox]{min-height:auto;width:20px;height:20px}table.mx select{min-height:34px;padding:2px 4px}
 .chk2{display:block;padding:4px 0}.chk2 input{min-height:auto}button.small{min-height:30px;padding:2px 8px;font-size:13px;margin-left:6px}.bar{position:relative;display:flex;justify-content:space-between;gap:8px;padding:4px 6px;margin:3px 0}.bar i{position:absolute;left:0;bottom:0;height:3px;background:var(--acc);border-radius:2px}
 .key{font:18px ui-monospace,monospace;word-break:break-all;padding:10px;border:2px dashed var(--bad);border-radius:8px;margin:8px 0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:10px;margin:10px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px}.tile .tv{font-size:22px;font-weight:500;margin:2px 0}.tile .tv.bad{color:var(--bad)}.tile .tv.ok{color:var(--ok)}
+.topbar{margin-top:4px}.topbar a{margin-left:8px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:14px 0 6px}.tab{border-radius:8px 8px 0 0;border-bottom:none;background:var(--bg)}.tab.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr));gap:0 14px;align-items:start}
+.welcome{border-color:var(--ok)}
+@media(max-width:34rem){main{padding:12px}.tiles{grid-template-columns:repeat(2,1fr)}}
 </style></head>
 <body><main><h1>Phone Guard</h1><div id="app" aria-live="polite"></div></main>
 <script type="module" src="/app.js"></script></body></html>

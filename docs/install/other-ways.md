@@ -13,7 +13,7 @@ The [Start page](../getting-started.md) has one guide per operating system. This
 ## Doing the steps by hand instead of with the installer
 
 - [Set up the computer and phone](computer-setup.md): the tools and USB debugging in more detail.
-- [Unlock the bootloader](unlock-bootloader.md)
+- [Unlock the bootloader](unlock-bootloader.md) (the installer has an `unlock` command)
 - [Get the image and check it by hand](get-the-image.md)
 - [Flash it by hand](flash.md)
 
