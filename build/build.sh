@@ -36,7 +36,20 @@ build)
   # used; each patch header names its repo in PATCHDIR below). Idempotent: skipped if already applied.
   for pf in /src/phoneguard-build/patches/*.patch; do
     dir=$(sed -n 's/^# repo: //p' "$pf" | head -1)
-    (cd "$SRC/$dir" && { git apply -R --check "$pf" 2>/dev/null && echo "already applied: $pf" || git apply "$pf"; })
+    (cd "$SRC/$dir" && {
+      if git apply -R --check "$pf" 2>/dev/null; then echo "already applied: $pf"
+      elif git apply --check "$pf" 2>/dev/null; then git apply "$pf"
+      else
+        # neither direction works: a LATER patch in the same repo may sit on top of this one (they touch the same lines), so this one is in
+        # the tree already; if no later patch is applied either, the patch really does not fit and the build stops.
+        later=0
+        for lf in /src/phoneguard-build/patches/*.patch; do
+          [[ "$lf" > "$pf" ]] || continue
+          [ "$(sed -n 's/^# repo: //p' "$lf" | head -1)" = "$dir" ] && git apply -R --check "$lf" 2>/dev/null && later=1
+        done
+        if [ $later = 1 ]; then echo "already applied (a later patch overlaps it): $pf"; else echo "PATCH DOES NOT APPLY: $pf"; exit 1; fi
+      fi
+    })
   done
   # MediaTek IMS module (docs/ims-port-plan.md): our Android.bp/ims.mk plus the proprietary inputs, which are not in git.
   chmod -R u+w vendor/phoneguard/ims 2>/dev/null || true; rm -rf vendor/phoneguard/ims; mkdir -p vendor/phoneguard/ims
