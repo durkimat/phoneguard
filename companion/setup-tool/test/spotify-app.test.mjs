@@ -20,7 +20,7 @@ const SCREENS = {
   installer: [["Spotify", 120, 280], ["Do you want to install this app?", 240, 330], ["Cancel", 290, 405], ["Install", 389, 405]],
   done: [["Spotify: Music and Podcasts", 240, 150], ["Uninstall", 120, 320], ["Open", 356, 320]],
 };
-const phone = ({ wifi = true, connected = true, spotify = false, approvalWorks = true, anonymousWorks = true } = {}) => {
+const phone = ({ wifi = true, connected = true, spotify = false, approvalWorks = true, anonymousWorks = true, syncReceiver = true } = {}) => {
   const st = { aurora: false, spotify, synced: false, pgOpen: false, screen: null, dumps: 0, log: [], scales: { window_animation_scale: "1.0", transition_animation_scale: "1.0", animator_duration_scale: "null" }, lastDump: "" };
   const adb = async (args) => {
     const cmd = args[0] === "shell" ? args[1] : args.join(" "); st.log.push(cmd);
@@ -35,6 +35,7 @@ const phone = ({ wifi = true, connected = true, spotify = false, approvalWorks =
     if ((m = /^settings put global (\w+) (\S+)/.exec(cmd))) { st.scales[m[1]] = m[2]; return { ok: true, out: "" }; }
     if ((m = /^settings delete global (\w+)/.exec(cmd))) { st.scales[m[1]] = "null"; return { ok: true, out: "" }; }
     if (/^rm -f/.test(cmd)) { st.lastDump = ""; return { ok: true, out: "" }; }
+    if (/SyncReceiver/.test(cmd)) { if (!syncReceiver) return { ok: false, out: "Error: Class not found" }; if (approvalWorks) st.synced = true; return { ok: true, out: "Broadcast completed: result=0" }; }
     if (/MainActivity/.test(cmd)) { st.pgOpen = true; return { ok: true, out: "" }; }
     if (/KEYCODE_ENTER/.test(cmd)) { if (st.pgOpen && approvalWorks) st.synced = true; st.pgOpen = false; return { ok: true, out: "" }; }
     if (/^input keyevent/.test(cmd)) return { ok: true, out: "" };
@@ -63,7 +64,8 @@ const run = async (p, extra = {}) => { const said = [], calls = { approve: [], u
 const fails = async (p, re, extra) => { await assert.rejects(run(p, extra), (e) => e instanceof StepError && re.test(e.message)); };
 
 { const s = parseScreen(xml([["Install", 356, 320], ["", 40, 40, "Navigate up"]])); assert.deepEqual(s.map((x) => [x.text || x.desc, x.x, x.y]), [["Install", 356, 320], ["Navigate up", 40, 40]]); ok("the phone's screen dump is read into buttons with their centre points"); }
-{ const p = phone(); const { r, said, calls } = await run(p); assert.deepEqual(r, { installed: true }); assert.ok(p.st.spotify && !p.st.aurora); assert.deepEqual(calls.approve, [[AURORA.pkg, SPOTIFY]]); assert.deepEqual(calls.unapprove, [[AURORA.pkg]]); assert.ok(said.some((t) => /Removing Aurora/.test(t))); assert.deepEqual(p.st.scales, { window_animation_scale: "1.0", transition_animation_scale: "1.0", animator_duration_scale: "null" }); assert.ok(p.st.log.indexOf("uninstall com.aurora.store") > p.st.log.findIndex((c) => c === "am start -a android.intent.action.VIEW -d market://details?id=com.spotify.music -p com.aurora.store")); ok("a full install, on a phone whose app page never stops animating: animations are switched off while it runs and put back exactly as they were, Aurora is set up anonymously, installs Spotify, and is then removed and un-approved"); }
+{ const p = phone(); const { r, said, calls } = await run(p); assert.deepEqual(r, { installed: true }); assert.ok(p.st.spotify && !p.st.aurora); assert.deepEqual(calls.approve, [[AURORA.pkg, SPOTIFY]]); assert.deepEqual(calls.unapprove, [[AURORA.pkg]]); assert.ok(said.some((t) => /Removing Aurora/.test(t))); assert.deepEqual(p.st.scales, { window_animation_scale: "1.0", transition_animation_scale: "1.0", animator_duration_scale: "null" }); assert.ok(p.st.log.indexOf("uninstall com.aurora.store") > p.st.log.findIndex((c) => c === "am start -a android.intent.action.VIEW -d market://details?id=com.spotify.music -p com.aurora.store")); assert.ok(p.st.log.some((c) => /SyncReceiver/.test(c)) && !p.st.log.some((c) => /MainActivity/.test(c))); ok("a full install, on a phone whose app page never stops animating: animations are switched off while it runs and put back exactly as they were, Aurora is set up anonymously, installs Spotify, and is then removed and un-approved"); }
+{ const p = phone({ syncReceiver: false }); const { r } = await run(p); assert.deepEqual(r, { installed: true }); assert.ok(p.st.log.some((c) => /MainActivity/.test(c))); ok("on an older phone app without the sync message it still works, by pressing Sync now on the status page"); }
 { const p = phone({ spotify: true }); const { r } = await run(p); assert.deepEqual(r, { already: true }); assert.ok(!p.st.aurora); assert.ok(!p.st.log.some((c) => c.startsWith("install"))); ok("when Spotify is already on the phone nothing is installed"); }
 { const p = phone({ wifi: false }); await fails(p, /not on Wi-Fi/); assert.ok(!p.st.aurora); ok("not on Wi-Fi: stops before installing anything and says why"); }
 { const p = phone({ connected: false }); await fails(p, /not connected/); ok("no phone on the cable: a plain message"); }

@@ -69,7 +69,12 @@ export async function installSpotifyApp({ adb, approve = async () => {}, unappro
 
   say("Allowing Aurora and Spotify on the phone (your parent page controls which apps the child can use)");
   await approve([aurora.pkg, target]);
-  const poke = async () => { await sh(`am start -n ${PG}/.MainActivity`); await sleep(2000); for (const k of ["DPAD_DOWN", "DPAD_DOWN", "DPAD_DOWN", "ENTER"]) await sh(`input keyevent KEYCODE_${k}`); await sleep(9000); };   // the status page's "Sync now"
+  // ask the phone to check in with the companion now: a message only this computer can send (app 0.4.6 and newer); older builds fall back to pressing "Sync now" on the status page
+  const poke = async () => {
+    const r = await sh(`am broadcast -n ${PG}/.SyncReceiver`);
+    if (/Broadcast completed/i.test(r.out) && !/error|unable|not found/i.test(r.out)) { await sleep(6000); return; }
+    await sh(`am start -n ${PG}/.MainActivity`); await sleep(2000); for (const k of ["DPAD_DOWN", "DPAD_DOWN", "DPAD_DOWN", "ENTER"]) await sh(`input keyevent KEYCODE_${k}`); await sleep(9000);
+  };
   let started = false;
   for (let i = 0; i < tries.approval && !started; i++) {
     await poke(); await sh("input keyevent KEYCODE_WAKEUP");
