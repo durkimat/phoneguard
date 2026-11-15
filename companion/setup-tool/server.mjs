@@ -7,6 +7,12 @@ import { homedir } from "node:os";
 import { spawn } from "node:child_process";
 import QRCode from "qrcode";
 import { setUp, CfError, newEnrolment, waitUntilLive } from "./engine.mjs";
+import { seal } from "../worker/src/seal.js";
+import { PROVIDERS, UNSUPPORTED } from "./providers.mjs";
+import { testImap, testSmtp, checkCalendarUrl } from "./checks.mjs";
+
+// The live checks can be replaced in tests (they talk to real mail servers and calendars).
+export const hooks = { testImap, testSmtp, checkCalendarUrl };
 
 const session = crypto.randomBytes(16).toString("hex");           // stops other web pages in the browser from calling this local server
 const DIR = process.env.PHONEGUARD_DIR ?? `${homedir()}/.phoneguard`;
@@ -43,6 +49,13 @@ async function families() {
   try { return (await Promise.all((await readdir(DIR)).filter((f) => /^family-.*\.json$/.test(f)).map(async (f) => { const j = JSON.parse(await readFile(`${DIR}/${f}`, "utf8")); return { name: j.name, host: j.host }; }))); } catch { return []; }
 }
 
+// What the parent typed for an email account, cleaned (spaces in app passwords are ignored for Google; the Worker validates the rest).
+function mailInput(b) {
+  const address = String(b.address ?? "").trim(), password = String(b.password ?? "");
+  if (!address || !password) return { error: "Please enter the email address and the app password." };
+  const gmail = /@(gmail|googlemail)\.com$/i.test(address), user = String(b.user ?? "").trim() || address;
+  return { address, user, password: gmail ? password.replace(/\s+/g, "") : password.trim(), imap: { host: String(b.imap?.host ?? "").trim().toLowerCase(), port: Number(b.imap?.port), security: b.imap?.security ?? "ssl" }, smtp: { host: String(b.smtp?.host ?? "").trim().toLowerCase(), port: Number(b.smtp?.port), security: b.smtp?.security ?? "ssl" } };
+}
 const readBody = (req) => new Promise((res) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => res(b)); });
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
@@ -80,6 +93,26 @@ const server = http.createServer(async (req, res) => {
       const allowed = (Array.isArray(body.allowed) ? body.allowed : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 200);
       const r = await wk(`/devices/${encodeURIComponent(body.did)}/child`, "POST", { patch: { whatsapp: { all: Boolean(body.all), allowed } } }); return json(r.status, r.body);
     }
+    if (req.method === "GET" && p === "/providers") return json(200, { providers: PROVIDERS, unsupported: UNSUPPORTED.map((u) => ({ pattern: u.match.source, flags: u.match.flags, why: u.why })) });
+    if (req.method === "POST" && p === "/email-test") { const a = mailInput(body); if (a.error) return json(400, { error: a.error }); const [imap, smtp] = await Promise.all([hooks.testImap({ ...a.imap, user: a.user, password: a.password }), hooks.testSmtp({ ...a.smtp, user: a.user, password: a.password })]); return json(200, { imap, smtp }); }
+    if (req.method === "POST" && p === "/email") {
+      const a = mailInput(body); if (a.error) return json(400, { error: a.error });
+      const k = await wk(`/devices/${encodeURIComponent(body.did)}/enckey`); if (!k.ok) return json(k.status, k.body);
+      const sealedPassword = await seal({ recipientSpki: k.body.encKey, did: body.did, name: "email.password", plaintext: a.password });
+      const r = await wk(`/devices/${encodeURIComponent(body.did)}/email`, "POST", { email: { address: a.address, user: a.user, imap: a.imap, smtp: a.smtp }, sealedPassword }); return json(r.status, r.body);
+    }
+    if (req.method === "POST" && p === "/email-clear") { const r = await wk(`/devices/${encodeURIComponent(body.did)}/email/clear`, "POST", {}); return json(r.status, r.body); }
+    if (req.method === "POST" && p === "/calendar-check") return json(200, await hooks.checkCalendarUrl(body.url));
+    if (req.method === "POST" && p === "/calendar-add") {
+      const c = await hooks.checkCalendarUrl(body.url); if (!c.ok) return json(400, { error: c.message });
+      const name = String(body.name ?? c.name ?? "").trim().slice(0, 40); if (!name) return json(400, { error: "Please give the calendar a name." });
+      const k = await wk(`/devices/${encodeURIComponent(body.did)}/enckey`); if (!k.ok) return json(k.status, k.body);
+      const id = crypto.randomBytes(4).toString("hex");
+      const sealedUrl = await seal({ recipientSpki: k.body.encKey, did: body.did, name: "calendar." + id, plaintext: c.url });
+      const r = await wk(`/devices/${encodeURIComponent(body.did)}/calendar/add`, "POST", { id, name, sealedUrl }); return json(r.status, r.ok ? { ...r.body, name, events: c.events } : r.body);
+    }
+    if (req.method === "POST" && p === "/calendar-remove") { const r = await wk(`/devices/${encodeURIComponent(body.did)}/calendar/remove`, "POST", { id: body.id }); return json(r.status, r.body); }
+    if (req.method === "GET" && p === "/accounts") { const r = await wk(`/devices/${encodeURIComponent(url.searchParams.get("did") ?? "")}/view`); return json(r.status, r.ok ? { email: r.body.email, email_password_set: r.body.email_password_set, calendars: r.body.calendars, mail: r.body.device?.state?.mail ?? null, calendarStatus: r.body.device?.state?.calendars ?? null } : r.body); }
     if (req.method === "GET" && p === "/spotify-status") { const c = await wk(`/devices/${encodeURIComponent(url.searchParams.get("did") ?? "")}/config`); return json(200, { connected: Boolean(c.ok && c.body.config?.secrets?.["spotify.refresh"]), clientId: c.ok ? c.body.config?.spotifyClientId ?? "" : "" }); }
   } catch (e) { return json(500, { error: e.message }); }
   send(404, "text/plain", "not found");

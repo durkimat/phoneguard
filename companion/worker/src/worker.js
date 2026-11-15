@@ -1,6 +1,6 @@
 // Front door: routes phone calls (signed, no login) and parent calls (bearer token) to the family's Durable Object.
 import { safeEqual } from "./crypto.js";
-import { INDEX, APP, TIMETABLE, SPOTIFY, SEAL, CRYPTO, QR, ENROL, GUIDE, UI, PHONE as PHONE_JS, LOOKOPT, TRACK, TRACKVIEW, LEAFLET, LEAFLETCSS } from "./page-assets.js";
+import { INDEX, APP, TIMETABLE, SPOTIFY, SEAL, CRYPTO, QR, ENROL, GUIDE, UI, PHONE as PHONE_JS, LOOKOPT, TRACK, TRACKVIEW, LEAFLET, LEAFLETCSS, PROVIDERS } from "./page-assets.js";
 export { Family } from "./family.js";
 
 const PHONE = [/^\/api\/info$/, /^\/api\/pair$/, /^\/api\/pair\/[A-Z0-9]+$/, /^\/api\/sync$/];
@@ -24,7 +24,7 @@ export default {
 
 const SECURITY = { "content-security-policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://accounts.spotify.com; frame-ancestors 'none'", "referrer-policy": "no-referrer", "x-content-type-options": "nosniff", "cache-control": "no-store" };
 const JS = "text/javascript; charset=utf-8";
-const FILES = { "/": [INDEX, "text/html; charset=utf-8"], "/app.js": [APP, JS], "/spotify/callback": [INDEX, "text/html; charset=utf-8"], "/timetable.js": [TIMETABLE, JS], "/spotify.js": [SPOTIFY, JS], "/seal.js": [SEAL, JS], "/crypto.js": [CRYPTO, JS], "/qr.js": [QR, JS], "/guide": [GUIDE, "text/html; charset=utf-8"], "/enrol.js": [ENROL, JS], "/ui.js": [UI, JS], "/phone.js": [PHONE_JS, JS], "/look-options.js": [LOOKOPT, JS], "/track.js": [TRACK, JS], "/track-view.js": [TRACKVIEW, JS], "/map.js": [LEAFLET, JS], "/map.css": [LEAFLETCSS, "text/css; charset=utf-8"] };
+const FILES = { "/": [INDEX, "text/html; charset=utf-8"], "/app.js": [APP, JS], "/spotify/callback": [INDEX, "text/html; charset=utf-8"], "/timetable.js": [TIMETABLE, JS], "/spotify.js": [SPOTIFY, JS], "/seal.js": [SEAL, JS], "/crypto.js": [CRYPTO, JS], "/qr.js": [QR, JS], "/guide": [GUIDE, "text/html; charset=utf-8"], "/enrol.js": [ENROL, JS], "/ui.js": [UI, JS], "/phone.js": [PHONE_JS, JS], "/look-options.js": [LOOKOPT, JS], "/track.js": [TRACK, JS], "/providers.js": [PROVIDERS, JS], "/track-view.js": [TRACKVIEW, JS], "/map.js": [LEAFLET, JS], "/map.css": [LEAFLETCSS, "text/css; charset=utf-8"] };
 function staticPage(path) {
   const f = FILES[path];
   return f ? new Response(f[0], { headers: { "content-type": f[1], ...SECURITY } }) : new Response("Not found", { status: 404, headers: SECURITY });

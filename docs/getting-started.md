@@ -30,7 +30,7 @@ Put the phone in fastboot mode and run four short groups of `fastboot` commands 
 The first start takes a few minutes. *Worked when:* you see the Phone Guard status page and the Nokia-style home screen. [More detail](install/flash.md#first-start)
 
 **6. Run the setup wizard.**
-On the computer, open the setup tool and follow its seven steps (Cloudflare, install, connect the phone, your phone, Spotify, WhatsApp, finish). Spotify and WhatsApp can be skipped. *Worked when:* the wizard says "All set". [The wizard guide](family-setup.md)
+On the computer, open the setup tool and follow its nine steps (Cloudflare, install, connect the phone, your phone, Spotify, email, calendars, WhatsApp, finish). Spotify, email, calendars and WhatsApp can be skipped. *Worked when:* the wizard says "All set". [The wizard guide](family-setup.md)
 
 **7. Set the timetable.**
 Open your private parent page on your own phone and add the school and night times. *Worked when:* the phone shows the right mode. [Everyday controls](family-setup.md#everyday-controls)

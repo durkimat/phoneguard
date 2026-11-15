@@ -5,7 +5,7 @@ const call = (p, o = {}) => fetch(p, { ...o, headers: { "x-session": S, "content
 const post = (p, body) => call(p, { method: "POST", body: JSON.stringify(body ?? {}) });
 const TOKEN_LINK = "https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22edit%22%7D%5D&accountId=*&zoneId=all&name=phoneguard-setup";
 
-const STEPS = [{ id: "cf", label: "Cloudflare" }, { id: "install", label: "Install" }, { id: "phone", label: "Child's phone" }, { id: "yours", label: "Your phone" }, { id: "spotify", label: "Spotify", optional: true }, { id: "whatsapp", label: "WhatsApp", optional: true }, { id: "done", label: "Finish" }];
+const STEPS = [{ id: "cf", label: "Cloudflare" }, { id: "install", label: "Install" }, { id: "phone", label: "Child's phone" }, { id: "yours", label: "Your phone" }, { id: "spotify", label: "Spotify", optional: true }, { id: "email", label: "Email", optional: true }, { id: "calendar", label: "Calendar", optional: true }, { id: "whatsapp", label: "WhatsApp", optional: true }, { id: "done", label: "Finish" }];
 const state = { at: 0, skipped: new Set(), info: null, did: null, timers: [] };
 const stop = () => { state.timers.forEach(clearInterval); state.timers = []; };
 const every = (fn, ms) => { fn(); state.timers.push(setInterval(fn, ms)); };
@@ -41,6 +41,8 @@ const VIEWS = {
       h("div", { class: "row" }, h("button", { on: next }, "I have opened it"), h("button", { class: "sec", on: skip }, "Skip, I will do this later")));
   },
   async spotify() { await spotifyStep(); },
+  async email() { await emailStep(); },
+  async calendar() { await calendarStep(); },
   async whatsapp() { await whatsappStep(); },
   async done() {
     const i = state.info, sk = (id) => state.skipped.has(id);
@@ -49,6 +51,8 @@ const VIEWS = {
       h("li", { class: sk("phone") ? "todo" : "done" }, sk("phone") ? "Child's phone: not connected yet. Press Add a phone on your parent page any time." : "Child's phone is connected"),
       h("li", { class: sk("yours") ? "todo" : "done" }, sk("yours") ? "Your phone: open the private link when you are ready (shown below)." : "Your phone has the parent page"),
       h("li", { class: sk("spotify") ? "todo" : "done" }, sk("spotify") ? "Spotify: skipped. On your parent page open the phone, then the Spotify section." : "Spotify is set up"),
+      h("li", { class: sk("email") ? "todo" : "done" }, sk("email") ? "Email: skipped. On your parent page open the phone, then the Email section." : "Email is set up (the phone finishes it at its next check-in)"),
+      h("li", { class: sk("calendar") ? "todo" : "done" }, sk("calendar") ? "Calendar: skipped. On your parent page open the phone, then the Calendars section." : "Calendars are set up"),
       h("li", { class: sk("whatsapp") ? "todo" : "done" }, sk("whatsapp") ? "WhatsApp: skipped. The steps are in the guide: https://" + i.host + "/guide#whatsapp" : "WhatsApp is linked (or you chose to finish later)")),
       h("div", { class: "card" }, h("strong", {}, "What next"), h("p", { class: "mut" }, "Set the timetable from your parent page: open the phone, then Timetable, add blocks for each day and Save."),
         h("p", {}, h("a", { class: "btn", href: i.link, target: "_blank", rel: "noopener noreferrer" }, "Open my parent page")), h("p", {}, h("a", { href: i.guide, target: "_blank", rel: "noopener noreferrer" }, "How it all works"))));
@@ -123,6 +127,56 @@ async function whatsappStep() {
       h("p", {}, h("button", { on: async () => { if (!did) { msg.className = "bad"; msg.textContent = "Connect the child's phone first, then come back."; return; } const r = await post("/whatsapp-allowed", { did, all: all.checked, allowed: list.value.split("\n") }); msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? "Saved. The phone picks it up at its next check-in." : (r.error ?? "That did not save."); } }, "Save who is allowed")), msg),
     h("div", { class: "row" }, h("button", { on: next }, "Continue"), h("button", { class: "sec", on: skip }, "Skip WhatsApp, I will do it later")));
   every(async () => { const d = await call("/devices"); const x = Array.isArray(d) ? d.find((q) => q.did === did) : null; if (x?.state?.wa?.linked) { linked.className = "ok"; linked.textContent = "The child's phone says it is linked to WhatsApp."; } }, 4000);
+}
+
+async function emailStep() {
+  const devs = await call("/devices"), did = state.did ?? (Array.isArray(devs) && devs[0]?.did), P = await call("/providers");
+  const address = h("input", { type: "email", placeholder: "name@gmail.com", autocomplete: "off", "aria-label": "Email address" }), pw = h("input", { type: "password", placeholder: "App password", autocomplete: "off", "aria-label": "App password" });
+  const guide = h("div"), servers = h("details", {}), results = h("div"), msg = h("p"), saved = h("p", { class: "mut" });
+  const field = (label, el) => h("label", { style: "display:block;margin:8px 0" }, h("span", { class: "mut" }, label), el);
+  const inp = (v, ph, t = "text") => h("input", { type: t, value: v, placeholder: ph }), sec = (v) => { const x = h("select", {}, h("option", { value: "ssl" }, "SSL/TLS (port 993 or 465)"), h("option", { value: "starttls" }, "STARTTLS (port 587 or 143)")); x.value = v; return x; };
+  const user = inp("", "Same as the address"), ih = inp("", "imap.example.com"), ip = inp("993", "993", "number"), is = sec("ssl"), sh = inp("", "smtp.example.com"), sp = inp("465", "465", "number"), ss = sec("ssl");
+  servers.replaceChildren(h("summary", {}, "Server settings"), field("User name (usually the address)", user), field("Incoming (IMAP) server", ih), h("div", { class: "row" }, field("Port", ip), field("Security", is)), field("Outgoing (SMTP) server", sh), h("div", { class: "row" }, field("Port", sp), field("Security", ss)));
+  const send = h("button", { disabled: true }, "Send to the phone"), anyway = h("button", { class: "sec", style: "display:none" }, "Send anyway");
+  const find = () => { const a = address.value.trim(), dom = a.split("@")[1]?.toLowerCase() ?? ""; return P.providers.find((p) => p.domains.includes(dom)) ?? P.providers.find((p) => p.id === "other"); };
+  const unsupported = () => P.unsupported.find((u) => new RegExp(u.pattern, u.flags).test(address.value.trim()));
+  const refresh = () => {
+    const p = find(), bad = unsupported();
+    if (bad) { guide.replaceChildren(h("div", { class: "card warn" }, h("strong", {}, "This address cannot be used yet"), h("p", { class: "mut" }, bad.why))); return; }
+    if (!address.value.includes("@")) { guide.replaceChildren(); return; }
+    ih.value = p.imap.host; ip.value = p.imap.port; is.value = p.imap.security; sh.value = p.smtp.host; sp.value = p.smtp.port; ss.value = p.smtp.security; servers.open = p.id === "other";
+    guide.replaceChildren(h("div", { class: "card" }, h("strong", {}, `Get an app password (${p.name})`), p.passwordHelp.url ? h("p", {}, h("a", { class: "btn", href: p.passwordHelp.url, target: "_blank", rel: "noopener noreferrer" }, p.passwordHelp.label)) : null, h("ol", { class: "mut" }, p.passwordHelp.steps.map((t) => h("li", {}, t))), h("p", { class: "mut" }, "An app password is a separate password just for this phone. You can cancel it at any time without changing the real password.")));
+  };
+  address.addEventListener("input", refresh);
+  const body = () => ({ did, address: address.value.trim(), user: user.value.trim(), password: pw.value, imap: { host: ih.value, port: Number(ip.value), security: is.value }, smtp: { host: sh.value, port: Number(sp.value), security: ss.value } });
+  const line = (label, r) => h("div", { class: r.ok ? "ok" : "bad" }, `${r.ok ? "\u2713" : "\u2717"} ${label}: ${r.message}`);
+  const check = h("button", { class: "sec", on: async () => { msg.textContent = ""; if (unsupported()) return; results.replaceChildren(h("p", { class: "mut" }, "Checking (this signs in from this computer)...")); const r = await post("/email-test", body()); if (r.error) { results.replaceChildren(h("p", { class: "bad" }, r.error)); return; } results.replaceChildren(line("Incoming mail", r.imap), line("Outgoing mail", r.smtp)); const good = r.imap.ok && r.smtp.ok; send.disabled = !good; anyway.style.display = good ? "none" : ""; } }, "Check it works");
+  const save = async () => { if (!did) { msg.className = "bad"; msg.textContent = "Connect the child's phone first, then come back to email."; return; } const r = await post("/email", body()); msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? "Sent. The password is locked so only the phone can read it. The phone sets up the account at its next check-in (up to 15 minutes; press Sync now on the phone to speed it up)." : (r.error ?? "That did not save."); if (r.ok) { pw.value = ""; poll(); } };
+  send.addEventListener("click", save); anyway.addEventListener("click", save);
+  const poll = () => every(async () => { const a = await call(`/accounts?did=${encodeURIComponent(did)}`); if (a.email) { saved.textContent = `Saved for ${a.email.address}.` + (a.mail?.configured ? " The phone has set it up." : a.mail?.error ? ` The phone says: ${a.mail.error}` : " Waiting for the phone to pick it up."); saved.className = a.mail?.configured ? "ok" : "mut"; } }, 4000);
+  v.replaceChildren(h("h2", {}, "Email (optional)"),
+    h("p", {}, "This lets the child's phone send and receive email with a normal mail account, on its own simple screens. Use an address made for the child and not your own. It takes about five minutes, and you can skip it and do it later."),
+    h("div", { class: "card" }, h("strong", {}, "1. The address"), field("Email address", address), guide),
+    h("div", { class: "card" }, h("strong", {}, "2. The app password"), h("p", { class: "mut" }, "Paste it here. It stays on this computer until you press Send, and then it is locked so that only the child's phone can read it."), pw, servers),
+    h("div", { class: "card" }, h("strong", {}, "3. Check and send"), h("div", { class: "row" }, check, send, anyway), results, msg, saved),
+    h("div", { class: "row" }, h("button", { on: next }, "Continue"), h("button", { class: "sec", on: skip }, "Skip email, I will do it later")));
+  if (did) { const a = await call(`/accounts?did=${encodeURIComponent(did)}`); if (a.email) { address.value = a.email.address; refresh(); poll(); } }
+}
+
+async function calendarStep() {
+  const devs = await call("/devices"), did = state.did ?? (Array.isArray(devs) && devs[0]?.did);
+  const link = h("input", { placeholder: "https://calendar.google.com/calendar/ical/.../basic.ics", autocomplete: "off", "aria-label": "Calendar link" }), name = h("input", { placeholder: "Name on the phone, for example Family", "aria-label": "Calendar name" });
+  const results = h("p", { class: "mut" }), msg = h("p"), list = h("div"), add = h("button", { disabled: true }, "Add this calendar");
+  const drawList = async () => { if (!did) return; const a = await call(`/accounts?did=${encodeURIComponent(did)}`); list.replaceChildren(...(a.calendars ?? []).map((c) => h("div", { class: "row" }, h("span", { class: "ok" }, `\u2713 ${c.name}`), h("button", { class: "sec", on: async () => { await post("/calendar-remove", { did, id: c.id }); drawList(); } }, "Remove")))); };
+  const check = h("button", { class: "sec", on: async () => { results.className = "mut"; results.textContent = "Reading the link..."; const r = await post("/calendar-check", { url: link.value }); results.className = r.ok ? "ok" : "bad"; results.textContent = r.message; add.disabled = !r.ok; if (r.ok && !name.value && r.name) name.value = r.name; } }, "Check the link");
+  add.addEventListener("click", async () => { if (!did) { msg.className = "bad"; msg.textContent = "Connect the child's phone first, then come back to calendars."; return; } const r = await post("/calendar-add", { did, name: name.value, url: link.value }); msg.className = r.ok ? "ok" : "bad"; msg.textContent = r.ok ? `Added ${r.name}. The phone picks it up at its next check-in (up to 15 minutes).` : (r.error ?? "That did not save."); if (r.ok) { link.value = ""; name.value = ""; results.textContent = ""; add.disabled = true; drawList(); } });
+  v.replaceChildren(h("h2", {}, "Calendars (optional)"),
+    h("p", {}, "This puts your family calendars on the child's phone so they can see what is coming up, for example the family diary or school terms. They are view only: events the child adds on the phone stay on the phone. You can skip this and do it later."),
+    h("div", { class: "card" }, h("strong", {}, "1. Get the calendar's private link"), h("p", { class: "mut" }, "Google Calendar, on a computer: open calendar.google.com, then Settings (the cog), then the calendar's name under Settings for my calendars, then scroll to Integrate calendar and copy the Secret address in iCal format. Other calendar services have a similar iCal, ICS or subscribe link."), h("p", { class: "mut" }, "Anyone with this link can read that calendar, so treat it like a password. The wizard locks it so only the child's phone can read it.")),
+    h("div", { class: "card" }, h("strong", {}, "2. Paste it and check it"), link, h("div", { class: "row" }, check), results, name),
+    h("div", { class: "card" }, h("strong", {}, "3. Add it"), h("div", { class: "row" }, add), msg, h("div", { class: "mut" }, "Calendars on the phone:"), list),
+    h("div", { class: "row" }, h("button", { on: next }, "Continue"), h("button", { class: "sec", on: skip }, "Skip calendars, I will do it later")));
+  drawList();
 }
 
 go("cf");

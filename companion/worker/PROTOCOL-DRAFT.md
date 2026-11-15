@@ -79,3 +79,15 @@ The Worker holds, per phone, the **child** (what the parent sets: modes, weekly 
 **Location history.** Every valid position in a report's `loc` list (`[time ms, lat, lon, accuracy m, provider, mode]`) is stored in the `fixes` table (primary key device + time, so repeats are ignored) for `history_days` days (family option: 0, 1, 3, 7 or 14; default 7; 0 stores nothing but the newest position is still shown). Older rows are deleted on every check-in. `GET /api/devices/{did}/track?from=&to=&max=` returns the positions oldest first, thinned to at most `max` (default 4000) while keeping the last one; `POST /api/devices/{did}/track/clear` deletes a phone's history. The map playback (`src/page/track.js`, `track-view.js`) plays a day on a display clock that skips quiet stretches quickly and slows for journeys; the maths is unit tested.
 
 **WhatsApp state (phone to Worker).** The phone should include `state.wa = {"linked": true|false, "status": "..."}` in its report so the wizard and the parent page can show whether WhatsApp is linked. The Worker stores `state` as sent.
+
+## Email and calendars (Cloudflare-side extensions; Home Assistant has neither)
+
+Parent endpoints: `POST /api/devices/{did}/email {email, sealedPassword?}`, `email/clear`, `calendar/add {id, name, sealedUrl}`, `calendar/remove {id}` (plus the general `secret {name, sealed|null}`). The page view adds `email`, `email_password_set` and `calendars[{id,name,url_set}]` but never a password or a link.
+
+**Config the phone receives** (inside `config`, next to `secrets`):
+* `email`: `{address, user, imap:{host,port,security}, smtp:{host,port,security}, secret:"email.password"}`. `security` is `ssl` or `starttls`. The password is `secrets["email.password"]`, sealed to the phone's encryption key and bound to the device id and the slot name.
+* `calendars`: `[{id, name, secret:"calendar.<id>"}]` (at most 8). The link is `secrets["calendar.<id>"]`, an https iCal URL (the parent's `webcal://` is converted), sealed and slot-bound. The id is chosen by the sealer, because it is part of what the link is bound to.
+
+**Phone to Worker** (in `state`): `mail: {configured, error?}` and `calendars: [{id, ok, events, error?}]` so the wizard and the parent page can show whether the phone picked them up. When a parent-provisioned account or calendar disappears from the config, the phone removes it.
+
+Providers (`src/page/providers.js`): Gmail, iCloud and Fastmail presets with the steps for an app password; "another provider" takes manual server names; Microsoft addresses are refused with an explanation. The setup wizard (not the page) tests the login from the parent's computer before anything is sent (`setup-tool/checks.mjs`: IMAP LOGIN and SMTP AUTH over SSL or STARTTLS, and a read of the calendar link).

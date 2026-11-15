@@ -4,6 +4,8 @@ import { h, ago, hm, toMin, left, status, section, field, select, check } from "
 import { checkPattern } from "/timetable.js";
 import { LOOK } from "/look-options.js";
 import { makePkce, authorizeUrl, redirectUri } from "/spotify.js";
+import { seal } from "/seal.js";
+import { PROVIDERS, UNSUPPORTED, providerFor } from "/providers.js";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const RESTRICTIONS = [
@@ -132,6 +134,32 @@ export async function phoneScreen(ctx, did) {
 
   const histSec = sec("Location history", h("p", { class: "mut" }, "See where the phone has been and play a day back on a map: quiet stretches (school, home) play fast and journeys play slowly. Location must be switched on in Mode settings."), h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => ctx.track(did, v.name, v.tz) } }, "Open the map and playback")));
 
+  // ---- email and calendars ----------------------------------------------------------------------------------------------
+  const stMail = status(), mailState = v.device.state?.mail, E = v.email;
+  const mAddr = h("input", { type: "email", value: E?.address ?? "", placeholder: "name@gmail.com", autocomplete: "off", "aria-label": "Email address" }), mPw = h("input", { type: "password", placeholder: v.email_password_set ? "Password set (type a new one to replace it)" : "App password", autocomplete: "off", "aria-label": "App password" });
+  const mUser = h("input", { value: E && E.user !== E.address ? E.user : "", placeholder: "Same as the address" }), mIh = h("input", { value: E?.imap.host ?? "", placeholder: "imap.example.com" }), mIp = h("input", { type: "number", value: E?.imap.port ?? 993 }), mIs = select([["ssl", "SSL/TLS"], ["starttls", "STARTTLS"]], E?.imap.security ?? "ssl", () => {});
+  const mSh = h("input", { value: E?.smtp.host ?? "", placeholder: "smtp.example.com" }), mSp = h("input", { type: "number", value: E?.smtp.port ?? 465 }), mSs = select([["ssl", "SSL/TLS"], ["starttls", "STARTTLS"]], E?.smtp.security ?? "ssl", () => {});
+  const mGuide = h("div", {}), fillFor = () => { const p = providerFor(mAddr.value.trim()), bad = UNSUPPORTED.find((u) => u.match.test(mAddr.value.trim())); mGuide.replaceChildren(); if (bad) { mGuide.append(h("p", { class: "bad" }, bad.why)); return; } if (!p) return; mIh.value = p.imap.host; mIp.value = p.imap.port; mIs.value = p.imap.security; mSh.value = p.smtp.host; mSp.value = p.smtp.port; mSs.value = p.smtp.security; mGuide.append(h("p", { class: "mut" }, `${p.name}: `, h("a", { href: p.passwordHelp.url, target: "_blank", rel: "noopener noreferrer" }, p.passwordHelp.label), ". ", p.passwordHelp.steps[0])); };
+  mAddr.addEventListener("input", fillFor);
+  const saveMail = async () => {
+    try {
+      const address = mAddr.value.trim(); if (!address) return stMail("bad", "Enter the email address.");
+      const email = { address, user: mUser.value.trim() || address, imap: { host: mIh.value.trim(), port: Number(mIp.value), security: mIs.value }, smtp: { host: mSh.value.trim(), port: Number(mSp.value), security: mSs.value } };
+      let sealedPassword; if (mPw.value) { const { encKey } = await api(`/devices/${did}/enckey`); sealedPassword = await seal({ recipientSpki: encKey, did, name: "email.password", plaintext: /@(gmail|googlemail)\.com$/i.test(address) ? mPw.value.replace(/\s+/g, "") : mPw.value.trim() }); } else if (!v.email_password_set) return stMail("bad", "Enter the app password.");
+      stMail("mut", "Saving..."); await api(`/devices/${did}/email`, "POST", { email, ...(sealedPassword ? { sealedPassword } : {}) }); stMail("ok", "Saved. The password is locked so only the phone can read it. The phone sets the account up at its next check-in."); mPw.value = ""; redraw();
+    } catch (e) { stMail("bad", e.message); }
+  };
+  const emailSec = sec("Email", h("p", { class: E ? "ok" : "mut" }, E ? `Account: ${E.address}${v.email_password_set ? "" : " (no password yet)"}. ${mailState ? (mailState.configured ? "The phone has set it up." : mailState.error ? "The phone says: " + mailState.error : "Waiting for the phone.") : "Waiting for the phone's next check-in."}` : "No email account yet."),
+    h("p", { class: "mut" }, "Use an address made for the child, with an app password (not the normal password). The wizard on your computer can also test the login first; here the check happens on the phone."), field("Email address", mAddr), mGuide, field("App password", mPw),
+    h("details", {}, h("summary", {}, "Server settings"), field("User name", mUser), field("Incoming (IMAP) server", mIh), h("div", { class: "row" }, mIp, mIs), field("Outgoing (SMTP) server", mSh), h("div", { class: "row" }, mSp, mSs)),
+    h("div", { class: "row" }, h("button", { class: "pri", on: { click: saveMail } }, E ? "Save changes" : "Save and send to the phone"), E ? h("button", { on: { click: async () => { if (confirm("Remove the email account from this phone?")) { await act("/email/clear", {}, stMail, "Removed.").then(redraw, () => {}); } } } }, "Remove the account") : null), stMail.el);
+  const stCal = status(), cName = h("input", { placeholder: "Name on the phone, for example Family", "aria-label": "Calendar name" }), cLink = h("input", { placeholder: "https://calendar.google.com/calendar/ical/.../basic.ics", autocomplete: "off", "aria-label": "Calendar link" });
+  const calSec = sec("Calendars", h("p", { class: "mut" }, "Family calendars shown on the phone, view only. Use a calendar's private iCal link (Google Calendar: Settings, the calendar, Integrate calendar, Secret address in iCal format). The link is locked so only the phone can read it."),
+    ...(v.calendars.length ? v.calendars.map((c) => h("div", { class: "row" }, h("span", { class: c.url_set ? "ok" : "bad" }, `${c.url_set ? "\u2713" : "\u2717"} ${c.name}`), h("button", { on: { click: () => { if (confirm(`Remove ${c.name} from the phone?`)) act("/calendar/remove", { id: c.id }, stCal, "Removed.").then(redraw, () => {}); } } }, "Remove"))) : [h("p", { class: "mut" }, "No calendars yet.")]),
+    field("Name", cName), field("Private link", cLink), h("div", { class: "row" }, h("button", { class: "pri", on: { click: async () => {
+      try { const url = cLink.value.trim().replace(/^webcal:\/\//i, "https://"), name = cName.value.trim(); if (!/^https:\/\//i.test(url)) return stCal("bad", "The link must start with https:// or webcal://."); if (!name) return stCal("bad", "Give the calendar a name."); const id = [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, "0")).join(""), { encKey } = await api(`/devices/${did}/enckey`); stCal("mut", "Saving...");
+        await api(`/devices/${did}/calendar/add`, "POST", { id, name, sealedUrl: await seal({ recipientSpki: encKey, did, name: "calendar." + id, plaintext: url }) }); stCal("ok", "Added. The phone picks it up at its next check-in."); redraw(); } catch (e) { stCal("bad", e.message); } } } }, "Add calendar")), stCal.el);
+
   // ---- reports -------------------------------------------------------------------------------------------------------------
   const days = Object.keys(v.usage).sort().reverse(); let day = days[0];
   const usageBox = h("div", {}), drawUsage = () => { const u = Object.entries(v.usage[day] ?? {}).sort((a, b) => b[1] - a[1]).slice(0, 12), mx = u[0]?.[1] || 1;
@@ -161,5 +189,5 @@ export async function phoneScreen(ctx, did) {
     h("div", { class: "row" }, h("button", { on: { click: () => { if (confirm("Release this phone? It will switch off all of Phone Guard's controls and stop being managed.")) act("/release", {}, stM, "The phone will be released at its next check-in.").catch(() => {}); } } }, "Release the phone"),
       h("button", { on: { click: async () => { if (confirm("Forget this phone? It is removed from this page and can no longer check in. Release it first if you want it unlocked.")) { await act("/forget", {}, stM).catch(() => {}); back(); } } } }, "Forget the phone")), stM.el);
 
-  app.replaceChildren(header, right, timetable, apps, modes, restr, whatsapp, radioSec, nokia, weather, look, histSec, spotify, usage, battery, updates, manage);
+  app.replaceChildren(header, right, timetable, apps, modes, restr, whatsapp, radioSec, nokia, weather, look, histSec, spotify, emailSec, calSec, usage, battery, updates, manage);
 }

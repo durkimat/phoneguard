@@ -169,6 +169,22 @@ await api("POST", "/api/options", { parent: true, body: { history_days: 0 } }); 
 await api("POST", "/api/options", { parent: true, body: { history_days: 7 } });
 assert.equal((await api("GET", `${D}/track`)).status, 401); ok("the history needs the parent key");
 
+console.log("Email and calendars");
+{ const open2 = (sealed, name) => openSealed({ encPrivatePkcs8: encPrivB64, did: conf.did, name, sealed });
+  const gm = { address: "parent@example.com", imap: { host: "imap.gmail.com", port: 993, security: "ssl" }, smtp: { host: "smtp.gmail.com", port: 465, security: "ssl" } };
+  const sealedPw = await seal({ recipientSpki: encPubB64, did: conf.did, name: "email.password", plaintext: "abcd efgh ijkl mnop" });
+  assert.equal((await post("email", { email: gm, sealedPassword: sealedPw })).status, 200);
+  const cfgE = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.equal(cfgE.email.address, "parent@example.com"); assert.equal(cfgE.email.secret, "email.password"); assert.equal(open2(cfgE.secrets["email.password"], "email.password"), "abcd efgh ijkl mnop"); ok("an email account reaches the phone with its password sealed; the phone's key opens it");
+  assert.ok(!JSON.stringify((await api("GET", `${D}/view`, { parent: true })).body).includes("abcd efgh")); assert.equal((await api("GET", `${D}/view`, { parent: true })).body.email_password_set, true); ok("the parent view never contains the password, only that one is set");
+  assert.equal((await post("email", { email: { ...gm, address: "nope" } })).status, 400); ok("a bad email setting is refused");
+  const sealedUrl = await seal({ recipientSpki: encPubB64, did: conf.did, name: "calendar.x", plaintext: "https://calendar.google.com/calendar/ical/abc/private-123/basic.ics" });
+  assert.equal((await post("calendar/add", { name: "Family", sealedUrl })).status, 200);
+  const cfgC = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.equal(cfgC.calendars.length, 1); assert.equal(cfgC.calendars[0].name, "Family"); assert.ok(!JSON.stringify(cfgC.calendars).includes("calendar.google.com")); ok("a calendar is listed by name only; its private link is sealed");
+  const wrongSlot = await seal({ recipientSpki: encPubB64, did: conf.did, name: "calendar.other", plaintext: "x" }); assert.throws(() => open2(wrongSlot, "calendar." + cfgC.calendars[0].id)); ok("a link sealed for one slot cannot be opened as another");
+  const cid = cfgC.calendars[0].id; assert.equal((await post("calendar/remove", { id: cid })).status, 200); const cfgC2 = JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config; assert.ok(!cfgC2.calendars && !cfgC2.secrets?.["calendar." + cid]); ok("removing a calendar removes its sealed link from the config");
+  assert.equal((await post("email/clear", {})).status, 200); assert.ok(!JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config.email); ok("clearing email removes the account");
+  assert.equal((await post("secret", { name: "email.password", sealed: { alg: "none" } })).status, 400); }
+
 console.log("Release and forget");
 assert.equal((await post("release", {})).status, 200);
 const rel = JSON.parse((await sync({ battery: 50, cfgVersion: 9999 })).body.p); assert.deepEqual(rel.cmds, [{ type: "release" }]); ok("a release request reaches the phone as a signed release command");

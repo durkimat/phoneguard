@@ -11,14 +11,16 @@ Status: prototype, tested on the owner's Cloudflare account and the J36 test pho
 | Parent's smartphone | browser | opens the private parent link, approves phones, edits timetable, connects Spotify |
 
 ## Parent walk-through (the wizard)
-Run `npm run bootstrap` once, then `npm start`. A wizard opens in the browser with a progress bar (7 steps). Optional steps can be skipped and done later from the parent page.
+Run `npm run bootstrap` once, then `npm start`. A wizard opens in the browser with a progress bar (9 steps). Optional steps can be skipped and done later from the parent page.
 1. **Cloudflare:** *Open Cloudflare* (pre-filled token page), create the key, paste it, *Install my companion*. Or pick *Continue an earlier setup* if the companion is already installed.
 2. **Install:** automatic checklist (account, address, install, wait for it to come online, make the code).
 3. **Child's phone:** QR + typed address/code (10 minutes, *Make a new code*). On the phone: Phone Guard, *Connect to the family companion*. The wizard notices the waiting phone; type the 4 digits the phone shows, *Approve*, write down the recovery key (shown once), tick the box. The wizard shows when the phone has checked in.
 4. **Your phone:** QR for the private parent link (skippable).
 5. **Spotify (optional, skippable):** Spotify has no API to create developer apps or add users, so this is a hand-off: link to the dashboard, copy buttons for app name, description and redirect URI, instructions for Web API and user management, paste the Client ID (checked as 32 hex characters), *Save and connect Spotify* opens the parent page (deep link) for the Spotify sign-in, and the wizard ticks when the phone's sealed key is stored.
-6. **WhatsApp (optional, skippable):** a guide with a QR code that opens the same steps on the parent's smartphone (WhatsApp cannot be opened onto its Linked devices screen): on the child's phone enter the WhatsApp number and get a code; on the smartphone with that account, Linked devices, Link a device, Link with phone number, type the code. The wizard also saves who the child may message and ticks when the phone reports it is linked.
-7. **Finish:** summary of what is done and what was skipped, with how to do each later; timetable is set on the parent page (*Timetable and settings*).
+6. **Email (optional, skippable):** type the child's address; Gmail, iCloud and Fastmail are filled in with the steps for an app password (Microsoft addresses are refused with an explanation, other providers take manual server names); *Check it works* signs in to the incoming and outgoing servers from the computer and explains failures; *Send to the phone* locks the password to the phone's key and saves it, and the wizard shows when the phone has set the account up.
+7. **Calendars (optional, skippable):** paste a calendar's private iCal link, *Check the link* reads it and says how many events it has, *Add* locks the link to the phone (up to 8, view only).
+8. **WhatsApp (optional, skippable):** a guide with a QR code that opens the same steps on the parent's smartphone (WhatsApp cannot be opened onto its Linked devices screen): on the child's phone enter the WhatsApp number and get a code; on the smartphone with that account, Linked devices, Link a device, Link with phone number, type the code. The wizard also saves who the child may message and ticks when the phone reports it is linked.
+9. **Finish:** summary of what is done and what was skipped, with how to do each later; timetable is set on the parent page (*Timetable and settings*).
 Later: *Add a phone* on the parent page; *Disconnect from the family companion* on the phone to pair again.
 
 ## Commands
@@ -28,7 +30,7 @@ Later: *Add a phone* on the parent page; *Disconnect from the family companion* 
 * Tests: `npm test` here (engine and server, offline); `npm run test:wizard` (wizard API, needs a LOCAL Worker on a fresh state: `cd ../worker && rm -rf .wrangler/state && npm run dev`); `cd ../worker && npm test` (needs the same dev server on a fresh state).
 
 ## Not built yet
-Cloudflare "sign in" button (today: key from a link), single download per operating system, forms for editing modes (JSON only), email setup, recovery-key use (re-pair after losing the parent link), flashing from the tool.
+Cloudflare "sign in" button (today: key from a link), single download per operating system, forms for editing modes (JSON only), email/calendar phone support (the phone must pick up `config.email` and `config.calendars`), recovery-key use (re-pair after losing the parent link), flashing from the tool.
 
 ## More detail
 `../worker/PROTOCOL-DRAFT.md` (pairing, sync, QR and typed code formats, sealed secrets), `../../plan-phone-guard-two-editions.md` sections 4, 14 and 15.

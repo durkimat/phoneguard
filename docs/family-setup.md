@@ -46,7 +46,7 @@ npm start
 
 ## The setup wizard
 
-The wizard shows a progress bar along the top ("Step 3 of 7"). It does everything it can by itself. Where it cannot, it hands over with a link and exact values to copy. Optional steps have a **Skip** button, and you can do them later from your parent page.
+The wizard shows a progress bar along the top ("Step 3 of 9"). It does everything it can by itself. Where it cannot, it hands over with a link and exact values to copy. Optional steps have a **Skip** button, and you can do them later from your parent page.
 
 ### Step 1: Cloudflare
 
@@ -103,7 +103,28 @@ Spotify does not let tools create developer apps or add users for you, so this s
 
 The sign-in key is locked in your browser so that only the child's phone can open it. The phone collects it at its next check-in. If you skipped this step, do it later from your parent page: **Timetable and settings**, then the Spotify box.
 
-### Step 6 (optional): WhatsApp
+### Step 6 (optional): Email
+
+This lets the child's phone send and receive email with a normal mail account, on its own simple screens. Use an address made for the child and not your own. It takes about five minutes, and you can **Skip** it and do it later.
+
+1. Type the **email address**. For Gmail, iCloud and Fastmail the wizard fills in the server settings and shows the steps for getting an **app password**: a separate password just for this phone, which you can cancel at any time. Other providers need their incoming (IMAP) and outgoing (SMTP) server names. **Microsoft addresses (Outlook.com, Hotmail, Live) cannot be used yet**, because Microsoft no longer accepts passwords for mail apps; the wizard says so.
+2. Paste the **app password**.
+3. Press **Check it works**. The wizard signs in to the incoming and outgoing servers from your computer and tells you in plain words if something is wrong (wrong password, wrong server name, and so on).
+4. Press **Send to the phone**. The password is locked on your computer so that only the child's phone can read it. The phone sets the account up at its next check-in (up to 15 minutes, or press **Sync now** on the phone), and the wizard shows when it has.
+
+You can also do this later from your parent page: open the phone, then **Email**.
+
+### Step 7 (optional): Calendars
+
+This shows your family calendars on the child's phone, **view only** (events the child adds on the phone stay on the phone). You can **Skip** it.
+
+1. Get each calendar's **private iCal link**. In Google Calendar on a computer: Settings (the cog), the calendar's name under *Settings for my calendars*, then *Integrate calendar* and copy the **Secret address in iCal format**. Other calendar services have a similar iCal, ICS or subscribe link. Anyone with the link can read that calendar, so treat it like a password.
+2. Paste it and press **Check the link**. The wizard reads it and tells you how many events it found.
+3. Give it a name and press **Add this calendar**. The link is locked so only the child's phone can read it. Add as many as you like (up to eight).
+
+You can also do this later from your parent page: open the phone, then **Calendars**.
+
+### Step 8 (optional): WhatsApp
 
 This lets the child's phone read and send WhatsApp messages through its own simple screens, with only the people you choose. Messages stay on the phone. The phone becomes a "linked device" of one WhatsApp account, like WhatsApp Web, so you need the smartphone that has that WhatsApp account (the child's own number, or yours). You can **Skip** this step and do it later.
 
@@ -114,7 +135,7 @@ This lets the child's phone read and send WhatsApp messages through its own simp
 
 WhatsApp can lapse a linked device if the main smartphone has not been online for about two weeks; if messages stop, link again from step 1. The same steps are on your parent page at `/guide#whatsapp`.
 
-### Step 7: Finish
+### Step 9: Finish
 
 A summary shows what is done and what you skipped, with how to do each skipped part later, plus a button to open your parent page.
 
@@ -144,6 +165,7 @@ Open a phone from your parent page. Each section opens and closes; every control
 | **Phone restrictions** | Factory reset, safe mode, date and time, adding users, VPN and other Android settings the phone may block. |
 | **WhatsApp**, **Radio stations**, **Apps on the Nokia menu**, **Weather place**, **Look of the phone** | Who WhatsApp may talk to and how fast, your station list, which apps are in the main menu and which notifications are cleared, the weather location, and the phone's theme, fonts and colours. |
 | **Spotify** | Connect or disconnect (see above). |
+| **Email**, **Calendars** | Set or change the child's mail account (with an app password) and the family calendars shown on the phone. Passwords and private calendar links are locked so only the phone can read them. |
 | **Location history** | Where the phone has been over the last week (you choose 1 to 14 days, or off), played back on a map: pick a day and press Play. Quiet stretches such as school or home play fast and journeys play slowly so movements are easy to follow; the stops list ("Stayed 08:19 to 15:03") jumps to each stay. Positions are kept only in your Cloudflare account and can be cleared at any time. Location must be switched on for a mode first (Mode settings, Location). |
 | **Screen time**, **Battery and power saver** | What the phone reported: app time per day, battery use by screen, mode, location and Wi-Fi, and what the power saver closed. The latest position is shown at the top with a map link. |
 | **Updates and removals** | Switch on updating Phone Guard from here, check GitHub for the newest release, update a phone, and see waiting and finished jobs. |
@@ -187,6 +209,7 @@ Other everyday jobs:
 * Sign-in to Cloudflare uses a key you create from a link rather than a "Sign in" button (*not yet*).
 * If you lose your private link, there is no recovery flow yet (*not yet*): re-run setup to create a new companion and pair the phones again.
 * Changes reach a phone at its next check-in, about 15 minutes (Home Assistant could nudge a phone with a notification; Cloudflare has no push yet).
-* Email and calendar setup are planned; the timetable, Spotify and WhatsApp linking work today (WhatsApp is a guided hand-off).
+* Email and calendars are set up from the wizard or the parent page, but the phone has to be running a build that picks them up (an older build ignores them). Calendars are view only, with no write-back to Google; Microsoft mail addresses are not supported yet.
+* The timetable, Spotify and WhatsApp linking work today (WhatsApp is a guided hand-off).
 * Location history has no named places (home, school) or alerts yet; they are planned.
 * A packaged download for Windows, Linux and macOS is planned; today you run it with Node.js.

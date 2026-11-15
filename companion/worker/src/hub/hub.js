@@ -9,7 +9,7 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const isInt = (x) => Number.isInteger(x);
 const fail = (m) => { throw new Error(m); };
 
-export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look"];
+export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars"];
 
 export function newRuntime() { return { apps: [], state: {}, cfgh: "", usage: {}, power: [], reaped: [], labels: {}, fix: null, boost: null, release: false, last_seen: null }; }
 
@@ -39,11 +39,45 @@ export function updateChild(ch, patch, nowMs, options = null) {
     }
     if (k === "notes_hide" && Array.isArray(v)) v = [...new Set(v.filter((x) => typeof x === "string" && x))];
     if (k === "look") v = S.cleanLook(v);
+    if (k === "email") v = cleanEmail(v);
+    if (k === "calendars") v = cleanCalendars(v);
     if (k === "pinned" && Array.isArray(v)) v = [...new Set(v.filter((x) => typeof x === "string" && x))];
     if (UPDATABLE.includes(k)) ch[k] = v;
   }
   try { validateChild(ch, nowMs, options); }
   catch (e) { for (const k of UPDATABLE) delete ch[k]; Object.assign(ch, before); throw e; }   // a bad change is never kept, let alone sent to the phone
+}
+
+// Email and calendars are Cloudflare-side extensions (the Home Assistant hub has neither). Passwords and private calendar links are never here:
+// they travel as sealed secrets ("email.password", "calendar.<id>") that only the phone can open.
+const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const cleanServer = (x, what) => {
+  if (!x || typeof x !== "object") fail(`${what} server settings are missing`);
+  const host = String(x.host ?? "").trim().toLowerCase(), port = Number(x.port), security = x.security ?? "ssl";
+  if (!HOST.test(host)) fail(`${what} server name '${host}' is not a valid address`);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) fail(`${what} port must be between 1 and 65535`);
+  if (!["ssl", "starttls"].includes(security)) fail(`${what} security must be ssl or starttls`);
+  return { host, port, security };
+};
+export function cleanEmail(v) {
+  if (v == null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) fail("email must be an object");
+  const address = String(v.address ?? "").trim();
+  if (!/^[^\s@]{1,64}@[^\s@]{1,190}$/.test(address) || !address.split("@")[1].includes(".")) fail("that does not look like an email address");
+  const user = String(v.user ?? address).trim().slice(0, 128) || address;
+  return { address, user, imap: cleanServer(v.imap, "Incoming mail (IMAP)"), smtp: cleanServer(v.smtp, "Outgoing mail (SMTP)") };
+}
+export function cleanCalendars(v) {
+  if (v == null) return [];
+  if (!Array.isArray(v) || v.length > 8) fail("a phone can follow at most 8 calendars");
+  const ids = new Set();
+  return v.map((c) => {
+    const id = String(c?.id ?? ""), name = String(c?.name ?? "").trim().slice(0, 40);
+    if (!/^[a-z0-9]{1,12}$/.test(id)) fail("a calendar id is 1 to 12 lower-case letters and digits");
+    if (!name) fail("every calendar needs a name");
+    if (ids.has(id)) fail("two calendars have the same id"); ids.add(id);
+    return { id, name };
+  });
 }
 
 const intIn = (x, lo, hi) => isInt(x) && x >= lo && x <= hi;
@@ -146,6 +180,28 @@ export function queueUpdate(ch, rt, latest, options, nowMs, override = null) {
   return queueApp(ch, "update", OWN_PACKAGE, "Phone Guard " + latest.version, nowMs, { url: latest.url, sha256: latest.sha256, size: latest.size ?? 0 });
 }
 
+// ---- sealed secrets, email and calendars ------------------------------------------------------------------------------
+
+export const SECRET_NAME = /^[a-z][a-z0-9_.]{0,39}$/;
+export function setSecret(ch, name, sealed) {
+  if (!SECRET_NAME.test(name)) fail("bad secret name");
+  if (sealed == null) { if (ch.secrets) delete ch.secrets[name]; return; }
+  if (sealed?.alg !== "ECDH-P256+HKDF-SHA256+AES-256-GCM" || typeof sealed.epk !== "string" || typeof sealed.ct !== "string") fail("not a sealed secret");
+  (ch.secrets ??= {})[name] = sealed;
+}
+export function setEmail(ch, email, sealedPassword, nowMs, options) {
+  updateChild(ch, { email }, nowMs, options);
+  if (sealedPassword !== undefined) setSecret(ch, "email.password", sealedPassword);
+}
+export function clearEmail(ch, nowMs, options) { updateChild(ch, { email: null }, nowMs, options); setSecret(ch, "email.password", null); }
+export function addCalendar(ch, name, sealedUrl, nowMs, options, newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 8)) {
+  const id = newId(); updateChild(ch, { calendars: [...(ch.calendars ?? []), { id, name }] }, nowMs, options); setSecret(ch, "calendar." + id, sealedUrl); return id;
+}
+export function removeCalendar(ch, id, nowMs, options) {
+  if (!(ch.calendars ?? []).some((c) => c.id === id)) fail("no such calendar");
+  updateChild(ch, { calendars: ch.calendars.filter((c) => c.id !== id) }, nowMs, options); setSecret(ch, "calendar." + id, null);
+}
+
 // ---- boost ------------------------------------------------------------------------------------------------------
 
 export function activeBoost(rt, nowMs) { const b = rt.boost; if (b && b.until > nowMs) return b; rt.boost = null; return null; }
@@ -213,5 +269,6 @@ export function view(ch, rt, options, latest, nowMs) {
     update: updateFor(rt, latest, options),
     power: PW.summarize(rt.power ?? [], nowMs), reaped: PW.summarizeReaped(rt.reaped ?? [], nowMs),
     spotify: { connected: Boolean(ch.secrets?.["spotify.refresh"]) },
+    email: ch.email ?? null, email_password_set: Boolean(ch.secrets?.["email.password"]), calendars: (ch.calendars ?? []).map((c) => ({ ...c, url_set: Boolean(ch.secrets?.["calendar." + c.id]) })),
   };
 }

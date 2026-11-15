@@ -209,7 +209,11 @@ export class Family extends DurableObject {
         if (sub === "update") { const c = H.queueUpdate(h.ch, h.rt, this.latest(), opts, now, body.override ?? null); return done({ command: c }); }
         if (sub === "copy") { const src = this.load(String(body.from)); if (!src || body.from === did) throw new Error("choose a different phone to copy from"); const parts = H.copySettings(src.ch, h.ch, body.parts ?? [], now, opts); return done({ copied: parts }); }
         if (sub === "rename") { const name = String(body.name ?? "").trim().slice(0, 60); if (!name) throw new Error("a name is needed"); H.updateChild(h.ch, { name, person: body.person ?? h.ch.person }, now, opts); return done(); }
-        if (sub === "secret") { const name = String(body.name ?? ""); if (!/^[a-z][a-z0-9_.]{0,39}$/.test(name)) throw new Error("bad secret name"); if (body.sealed == null) { delete h.ch.secrets?.[name]; } else { const x = body.sealed; if (x?.alg !== "ECDH-P256+HKDF-SHA256+AES-256-GCM" || typeof x.epk !== "string" || typeof x.ct !== "string") throw new Error("not a sealed secret"); (h.ch.secrets ??= {})[name] = x; } return done(); }
+        if (sub === "secret") { H.setSecret(h.ch, String(body.name ?? ""), body.sealed ?? null); return done(); }
+        if (sub === "email") { H.setEmail(h.ch, body.email, body.sealedPassword, now, opts); return done(); }
+        if (sub === "email/clear") { H.clearEmail(h.ch, now, opts); return done(); }
+        if (sub === "calendar/add") { const id = H.addCalendar(h.ch, String(body.name ?? ""), body.sealedUrl, now, opts, body.id ? () => String(body.id) : undefined); return done({ id }); }
+        if (sub === "calendar/remove") { H.removeCalendar(h.ch, String(body.id), now, opts); return done(); }
         if (sub === "track/clear") { this.sql.exec("DELETE FROM fixes WHERE did=?", did); return json({ ok: true }); }
         if (sub === "release") { h.rt.release = true; this.save(did, h); return json({ ok: true }); }
         if (sub === "forget") { for (const t of ["devices", "config", "hub", "fixes"]) this.sql.exec(`DELETE FROM ${t} WHERE did=?`, did); return json({ ok: true }); }
