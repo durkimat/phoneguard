@@ -373,7 +373,8 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         /** The first glyph's ink starts at x (design pixels): a bold 36 "1" and a regular 24 "8" have different side bearings, so each line is nudged to make the ink edges meet. */
         private fun textInk(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false) {
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = size * scaleOf(TEXT) * u; p.isFakeBoldText = bold
-            val r = android.graphics.Rect(); p.getTextBounds(s, 0, 1.coerceAtMost(s.length), r)
+            val path = android.graphics.Path(); p.getTextPath(s, 0, 1.coerceAtMost(s.length), 0f, 0f, path)
+            val r = RectF(); path.computeBounds(r, true)
             text(c, s, x - r.left / u, y, size, u, bold = bold)
         }
 
@@ -381,7 +382,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
          * The weather band on the home screen with its centre line at [cy]: the current weather at the left, a divider and, at the right, rain due (symbol, time
          * and chance) or dry (high and low). Without a forecast yet, just the current weather centred.
          */
-        private fun weatherStrip(c: Canvas, w: WeatherData, cy: Float, u: Float) {
+        private fun weatherStrip(c: Canvas, w: WeatherData, cy: Float, m0time: String, u: Float) {
             val temp = "${w.temp}°"
             val band = w.rainBand()
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 46f * scaleOf(TEXT) * u; p.isFakeBoldText = true
@@ -392,14 +393,38 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 text(c, temp, left + 76f, cy + 18f, 46f, u, bold = true)
                 return
             }
-            weatherIcon(c, w.icon, 56f, cy, 62f, u)
-            text(c, temp, 100f, cy + 18f, if (tw > 100f) 46f * 100f / tw else 46f, u, bold = true) // the left group never reaches the divider
+            // symmetric about the divider, which stands on the clock's colon: the same gap [BandGeometry.GAP] of space to its left and to its right
+            val div = BandGeometry.divider(clockColonX(m0time, u))
+            val ts = if (tw > 100f) 46f * 100f / tw else 46f
+            p.textSize = ts * scaleOf(TEXT) * u
+            val rb = inkBounds(temp, u)                                                                    // the temperature's INK ends exactly [GAP] before the line
+            val x0 = BandGeometry.tempInkRight(div) - rb.right
+            text(c, temp, x0, cy + 18f, ts, u, bold = true)
+            weatherIcon(c, w.icon, x0 + rb.left - 14f - 31f, cy, 62f, u)                                    // the symbol sits just left of it
             stroke.strokeWidth = 2f * u; stroke.color = ink
-            c.drawLine(206f * u, (cy - 28f) * u, 206f * u, (cy + 28f) * u, stroke)
-            val x = if (band.due) 282f else 222f
-            if (band.due) band.icon?.let { weatherIcon(c, it, 244f, cy, 50f, u) }
+            c.drawLine(div * u, (cy - 28f) * u, div * u, (cy + 28f) * u, stroke)
+            val x = if (band.due) BandGeometry.rainTextX(div) else BandGeometry.rightEdge(div)
+            if (band.due) band.icon?.let { weatherIcon(c, it, BandGeometry.rainIconCx(div), cy, BandGeometry.RAIN_ICON, u) }
             textInk(c, band.line1, x, cy, 36f, u, bold = true)
             if (band.line2.isNotEmpty()) textInk(c, band.line2, x, cy + 26f, 24f, u)
+        }
+
+        /** The exact ink box of [s] with the paint as it is now, in design pixels relative to the text origin (the outline, not the rounded text bounds). */
+        private fun inkBounds(s: String, u: Float): RectF {
+            val path = android.graphics.Path(); p.getTextPath(s, 0, s.length, 0f, 0f, path)
+            val r = RectF(); path.computeBounds(r, true)
+            return RectF(r.left / u, r.top / u, r.right / u, r.bottom / u)
+        }
+
+        /** The clock's colon centre (design pixels) as the clock is drawn centred at x=240, or null when it cannot be measured. */
+        private fun clockColonX(time: String, u: Float): Float? {
+            val i = time.indexOf(':'); if (i <= 0) return null
+            val fc = choices[DISPLAY]
+            p.typeface = faces[DISPLAY] ?: Typeface.MONOSPACE; p.textSize = 120f * scaleOf(DISPLAY) * u; p.isFakeBoldText = true; p.letterSpacing = fc.tracking
+            val whole = p.measureText(time); val before = p.measureText(time.substring(0, i))
+            val colon = RectF().also { r -> val path = android.graphics.Path(); p.getTextPath(":", 0, 1, 0f, 0f, path); path.computeBounds(r, true) }
+            p.letterSpacing = 0f
+            return (240f * u - whole / 2 + before + (colon.left + colon.right) / 2) / u
         }
 
         /**
@@ -409,7 +434,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun homeLower(c: Canvas, m: LauncherModel, i: HomeInfo, u: Float) {
             val mac = Themes.byId(m.theme).skin == "mac"
             val slot = homeSlotY(mac)
-            m.weather?.let { weatherStrip(c, it, weatherCy(mac), u) }
+            m.weather?.let { weatherStrip(c, it, weatherCy(mac), i.time, u) }
             val np = i.nowPlaying
             when {
                 np != null -> nowPlayingLine(c, np, slot, u)
