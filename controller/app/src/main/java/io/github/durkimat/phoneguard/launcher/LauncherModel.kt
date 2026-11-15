@@ -548,7 +548,7 @@ class LauncherModel(
         Screen.CONNECTIONS -> connectionRows
         Screen.FIRSTRUN -> firstRunRows
         Screen.PHONETYPE -> phoneTypeRows
-        Screen.OPENOPTS -> OpenConfig.options.map { it.label + ": " + OpenConfig.nameOf(openOpts, it) }
+        Screen.OPENOPTS -> openOptRows
         Screen.RADIORES -> if (radioRes.isEmpty()) listOf(radioStatus.ifEmpty { "Nothing found" }) else radioRes.map { it.name }
         Screen.RADIOMENU -> radioMenuRows
         Screen.SPOTIFYMENU -> spotifyMenuRows
@@ -1116,7 +1116,7 @@ class LauncherModel(
     private fun firstRunLeft() = trail.any { it.screen == Screen.FIRSTRUN } || screen in setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
 
     private val firstRunRows: List<String> get() = when (firstConfirm) {
-        "open" -> listOf("Open phone: nothing locked, set up on the phone", "To switch later the phone must be erased", "Yes, make it an Open phone", "No, go back")
+        "open" -> listOf("Nothing locked, no parent", "Switching later erases it", "Yes, Open phone", "No, go back")
         else -> listOf("Wi-Fi", "Time and language", "Open phone", "Family phone")
     }
 
@@ -1136,9 +1136,9 @@ class LauncherModel(
     }
 
     private val phoneTypeRows: List<String> get() = when {
-        edition == "family" -> listOf("Family phone", "Set up by your parent", "Only your parent can release it")
-        confirmErase -> listOf("This erases the phone", "Contacts, messages, settings", "Erase and restart", "No, go back")
-        else -> listOf("Open phone", "Forgotten PIN: phone must be erased", "Switch to Family (erases the phone)")
+        edition == "family" -> listOf("Family phone", "Set by your parent", "Parent can release it")
+        confirmErase -> listOf("This erases the phone", "Contacts and settings", "Erase and restart", "No, go back")
+        else -> listOf("Open phone", "Lost PIN = erase phone", "Switch to Family (erases)")
     }
 
     private fun phoneTypeKey(key: Key): Action = move(key, phoneTypeRows.size) ?: when (key) {
@@ -1153,10 +1153,15 @@ class LauncherModel(
         else -> Action.None
     }
 
-    private fun openOptsKey(key: Key): Action = move(key, OpenConfig.options.size) ?: when (key) {
+    private val openOptRows: List<String> get() = OpenConfig.options.map { it.label + ": " + OpenConfig.nameOf(openOpts, it) } +
+        ("Spotify Client ID: " + (if (openOpts["spotifyClientId"].isNullOrEmpty()) "not set" else "set"))
+
+    private fun openOptsKey(key: Key): Action = move(key, openOptRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> OpenConfig.options.getOrNull(selected)?.let { o ->
             val v = OpenConfig.step(openOpts, o, 1); openOpts = openOpts + (o.key to v); Action.SaveOpenOption(o.key, v)
-        } ?: Action.None
+        } ?: startText("Spotify Client ID", openOpts["spotifyClientId"].orEmpty(), Screen.OPENOPTS, exact = true) { v ->
+            openOpts = openOpts + ("spotifyClientId" to v.trim()); Action.SaveOpenOption("spotifyClientId", v.trim())
+        }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None

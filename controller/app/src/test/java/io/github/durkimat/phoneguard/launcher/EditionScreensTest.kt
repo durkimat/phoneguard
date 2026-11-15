@@ -22,7 +22,7 @@ class EditionScreensTest {
     @Test fun openPhoneNeedsConfirmationThenChoosesOnce() {
         val m = model("first_boot")
         down(m, 2); assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertTrue(m.rows.contains("Yes, make it an Open phone"))
+        assertTrue(m.rows.contains("Yes, Open phone"))
         down(m, 0); m.onKey(Key.SOFT_RIGHT) // back out of the question
         assertEquals(listOf("Wi-Fi", "Time and language", "Open phone", "Family phone"), m.rows)
         m.onKey(Key.OK); down(m, 0)

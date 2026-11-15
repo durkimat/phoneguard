@@ -39,6 +39,7 @@ object OpenConfig {
         return Config(
             version = 1, modes = mapOf(MODE to m), base = MODE, segments = emptyList(), windowEnd = 0, pattern = null,
             protectExtra = emptySet(), unprotect = emptySet(), restrictions = emptySet(),
+            whatsapp = WaConfig(all = true, perMinute = 20, perDay = 1000),
             spotifyClientId = opts["spotifyClientId"].orEmpty(), spotifyRefresh = opts["spotifyRefresh"].orEmpty(),
         )
     }
