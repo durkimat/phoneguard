@@ -11,14 +11,14 @@ The setup tool gave you a private link that ends in `#k=` and a long key. Openin
 A passkey is the fingerprint, face or screen PIN that your phone or computer already uses. There is nothing to type or paste, and nothing to forward by accident. Each device has its own passkey.
 
 1. Open the parent page with your private link.
-2. Press **Set up a passkey** when the page offers it. Or open **Sign-in and passkeys** (on the home page, or under **The phone** tab) and press **Add a passkey on this device**.
+2. Press **Set up a passkey** when the page offers it. Or open **Account: sign-in and passkeys** at the top of the page and press **Add a passkey on this device**.
 3. Use the device's fingerprint, face or screen PIN when it asks.
 
 Next time, open the page's address and press **Sign in with a passkey**. A browser you sign in this way stays signed in for 30 days after you last used it.
 
 ## Adding another phone or computer
 
-1. On a device that is signed in, open **Sign-in and passkeys** and press **Add another device**.
+1. On a device that is signed in, open **Account: sign-in and passkeys** at the top of the page and press **Add another device**.
 2. On the other device, open the link shown (or scan the code). It works once, for 10 minutes.
 3. Press **Add this device** and use its fingerprint, face or screen PIN.
 

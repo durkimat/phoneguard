@@ -251,7 +251,7 @@ export async function phoneScreen(ctx, did) {
     h("div", { class: "row" }, h("button", { class: "small", on: { click: () => { try { localStorage.setItem("pgTodoHidden", "1"); } catch { /* private mode */ } todoCard.remove(); } } }, "Hide this"))) : null;
 
   // ---- tabs: day-to-day first, set-up things behind their own tabs -------------------------------------------------------------
-  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, lockSec, ctx.account, updates, manage]]];
+  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, lockSec, updates, manage]]];
   const body = h("div", { class: "cols" }), bar = h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label]) => h("button", { class: "tab", role: "tab", "data-tab": id, on: { click: () => tabShow(id) } }, label)));
   tabShow = (id) => { if (!TABS.some((t) => t[0] === id)) id = "today"; openTab = id; for (const b of bar.children) { const on = b.dataset.tab === id; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); } body.replaceChildren(...TABS.find((t) => t[0] === id)[2].filter(Boolean)); };
   tabShow(openTab);

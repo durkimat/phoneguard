@@ -29,9 +29,9 @@ async function render() {
   try {
     const [waiting, phones, fam] = await Promise.all([api("/pairings"), api("/devices"), api("/options")]);
     if (deepSpotify) { const d = phones.find((x) => x.did === deepSpotify); deepSpotify = null; if (d) return open(d.did); }
-    const top = h("div", {}, welcomeCard(), updateNotice(fam), passkeyPrompt());
+    const top = h("div", {}, welcomeCard(), updateNotice(fam), passkeyPrompt(), accountSection());
     if (phones.length === 1 && !waiting.length) return open(phones[0].did, top, true);   // one phone: its page is the home page
-    $app.append(top, waitingView(waiting), phonesView(phones), accountSection());
+    $app.append(top, waitingView(waiting), phonesView(phones));
   } catch (e) { $app.append(h("p", { class: "bad" }, e.message)); }
 }
 
@@ -89,7 +89,7 @@ async function signOut() {
 
 // Under "The phone": passkeys, other signed-in browsers and the add-a-device link.
 function accountSection() {
-  const body = h("div", {}, h("p", { class: "mut" }, "Loading...")), sec = section("Sign-in and passkeys", false, body), msg = h("p", { class: "bad" });
+  const body = h("div", {}, h("p", { class: "mut" }, "Loading...")), sec = section("Account: sign-in and passkeys", false, body), msg = h("p", { class: "bad" });
   const when = (t) => (t ? ago(t) : "never"), fail = (e) => { msg.textContent = e.message; };
   async function draw(invited) {
     const d = await api("/passkeys");
@@ -135,7 +135,7 @@ function phonesView(list) {
     h("button", { on: { click: () => open(d.did) } }, "Open"))));
 }
 
-async function open(did, top = null, single = false) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, top, single, account: accountSection(), add: addPhone, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
+async function open(did, top = null, single = false) { onHome = false; try { await phoneScreen({ api, back: render, app: $app, top: top ?? h("div", {}, accountSection()), single, add: addPhone, track: (id, name, tz) => trackScreen({ api, app: $app, back: () => open(id) }, id, name, tz) }, did); window.scrollTo(0, 0); } catch (e) { $app.replaceChildren(h("button", { on: { click: render } }, "Back"), h("p", { class: "bad" }, e.message)); } }
 
 async function spotifyCallback() {
   $app.replaceChildren(h("p", { class: "mut" }, "Finishing the Spotify sign-in..."));
