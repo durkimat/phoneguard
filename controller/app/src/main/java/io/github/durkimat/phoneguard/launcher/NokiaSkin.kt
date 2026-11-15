@@ -373,6 +373,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         /** The first glyph's ink starts at x (design pixels): a bold 36 "1" and a regular 24 "8" have different side bearings, so each line is nudged to make the ink edges meet. */
         private fun textInk(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean = false) {
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = size * scaleOf(TEXT) * u; p.isFakeBoldText = bold
+            p.textAlign = Paint.Align.LEFT; p.letterSpacing = 0f // the outline moves with the alignment left over from the last text drawn (a centred date made it start 16 px too far right)
             val path = android.graphics.Path(); p.getTextPath(s, 0, 1.coerceAtMost(s.length), 0f, 0f, path)
             val r = RectF(); path.computeBounds(r, true)
             text(c, s, x - r.left / u, y, size, u, bold = bold)
@@ -411,6 +412,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         /** The exact ink box of [s] with the paint as it is now, in design pixels relative to the text origin (the outline, not the rounded text bounds). */
         private fun inkBounds(s: String, u: Float): RectF {
+            p.textAlign = Paint.Align.LEFT; p.letterSpacing = 0f
             val path = android.graphics.Path(); p.getTextPath(s, 0, s.length, 0f, 0f, path)
             val r = RectF(); path.computeBounds(r, true)
             return RectF(r.left / u, r.top / u, r.right / u, r.bottom / u)
@@ -420,7 +422,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun clockColonX(time: String, u: Float): Float? {
             val i = time.indexOf(':'); if (i <= 0) return null
             val fc = choices[DISPLAY]
-            p.typeface = faces[DISPLAY] ?: Typeface.MONOSPACE; p.textSize = 120f * scaleOf(DISPLAY) * u; p.isFakeBoldText = true; p.letterSpacing = fc.tracking
+            p.typeface = faces[DISPLAY] ?: Typeface.MONOSPACE; p.textSize = 120f * scaleOf(DISPLAY) * u; p.isFakeBoldText = true; p.letterSpacing = fc.tracking; p.textAlign = Paint.Align.LEFT
             val whole = p.measureText(time); val before = p.measureText(time.substring(0, i))
             val colon = RectF().also { r -> val path = android.graphics.Path(); p.getTextPath(":", 0, 1, 0f, 0f, path); path.computeBounds(r, true) }
             p.letterSpacing = 0f

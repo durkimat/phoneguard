@@ -1197,3 +1197,6 @@ The band's divider stands on the clock's colon (measured at draw time from the c
 
 ## 0.4.13: home screen alignment pass (owner is picky)
 Left ink edge column 14 for the signal bars, the data text (ink-measured) and the left soft-key triangle (shifted +1); right ink column 466 for the battery nub (+1), the data bar and the right soft key; the dry text moves two columns right (ink at 265 = line pixels 241..242 + 22 gap); the weather band moves down 4 px (cy 128, Mac stays 372) so the gap below the data strip (about 18) matches the gap above the clock (about 19). Based on PC measurements of 0.4.12; not measured here (no emulator).
+
+## 0.4.14: alignment fixes from the PC's 0.4.13 measurements
+The data text started at column 30 instead of 14: the ink-outline helper measured the glyph with whatever text alignment the last drawn text had left in the shared paint (the centred date), which shifted the outline by half a glyph. The helpers now set left alignment and no letter spacing first. The weather band moves 2 px lower (cy 130; Mac 372): band ink 102..157, gaps about 21 / 22 between the data strip (ends 80) and the clock's top ink (180).
