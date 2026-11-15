@@ -1,5 +1,13 @@
 # Built-in Spotify Connect (librespot): feasibility notes
 
+> **REJECTED (2026-11-15): Spotify audio-key restriction.** The hands-on spike (PC session) showed librespot 0.8.0 builds for aarch64-linux-android in about 50 s,
+> runs on the J36 (14 MB stripped, about 8 MB RSS idle, near 0% CPU), and the phone appears over mDNS and answers zeroconf `getInfo`. But librespot's own README (latest
+> commit, 2026-11-07) says Spotify changed audio key delivery: accounts created after an unknown cutoff can no longer get audio keys (`audio key error 0 1`), for all
+> librespot versions, with no workaround (issue #1649, locked). Whether it plays would depend on the family's account age, and Spotify can widen the restriction at any time,
+> so it is not a sound foundation. **Do not build the service or the AudioTrack sink.** Direction stays: the official Spotify app on the phone, installed once
+> (docs/install/spotify-app.md). Possible later spikes, owner to decide: make that install easier or automatic; whether Spotify's Web Playback SDK works in the phone's WebView (needs Widevine).
+> The rest of this note is kept as the record of the study.
+
 Status: paper study only (2026-11-15). Nothing was built. A hands-on build on the NAS (Rust toolchain plus the Android NDK, both downloaded) was started and then
 held back, because it needed a downloaded installer run on the build machine; it can be run when the owner says so (script outline at the end).
 
