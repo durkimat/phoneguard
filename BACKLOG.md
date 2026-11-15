@@ -1130,3 +1130,11 @@ The owner says stick with the current image for now; for a handful of hobbyist u
 - Needs live tests on the J36 (wipe flash): first boot to first-run screen; Open path (Wi-Fi/Bluetooth toggles, force-stop, Android Settings, WhatsApp pairing, mail, options); Family path (pair, sync, DO granted by root service on a first-boot phone, override from a Worker); Release then Open; guided erase; pg_provision/avc denials; the screen wake cycle on USB.
 - Not done: local timetable/modes for Open, per-app allow list in Open, calendar link entry on the phone, hiding apps in Open, silent updates (Open never reports).
 - build.sh patch loop now tolerates a patch that sits under a later one (0012 under 0018), which had stopped the build.
+
+## Worker updates for existing Cloudflare instances (owner: go ahead AFTER the end-to-end testing, 2026-11-15)
+Today: the phone app updates via the parent page (check GitHub, update a phone); the wizard redeploys over an existing Worker and keeps its secrets (`keep_bindings`, setup-tool/engine.mjs; read, not tested). Missing:
+- A Worker version and a minimum phone-app version in `/api/info`; "Update available" on the parent page; the phone checks compatibility.
+- A wizard "Update my Worker" mode that reads the deployed Worker's version first (and test a real re-run over a live Worker, secrets and families kept).
+- Data migrations for the per-family database (only migration tag v1 exists): add a migration step or keep changes backward compatible; a written rule that a Worker change must work with the previous phone app.
+- Image updates still need a PC re-flash (separate item).
+Do not start until the owner's end-to-end test is finished.
