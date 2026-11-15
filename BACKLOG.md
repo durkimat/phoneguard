@@ -1169,3 +1169,6 @@ Spotify Connect (librespot) rejected 2026-11-15: Spotify's audio-key restriction
 
 ## 0.4.6: adb-callable sync
 `am broadcast -n io.github.durkimat.phoneguard/.SyncReceiver` makes the phone sync with the companion now (protected by DUMP, so only shell/root can send it; rate limited to one per 3 s). Used by the setup tool's Spotify install. `spotifyInstalled` is already in the sync state (0.4.4).
+
+## Simple Spotify (spike result, owner decision pending)
+Playlist/track links start with `spotify:...:play`, media-session controls work, now playing from the session. See docs/spotify-simple.md. If chosen: favourites list in the parent page (config), phone launches the intent then goes Home, MusicController for the rest; Web API mode stays optional.
