@@ -75,10 +75,10 @@ class HomeFocusTest {
         assertEquals(Action.None, old.tap(240f, 392f)) // the old place no longer opens the forecast
     }
 
-    @Test fun inTheMacLookTheWeatherStaysLowerBecauseTheFrameTakesTheTop() {
+    @Test fun inTheMacLookTheWeatherIsAboveTheClockAndTheClockMovesDown() {
         val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L); m.theme = "mac"
         val t = m.homeTargets().first { it.kind == "weather" }
-        assertEquals(338f, t.t, 0.01f)
+        assertEquals(140f, t.t, 0.01f) // cy 174 - 34
         assertEquals(174f, weatherCy(true), 0f); assertEquals(296f, clockY(true), 0f); assertEquals(392f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
     }
 }
