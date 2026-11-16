@@ -88,7 +88,7 @@ class VolumeBar(private val svc: AccessibilityService) {
             val muted = silent || cur == 0
             if (muted) { p.strokeWidth = 3 * u; cv.drawLine(sx + 26 * u, cy - 9 * u, sx + 40 * u, cy + 9 * u, p); cv.drawLine(sx + 26 * u, cy + 9 * u, sx + 40 * u, cy - 9 * u, p) }
             // ten blocks, filled up to the level
-            val n = 10; val filled = if (muted) 0 else ((cur * n + max - 1) / max).coerceIn(1, n)
+            val n = 10; val filled = io.github.durkimat.phoneguard.core.VolumeLevel.blocks(cur, max, n, muted)
             val x0 = 66 * u; val bw = 12 * u; val gap = 3 * u; val bh = 26 * u
             for (i in 0 until n) {
                 val l = x0 + i * (bw + gap); val top = cy - bh / 2

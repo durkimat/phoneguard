@@ -324,7 +324,7 @@ class LauncherActivity : Activity() {
         val now = System.currentTimeMillis()
         if (!spPolling && now - spPolledAt > 3000) {
             spPolling = true; spPolledAt = now
-            Thread { try { spPlayer = sp.player(this) } finally { spPolling = false }; if (model.screen == Screen.MUSICMENU) ui.post { invalidate(D.INFO) } }.start()
+            Thread { try { spPlayer = sp.player(this) } finally { spPolling = false }; if (model.screen == Screen.MUSICMENU || model.screen == Screen.MUSIC) ui.post { invalidate(D.INFO); refresh() } }.start() // the answer is drawn as soon as it arrives (Now playing used to wait for the next tick)
         }
         val p = spPlayer ?: return local
         val mine = thisPhone(io.github.durkimat.phoneguard.music.SpDevice(p.deviceId, p.deviceName, p.deviceType, true, p.volume))
@@ -754,7 +754,7 @@ class LauncherActivity : Activity() {
             }.start()
             is Action.SpPin -> { val m = io.github.durkimat.phoneguard.music.PlaylistMemory; m.setPins(this, model.spPins); refresh() }
             is Action.SpOffline -> Thread { offlineJob(a) }.start()
-            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); if (model.spOfflineOnly) playOffline(a.uri) else playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); if (model.spOfflineOnly) playOffline(a.uri) else playOnTarget(a.uri); pollAfterPlay() }.start()
             is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
@@ -990,6 +990,9 @@ class LauncherActivity : Activity() {
             ui.postDelayed({ model.notify(why); refresh() }, 1000) // after the Now Playing redraw, so the notice is not wiped
         }
     }
+
+    /** Spotify takes a moment to report a new track, so look again a few times after a play (each look is drawn as soon as it answers). */
+    private fun pollAfterPlay() { for (ms in longArrayOf(800, 2000, 3500, 5500)) ui.postDelayed({ spPolledAt = 0; invalidate(D.SCREEN); refresh() }, ms) }
 
     private fun playOnTarget(uri: String) {
         val pickedId = getSharedPreferences("music", MODE_PRIVATE).getString("target", null)
