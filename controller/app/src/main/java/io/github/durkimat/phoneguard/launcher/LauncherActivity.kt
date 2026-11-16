@@ -27,6 +27,8 @@ class LauncherActivity : Activity() {
     companion object {
         @Volatile private var words: WordList? = null
         const val EXTRA_DIAL = "dial"
+        /** A spoken command (the Worker's checked JSON) for the launcher to act on, see [io.github.durkimat.phoneguard.voice.VoiceCommands]. */
+        const val EXTRA_VOICE = "voice_cmd"
         /** Set while the Music screen is in front and the music plays on another Spotify device: the volume keys then change that device (returns its new level and short name). */
         @Volatile var remoteVolume: ((Boolean) -> Pair<Int, String>?)? = null
         @Volatile var inFront = false
@@ -78,6 +80,7 @@ class LauncherActivity : Activity() {
         setContentView(skin.create(this)); contentSet = true
         refresh()
         pendingDial = intent?.getStringExtra(EXTRA_DIAL)
+        pendingVoice = intent?.getStringExtra(EXTRA_VOICE)
         if (intent?.action == VOICE_ASSIST || intent?.action == WEB_SEARCH) leftKeyPending = true
     }
 
@@ -87,11 +90,13 @@ class LauncherActivity : Activity() {
         // the hang-up key (and Home) arrive as a home request: from any screen of ours that means the idle screen
         if (intent.hasCategory(Intent.CATEGORY_HOME) && !intent.hasExtra(EXTRA_DIAL) && intent.action == Intent.ACTION_MAIN) { model.goHome(); refresh() }
         if (intent.hasExtra(EXTRA_DIAL)) pendingDial = intent.getStringExtra(EXTRA_DIAL)
+        if (intent.hasExtra(EXTRA_VOICE)) pendingVoice = intent.getStringExtra(EXTRA_VOICE)
         // onResume follows and resets to the home screen, so remember the key and apply it after that
         if (intent.action == VOICE_ASSIST || intent.action == WEB_SEARCH) leftKeyPending = true
     }
 
     private var pendingDial: String? = null
+    private var pendingVoice: String? = null
     private val f2 = io.github.durkimat.phoneguard.core.F2Gesture()
     private fun f2Do(outs: List<io.github.durkimat.phoneguard.core.F2Gesture.Out>) { outs.forEach { io.github.durkimat.phoneguard.keys.F2Actions.run(this, it) } }
     private val f2Timer = Runnable {
@@ -120,6 +125,7 @@ class LauncherActivity : Activity() {
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
+        pendingVoice?.let { pendingVoice = null; voiceAction(it) }
         // mail is looked at when the launcher comes to the front, at most every 15 minutes, and never in a mode that hides it (School)
         if (LauncherData.musicShown(this) && io.github.durkimat.phoneguard.mail.Mail.account(this) != null) mailSync(false)
         // debug builds only: `am start -S -n ... --es pg_mail_demo 1` sets up the made-up mailbox so the mail screens can be tried without an account
@@ -812,6 +818,49 @@ class LauncherActivity : Activity() {
     }
 
     /** Start a playlist, album or song on the chosen device: the one picked in "Play on" if it is still there, else this phone, else wherever it is playing. */
+    /** A spoken command from the side button: do it the way a person would, through our own screens and rules. */
+    private fun voiceAction(json: String) {
+        val say = { t: String -> model.notify(t); invalidate(D.SCREEN); refresh() }
+        when (val cmd = io.github.durkimat.phoneguard.voice.VoiceCommand.parse(json)) {
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Call -> Thread {
+                val all = LauncherData.contacts(this)
+                val i = io.github.durkimat.phoneguard.voice.NameMatch.best(all.map { it.name }, cmd.name)
+                ui.post { if (i == null) say("No contact called ${cmd.name}") else { model.startDial(all[i].numbers.first()); say("Call ${all[i].name}? Press the call key") } }
+            }.start()
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Timer -> {
+                val ok = try {
+                    startActivity(Intent(android.provider.AlarmClock.ACTION_SET_TIMER).putExtra(android.provider.AlarmClock.EXTRA_LENGTH, cmd.minutes * 60)
+                        .putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, true).putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "Timer").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
+                } catch (e: Exception) { Log.log(this, "voice timer: ${e.javaClass.simpleName}"); false }
+                say(if (ok) "Timer set for ${cmd.minutes} min" else "Timers are not available here")
+            }
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Play -> {
+                if (!LauncherData.musicShown(this) || !model.spSignedIn) say("Music is not available here") else Thread { voicePlay(cmd) }.start()
+            }
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> say("Where to? is coming soon")
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Unknown -> say(cmd.say)
+        }
+    }
+
+    /** Plays the playlist, artist or song that was asked for: the child's own playlists first, then a Spotify search. "Spotify" alone resumes. */
+    private fun voicePlay(cmd: io.github.durkimat.phoneguard.voice.VoiceCommand.Play) {
+        val say = { t: String -> ui.post { model.notify(t); invalidate(D.SCREEN); refresh() } }
+        if (cmd.query.equals("spotify", true)) { sp.resume(this); say("Playing"); return }
+        var pick: io.github.durkimat.phoneguard.music.SpItem? = null
+        if (cmd.kind == "playlist" || cmd.kind == "any") {
+            val mine = sp.playlists(this).orEmpty()
+            io.github.durkimat.phoneguard.voice.NameMatch.best(mine.map { it.label }, cmd.query)?.let { pick = mine[it] }
+        }
+        if (pick == null) {
+            val found = sp.search(this, cmd.query).orEmpty()
+            val want = when (cmd.kind) { "playlist" -> "spotify:playlist:"; "artist" -> "spotify:artist:"; "song" -> "spotify:track:"; else -> "" }
+            pick = found.firstOrNull { it.uri.startsWith(want) }
+        }
+        val p = pick
+        if (p == null) { say("Couldn't find ${cmd.query}"); return }
+        ui.post { perform(Action.SpPlay(p.uri)); model.notify("Playing ${p.label.substringAfter(": ")}"); refresh() }
+    }
+
     // ---- voice typing: hold OK on the microphone button, speak, let go ----
     private var voiceCap: io.github.durkimat.phoneguard.voice.VoiceCapture? = null
     private var voiceStart: Runnable? = null
