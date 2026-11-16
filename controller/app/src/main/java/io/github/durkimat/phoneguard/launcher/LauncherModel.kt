@@ -200,6 +200,8 @@ sealed class Action {
     data class SpLoad(val kind: String) : Action()
     data class SpSearch(val query: String) : Action()
     data class SpPlay(val uri: String) : Action()
+    /** A playlist was pinned or unpinned on the Playlists screen: the phone remembers it. */
+    data class SpPin(val uri: String, val pinned: Boolean) : Action()
     /** Play radio preset n (0 is the first). */
     object DataToggle : Action()
     /** Hold a digit on radio Now playing: the playing station becomes that preset (1 to 9). */
@@ -1586,6 +1588,20 @@ class LauncherModel(
     /** False until HA has sent a Spotify Client ID. */
     var spConfigured = true
     var spPlaylists: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
+    /** The playlists as Spotify gave them, what is pinned, and when each was last played; [spPlaylists] is these in the screen's order (pins first, then recent). */
+    var spRaw: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
+    var spPins: Set<String> = emptySet()
+    var spPlayed: Map<String, Long> = emptyMap()
+    var spNow: () -> Long = { System.currentTimeMillis() }
+
+    /** Put [raw] (Spotify's order) on the screen in the screen's order, with a star before the pinned ones; the cursor stays on the same playlist. */
+    fun setPlaylists(raw: List<io.github.durkimat.phoneguard.music.SpItem>) {
+        val cur = spPlaylists.getOrNull(selected)?.uri
+        spRaw = raw
+        spPlaylists = io.github.durkimat.phoneguard.music.PlaylistOrder.order(raw, spPins, spPlayed, spNow()).map { if (it.uri in spPins) it.copy(label = "* " + it.label) else it }
+        if (cur != null) spPlaylists.indexOfFirst { it.uri == cur }.let { if (it >= 0) selected = it }
+        if (selected >= spPlaylists.size) selected = (spPlaylists.size - 1).coerceAtLeast(0)
+    }
     var spResults: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
     var spDevices: List<io.github.durkimat.phoneguard.music.SpDevice> = emptyList()
     var spStatus = ""
@@ -1912,6 +1928,12 @@ class LauncherModel(
                 else -> spDevices.getOrNull(selected)?.let { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.SpTransfer(it.id, it.name) } ?: Action.None
             }
             Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
+            Key.STAR -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { sel ->
+                when (val t = io.github.durkimat.phoneguard.music.PlaylistOrder.toggle(spPins, sel.uri)) {
+                    null -> { notice = "Pin list is full"; Action.Redraw }
+                    else -> { spPins = t.first; setPlaylists(spRaw); notice = if (t.second) "Pinned" else "Unpinned"; Action.SpPin(sel.uri, t.second) }
+                }
+            } ?: Action.None
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }

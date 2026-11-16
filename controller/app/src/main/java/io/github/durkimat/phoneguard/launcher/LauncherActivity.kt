@@ -686,7 +686,7 @@ class LauncherActivity : Activity() {
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); invalidate(D.INFO); refresh() }
             is Action.SpLoad -> Thread {
-                if (a.kind == "playlists") { val l = sp.playlists(this) { first -> ui.post { model.spPlaylists = first; refresh() } }; ui.post { model.spPlaylists = l ?: emptyList(); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
+                if (a.kind == "playlists") { val pins = io.github.durkimat.phoneguard.music.PlaylistMemory.pins(this); val played = io.github.durkimat.phoneguard.music.PlaylistMemory.played(this); val l = sp.playlists(this) { first -> ui.post { model.spPins = pins; model.spPlayed = played; model.setPlaylists(first); refresh() } }; ui.post { model.spPins = pins; model.spPlayed = played; model.setPlaylists(l ?: emptyList()); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
                 else {
                     var l = sp.devices(this)
                     if (l != null && l.none { thisPhone(it) }) l = wakeSpotify(l) // this phone only shows once Spotify is running on it
@@ -694,7 +694,8 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
-            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpPin -> { val m = io.github.durkimat.phoneguard.music.PlaylistMemory; m.setPins(this, model.spPins); refresh() }
+            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
             is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
