@@ -1287,3 +1287,13 @@ A few seconds pass after the music starts before the Now Playing screen shows it
 
 ### Volume bar jumps from 2 bars to zero, no 1-bar level (owner, 2026-11-16) — investigate, not started
 Look at the steps and mapping in `keys/VolumeBar.kt`: how the bars are quantised against the stream's volume index (a lowest non-zero step may round down to 0 bars, or the bar count and the index range may not line up), and whether the key steps skip a level.
+
+## Spotify offline downloads use a limited "offline device" slot (owner warning, 2026-11-16)
+
+Not started; nothing to build yet. Recorded from the PC session.
+
+- Spotify offline downloads use one of the account's few "offline device" slots (5 as far as known). There is no central place to manage them.
+- Before reflashing, erasing or factory-resetting a phone that has downloaded Spotify playlists, turn offline listening off on it first (Spotify settings, remove downloads). Otherwise the slot stays used.
+- Evidence: on 2026-11-16 the owner's account showed "You're out of offline devices" when the J36 tried its first download. The owner freed a slot on another device.
+- When downloads ship, put this warning in `docs/install/flash.md`, the troubleshooting doc, and any erase/reset warning in the app.
+- Design decisions from the owner: phone-only UI (no parent console); Wi-Fi only (Spotify's "Downloads over cellular" stays off); no storage limit for now, with a per-app breakdown on the Mobile data page instead. PC is offering mockups of the Playlists screen (offline marker, `#` to download); the spec follows their answer.
