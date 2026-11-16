@@ -30,6 +30,23 @@ object Enforcer {
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0,
         ).map { it.activityInfo.packageName }.toSet()
 
+    /** Whether [pkg] is installed on this phone, hidden or not (a plain package lookup does not see an app that was hidden with setApplicationHidden). */
+    fun installed(c: Context, pkg: String): Boolean = try {
+        c.packageManager.getApplicationInfo(pkg, android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES).let { (it.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) != 0 }
+    } catch (_: Exception) { false }
+
+    /**
+     * Apps a person installed (not system apps) that are hidden but that we did not record hiding (our record was lost, or an old install or tool hid them).
+     * They are taken over, so the parent sees them in the list and the mode decides again whether the child sees them. System apps hidden by something
+     * else are still left alone.
+     */
+    fun hiddenUserApps(c: Context): Set<String> = try {
+        val dpm = Dpm.dpm(c); val admin = Dpm.admin(c)
+        c.packageManager.getInstalledApplications(android.content.pm.PackageManager.MATCH_UNINSTALLED_PACKAGES)
+            .filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0 && (it.flags and android.content.pm.ApplicationInfo.FLAG_INSTALLED) == 0 && it.packageName != c.packageName }
+            .map { it.packageName }.filter { try { dpm.isApplicationHidden(admin, it) } catch (_: Exception) { false } }.toSet()
+    } catch (_: Exception) { emptySet() }
+
     /** Everything we could manage: apps with a launcher icon, plus apps we already hid (they have no icon now). */
     fun manageable(c: Context, cfg: Config?): Set<String> =
         (launcherPackages(c) + Store.hidden(c)) - Protected.all(c, cfg)
@@ -44,6 +61,8 @@ object Enforcer {
         val admin = Dpm.admin(c)
         val prot = Protected.all(c, cfg)
         val ours = Store.hidden(c).toMutableSet()
+        val adopted = hiddenUserApps(c) - ours
+        if (adopted.isNotEmpty()) { ours += adopted; Log.log(c, "taking over hidden apps: ${adopted.joinToString()}") }
         val mg = launcherPackages(c) + ours
         var hid = 0
         var unhid = 0

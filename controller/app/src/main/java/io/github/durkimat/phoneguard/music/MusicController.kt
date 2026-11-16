@@ -80,6 +80,6 @@ object MusicController {
     }
 
     /** True when a music app we know is installed (so OK on an empty screen can open it). */
-    fun spotifyInstalled(c: Context): Boolean = try { c.packageManager.getPackageInfo(SPOTIFY, 0); true } catch (_: Exception) { false }
+    fun spotifyInstalled(c: Context): Boolean = io.github.durkimat.phoneguard.Enforcer.installed(c, SPOTIFY) // also when Phone Guard has hidden it: a plain lookup does not see a hidden app
     const val SPOTIFY_PKG = SPOTIFY
 }
