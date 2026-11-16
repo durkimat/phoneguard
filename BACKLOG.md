@@ -1316,3 +1316,7 @@ Nice-to-have (not started): on the selected row the long-name marquee scrolls th
 ## 0.4.33: Now Playing after an offline play (owner, via PC, 2026-11-16)
 
 After `playOffline` starts Spotify, the launcher comes back after 1.5 s on the Music (Now Playing) screen instead of dropping to Home (`jobKeepsScreen` holds the screen for 4 s, then the media session refreshes). Untested on a device; the emulator's airplane mode is the planned test.
+
+## 0.4.34: offline screen polish (PC emulator test of 0.4.33, 2026-11-16)
+
+PC confirmed on the emulator (airplane mode): the offline list shows with the fixed `↓` marker, and after an offline play the launcher shows Now Playing, not Home. Fixes: the offline title was clipped at 480x640, so it is now "Offline playlists"; a missing Spotify app (ActivityNotFoundException) now shows the notice "Spotify is not installed" (posted 1 s later so the Now Playing redraw does not wipe it). Spotify actually playing a download offline is still only seen on the J36 earlier (by hand).

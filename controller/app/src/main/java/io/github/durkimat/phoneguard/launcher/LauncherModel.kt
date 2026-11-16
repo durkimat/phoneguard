@@ -514,7 +514,7 @@ class LauncherModel(
         Screen.BTDEV -> btSel?.name ?: "Bluetooth"
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
-        Screen.PLAYLISTS -> if (spOfflineOnly) "Offline: downloaded playlists" else "Playlists"
+        Screen.PLAYLISTS -> if (spOfflineOnly) "Offline playlists" else "Playlists"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
