@@ -20,4 +20,16 @@ object PlaylistMemory {
         val m = PlaylistOrder.prune(played(c) + (uri to now))
         prefs(c).edit().putString("pl_played", JSONObject(m as Map<*, *>).toString()).apply()
     }
+
+    /** The downloaded playlists (by playlist address): name, whether it was pinned before the download, and when. */
+    fun offline(c: Context): Map<String, PlaylistOffline.Offline> = try {
+        val j = JSONObject(prefs(c).getString("pl_offline", "{}") ?: "{}")
+        j.keys().asSequence().associateWith { k -> j.getJSONObject(k).let { PlaylistOffline.Offline(it.optString("name"), it.optBoolean("pre"), it.optLong("at")) } }
+    } catch (_: Exception) { emptyMap() }
+
+    fun setOffline(c: Context, rec: Map<String, PlaylistOffline.Offline>) {
+        val j = JSONObject()
+        rec.forEach { (k, v) -> j.put(k, JSONObject().put("name", v.name).put("pre", v.prePinned).put("at", v.at)) }
+        prefs(c).edit().putString("pl_offline", j.toString()).apply()
+    }
 }

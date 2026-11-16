@@ -25,6 +25,8 @@ An Open phone has nothing locked and nothing reporting anywhere. You set it up o
 
 ## Changing your mind
 
+
+- **Before an erase:** if this phone has downloaded Spotify playlists, turn offline listening off first (press `#` on each downloaded playlist, or remove the downloads in Spotify). Spotify gives an account only a few offline-device slots and has no central place to free them.
 - **Open to Family:** Settings, This phone, **Phone type**, **Switch to Family (erases)**. The phone is erased and restarts at the first-run screen, where you choose **Family phone**, then follow the Family steps in the guide for your system ([Windows](windows.md), [macOS](macos.md), [Linux](linux.md)), from step 13.
 - **Family to Open:** the parent opens **Manage this phone** on the parent page and chooses **Release**. The phone becomes an Open phone, and nothing is erased.
 

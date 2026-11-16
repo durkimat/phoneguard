@@ -701,7 +701,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
             if (m.rows.size > visible) chrome.scrollBar(this, c, first, m.rows.size, visible, u)
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
-            if (m.screen == Screen.PLAYLISTS && m.rows.isNotEmpty() && m.rows.size <= visible - 1) text(c, "* pin", 240f, 556f, 24f, u, align = Paint.Align.CENTER) // the key that pins the highlighted playlist
+            if (m.screen == Screen.PLAYLISTS && m.rows.isNotEmpty() && m.rows.size <= visible - 1) text(c, "* pin  # offline", 240f, 556f, 24f, u, align = Paint.Align.CENTER) // the keys that pin the highlighted playlist and download it
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }

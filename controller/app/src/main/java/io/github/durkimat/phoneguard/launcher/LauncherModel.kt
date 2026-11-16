@@ -202,6 +202,8 @@ sealed class Action {
     data class SpPlay(val uri: String) : Action()
     /** A playlist was pinned or unpinned on the Playlists screen: the phone remembers it. */
     data class SpPin(val uri: String, val pinned: Boolean) : Action()
+    /** The `#` key on a playlist: download it for offline listening, or remove the download. */
+    data class SpOffline(val uri: String, val name: String, val remove: Boolean) : Action()
     /** Play radio preset n (0 is the first). */
     object DataToggle : Action()
     /** Hold a digit on radio Now playing: the playing station becomes that preset (1 to 9). */
@@ -512,7 +514,7 @@ class LauncherModel(
         Screen.BTDEV -> btSel?.name ?: "Bluetooth"
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
-        Screen.PLAYLISTS -> "Playlists"
+        Screen.PLAYLISTS -> if (spOfflineOnly) "Offline: downloaded playlists" else "Playlists"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -1592,13 +1594,18 @@ class LauncherModel(
     var spRaw: List<io.github.durkimat.phoneguard.music.SpItem> = emptyList()
     var spPins: Set<String> = emptySet()
     var spPlayed: Map<String, Long> = emptyMap()
+    /** The downloaded playlists (the phone's own record) and the ones being downloaded now. */
+    var spOffline: Map<String, io.github.durkimat.phoneguard.music.PlaylistOffline.Offline> = emptyMap()
+    var spBusy: Set<String> = emptySet()
+    /** True while the playlists shown are the downloaded ones from the record, because Spotify's list could not be loaded. */
+    var spOfflineOnly = false
     var spNow: () -> Long = { System.currentTimeMillis() }
 
     /** Put [raw] (Spotify's order) on the screen in the screen's order, with a star before the pinned ones; the cursor stays on the same playlist. */
     fun setPlaylists(raw: List<io.github.durkimat.phoneguard.music.SpItem>) {
         val cur = spPlaylists.getOrNull(selected)?.uri
         spRaw = raw
-        spPlaylists = io.github.durkimat.phoneguard.music.PlaylistOrder.order(raw, spPins, spPlayed, spNow()).map { if (it.uri in spPins) it.copy(label = "* " + it.label) else it }
+        spPlaylists = io.github.durkimat.phoneguard.music.PlaylistOrder.order(raw, spPins, spPlayed, spNow()).map { val m = io.github.durkimat.phoneguard.music.PlaylistOffline.marker(it.uri, spPins, spOffline, spBusy); if (m.isEmpty()) it else it.copy(label = m + it.label) }
         if (cur != null) spPlaylists.indexOfFirst { it.uri == cur }.let { if (it >= 0) selected = it }
         if (selected >= spPlaylists.size) selected = (spPlaylists.size - 1).coerceAtLeast(0)
     }
@@ -1929,9 +1936,18 @@ class LauncherModel(
             }
             Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
             Key.STAR -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { sel ->
-                when (val t = io.github.durkimat.phoneguard.music.PlaylistOrder.toggle(spPins, sel.uri)) {
+                if (sel.uri in spOffline) { notice = "Remove the download to unpin"; Action.Redraw }
+                else when (val t = io.github.durkimat.phoneguard.music.PlaylistOrder.toggle(spPins, sel.uri)) {
                     null -> { notice = "Pin list is full"; Action.Redraw }
                     else -> { spPins = t.first; setPlaylists(spRaw); notice = if (t.second) "Pinned" else "Unpinned"; Action.SpPin(sel.uri, t.second) }
+                }
+            } ?: Action.None
+            Key.POUND -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { sel ->
+                val rec = spOffline[sel.uri]
+                when {
+                    sel.uri in spBusy -> { notice = "Already downloading"; Action.Redraw }
+                    io.github.durkimat.phoneguard.music.PlaylistOffline.idOf(sel.uri) == null -> Action.None
+                    else -> Action.SpOffline(sel.uri, rec?.name ?: spRaw.firstOrNull { it.uri == sel.uri }?.label ?: sel.label, rec != null)
                 }
             } ?: Action.None
             Key.END -> { goHome(); Action.Redraw }

@@ -2,6 +2,8 @@
 
 > **This erases the phone.** Keep it charged (above 50%) and do not unplug it or let the computer sleep during the flash.
 
+> **Spotify downloads:** if this phone has downloaded Spotify playlists for offline listening, turn offline listening off on it first (in Spotify, remove the downloads, or in Phone Guard press `#` on each downloaded playlist). Spotify gives an account only a few "offline device" slots and has no central page to free them, so an erased phone keeps its slot used. If you are told "You're out of offline devices", free a slot on a device you still have.
+
 ## The easy way: the installer script
 
 The `installer/` folder has a script that checks your computer and phone, makes a backup, verifies the image and runs the commands below for you, stopping at the first problem:

@@ -100,7 +100,7 @@ class LauncherActivity : Activity() {
         try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
-        if (cameBack) { model.goHome(); cameBack = false }
+        if (cameBack) { if (!jobKeepsScreen) model.goHome(); cameBack = false }
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
@@ -686,7 +686,15 @@ class LauncherActivity : Activity() {
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); invalidate(D.INFO); refresh() }
             is Action.SpLoad -> Thread {
-                if (a.kind == "playlists") { val pins = io.github.durkimat.phoneguard.music.PlaylistMemory.pins(this); val played = io.github.durkimat.phoneguard.music.PlaylistMemory.played(this); val l = sp.playlists(this) { first -> ui.post { model.spPins = pins; model.spPlayed = played; model.setPlaylists(first); refresh() } }; ui.post { model.spPins = pins; model.spPlayed = played; model.setPlaylists(l ?: emptyList()); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
+                if (a.kind == "playlists") {
+                    val mem = io.github.durkimat.phoneguard.music.PlaylistMemory; val off = io.github.durkimat.phoneguard.music.PlaylistOffline
+                    val pins = mem.pins(this); val played = mem.played(this); val rec = mem.offline(this)
+                    fun show(list: List<io.github.durkimat.phoneguard.music.SpItem>, offlineOnly: Boolean) { model.spPins = pins; model.spPlayed = played; model.spOffline = rec; model.spOfflineOnly = offlineOnly; model.setPlaylists(list) }
+                    val l = sp.playlists(this) { first -> ui.post { show(first, false); refresh() } }
+                    // no internet: the downloaded playlists from the phone's own record, played through Spotify's own offline playback
+                    if (l == null && rec.isNotEmpty() && model.spPlaylists.isEmpty()) ui.post { show(off.offlineList(rec), true); refresh() }
+                    else ui.post { show(l ?: model.spRaw, false); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() }
+                }
                 else {
                     var l = sp.devices(this)
                     if (l != null && l.none { thisPhone(it) }) l = wakeSpotify(l) // this phone only shows once Spotify is running on it
@@ -695,7 +703,8 @@ class LauncherActivity : Activity() {
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
             is Action.SpPin -> { val m = io.github.durkimat.phoneguard.music.PlaylistMemory; m.setPins(this, model.spPins); refresh() }
-            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
+            is Action.SpOffline -> Thread { offlineJob(a) }.start()
+            is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); if (model.spOfflineOnly) playOffline(a.uri) else playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
             is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
             Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
@@ -782,6 +791,46 @@ class LauncherActivity : Activity() {
     }
 
     /** Start a playlist, album or song on the chosen device: the one picked in "Play on" if it is still there, else this phone, else wherever it is playing. */
+    /** True while a playlist download job has Spotify in front: the launcher keeps its screen when it comes back (otherwise coming back from an app shows the home screen). */
+    @Volatile private var jobKeepsScreen = false
+
+    /** The `#` key: download the playlist for offline listening, or remove the download. Runs on a worker thread; the outcome is a notice on the Playlists screen. */
+    private fun offlineJob(a: Action.SpOffline) {
+        val mem = io.github.durkimat.phoneguard.music.PlaylistMemory; val off = io.github.durkimat.phoneguard.music.PlaylistOffline
+        val why = io.github.durkimat.phoneguard.music.PlaylistJob.whyNot(this, a.remove)
+        if (why != null) { ui.post { model.notify(why); refresh() }; return }
+        jobKeepsScreen = true
+        if (!a.remove) ui.post { model.spBusy = model.spBusy + a.uri; model.setPlaylists(if (model.spOfflineOnly) off.offlineList(model.spOffline) else model.spRaw); refresh() }
+        val r = io.github.durkimat.phoneguard.music.PlaylistJob.run(this, a.uri, a.remove)
+        // what the playlist's own button said corrects the phone's record, since Spotify never tells us later
+        val nowOffline: Boolean? = when {
+            r.ok -> !a.remove
+            r.firstSeen == io.github.durkimat.phoneguard.core.PlaylistDrive.State.OFFLINE -> true
+            r.firstSeen == io.github.durkimat.phoneguard.core.PlaylistDrive.State.NOT_OFFLINE -> false
+            else -> null
+        }
+        var pins = mem.pins(this); var rec = mem.offline(this)
+        if (nowOffline == true && a.uri !in rec) off.downloaded(pins, rec, a.uri, a.name, System.currentTimeMillis()).let { pins = it.first; rec = it.second }
+        if (nowOffline == false && a.uri in rec) off.removed(pins, rec, a.uri).let { pins = it.first; rec = it.second }
+        mem.setPins(this, pins); mem.setOffline(this, rec)
+        ui.post {
+            model.spPins = pins; model.spOffline = rec; model.spBusy = model.spBusy - a.uri
+            model.setPlaylists(if (model.spOfflineOnly) off.offlineList(rec) else model.spRaw)
+            model.notify(if (r.ok) (if (a.remove) "Download removed" else "Downloaded") else r.detail.replaceFirstChar { it.uppercase() })
+            refresh()
+        }
+        ui.postDelayed({ jobKeepsScreen = false }, 4_000)
+    }
+
+    /** Spotify's own offline playback of a downloaded playlist (no internet, so not the Web API player). */
+    private fun playOffline(uri: String) {
+        val id = io.github.durkimat.phoneguard.music.PlaylistOffline.idOf(uri) ?: return
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("spotify:playlist:$id:play")).setPackage("com.spotify.music").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            Log.log(this, "spotify offline play: sent spotify:playlist:$id:play")
+        } catch (e: Exception) { Log.log(this, "spotify offline play: ${e.javaClass.simpleName}"); ui.post { model.notify("Could not start Spotify"); refresh() } }
+    }
+
     private fun playOnTarget(uri: String) {
         val pickedId = getSharedPreferences("music", MODE_PRIVATE).getString("target", null)
         var list = sp.devices(this) ?: emptyList()
