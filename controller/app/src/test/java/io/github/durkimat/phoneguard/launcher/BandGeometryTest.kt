@@ -31,4 +31,10 @@ class BandGeometryTest {
         val d = BandGeometry.divider(252f)
         assertTrue(BandGeometry.rainTextX(d) + 140f < 470f) // "100% chance" at size 24 is about 140 px
     }
+
+    @Test fun theDataBarStartsOnTheDividerAndTheDateAndSymbolsAreNudgedOntoTheAxis() {
+        assertEquals(242f, BandGeometry.dataBarLeft(BandGeometry.divider(null)), 0f)
+        assertEquals(246.5f, BandGeometry.dataBarLeft(BandGeometry.divider(246.5f)), 0f)
+        assertEquals(0f, BandGeometry.axisShift(242f), 0f); assertEquals(4.5f, BandGeometry.axisShift(246.5f), 0f)
+    }
 }

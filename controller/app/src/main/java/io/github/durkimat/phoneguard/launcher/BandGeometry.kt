@@ -14,6 +14,14 @@ object BandGeometry {
     /** The divider's x: the measured colon centre when it is believable, else the default. */
     fun divider(measured: Float?): Float = if (measured != null && measured in 232f..252f) measured else DEFAULT_DIV
 
+    /** The screen's centre axis is the divider (the clock's colon). Elements drawn centred at 240 are nudged onto it: how far their ink sits left of the axis in the default font (measured on pg480, 0.4.20), plus how far this font's colon is from the default one. */
+    const val DATE_NUDGE = 1.5f
+    const val BADGE_NUDGE = 2.5f
+    fun axisShift(div: Float) = div - DEFAULT_DIV
+    /** Where the data bar's outline is drawn: its first ink column is the divider's. */
+    fun dataBarLeft(div: Float) = div
+    const val DATA_BAR_RIGHT = 466f
+
     /** Where the temperature's ink must end. */
     fun tempInkRight(div: Float) = div - GAP
     /** Where the right-hand block starts (its ink edge). */

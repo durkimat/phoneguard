@@ -122,7 +122,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             statusLine(c, i, u)
             chrome.beginContent(this, c, u)
             when (m.screen) {
-                Screen.HOME -> { home(c, i, u); i.dataView?.let { dataWidget(c, it, u) }; homeLower(c, m, i, u) }
+                Screen.HOME -> { home(c, i, u); i.dataView?.let { dataWidget(c, it, i.time, u) }; homeLower(c, m, i, u) }
                 Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.BATTERY -> batteryScreen(c, m, u)
                 Screen.NOTE -> noteScreen(c, m, u)
@@ -267,8 +267,9 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 postInvalidateDelayed(60)
                 c.save(); c.clipRect(0f, 455f * u, width.toFloat(), 570f * u)
             }
+            val sh = if (over == 0f) BandGeometry.BADGE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))) else 0f // a row that fits is centred on the axis
             i.badges.forEachIndexed { n, b ->
-                val cx = m.badgeX(n, i.badges.size)
+                val cx = m.badgeX(n, i.badges.size) + sh
                 if (b.kind == BadgeKind.MUSIC) { badgeIcon(c, b.kind, cx, 512f, u); return@forEachIndexed } // a symbol only, no count
                 val label = if (b.count > 99) "99+" else b.count.toString()
                 p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 36f * scaleOf(TEXT) * u; p.isFakeBoldText = true
@@ -640,23 +641,28 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         }
 
         /** Mobile data on the home screen, one line under the status strip: what is left in words and the share used as a bar; at 10% or less left, an inverted banner instead. */
-        private fun dataWidget(c: Canvas, v: io.github.durkimat.phoneguard.core.DataView, u: Float) {
+        private fun dataWidget(c: Canvas, v: io.github.durkimat.phoneguard.core.DataView, time: String, u: Float) {
             val y = dataY(Themes.byId(model?.theme).skin == "mac") // the Mac look has a title bar and a frame: the line sits just inside it
             if (v.low) {
                 fill.color = ink; c.drawRect(14f * u, (60f + y) * u, 466f * u, (88f + y) * u, fill)
                 text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 81f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
                 return
             }
-            textInk(c, v.leftText, 14f, 84f + y, 26f, u, bold = true) // its first ink column is 14, like the signal bars
+            val left = BandGeometry.dataBarLeft(BandGeometry.divider(clockColonX(time, u))) // the bar starts on the centre axis
+            p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.isFakeBoldText = true; p.textAlign = Paint.Align.LEFT; p.letterSpacing = 0f
+            p.textSize = 26f * scaleOf(TEXT) * u
+            val room = left - 14f - 10f // the words never reach the bar
+            val tw = p.measureText(v.leftText) / u
+            textInk(c, v.leftText, 14f, 84f + y, if (tw > room) 26f * room / tw else 26f, u, bold = true) // its first ink column is 14, like the signal bars
             stroke.strokeWidth = 2f * u; stroke.color = ink
-            c.drawRect(230f * u, (63f + y) * u, 466f * u, (85f + y) * u, stroke)
-            fill.color = ink; c.drawRect(230f * u, (63f + y) * u, (230f + 236f * v.fraction) * u, (85f + y) * u, fill)
+            c.drawRect(left * u, (63f + y) * u, BandGeometry.DATA_BAR_RIGHT * u, (85f + y) * u, stroke)
+            fill.color = ink; c.drawRect(left * u, (63f + y) * u, (left + (BandGeometry.DATA_BAR_RIGHT - left) * v.fraction) * u, (85f + y) * u, fill)
         }
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
-            text(c, i.date, 240f, 332f, 36f, u, align = Paint.Align.CENTER)
+            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
             badges(c, i, u)
             softKeys(c, if ((model?.homeFocus ?: -1) >= 0) "Select" else i.softLeft, model?.softKeys?.second ?: i.softRight, u) // the model knows whether the right key is Music or Contacts
         }
