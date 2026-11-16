@@ -1220,3 +1220,17 @@ Replaces the 2026-11-09 rule "other apps are never installed from here" with ONE
 
 ## 0.4.19 / ims44: Aurora findings from the J36
 state.store said not installed and the DPM grants were never tried because the store is hidden (a plain package lookup does not see a hidden app): it now looks up uninstalled/hidden packages too and checks FLAG_INSTALLED. One log line summarises the grants ("app store grants: granted=... not granted=..."). The boot script lists the package with `-u` (hidden apps do not show in `path`), sets REQUEST_INSTALL_PACKAGES, tries MANAGE_EXTERNAL_STORAGE with `--uid` and without, logs what `appops get` then says, and grants POST_NOTIFICATIONS. ims44 carries the script.
+
+### Maps, transit and a possible car mode: design note (owner, 2026-11-15; to bear in mind, nothing to build now)
+Owner request: keep this in view when designing and building. Not scheduled.
+
+**Maps and transit direction.** Scope is walking navigation, finding places and public transport for the children (they use Citymapper today). No driving navigation on the J36.
+- Transit is decided: a native keypad "Transport" screen on top of Transitous (free MOTIS API; tested live by the PC session: UK trains and buses work, about 64 KB for a 3-option plan, timetable data, not real-time). It does not depend on the map choice.
+- Map is still open: our own Mapsforge screen (PC mockups to follow in /artifacts/mockups-20261115/) or CoMaps, natively or as a fork. A time-boxed CoMaps trial on the J36 is waiting for the owner.
+
+**AARE (possible later, for the car).** https://github.com/prototux/AARE, GPL-3.0, Kotlin, active: an open reimplementation of the phone side of Android Auto, with no Play Services. It works with CoMaps, OrganicMaps, OsmAnd and any AndroidX Car App Library app. The owner may use it in the car later.
+
+**Design constraints to keep true in current work**
+1. Do not break what AARE needs: USB accessory/host, Bluetooth and Wi-Fi staying on while driving, location, foreground services. The idle-app closer already skips apps with a foreground-service notification (`IdleReaper.busyPackages`); keep that true for navigation and AARE. "Radios sleep when locked" must never drop a car connection.
+2. A future "Car" mode (maps, music and AARE allowed, location on, screen-off allowed) should be expressible with the existing per-mode matrix: no new mechanism, so keep the per-mode keys flexible.
+3. A map screen of our own will not appear on a car screen unless it implements the Car App Library. That is a reason the owner may prefer CoMaps.
