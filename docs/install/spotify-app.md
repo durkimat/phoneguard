@@ -6,7 +6,18 @@ Phone Guard does not play music itself. It signs in to your Spotify account and 
 
 You need: the phone on **Wi-Fi**, your **Spotify Premium** account, and a Family phone already connected to your companion (so you can approve apps on your parent page).
 
-## The easy way: let the setup wizard do it
+## The easiest way: the phone fetches it itself
+
+Once your companion and the phone's Phone Guard app are up to date, nothing needs a cable or a computer:
+
+1. The phone gets **Aurora Store** automatically when it is added (it stays hidden from your child unless you allow it in a mode).
+2. When you **connect Spotify** on your parent page (Services tab), the companion tells the phone to fetch the **Spotify app**. You can also press **Put the Spotify app on the phone** there, or untick "Put the Spotify app on the phone by itself" if you would rather not.
+3. The phone must be on **Wi-Fi** and awake enough to check in. It opens Aurora's Spotify page and presses Install for you, then Android's own confirm step. It tries at most once every six hours; if it stops, the Spotify section says why.
+4. The last step is yours: **sign in to Spotify on the phone** once with your Premium account (touchscreen).
+
+The Spotify section of your parent page shows both halves: whether Spotify is connected (signed in) and whether the Spotify app is actually on the phone.
+
+## The older way (cable): let the setup wizard do it
 
 In the setup wizard's **Spotify** step (or any time you run the wizard again), press **Install it for me**.
 

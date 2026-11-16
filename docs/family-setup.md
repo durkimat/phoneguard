@@ -91,7 +91,7 @@ The wizard shows a QR code for your **private parent link**. Scan it with your o
 
 ### Step 5 (optional): Spotify
 
-> **The child's phone needs the Spotify app.** It is not part of the Phone Guard image (Spotify only publishes it on Google Play), so install it once: [installing Spotify on the phone](install/spotify-app.md). The wizard shows whether the phone has reported it.
+> **The child's phone needs the Spotify app.** It is not part of the Phone Guard image (Spotify only publishes it on Google Play). Once Spotify is connected here, the phone fetches the app itself through its app store when it is on Wi-Fi; the older cable and by-hand routes are in [installing Spotify on the phone](install/spotify-app.md). The wizard shows whether the phone has reported it.
 
 Spotify does not let tools create developer apps or add users for you, so this step is a guided hand-off. It takes about five minutes, needs a Spotify Premium account, and you can **Skip** it and do it later.
 

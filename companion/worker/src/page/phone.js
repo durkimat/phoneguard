@@ -181,7 +181,16 @@ export async function phoneScreen(ctx, did) {
 
   // ---- Spotify -------------------------------------------------------------------------------------------------------------
   const cid = h("input", { value: fam.spotify_client_id ?? "", placeholder: "Client ID (32 characters)", "aria-label": "Spotify Client ID", autocomplete: "off" }), stSp = status();
-  const spotify = sec("Spotify", h("p", { class: v.spotify.connected ? "ok" : "mut" }, v.spotify.connected ? "Connected" : "Not connected yet"),
+  const sp = v.spotify, stApp = status();
+  const appLine = sp.installed ? ["ok", "The Spotify app is on the phone."] : sp.waiting ? ["mut", "Waiting for the phone to fetch the Spotify app through the app store (it needs Wi-Fi and a check-in)."]
+    : !sp.store ? ["mut", "The Spotify app is not on the phone yet, and the app store has to be put on the phone first (see the Apps tab)."]
+    : !sp.can ? ["mut", "The Spotify app is not on the phone yet. This phone's app is too old to fetch it by itself: update Phone Guard first."]
+    : ["mut", sp.connected ? "The Spotify app is not on the phone yet." : "The Spotify app will be put on the phone once Spotify is connected."];
+  const fail = !sp.installed && !sp.waiting && sp.last && !sp.last.ok ? h("p", { class: "bad" }, "The last try stopped: " + sp.last.detail) : null;
+  const spotify = sec("Spotify", h("p", { class: sp.connected ? "ok" : "mut" }, sp.connected ? "Signed in: connected" : "Not connected yet"), h("p", { class: appLine[0] }, appLine[1]), fail,
+    !sp.installed && !sp.waiting && sp.store && sp.can ? h("div", { class: "row" }, h("button", { on: { click: () => act("/apps/command", { kind: "storeinstall", pkg: "com.spotify.music" }, stApp, "Asked the phone to fetch Spotify.").then(redraw, () => {}) } }, "Put the Spotify app on the phone")) : null,
+    h("label", { class: "fld chk" }, check(sp.auto, async (c) => { try { await api("/options", "POST", { spotify_app_auto: c }); stApp("ok", "Saved."); } catch (e) { stApp("bad", e.message); } }), h("span", {}, "Put the Spotify app on the phone by itself once Spotify is connected")), stApp.el,
+    h("p", { class: "mut" }, "Spotify then needs one sign-in on the phone itself with your Premium account (touchscreen, once)."),
     h("ol", { class: "mut" }, h("li", {}, "Go to developer.spotify.com/dashboard (sign in with your Premium account) and create an app."), h("li", {}, "Redirect URI: ", h("code", {}, redirectUri(location.origin))), h("li", {}, "Tick Web API. Under User management add the email of every Spotify account that will be used."), h("li", {}, "Copy the app's Client ID here:")),
     h("div", { class: "row" }, cid, h("button", { class: "pri", on: { click: async () => {
       const clientId = cid.value.trim(); if (!/^[0-9a-f]{32}$/i.test(clientId)) return stSp("bad", "That does not look like a Client ID: it is 32 letters and numbers.");

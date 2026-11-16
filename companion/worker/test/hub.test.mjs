@@ -113,4 +113,19 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   H.cancelApp(ch, c.id); rt.apps = [{ pkg: AUR, label: "Aurora Store", hidden: true }]; throwsMsg(() => H.queueStore(ch, rt, T0), /already on the phone/);
   assert.equal(H.view(ch, rt, null, null, T0).store.installed, true); assert.equal(H.view(ch, rt, { app_store_auto: false }, null, T0).store.auto, false); ok("the app store is the one app a parent can install from here, from a pinned address and checksum"); }
 
+// the Spotify app, fetched through the app store
+{ const SP = "com.spotify.music", AUR = "com.aurora.store", { ch, rt } = fresh();
+  throwsMsg(() => H.queueStoreInstall(ch, rt, "com.example.other", T0), /cannot be installed from here/);
+  throwsMsg(() => H.queueStoreInstall(ch, rt, SP, T0), /app store has to be on the phone first/);
+  rt.apps = [{ pkg: AUR, label: "Aurora Store", hidden: true }]; throwsMsg(() => H.queueStoreInstall(ch, rt, SP, T0), /too old/);
+  rt.state = { storeInstall: true }; let v = H.view(ch, rt, {}, null, T0).spotify; assert.deepEqual([v.connected, v.installed, v.waiting, v.store, v.can, v.auto], [false, false, false, true, true, true]);
+  assert.equal(H.autoSpotify(ch, rt, {}, T0), null);   // not connected: nothing to do
+  ch.secrets = { "spotify.refresh": "sealed" }; assert.equal(H.autoSpotify(ch, rt, { spotify_app_auto: false }, T0), null);
+  const c = H.autoSpotify(ch, rt, {}, T0); assert.equal(c.kind, "storeinstall"); assert.equal(c.pkg, SP); assert.equal(c.url, "");
+  assert.equal(H.autoSpotify(ch, rt, {}, T0 + 1000), null); assert.equal(H.view(ch, rt, {}, null, T0).spotify.waiting, true);
+  assert.equal(S.buildConfig(ch, T0).appCommands.find((x) => x.pkg === SP).kind, "storeinstall");
+  H.mergeAppResults(ch, [[c.id, "failed", "Spotify was not found in the store", T0]]); v = H.view(ch, rt, {}, null, T0).spotify; assert.deepEqual([v.waiting, v.last.ok, v.last.detail], [false, false, "Spotify was not found in the store"]);
+  assert.equal(H.autoSpotify(ch, rt, {}, T0 + 3600e3), null); assert.equal(H.autoSpotify(ch, rt, {}, T0 + 7 * 3600e3).kind, "storeinstall"); ok("Spotify is fetched through the store once connected: tried again no sooner than six hours, a failure is shown, the parent can switch it off");
+  rt.apps.push({ pkg: SP, label: "Spotify", hidden: true }); throwsMsg(() => H.queueStoreInstall(ch, rt, SP, T0), /already on the phone/); assert.equal(H.view(ch, rt, {}, null, T0).spotify.installed, true); }
+
 console.log(`\n${n} checks passed`);

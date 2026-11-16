@@ -136,6 +136,7 @@ export class Family extends DurableObject {
       const h = this.load(did) ?? { ch: S.defaultChild(d.model || "Phone"), rt: H.newRuntime() };
       H.mergeSync(h.ch, h.rt, full ? payload : { state: payload }, now);
       if (full) this.storeFixes(did, payload.loc, now);
+      H.autoSpotify(h.ch, h.rt, this.options(), now);   // Spotify connected but the app missing: the phone fetches it through the store
       const row = this.refreshConfig(did, h, now), boost = H.activeBoost(h.rt, now), cmds = [];
       if (h.rt.release) { cmds.push({ type: "release" }); }
       const haveHash = typeof payload.cfgh === "string" ? payload.cfgh : null, haveVersion = Number.isInteger(state.cfgVersion) ? state.cfgVersion : null;
@@ -154,6 +155,7 @@ export class Family extends DurableObject {
         if (k === "spotify_client_id") { const c = String(val ?? "").trim().toLowerCase(); if (c && !/^[0-9a-f]{32}$/.test(c)) return json({ error: "a Spotify Client ID is 32 letters and digits (0 to 9 and a to f)" }, 400); c ? (o[k] = c) : delete o[k]; }
         else if (k === "history_days") { if (![0, 1, 3, 7, 14].includes(val)) return json({ error: "history_days must be 0, 1, 3, 7 or 14" }, 400); o[k] = val; if (val === 0) this.sql.exec("DELETE FROM fixes"); else this.sql.exec("DELETE FROM fixes WHERE t < ?", Date.now() - val * 86400_000); }
         else if (k === "app_store_auto") { if (typeof val !== "boolean") return json({ error: "app_store_auto must be true or false" }, 400); val ? delete o[k] : (o[k] = false); }
+        else if (k === "spotify_app_auto") { if (typeof val !== "boolean") return json({ error: "spotify_app_auto must be true or false" }, 400); val ? delete o[k] : (o[k] = false); }
         else if (k === "updates_enabled") { if (typeof val !== "boolean") return json({ error: "updates_enabled must be true or false" }, 400); val ? (o[k] = true) : delete o[k]; }
         else return json({ error: `unknown option '${k}'` }, 400);
       }
@@ -215,6 +217,7 @@ export class Family extends DurableObject {
         if (sub === "apps/mode-all") { if (!(body.mode in h.ch.modes)) throw new Error("no such mode"); H.setModeAll(h.ch, h.rt, body.mode, Boolean(body.allowed)); return done(); }
         if (sub === "apps/approve") { H.approveApp(h.ch, String(body.pkg), (body.modes ?? []).filter((x) => x in h.ch.modes)); return done(); }
         if (sub === "apps/dismiss") { H.dismissApp(h.ch, String(body.pkg)); return done(); }
+        if (sub === "apps/command" && body.kind === "storeinstall") { const c = H.queueStoreInstall(h.ch, h.rt, String(body.pkg), now); h.ch.spotify_try = now; return done({ command: c }); }
         if (sub === "apps/command" && body.kind === "install") { const c = H.queueStore(h.ch, h.rt, now); return done({ command: c }); }
         if (sub === "apps/command") { const c = H.queueApp(h.ch, body.kind, String(body.pkg), String(body.name ?? ""), now, body); return done({ command: c }); }
         if (sub === "apps/command/cancel") { H.cancelApp(h.ch, String(body.id)); return done(); }
