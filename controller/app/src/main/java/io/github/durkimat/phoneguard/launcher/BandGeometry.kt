@@ -2,10 +2,9 @@ package io.github.durkimat.phoneguard.launcher
 
 /**
  * Where things sit on the home screen around its centre axis, which is the clock's colon (measured at draw time). The weather band is one group centred on the
- * axis (no divider line); the data bar starts on the axis and the data words end [GAP] before it. Design pixels on the 480 wide grid.
+ * axis (no divider line); the data strip is one group [words] spacer [bar], also centred on the axis. Design pixels on the 480 wide grid.
  */
 object BandGeometry {
-    const val GAP = 22f
     /** The colon of the clock in the default font; other fonts (or proportional digits) are measured at draw time and kept near this. */
     const val DEFAULT_DIV = 242f
     const val RAIN_ICON = 44f
@@ -18,18 +17,19 @@ object BandGeometry {
     const val DATE_NUDGE = 1.5f
     const val BADGE_NUDGE = 2.5f
     fun axisShift(div: Float) = div - DEFAULT_DIV
-    /** Where the data bar's outline is drawn: its first ink column is the divider's. */
-    fun dataBarLeft(div: Float) = div
-    const val DATA_BAR_RIGHT = 466f
+    // ---- the data strip: [words] DATA_SPACER [bar], one group centred on the axis
+    const val DATA_BAR_W = 200f
+    const val DATA_SPACER = 22f
+    /** The group's left edge (the words' ink start) when centred on [axis]; never nearer the screen edge than [EDGE]. */
+    fun dataGroupLeft(axis: Float, wordsInk: Float) = maxOf(EDGE, axis - (wordsInk + DATA_SPACER + DATA_BAR_W) / 2)
+    /** Where the bar's outline starts. */
+    fun dataBarLeft(groupLeft: Float, wordsInk: Float) = groupLeft + wordsInk + DATA_SPACER
+    /** The most room the words may take between the screen margins. */
+    const val DATA_WORDS_ROOM = 480f - 2 * 14f - DATA_SPACER - DATA_BAR_W // the screen minus [EDGE] margins
 
     const val DATA_TEXT_SIZE = 26f
-    /** Where the data words' ink ends: with the weather group's, 22 px before the bar. */
-    fun dataTextRight(div: Float) = tempInkRight(div)
     /** The words' size: [DATA_TEXT_SIZE] unless their ink is wider than the room (from x 14 to the right edge), then shrunk to fit. */
     fun dataTextSize(inkWidth: Float, room: Float) = if (inkWidth > room && inkWidth > 0f) DATA_TEXT_SIZE * room / inkWidth else DATA_TEXT_SIZE
-
-    /** Where the data words' ink ends (and the data bar starts the other side of [GAP]): symmetric about the axis, whatever the weather group is doing. */
-    fun tempInkRight(div: Float) = div - GAP
 
     // ---- the weather group: [symbol temperature H/L] spacer [rain due / dry], one group centred on the axis (no divider line)
     /** The standard space between the current weather and the rain/dry block. */

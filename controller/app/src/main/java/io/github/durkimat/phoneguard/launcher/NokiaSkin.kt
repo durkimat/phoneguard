@@ -646,17 +646,18 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 return
             }
             val div = BandGeometry.divider(clockColonX(time, u)) // measured first: it sets the paint to the clock's size, so the words' paint comes after it
-            val left = BandGeometry.dataBarLeft(div) // the bar starts on the centre axis
-            val right = BandGeometry.dataTextRight(div) // right-aligned: its ink ends where the weather group's does, 22 px before the bar
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.isFakeBoldText = true; p.textAlign = Paint.Align.LEFT; p.letterSpacing = 0f
             p.textSize = BandGeometry.DATA_TEXT_SIZE * scaleOf(TEXT) * u
             var rb = inkBounds(v.leftText, u)
-            val size = BandGeometry.dataTextSize(rb.width(), right - 14f)
+            val size = BandGeometry.dataTextSize(rb.width(), BandGeometry.DATA_WORDS_ROOM)
             if (size != BandGeometry.DATA_TEXT_SIZE) { p.textSize = size * scaleOf(TEXT) * u; rb = inkBounds(v.leftText, u) }
-            text(c, v.leftText, right - rb.right, 84f + y, size, u, bold = true)
+            // one group centred on the axis: [words] spacer [bar]
+            val gl = BandGeometry.dataGroupLeft(div, rb.width())
+            text(c, v.leftText, gl - rb.left, 84f + y, size, u, bold = true)
+            val bl = BandGeometry.dataBarLeft(gl, rb.width()); val br = bl + BandGeometry.DATA_BAR_W
             stroke.strokeWidth = 2f * u; stroke.color = ink
-            c.drawRect(left * u, (63f + y) * u, BandGeometry.DATA_BAR_RIGHT * u, (85f + y) * u, stroke)
-            fill.color = ink; c.drawRect(left * u, (63f + y) * u, (left + (BandGeometry.DATA_BAR_RIGHT - left) * v.fraction) * u, (85f + y) * u, fill)
+            c.drawRect(bl * u, (63f + y) * u, br * u, (85f + y) * u, stroke)
+            fill.color = ink; c.drawRect(bl * u, (63f + y) * u, (bl + BandGeometry.DATA_BAR_W * v.fraction) * u, (85f + y) * u, fill)
         }
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
