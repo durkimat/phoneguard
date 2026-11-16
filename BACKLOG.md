@@ -1312,3 +1312,7 @@ Nice-to-have (not started): on the selected row the long-name marquee scrolls th
 ## 0.4.32: offline fixes from PC's J36 offline test (2026-11-16)
 
 (1) Playlists load failure now shows the "Offline: downloaded playlists" list whenever there are downloads (it used to keep the stale list because it only fell back when the old list was empty). (2) Playing a downloaded playlist falls back to `spotify:playlist:<id>:play` when the Web API is unreachable (devices call fails), when no target device exists, or when `/me/player/play` returns a non-2xx code. (3) The marker (↓ … *) stays fixed at the left of the selected row while only the name scrolls. Still untested on a device. Caveat from PC: `svc data disable` is undone within seconds (probably RadioPolicy), so a clean offline repro needs Wi-Fi off plus SIM data off at policy level, or the emulator's airplane mode.
+
+## 0.4.33: Now Playing after an offline play (owner, via PC, 2026-11-16)
+
+After `playOffline` starts Spotify, the launcher comes back after 1.5 s on the Music (Now Playing) screen instead of dropping to Home (`jobKeepsScreen` holds the screen for 4 s, then the media session refreshes). Untested on a device; the emulator's airplane mode is the planned test.
