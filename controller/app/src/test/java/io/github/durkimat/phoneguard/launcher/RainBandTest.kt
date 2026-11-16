@@ -35,8 +35,8 @@ class RainBandTest {
 
     @Test fun otherwiseDryWithTodaysHighAndLow() {
         val b = w(h = hours(0, 10, 20, 29, 0, 0, 0)).rainBand()!!
-        assertFalse(b.due); assertNull(b.icon); assertEquals("Dry", b.line1); assertEquals("H 16°  L 8°", b.line2)
-        assertEquals("", w(h = hours(0, 0), d = emptyList()).rainBand()!!.line2) // no high and low: "Dry" alone
+        assertFalse(b.due); assertNull(b.icon); assertEquals("Dry", b.line1); assertEquals("", b.line2); assertEquals("H 16°" to "L 8°", w(h = hours(0, 0)).highLow())
+        assertNull(w(h = hours(0, 0), d = emptyList()).highLow()) // no high and low: nothing beside the temperature
     }
 
     @Test fun noForecastYetMeansNoBand() { assertNull(w(h = emptyList()).rainBand()) }

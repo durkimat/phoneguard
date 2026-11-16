@@ -33,11 +33,14 @@ data class WeatherData(val temp: Int, val code: Int, val isDay: Boolean, val hou
      * Rain due when any of the next six forecast hours has a chance of 30% or more: the time is the first such hour, the chance the highest within three hours
      * from it. Raining now reads "Now". Otherwise dry, with today's high and low (nothing when they are unknown). Null when there is no forecast yet.
      */
+    /** Today's high and low, which the band shows beside the current temperature, or null when there is no daily forecast. */
+    fun highLow(): Pair<String, String>? = days.firstOrNull()?.let { "H ${it.max}°" to "L ${it.min}°" }
+
     fun rainBand(): RainBand? {
         if (hours.isEmpty()) return null
         val wetNow = isWet(code)
         val first = hours.drop(1).take(6).indexOfFirst { it.prob >= 30 }
-        if (!wetNow && first < 0) return RainBand(false, null, "Dry", days.firstOrNull()?.let { "H ${it.max}°  L ${it.min}°" } ?: "")
+        if (!wetNow && first < 0) return RainBand(false, null, "Dry", "")
         val from = if (wetNow) 0 else first + 1
         val pct = hours.drop(from).take(3).maxOf { it.prob }
         val icon = if (wetNow && iconFor(code, true) in listOf(WeatherIcon.SNOW, WeatherIcon.STORM)) iconFor(code, true) else WeatherIcon.RAIN
