@@ -1991,6 +1991,17 @@ class LauncherModel(
         private set
     fun setWhereFix(lat: Double?, lon: Double?, heading: Float?) { if (lat != null && lon != null) whereDot = lat to lon; if (heading != null) whereHeading = heading }
     fun clearWhereFix() { whereDot = null; whereHeading = null }
+    /** Debug builds only: true while a made-up journey is shown, so the real position tracker stays off. */
+    var whereDemo = false
+        private set
+    /** Debug builds only: puts the made-up journey ([io.github.durkimat.phoneguard.where.WhereDemo]) on the map. */
+    fun loadWhereDemo() {
+        val plan = io.github.durkimat.phoneguard.where.Where.parsePlan(io.github.durkimat.phoneguard.where.WhereDemo.PLAN_JSON)
+        wherePlace = io.github.durkimat.phoneguard.where.WhereDemo.PLACE; whereWalk = plan; whereFrom = "home"
+        whereRows = io.github.durkimat.phoneguard.where.Where.journeyRows(plan, java.time.ZoneId.of("UTC"))
+        whereJourney = plan.options[0]; whereLegs = plan.options[0].legs; whereMapLeg = 1; whereDemo = true; clearWhereFix()
+        screen = Screen.WHEREMAP
+    }
     /** True when the dot is more than about 100 m from the route being shown. */
     val whereOffRoute: Boolean get() = whereDot?.let { d -> io.github.durkimat.phoneguard.where.WhereGeo.offRoute(d.first, d.second, io.github.durkimat.phoneguard.where.MapPicture.allPoints(whereMapSegments)) } == true
     /** The words under the map: the leg in focus, or the off-route notice, or that there is no position. */

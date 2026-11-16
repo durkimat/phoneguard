@@ -101,4 +101,15 @@ class WhereFlowTest {
         val all = listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(WHERE_PKG, "Where to?"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(WEATHER_PKG, "Weather"))
         assertEquals(listOf("Weather", "Games", "Where to?", "Calculator", "Settings"), LauncherData.menu(all, emptyList()).map { it.label })
     }
+
+    @Test fun theDemoJourneyShowsOnTheMapAndTheDotCanBeOffRoute() {
+        val m = phone(); m.loadWhereDemo()
+        assertEquals(Screen.WHEREMAP, m.screen); assertEquals(3, m.whereLegs.size)
+        assertTrue(m.whereMapSegments.all { it.points.size >= 2 })
+        m.setWhereFix(51.7525, -0.3340, 90f)              // on the route
+        assertTrue(!m.whereOffRoute)
+        m.setWhereFix(51.7700, -0.3340, 90f)              // about a kilometre north of it
+        assertTrue(m.whereOffRoute)
+        assertEquals("Off the route: press OK to plan again", m.whereMapCaption)
+    }
 }

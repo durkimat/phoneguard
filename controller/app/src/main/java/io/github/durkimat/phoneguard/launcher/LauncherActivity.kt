@@ -126,6 +126,11 @@ class LauncherActivity : Activity() {
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
         pendingVoice?.let { pendingVoice = null; voiceAction(it) }
+        // debug builds only, for the emulator: `am start -S -n ... --es pg_where_demo 1` shows a made-up journey on the map; `--es pg_where_dot "51.7525,-0.3340,90"` puts the dot (lat,lon,heading)
+        if (io.github.durkimat.phoneguard.BuildConfig.DEBUG) {
+            if (intent?.getStringExtra("pg_where_demo") != null) { intent.removeExtra("pg_where_demo"); model.loadWhereDemo(); refresh() }
+            intent?.getStringExtra("pg_where_dot")?.let { v -> intent.removeExtra("pg_where_dot"); val p = v.split(','); if (p.size >= 2) { model.setWhereFix(p[0].toDoubleOrNull(), p[1].toDoubleOrNull(), p.getOrNull(2)?.toFloatOrNull()); refresh() } }
+        }
         // mail is looked at when the launcher comes to the front, at most every 15 minutes, and never in a mode that hides it (School)
         if (LauncherData.musicShown(this) && io.github.durkimat.phoneguard.mail.Mail.account(this) != null) mailSync(false)
         // debug builds only: `am start -S -n ... --es pg_mail_demo 1` sets up the made-up mailbox so the mail screens can be tried without an account
@@ -397,6 +402,7 @@ class LauncherActivity : Activity() {
     /** The "Where to?" map is open: follow the child's position and heading, and keep the screen on. Both stop when the map is left. Safe to call on every redraw. */
     private fun trackWhere() {
         val on = model.screen == Screen.WHEREMAP
+        if (on && model.whereDemo) { window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); return }
         if (on) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             io.github.durkimat.phoneguard.where.WhereTracker.start(this) { fix, heading -> ui.post { model.setWhereFix(fix?.lat, fix?.lon, heading); invalidate(D.SCREEN); redraw() } }
