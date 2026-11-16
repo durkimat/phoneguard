@@ -1284,3 +1284,6 @@ On the Playlists screen: `*` pins or unpins the highlighted playlist (a "* " mar
 
 ### Now Playing is slow to update when playback starts (owner, 2026-11-16, Spotify) — investigate, not started
 A few seconds pass after the music starts before the Now Playing screen shows it. Look at the delay between playback start and the refresh: the poll interval of the Web API state (`spPolledAt`, the 800 ms redraw after `SpPlay`), `wakeSpotify` (this phone only shows as a device once Spotify is running), whether a media-session callback (MediaController) could update it at once instead of polling, and invalidate/refresh of the music info. 0.4.30 confirmed working by the owner (playlist back, pinned).
+
+### Volume bar jumps from 2 bars to zero, no 1-bar level (owner, 2026-11-16) — investigate, not started
+Look at the steps and mapping in `keys/VolumeBar.kt`: how the bars are quantised against the stream's volume index (a lowest non-zero step may round down to 0 bars, or the bar count and the index range may not line up), and whether the key steps skip a level.
