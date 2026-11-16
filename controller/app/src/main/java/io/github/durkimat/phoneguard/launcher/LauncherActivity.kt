@@ -101,6 +101,7 @@ class LauncherActivity : Activity() {
         remoteVolume = { up -> remoteVolumeStep(up) }
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { if (!jobKeepsScreen) model.goHome(); cameBack = false }
+        model.voiceOn = voiceAllowed()
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
@@ -122,6 +123,8 @@ class LauncherActivity : Activity() {
 
     override fun onPause() {
         inFront = false
+        voiceStart?.let { ui.removeCallbacks(it); voiceStart = null }
+        if (model.voiceState == 1) { voiceCancelled = true; voiceCap?.cancel(); model.voiceState = 0 }
         try { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = null
         if (model.screen in netScreens) Thread { io.github.durkimat.phoneguard.LocationLock.giveBack(this) }.start() // leaving the app: the lent location switch goes back
@@ -503,6 +506,7 @@ class LauncherActivity : Activity() {
             return true
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
+        if (model.screen == Screen.WRITE && (model.writeField == 2 || model.voiceState != 0) && voiceKey(k.first, ev)) return true
         // Now playing: a tap on left or right (or 4 and 6) skips the track when the key comes up; holding it winds back or forward instead
         if (model.screen == Screen.MUSIC && model.music.active && model.provider != Provider.RADIO && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
             val dir = if (k.first == Key.RIGHT || k.second == 6) 1 else -1
@@ -791,6 +795,64 @@ class LauncherActivity : Activity() {
     }
 
     /** Start a playlist, album or song on the chosen device: the one picked in "Play on" if it is still there, else this phone, else wherever it is playing. */
+    // ---- voice typing: hold OK on the microphone button, speak, let go ----
+    private var voiceCap: io.github.durkimat.phoneguard.voice.VoiceCapture? = null
+    private var voiceStart: Runnable? = null
+    private var voiceCancelled = false
+    private fun voiceAllowed() = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(this)
+
+    private fun voiceRedraw() { invalidate(D.SCREEN); refresh() }
+    private fun voiceNotice(text: String) { model.notify(text); voiceRedraw() }
+
+    /** The keys while the microphone button has the focus or a recording is going. Returns true when the key was dealt with here. */
+    private fun voiceKey(k: Key, ev: KeyEvent): Boolean {
+        val down = ev.action == KeyEvent.ACTION_DOWN
+        if (model.voiceState == 2) return true // sending: keys wait
+        if (model.voiceState == 1) {
+            if (k == Key.OK && ev.action == KeyEvent.ACTION_UP) { voiceCap?.stop() }
+            else if (down && ev.repeatCount == 0 && (k == Key.SOFT_RIGHT || k == Key.END)) { voiceCancelled = true; voiceCap?.cancel(); model.voiceState = 0; voiceRedraw() }
+            return true
+        }
+        if (k != Key.OK) return false
+        if (down) { if (ev.repeatCount == 0) { val r = Runnable { voiceStart = null; startVoice() }; voiceStart = r; ui.postDelayed(r, 250) }; return true }
+        if (ev.action == KeyEvent.ACTION_UP) { val r = voiceStart; if (r != null) { ui.removeCallbacks(r); voiceStart = null; perform(model.onKey(Key.OK, -1)) } }
+        return true
+    }
+
+    private fun startVoice() {
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val online = try { cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true } catch (_: Exception) { false }
+        if (!online) { voiceNotice(io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK); return }
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) { voiceNotice("Microphone is off"); return }
+        try { getSystemService(android.os.Vibrator::class.java)?.vibrate(android.os.VibrationEffect.createOneShot(40, android.os.VibrationEffect.DEFAULT_AMPLITUDE)) } catch (_: Exception) { }
+        voiceCancelled = false; model.voiceState = 1; model.voiceLevel = 0
+        val cap = io.github.durkimat.phoneguard.voice.VoiceCapture(io.github.durkimat.phoneguard.voice.VoiceWav.MAX_DICTATION_MS,
+            { lv -> ui.post { if (model.voiceState == 1) { model.voiceLevel = lv; voiceRedraw() } } }, { pcm -> ui.post { finishVoice(pcm) } })
+        voiceCap = cap; cap.start(); voiceRedraw()
+    }
+
+    private fun finishVoice(pcm: ByteArray?) {
+        voiceCap = null
+        if (voiceCancelled) { model.voiceState = 0; voiceRedraw(); return }
+        if (pcm == null) { model.voiceState = 0; voiceNotice("Microphone not available"); return }
+        if (io.github.durkimat.phoneguard.voice.VoiceWav.millis(pcm.size) < io.github.durkimat.phoneguard.voice.VoiceWav.MIN_MS) { model.voiceState = 0; voiceNotice("Hold OK and speak"); return }
+        model.voiceState = 2; voiceRedraw()
+        val wav = io.github.durkimat.phoneguard.voice.VoiceWav.wav(pcm)
+        Thread {
+            val r = io.github.durkimat.phoneguard.companion.WorkerLink.voiceTranscribe(this, wav, "dictation")
+            ui.post {
+                model.voiceState = 0
+                when (r) {
+                    is io.github.durkimat.phoneguard.voice.VoiceReply.Heard -> { model.voiceInsert(r.text); if (r.low) model.notify("Check the words") }
+                    io.github.durkimat.phoneguard.voice.VoiceReply.Nothing -> model.notify(io.github.durkimat.phoneguard.voice.VoiceReply.DIDNT_CATCH)
+                    is io.github.durkimat.phoneguard.voice.VoiceReply.Refused -> model.notify(r.shown)
+                    is io.github.durkimat.phoneguard.voice.VoiceReply.Failed -> model.notify(r.shown)
+                }
+                voiceRedraw()
+            }
+        }.start()
+    }
+
     /** True while a playlist download job has Spotify in front: the launcher keeps its screen when it comes back (otherwise coming back from an app shows the home screen). */
     @Volatile private var jobKeepsScreen = false
 

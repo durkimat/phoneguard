@@ -896,9 +896,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val comp = m.composingRange
             val paint = bodyPaint()
             val cursorLine = if (comp != null || m.writeField == 0) -1 else lines.indexOfFirst { it.first <= m.cursor && m.cursor <= it.last + 1 }.let { if (it < 0) lines.size - 1 else it }
-            var first = (lines.size - 11).coerceAtLeast(0) // keep the end, where the cursor usually is
+            val shown = if (m.voiceOn) 10 else 11 // the microphone button takes the bottom right corner
+            var first = (lines.size - shown).coerceAtLeast(0) // keep the end, where the cursor usually is
             if (cursorLine in 0 until first) first = cursorLine
-            for (n in 0 until 11) {
+            for (n in 0 until shown) {
                 val idx = first + n
                 val span = lines.getOrNull(idx) ?: break
                 val y = 140f + n * 36f
@@ -915,10 +916,34 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 }
             }
             if (lines.isEmpty() && m.writeField == 1) c.drawRect(16 * u, 116 * u, 19 * u, 147 * u, fill)
-            text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
+            if (m.voiceOn) voiceButton(c, m, u)
+            if (m.voiceState == 0) text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
             if (m.writeWa) text(c, "WhatsApp", 240f, 560f, 24f, u, align = Paint.Align.CENTER)
             text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** The microphone button at the bottom right of a text field (a boxed microphone; inverted while it has the focus), and the state of a recording. */
+        private fun voiceButton(c: Canvas, m: LauncherModel, u: Float) {
+            val focused = m.writeField == 2 || m.voiceState != 0
+            val x0 = 412f; val y0 = 500f; val x1 = 464f; val y1 = 552f; val cx = (x0 + x1) / 2
+            if (focused) { fill.color = ink; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, fill) }
+            stroke.strokeWidth = 2 * u; stroke.color = ink; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, stroke)
+            val fg = if (focused) lcd else ink
+            fill.color = fg; stroke.color = fg
+            c.drawRoundRect(android.graphics.RectF((cx - 6) * u, 508 * u, (cx + 6) * u, 530 * u), 6 * u, 6 * u, fill)
+            c.drawArc(android.graphics.RectF((cx - 10) * u, 518 * u, (cx + 10) * u, 538 * u), 0f, 180f, false, stroke)
+            c.drawLine(cx * u, 538 * u, cx * u, 544 * u, stroke); c.drawLine((cx - 6) * u, 545 * u, (cx + 6) * u, 545 * u, stroke)
+            fill.color = ink; stroke.color = ink
+            when (m.voiceState) {
+                1 -> { // listening: level bars and what to do
+                    text(c, "Listening", 16f, 560f, 24f, u, bold = true)
+                    for (b in 0 until 4) { val h = 8f + b * 6f; if (b < m.voiceLevel) c.drawRect((150 + b * 12) * u, (556 - h) * u, (158 + b * 12) * u, 556 * u, fill) else { stroke.strokeWidth = 1.5f * u; c.drawRect((150 + b * 12) * u, (556 - h) * u, (158 + b * 12) * u, 556 * u, stroke) } }
+                    text(c, "let go to send", 240f, 530f, 24f, u, align = Paint.Align.CENTER)
+                }
+                2 -> text(c, "Sending...", 16f, 560f, 24f, u, bold = true)
+            }
+            if (m.voiceState == 0 && m.writeField == 2) text(c, "hold OK and speak", 240f, 530f, 24f, u, align = Paint.Align.CENTER)
         }
 
         private fun calc(c: Canvas, m: LauncherModel, u: Float) {

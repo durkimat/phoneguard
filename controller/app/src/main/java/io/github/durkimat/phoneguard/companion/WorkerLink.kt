@@ -114,8 +114,7 @@ object WorkerLink {
         val s = sp(c)
         if (!isPaired(c)) return "not paired"
         val did = s.getString("did", "")!!; val host = host(c)
-        val ctr = s.getLong("ctr", 0) + 1
-        s.edit().putLong("ctr", ctr).apply() // persist first: a counter is never reused, even if the reply is lost
+        val ctr = nextCtr(c) // persisted first: a counter is never reused, even if the reply is lost
         val n = Wire.nonce()
         val p = payloadWithExtras(c, s.getString("cfgh", "").orEmpty()).toString()
         val env = JSONObject().put("v", V).put("did", did).put("ctr", ctr).put("n", n).put("p", p)
@@ -138,6 +137,40 @@ object WorkerLink {
         schedulePoll(c, POLL_MS)
         Log.log(c, "companion sync($reason) $result")
         return result
+    }
+
+    /** The next signed-request counter, shared by the sync and voice requests so two threads never use the same one. */
+    @Synchronized private fun nextCtr(c: Context): Long { val s = sp(c); val ctr = s.getLong("ctr", 0) + 1; s.edit().putLong("ctr", ctr).apply(); return ctr }
+
+    /**
+     * Sends a recording to the Worker for transcription (`POST /voice/transcribe`, body = WAV, header X-Voice-Mode). Signed like the sync: the headers
+     * X-Pg-V, X-Pg-Did, X-Pg-Ctr, X-Pg-N and X-Pg-S carry version, device id, counter, nonce and the signature over `phoneMessage(V, did, ctr, n, p)`
+     * with `p = "voice:" + mode + ":" + sha256hex(body)`, so the body cannot be swapped. The audio is not stored on the phone.
+     */
+    fun voiceTranscribe(c: Context, wav: ByteArray, mode: String): io.github.durkimat.phoneguard.voice.VoiceReply {
+        val s = sp(c)
+        if (!isPaired(c)) return io.github.durkimat.phoneguard.voice.VoiceReply.Failed("Voice needs the family app")
+        val did = s.getString("did", "")!!; val host = host(c)
+        val ctr = nextCtr(c); val n = Wire.nonce()
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(wav).joinToString("") { "%02x".format(it) }
+        val sig = Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, "voice:$mode:$hash").toByteArray(Charsets.UTF_8))
+        val h = URL("https://$host/voice/transcribe").openConnection() as HttpURLConnection
+        return try {
+            h.connectTimeout = 15_000; h.readTimeout = 30_000; h.instanceFollowRedirects = false
+            h.requestMethod = "POST"; h.doOutput = true
+            h.setRequestProperty("Content-Type", "audio/wav"); h.setRequestProperty("X-Voice-Mode", mode)
+            h.setRequestProperty("X-Pg-V", V.toString()); h.setRequestProperty("X-Pg-Did", did); h.setRequestProperty("X-Pg-Ctr", ctr.toString())
+            h.setRequestProperty("X-Pg-N", n); h.setRequestProperty("X-Pg-S", sig)
+            h.setFixedLengthStreamingMode(wav.size)
+            h.outputStream.use { it.write(wav) }
+            val code = h.responseCode
+            val text = (if (code < 400) h.inputStream else h.errorStream)?.readBytes()?.toString(Charsets.UTF_8) ?: ""
+            if (code == 409) s.edit().putLong("ctr", ctr + 1000).apply() // the server is ahead of us: skip forward
+            io.github.durkimat.phoneguard.voice.VoiceReply.parse(code, text)
+        } catch (e: Exception) {
+            Log.log(c, "voice: ${e.javaClass.simpleName}")
+            io.github.durkimat.phoneguard.voice.VoiceReply.Failed(if (e is java.net.UnknownHostException || e is java.net.ConnectException) io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK else "Voice isn't working right now")
+        } finally { h.disconnect() }
     }
 
     /** Signature, device id and echoed nonce must all check out against the pinned server key; returns the signed payload. */

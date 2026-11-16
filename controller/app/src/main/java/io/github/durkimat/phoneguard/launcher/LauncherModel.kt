@@ -425,9 +425,19 @@ class LauncherModel(
         private set
     var cursor = 0
         private set
-    /** 0 is the To field, 1 the message. */
+    /** 0 is the To field, 1 the message, 2 the microphone button (only while [voiceOn]). */
     var writeField = 1
         private set
+    /** True when speaking into a text field is possible on this phone (set by the activity); the microphone button shows only then. */
+    var voiceOn = false
+    /** 0 idle, 1 listening (key held), 2 sending the recording; and how loud it is (0 to 4). Set by the activity. */
+    var voiceState = 0
+    var voiceLevel = 0
+    /** Put dictated words into the message at the cursor and go back to the text. */
+    fun voiceInsert(said: String) {
+        val r = io.github.durkimat.phoneguard.voice.VoiceText.insert(writeText, cursor, said)
+        commit(); writeText = r.first; cursor = r.second; lastDigit = -1; writeField = 1
+    }
     private var writeMode = 0
 
     // ---- Predictive text (T9)
@@ -580,7 +590,7 @@ class LauncherModel(
         Screen.WAPAIR -> (if (waLinked) "" else if (waCode != null) "New code" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
         Screen.CHAT -> (if (selected == 0) "Reply" else "Read") to "Back"
-        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeHead != null) "Done" else "Send") to "Clear"
+        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeField == 2) "Speak" else if (writeHead != null) "Done" else "Send") to "Clear"
         else -> "Select" to "Back"
     }
 
@@ -960,7 +970,16 @@ class LauncherModel(
     private fun leaveWrite(): Action { screen = writeBack; return Action.Redraw }
 
     private fun write(key: Key, digit: Int, now: Long): Action =
-        if (writeField == 0) writeToField(key, digit) else writeBody(key, digit, now)
+        if (writeField == 0) writeToField(key, digit) else if (writeField == 2) writeMic(key, digit, now) else writeBody(key, digit, now)
+
+    /** The microphone button has the focus: hold OK (handled by the activity) speaks; every other key goes back to the text. */
+    private fun writeMic(key: Key, digit: Int, now: Long): Action = when (key) {
+        Key.UP, Key.SOFT_RIGHT -> { writeField = 1; Action.Redraw }
+        Key.OK -> { notice = "Hold OK and speak"; Action.Redraw }
+        Key.DOWN, Key.SOFT_LEFT -> Action.None
+        Key.END -> { goHome(); Action.Redraw }
+        else -> { writeField = 1; writeBody(key, digit, now) }
+    }
 
     private fun writeToField(key: Key, digit: Int): Action = when (key) {
         Key.DIGIT -> if (writeTo.length < 20 && digit in 0..9) { writeTo += digit; Action.Redraw } else Action.None
@@ -982,6 +1001,7 @@ class LauncherModel(
         Key.STAR -> { if (t9 && seq.isNotEmpty()) nextWord() else { commit(); typeKey(10, now) }; Action.Redraw }
         Key.POUND -> { commit(); writeMode = (writeMode + 1) % modes.size; lastDigit = -1; Action.Redraw }
         Key.UP -> { commit(); writeField = 0; Action.Redraw }
+        Key.DOWN -> if (voiceOn) { commit(); writeField = 2; Action.Redraw } else Action.None
         Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
         Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
         Key.OK, Key.SOFT_LEFT -> { commit(); writeDone?.let { f -> writeDone = null; writeHead = null; screen = writeBack; return f(writeText.trim()) }; if (writeWifi != null) { val n = writeWifi!!; screen = Screen.WIFI; selected = 0; writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; resFromFind = true; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; screen = Screen.RADIORES; selected = 0; Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
