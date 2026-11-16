@@ -148,28 +148,51 @@ object WorkerLink {
      * with `p = "voice:" + mode + ":" + sha256hex(body)`, so the body cannot be swapped. The audio is not stored on the phone.
      */
     fun voiceTranscribe(c: Context, wav: ByteArray, mode: String): io.github.durkimat.phoneguard.voice.VoiceReply {
-        val s = sp(c)
         if (!isPaired(c)) return io.github.durkimat.phoneguard.voice.VoiceReply.Failed("Voice needs the family app")
-        val did = s.getString("did", "")!!; val host = host(c)
-        val ctr = nextCtr(c); val n = Wire.nonce()
-        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(wav).joinToString("") { "%02x".format(it) }
-        val sig = Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, "voice:$mode:$hash").toByteArray(Charsets.UTF_8))
-        val h = URL("https://$host/api/voice/transcribe").openConnection() as HttpURLConnection
         return try {
-            h.connectTimeout = 15_000; h.readTimeout = 30_000; h.instanceFollowRedirects = false
-            h.requestMethod = "POST"; h.doOutput = true
-            h.setRequestProperty("Content-Type", "audio/wav"); h.setRequestProperty("X-Voice-Mode", mode)
-            h.setRequestProperty("X-Pg-V", V.toString()); h.setRequestProperty("X-Pg-Did", did); h.setRequestProperty("X-Pg-Ctr", ctr.toString())
-            h.setRequestProperty("X-Pg-N", n); h.setRequestProperty("X-Pg-S", sig)
-            h.setFixedLengthStreamingMode(wav.size)
-            h.outputStream.use { it.write(wav) }
-            val code = h.responseCode
-            val text = (if (code < 400) h.inputStream else h.errorStream)?.readBytes()?.toString(Charsets.UTF_8) ?: ""
-            if (code == 409) s.edit().putLong("ctr", ctr + 1000).apply() // the server is ahead of us: skip forward
+            val (code, text) = signedPost(c, "/api/voice/transcribe", "voice:$mode", wav, "audio/wav", mapOf("X-Voice-Mode" to mode), 30_000)
             io.github.durkimat.phoneguard.voice.VoiceReply.parse(code, text)
         } catch (e: Exception) {
             Log.log(c, "voice: ${e.javaClass.simpleName}")
             io.github.durkimat.phoneguard.voice.VoiceReply.Failed(if (e is java.net.UnknownHostException || e is java.net.ConnectException) io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK else "Voice isn't working right now")
+        }
+    }
+
+    /**
+     * "Where to?": `kind` is "search" or "route" (`/api/geo/<kind>`), [json] the request body. Signed like voice with the tag `geo:<kind>`. Returns the status
+     * code and body, or null when the Worker could not be reached (no network).
+     */
+    fun geo(c: Context, kind: String, json: String): Pair<Int, String>? {
+        if (!isPaired(c)) return 0 to "{}"
+        return try { signedPost(c, "/api/geo/$kind", "geo:$kind", json.toByteArray(Charsets.UTF_8), "application/json", emptyMap(), 25_000) }
+        catch (e: Exception) { Log.log(c, "geo $kind: ${e.javaClass.simpleName}"); null }
+    }
+
+    /**
+     * One signed POST with a binary or JSON body: headers X-Pg-V, X-Pg-Did, X-Pg-Ctr, X-Pg-N and X-Pg-S, the signature over
+     * `phoneMessage(V, did, ctr, n, p)` with `p = tag + ":" + sha256hex(body)` so the body cannot be swapped. The counter is shared with the sync.
+     * Returns the status code and body text; throws on network errors.
+     */
+    private fun signedPost(c: Context, path: String, tag: String, body: ByteArray, contentType: String, extra: Map<String, String>, readTimeoutMs: Int): Pair<Int, String> {
+        val s = sp(c)
+        val did = s.getString("did", "")!!; val host = host(c)
+        val ctr = nextCtr(c); val n = Wire.nonce()
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(body).joinToString("") { "%02x".format(it) }
+        val sig = Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, "$tag:$hash").toByteArray(Charsets.UTF_8))
+        val h = URL("https://$host$path").openConnection() as HttpURLConnection
+        try {
+            h.connectTimeout = 15_000; h.readTimeout = readTimeoutMs; h.instanceFollowRedirects = false
+            h.requestMethod = "POST"; h.doOutput = true
+            h.setRequestProperty("Content-Type", contentType)
+            extra.forEach { (k, v) -> h.setRequestProperty(k, v) }
+            h.setRequestProperty("X-Pg-V", V.toString()); h.setRequestProperty("X-Pg-Did", did); h.setRequestProperty("X-Pg-Ctr", ctr.toString())
+            h.setRequestProperty("X-Pg-N", n); h.setRequestProperty("X-Pg-S", sig)
+            h.setFixedLengthStreamingMode(body.size)
+            h.outputStream.use { it.write(body) }
+            val code = h.responseCode
+            val text = (if (code < 400) h.inputStream else h.errorStream)?.readBytes()?.toString(Charsets.UTF_8) ?: ""
+            if (code == 409) s.edit().putLong("ctr", ctr + 1000).apply() // the server is ahead of us: skip forward
+            return code to text
         } finally { h.disconnect() }
     }
 

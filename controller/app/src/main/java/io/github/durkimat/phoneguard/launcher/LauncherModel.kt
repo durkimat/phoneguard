@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -97,6 +97,7 @@ const val GRID_GAP = 8f
 const val SETTINGS_PKG = "pg:settings"
 const val CAMERA_PKG = "pg:camera"
 const val MUSIC_PKG = "pg:music"
+const val WHERE_PKG = "pg:where"
 const val NOTES_PKG = "pg:notes"
 const val CALENDAR_PKG = "pg:calendar"
 const val MAIL_PKG = "pg:mail"
@@ -202,6 +203,9 @@ sealed class Action {
     data class SpPlay(val uri: String) : Action()
     /** A playlist was pinned or unpinned on the Playlists screen: the phone remembers it. */
     data class SpPin(val uri: String, val pinned: Boolean) : Action()
+    /** "Where to?": look a place up, or plan the way there. */
+    data class WhereSearch(val query: String) : Action()
+    data class WhereRoute(val to: io.github.durkimat.phoneguard.where.Place) : Action()
     /** The `#` key on a playlist: download it for offline listening, or remove the download. */
     data class SpOffline(val uri: String, val name: String, val remove: Boolean) : Action()
     /** Play radio preset n (0 is the first). */
@@ -527,6 +531,9 @@ class LauncherModel(
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> if (spOfflineOnly) "Offline playlists" else "Playlists"
+        Screen.WHEREPLACES -> "Where to?"
+        Screen.WHEREJOURNEYS -> (if (whereFrom.isNotEmpty()) "From $whereFrom to " else "To ") + (wherePlace?.name ?: "")
+        Screen.WHERELEGS -> whereJourney?.let { io.github.durkimat.phoneguard.where.Where.liveTag(it) } ?: "Walk"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -561,7 +568,9 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU -> "Select" to "Back"
+        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.WHEREPLACES -> "Select" to "Back"
+        Screen.WHEREJOURNEYS -> "Details" to "Back"
+        Screen.WHERELEGS -> "" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
@@ -622,6 +631,9 @@ class LauncherModel(
         Screen.BTDEV -> btDevRows
         Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
+        Screen.WHEREPLACES -> whereResults.map { io.github.durkimat.phoneguard.where.Where.placeRow(it) }
+        Screen.WHEREJOURNEYS -> whereRows.map { it.label }
+        Screen.WHERELEGS -> whereLegs.map { io.github.durkimat.phoneguard.where.Where.legLine(it) }
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -702,6 +714,7 @@ class LauncherModel(
         Screen.BTDEV -> btDevKey(key)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
+        Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS -> whereKey(key)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
@@ -1181,6 +1194,7 @@ class LauncherModel(
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
         item.pkg == MUSIC_PKG -> { enter(Screen.MUSICMENU); Action.Redraw }
+        item.pkg == WHERE_PKG -> whereStart("")
         item.pkg == RUNNING_PKG -> { enter(Screen.RUNNING); Action.Redraw }
         item.pkg == NOTES_PKG -> { enter(Screen.NOTES); Action.Redraw }
         item.pkg == CALENDAR_PKG -> openCalendar()
@@ -1943,6 +1957,74 @@ class LauncherModel(
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
+    }
+
+    // ---- "Where to?": type or speak a place, pick it, see the ways to get there (the Worker's /api/geo calls; docs/where-to-protocol.md)
+    var whereResults: List<io.github.durkimat.phoneguard.where.Place> = emptyList()
+        private set
+    var whereRows: List<io.github.durkimat.phoneguard.where.JourneyRow> = emptyList()
+        private set
+    var whereLegs: List<io.github.durkimat.phoneguard.where.Leg> = emptyList()
+        private set
+    var wherePlace: io.github.durkimat.phoneguard.where.Place? = null
+        private set
+    var whereJourney: io.github.durkimat.phoneguard.where.Journey? = null
+        private set
+    private var whereWalk: io.github.durkimat.phoneguard.where.Plan? = null
+    private var whereQuery = ""
+    /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
+    var whereStatus = ""
+    var whereFrom = ""
+
+    /** Opens "Where to?" with the words already typed (a spoken "navigate to ..."); the child still picks the place. */
+    fun openWhere(text: String): Action = whereStart(text)
+
+    private fun whereStart(text: String): Action {
+        startWrite("", Screen.MENU); writeField = 1; writeHead = "Where to?"
+        writeText = text; cursor = text.length
+        writeDone = { q ->
+            if (q.length < 2) { notice = "Type at least two letters"; whereStart(q) }
+            else { whereQuery = q; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0; Action.WhereSearch(q) }
+        }
+        return Action.Redraw
+    }
+
+    /** The places Worker answered (or why it could not). */
+    fun setWherePlaces(list: List<io.github.durkimat.phoneguard.where.Place>, status: String) { whereResults = list; whereStatus = if (list.isEmpty()) status else ""; selected = 0 }
+
+    /** The ways to [to] arrived; [from] says where they start. */
+    fun setWherePlan(plan: io.github.durkimat.phoneguard.where.Plan?, from: String, status: String) {
+        whereFrom = from; whereWalk = plan
+        whereRows = if (plan == null) emptyList() else io.github.durkimat.phoneguard.where.Where.journeyRows(plan)
+        whereStatus = if (whereRows.isEmpty()) status.ifEmpty { "No way found" } else ""
+        if (screen == Screen.WHEREJOURNEYS) selected = 0
+    }
+
+    private fun whereKey(key: Key): Action {
+        val size = when (screen) { Screen.WHEREPLACES -> whereResults.size; Screen.WHEREJOURNEYS -> whereRows.size; else -> whereLegs.size }
+        return move(key, size) ?: when (screen) {
+            Screen.WHEREPLACES -> when (key) {
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> whereResults.getOrNull(selected)?.let { p -> wherePlace = p; whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } ?: Action.None
+                Key.RIGHT, Key.SOFT_RIGHT -> whereStart(whereQuery)
+                Key.END -> { goHome(); Action.Redraw }
+                else -> Action.None
+            }
+            Screen.WHEREJOURNEYS -> when (key) {
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> whereRows.getOrNull(selected)?.let { row ->
+                    whereJourney = row.journey
+                    whereLegs = row.journey?.legs ?: whereWalk?.let { listOf(io.github.durkimat.phoneguard.where.Leg("walk", "", "", "", wherePlace?.name.orEmpty(), "", "", it.walkMinutes ?: 0, false, it.walkPoints)) }.orEmpty()
+                    screen = Screen.WHERELEGS; selected = 0; Action.Redraw
+                } ?: Action.None
+                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0); Action.Redraw }
+                Key.END -> { goHome(); Action.Redraw }
+                else -> Action.None
+            }
+            else -> when (key) {
+                Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREJOURNEYS; selected = 0; Action.Redraw }
+                Key.END -> { goHome(); Action.Redraw }
+                else -> Action.None
+            }
+        }
     }
 
     private fun startSearch(): Action { startWrite("", Screen.SPOTIFYMENU); writeField = 1; writeSearch = true; return Action.Redraw }

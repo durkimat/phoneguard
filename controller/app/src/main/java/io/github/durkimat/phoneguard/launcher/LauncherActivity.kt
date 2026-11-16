@@ -729,6 +729,29 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
+            is Action.WhereSearch -> Thread {
+                val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this)
+                val body = org.json.JSONObject().put("q", a.query).also { j -> if (o != null) j.put("near", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)) }.toString()
+                val r = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "search", body)
+                ui.post {
+                    if (r == null) model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK)
+                    else if (r.first == 200) model.setWherePlaces(io.github.durkimat.phoneguard.where.Where.parsePlaces(r.second), "No places found")
+                    else model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.where.WhereReply.message(r.first))
+                    refresh()
+                }
+            }.start()
+            is Action.WhereRoute -> Thread {
+                val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this)
+                if (o == null) { ui.post { model.setWherePlan(null, "", "I don't know where you are"); refresh() }; return@Thread }
+                val body = org.json.JSONObject().put("from", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)).put("to", org.json.JSONObject().put("lat", a.to.lat).put("lon", a.to.lon)).toString()
+                val r = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "route", body)
+                ui.post {
+                    if (r == null) model.setWherePlan(null, o.label, io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK)
+                    else if (r.first == 200) model.setWherePlan(io.github.durkimat.phoneguard.where.Where.parsePlan(r.second), o.label, "No way found")
+                    else model.setWherePlan(null, o.label, io.github.durkimat.phoneguard.where.WhereReply.message(r.first))
+                    refresh()
+                }
+            }.start()
             is Action.SpPin -> { val m = io.github.durkimat.phoneguard.music.PlaylistMemory; m.setPins(this, model.spPins); refresh() }
             is Action.SpOffline -> Thread { offlineJob(a) }.start()
             is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); if (model.spOfflineOnly) playOffline(a.uri) else playOnTarget(a.uri); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
@@ -837,7 +860,7 @@ class LauncherActivity : Activity() {
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Play -> {
                 if (!LauncherData.musicShown(this) || !model.spSignedIn) say("Music is not available here") else Thread { voicePlay(cmd) }.start()
             }
-            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> say("Where to? is coming soon")
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> if (!LauncherData.whereShown(this)) say("Where to? is not available here") else perform(model.openWhere(cmd.destination))
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Unknown -> say(cmd.say)
         }
     }
