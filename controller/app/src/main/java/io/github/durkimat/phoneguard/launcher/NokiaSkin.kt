@@ -641,16 +641,16 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         /** Mobile data on the home screen, one line under the status strip: what is left in words and the share used as a bar; at 10% or less left, an inverted banner instead. */
         private fun dataWidget(c: Canvas, v: io.github.durkimat.phoneguard.core.DataView, u: Float) {
-            val y = (if (Themes.byId(model?.theme).skin == "mac") DATA_MAC_SHIFT else 0f) // the Mac look has a title bar and a frame: the line sits just inside it
+            val y = dataY(Themes.byId(model?.theme).skin == "mac") // the Mac look has a title bar and a frame: the line sits just inside it
             if (v.low) {
-                fill.color = ink; c.drawRect(14f * u, (56f + y) * u, 466f * u, (84f + y) * u, fill)
-                text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 77f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                fill.color = ink; c.drawRect(14f * u, (60f + y) * u, 466f * u, (88f + y) * u, fill)
+                text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 81f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
                 return
             }
-            textInk(c, v.leftText, 14f, 78f + y, 26f, u, bold = true) // its first ink column is 14, like the signal bars
+            textInk(c, v.leftText, 14f, 84f + y, 26f, u, bold = true) // its first ink column is 14, like the signal bars
             stroke.strokeWidth = 2f * u; stroke.color = ink
-            c.drawRect(230f * u, (58f + y) * u, 466f * u, (80f + y) * u, stroke)
-            fill.color = ink; c.drawRect(230f * u, (58f + y) * u, (230f + 236f * v.fraction) * u, (80f + y) * u, fill)
+            c.drawRect(230f * u, (63f + y) * u, 466f * u, (85f + y) * u, stroke)
+            fill.color = ink; c.drawRect(230f * u, (63f + y) * u, (230f + 236f * v.fraction) * u, (85f + y) * u, fill)
         }
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {

@@ -59,7 +59,7 @@ object Enforcer {
                         if (dpm.setApplicationHidden(admin, pkg, true)) { ours += pkg; hid++ } else failed += pkg
                     }
                 } else if (!shouldHide && pkg in ours) {
-                    if (dpm.setApplicationHidden(admin, pkg, false)) { ours -= pkg; unhid++ } else failed += pkg
+                    if (dpm.setApplicationHidden(admin, pkg, false)) { ours -= pkg; unhid++; if (pkg == StoreApp.PKG) StoreApp.requestOps(c) } else failed += pkg // showing the store drops its install app-op: have it set again
                 }
             } catch (e: Exception) {
                 failed += "$pkg(${e.javaClass.simpleName})"

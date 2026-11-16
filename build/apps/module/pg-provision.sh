@@ -55,15 +55,28 @@ appops() {
   # Usage access (screen time, idle apps) and the draw-over permission need an app-op that only root may set without a device owner.
   timeout 20 cmd appops set $PKG GET_USAGE_STATS allow
   timeout 20 cmd appops set $PKG SYSTEM_ALERT_WINDOW allow
-  # Aurora Store (the one app a parent may have Phone Guard install): what its downloads and installs need, if it is there. Idempotent, every boot.
-  # (-u: it is hidden from the child, and `path` does not show a hidden package)
+  aurora_ops boot
+}
+# Aurora Store (the one app a parent may have Phone Guard install): installing other apps needs an app-op that only root can set, and it is
+# LOST when Phone Guard hides and shows the app again, so it is applied at boot, on a request from the app (Settings.Global pg_appops_req, written
+# after an install and after the app is shown) and every minute while the store is installed. Idempotent; logs only when it had to change something.
+# (-u: it is hidden from the child, and `path` does not show a hidden package.) All-files access is NOT given: Aurora installs and downloads without it.
+aurora_ops() {
   case "$(timeout 20 cmd package list packages -u com.aurora.store 2>/dev/null)" in *package:com.aurora.store*)
-    timeout 20 cmd appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow
-    timeout 20 cmd appops set --uid com.aurora.store MANAGE_EXTERNAL_STORAGE allow
-    timeout 20 cmd appops set com.aurora.store MANAGE_EXTERNAL_STORAGE allow
-    say "aurora appops: $(timeout 20 cmd appops get com.aurora.store REQUEST_INSTALL_PACKAGES 2>&1 | head -1) / $(timeout 20 cmd appops get com.aurora.store MANAGE_EXTERNAL_STORAGE 2>&1 | head -1)"
-    timeout 20 pm grant com.aurora.store android.permission.POST_NOTIFICATIONS;;
+    cur=$(timeout 20 cmd appops get com.aurora.store REQUEST_INSTALL_PACKAGES 2>&1 | head -1)
+    case "$cur" in *allow*) ;; *)
+      timeout 20 cmd appops set com.aurora.store REQUEST_INSTALL_PACKAGES allow
+      timeout 20 pm grant com.aurora.store android.permission.POST_NOTIFICATIONS
+      say "aurora appops ($1): was [$cur], now [$(timeout 20 cmd appops get com.aurora.store REQUEST_INSTALL_PACKAGES 2>&1 | head -1)]";;
+    esac;;
   esac
+}
+# One pass of the watcher: an app request, and a check every ~60 s (the loops sleep 3 s).
+ticks=0
+watch_tick() {
+  req=$(timeout 20 cmd settings get global pg_appops_req 2>/dev/null)
+  case "$req" in ""|null|0) ;; *) aurora_ops request; timeout 20 cmd settings put global pg_appops_req 0;; esac
+  ticks=$((ticks+1)); [ $ticks -ge 20 ] && { ticks=0; aurora_ops poll; }
 }
 i=0
 while [ $i -lt 20 ]; do
@@ -74,7 +87,8 @@ done
 if [ $i -ge 20 ]; then say "gave up: package not found"; exit 1; fi
 
 if timeout 20 cmd device_policy list-owners 2>/dev/null | grep -q "$PKG"; then
-  say "already device owner (Family phone)"; appops; enrol; exit 0
+  say "already device owner (Family phone)"; appops; enrol
+  while :; do sleep 3; watch_tick; done
 fi
 finish; appops
 say "plumbing done, no device owner (edition chosen on the phone)"
@@ -82,12 +96,15 @@ say "plumbing done, no device owner (edition chosen on the phone)"
 # Wait for the phone's edition and for an owner request. The loop ends as soon as an edition is recorded.
 while :; do
   ed=$(timeout 20 cmd settings get global pg_edition 2>/dev/null)
-  case "$ed" in open|family) say "edition is $ed: done"; exit 0;; esac
+  case "$ed" in
+    open) say "edition is open: done"; exit 0;; # (an Open phone has no store to give grants to)
+    family) say "edition is family: watching for app-op requests"; while :; do sleep 3; watch_tick; done;;
+  esac
   req=$(timeout 20 cmd settings get global pg_owner_req 2>/dev/null)
   if [ "$req" = "1" ]; then
     out=$(timeout 30 cmd device_policy set-device-owner --user 0 "$ADMIN" 2>&1)
     if [ $? -eq 0 ]; then say "device owner set: $out"; timeout 20 cmd settings put global pg_owner_req 0
     else say "set-device-owner refused: $out"; timeout 20 cmd settings put global pg_owner_req -1; fi
   fi
-  sleep 3
+  watch_tick; sleep 3
 done

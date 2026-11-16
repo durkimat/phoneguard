@@ -75,6 +75,8 @@ object MenuStyles {
 enum class Layout { LIST, GRID, CUSTOM }
 /** How far the home screen's data line moves down in the Mac look (design pixels): its title bar and frame take the top. */
 const val DATA_MAC_SHIFT = 46f
+/** Where the data strip's rows start: [DATA_MAC_SHIFT] lower in the Mac look; the other looks sit 5 px lower so it is centred between the status line and the weather band. */
+fun dataY(mac: Boolean) = if (mac) DATA_MAC_SHIFT else 5f
 /** The home screen's weather group: its centre line (design pixels). Above the clock normally; the Mac look has too little room there, so it stays lower. */
 fun weatherCy(mac: Boolean) = if (mac) 372f else 130f
 /** The slot for Now playing, the next event and the rain note: where the weather used to be (lower in the Mac look). */
@@ -1354,7 +1356,7 @@ class LauncherModel(
         if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
-        if (dataView != null) { val y = if (Themes.byId(theme).skin == "mac") DATA_MAC_SHIFT else 0f; add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
+        if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
         if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
     }

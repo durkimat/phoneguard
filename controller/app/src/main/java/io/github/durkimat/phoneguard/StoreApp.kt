@@ -38,15 +38,15 @@ object StoreApp {
     fun installed(c: Context) = versionCode(c) != null
 
     /**
-     * What Aurora needs to install and download without asking: notifications, installing other apps, and files. Runtime permissions can be granted by
-     * a device owner; the two app-ops (install unknown apps, all files) are also tried that way and otherwise set by the boot script of the image
-     * (pg-provision.sh, at every boot). Safe to repeat; does nothing if the store is not installed or this is not a Family phone.
+     * What Aurora needs to install and download without asking: notifications and installing other apps (all-files access is not needed: a real
+     * download and install worked without it). Runtime permissions can be granted by a device owner; the install app-op is tried that way and also
+     * asked of the image's root service ([requestOps]). Safe to repeat; does nothing if the store is not installed or this is not a Family phone.
      */
     fun ensureGrants(c: Context) {
         if (!installed(c) || !Dpm.isOwner(c)) return
         val d = Dpm.dpm(c); val a = Dpm.admin(c)
         val got = ArrayList<String>(); val missed = ArrayList<String>()
-        for (perm in listOf("android.permission.POST_NOTIFICATIONS", "android.permission.REQUEST_INSTALL_PACKAGES", "android.permission.MANAGE_EXTERNAL_STORAGE")) {
+        for (perm in listOf("android.permission.POST_NOTIFICATIONS", "android.permission.REQUEST_INSTALL_PACKAGES")) {
             val short = perm.substringAfterLast('.')
             try {
                 if (d.getPermissionGrantState(a, PKG, perm) != android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
@@ -54,7 +54,17 @@ object StoreApp {
                 if (d.getPermissionGrantState(a, PKG, perm) == android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) got += short else missed += short
             } catch (e: Exception) { missed += short + "(" + e.javaClass.simpleName + ")" }
         }
+        requestOps(c)
         Log.log(c, "app store grants: granted=${got.joinToString(",").ifEmpty { "none" }} not granted=${missed.joinToString(",").ifEmpty { "none" }}")
+    }
+
+    /**
+     * Ask the image's root service (pg-provision.sh) to set the store's install app-op. Android drops it when the app is hidden and shown again, so this is
+     * called after an install, after the app is shown, and at every boot; the service also re-checks it every minute. Harmless on an image without the watcher.
+     */
+    fun requestOps(c: Context) {
+        try { android.provider.Settings.Global.putString(c.contentResolver, "pg_appops_req", System.currentTimeMillis().toString()) }
+        catch (e: Exception) { Log.log(c, "app store ops request: ${e.javaClass.simpleName}") }
     }
 
     /** For the sync state. */

@@ -41,7 +41,7 @@ object IdleReaper {
         else if (dpm.isApplicationHidden(admin, pkg)) false // hidden by a mode: nothing of it runs anyway
         else {
             val ok = dpm.setApplicationHidden(admin, pkg, true)
-            try { Thread.sleep(600) } finally { dpm.setApplicationHidden(admin, pkg, false) }
+            try { Thread.sleep(600) } finally { dpm.setApplicationHidden(admin, pkg, false); if (pkg == StoreApp.PKG) StoreApp.requestOps(c) } // hiding drops the store's install app-op
             if (ok) { prefs(c).edit().putLong("stopped_$pkg", System.currentTimeMillis()).apply(); record(c, pkg, reason, false) }
             ok
         }

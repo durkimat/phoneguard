@@ -34,7 +34,7 @@ data class WeatherData(val temp: Int, val code: Int, val isDay: Boolean, val hou
      * from it. Raining now reads "Now". Otherwise dry, with today's high and low (nothing when they are unknown). Null when there is no forecast yet.
      */
     /** Today's high and low, which the band shows beside the current temperature, or null when there is no daily forecast. */
-    fun highLow(): Pair<String, String>? = days.firstOrNull()?.let { "H ${it.max}°" to "L ${it.min}°" }
+    fun highLow(): Pair<String, String>? = days.firstOrNull()?.let { "H${it.max}°" to "L${it.min}°" }
 
     fun rainBand(): RainBand? {
         if (hours.isEmpty()) return null
