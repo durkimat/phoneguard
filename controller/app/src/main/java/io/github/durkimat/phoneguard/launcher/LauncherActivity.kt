@@ -692,7 +692,7 @@ class LauncherActivity : Activity() {
                     fun show(list: List<io.github.durkimat.phoneguard.music.SpItem>, offlineOnly: Boolean) { model.spPins = pins; model.spPlayed = played; model.spOffline = rec; model.spOfflineOnly = offlineOnly; model.setPlaylists(list) }
                     val l = sp.playlists(this) { first -> ui.post { show(first, false); refresh() } }
                     // no internet: the downloaded playlists from the phone's own record, played through Spotify's own offline playback
-                    if (l == null && rec.isNotEmpty() && model.spPlaylists.isEmpty()) ui.post { show(off.offlineList(rec), true); refresh() }
+                    if (l == null && rec.isNotEmpty()) ui.post { show(off.offlineList(rec), true); refresh() }
                     else ui.post { show(l ?: model.spRaw, false); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() }
                 }
                 else {
@@ -833,7 +833,11 @@ class LauncherActivity : Activity() {
 
     private fun playOnTarget(uri: String) {
         val pickedId = getSharedPreferences("music", MODE_PRIVATE).getString("target", null)
-        var list = sp.devices(this) ?: emptyList()
+        val downloaded = uri in model.spOffline
+        val devices = sp.devices(this)
+        // a downloaded playlist plays through Spotify's own offline playback when its Web API cannot be reached
+        if (devices == null && downloaded) { Log.log(this, "spotify play: Web API unreachable, playing the download offline"); playOffline(uri); return }
+        var list = devices ?: emptyList()
         var target = list.firstOrNull { it.id == pickedId } ?: list.firstOrNull { thisPhone(it) }
         if (target == null && !io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(this)) {
             Log.log(this, "spotify play: the Spotify app is not installed on this phone")
@@ -846,7 +850,8 @@ class LauncherActivity : Activity() {
             target = list.firstOrNull { thisPhone(it) } ?: list.firstOrNull { it.active }
         }
         Log.log(this, "spotify play: devices=[" + list.joinToString { it.name + "/" + it.type + (if (it.active) "*" else "") } + "] target=" + (target?.name ?: "none"))
-        sp.play(this, uri, target?.id)
+        val code = sp.play(this, uri, target?.id)
+        if (downloaded && (target == null || code !in 200..299)) { Log.log(this, "spotify play: Web API play gave $code, playing the download offline"); playOffline(uri) }
     }
 
     /**

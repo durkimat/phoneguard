@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import io.github.durkimat.phoneguard.music.PlaylistOffline
 import android.view.View
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -687,7 +688,14 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 if (idx == m.selected) {
                     val sel = chrome.selection(this)
                     fill.color = sel?.first ?: ink; c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill); fill.color = ink
-                    marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = sel?.second ?: lcd)
+                    // a playlist's marker (downloaded, downloading, pinned) stays fixed at the left while only the name scrolls
+                    val mark = if (m.screen == Screen.PLAYLISTS) listOf(PlaylistOffline.DOWNLOADED, PlaylistOffline.DOWNLOADING, PlaylistOffline.PINNED).firstOrNull { row.startsWith(it) } else null
+                    if (mark == null) marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = sel?.second ?: lcd)
+                    else {
+                        val fixed = prefix + mark; val fw = measureBold(fixed, 32f)
+                        text(c, fixed, tx, top + 42f, 32f, u, bold = true, color = sel?.second ?: lcd)
+                        marquee(c, row.removePrefix(mark), tx + fw, top + 42f, 32f, room - fw, u, bold = true, color = sel?.second ?: lcd)
+                    }
                 } else text(c, label, tx, top + 42f, 32f, u)
                 chrome.rowExtras(this, c, m, idx, top, idx == m.selected, u)
                 // the Music menu shows what each provider is doing: a play triangle while it plays, two bars while it is paused
