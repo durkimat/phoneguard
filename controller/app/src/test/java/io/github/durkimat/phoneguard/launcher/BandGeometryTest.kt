@@ -7,29 +7,42 @@ import org.junit.Test
 class BandGeometryTest {
     @Test fun theDefaultDividerIsTheColonOfTheDefaultClock() { assertEquals(242f, BandGeometry.divider(null), 0f) }
 
-    @Test fun theGapIsTheSameEitherSideOfTheDivider() {
-        val d = BandGeometry.divider(null)
-        assertEquals(22f, d - BandGeometry.tempInkRight(d), 0f)
-        assertEquals(22f, BandGeometry.rightEdge(d) - d, 0f)
-        assertEquals(264f, BandGeometry.rightEdge(d), 0f)
+    @Test fun theDataWordsEndTheGapBeforeTheAxis() { val d = BandGeometry.divider(null); assertEquals(22f, d - BandGeometry.tempInkRight(d), 0f) }
+
+    // the weather group is centred on the axis whatever its parts measure
+    private fun centre(axis: Float, left: Float, right: Float) = BandGeometry.groupLeft(axis, left, right) + BandGeometry.groupWidth(left, right) / 2
+
+    @Test fun aWideTemperatureWithDryIsCentred() {
+        val l = BandGeometry.leftWidth(95f, 55f)              // "-3°"-style wide digits plus the H/L stack
+        val r = BandGeometry.rightWidth(false, 60f)           // "Dry"
+        assertEquals(62f + 12f + 95f + 10f + 55f, l, 0f); assertEquals(60f, r, 0f)
+        assertEquals(l + 22f + r, BandGeometry.groupWidth(l, r), 0f)
+        assertEquals(242f, centre(242f, l, r), 0.001f)
     }
 
-    @Test fun theDryTextStartsTwoColumnsInsideSoItsInkLandsOnColumn265() { assertEquals(266f, BandGeometry.dryTextX(242f), 0f) }
+    @Test fun aNarrowTemperatureWithRainDueIsCentred() {
+        val l = BandGeometry.leftWidth(40f, 55f)
+        val r = BandGeometry.rightWidth(true, 140f)           // symbol 44 + 10 + "100% chance"
+        assertEquals(44f + 10f + 140f, r, 0f)
+        assertEquals(242f, centre(242f, l, r), 0.001f)
+        assertTrue(BandGeometry.groupLeft(242f, l, r) >= BandGeometry.EDGE)
+    }
 
-    @Test fun theRainBlockStartsAtTheEdgeAndItsTextAfterTheSymbol() {
-        val d = BandGeometry.divider(242f)
-        assertEquals(BandGeometry.rightEdge(d), BandGeometry.rainIconCx(d) - BandGeometry.RAIN_ICON / 2, 0f) // the symbol's left edge is the block's edge
-        assertEquals(318f, BandGeometry.rainTextX(d), 0f)
+    @Test fun withoutAForecastTheCurrentWeatherAloneIsCentred() {
+        val l = BandGeometry.leftWidth(70f, 0f)               // no high/low either: symbol + temperature
+        assertEquals(62f + 12f + 70f, l, 0f)
+        assertEquals(l, BandGeometry.groupWidth(l, 0f), 0f)   // no spacer without a right block
+        assertEquals(246.5f, centre(246.5f, l, 0f), 0.001f)   // follows a measured axis
+    }
+
+    @Test fun theTemperatureShrinksOnlyIfTheGroupWouldNotFitTheScreen() {
+        assertEquals(46f, BandGeometry.tempSize(80f, 300f), 0f)
+        assertEquals(46f * 100f / 200f, BandGeometry.tempSize(200f, 480f - 28f - 100f), 0.01f)
     }
 
     @Test fun aMeasuredColonIsFollowedOnlyWhenBelievable() {
         assertEquals(246.5f, BandGeometry.divider(246.5f), 0f)
         assertEquals(242f, BandGeometry.divider(300f), 0f); assertEquals(242f, BandGeometry.divider(10f), 0f)
-    }
-
-    @Test fun theLongestRainTextStillFitsAtTheWidestDivider() {
-        val d = BandGeometry.divider(252f)
-        assertTrue(BandGeometry.rainTextX(d) + 140f < 470f) // "100% chance" at size 24 is about 140 px
     }
 
     @Test fun theDataBarStartsOnTheDividerAndTheDateAndSymbolsAreNudgedOntoTheAxis() {

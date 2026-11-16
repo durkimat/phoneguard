@@ -1,8 +1,8 @@
 package io.github.durkimat.phoneguard.launcher
 
 /**
- * Where things sit in the home screen's weather band, around the divider. The divider stands on the clock's colon; the current weather ends [GAP] before it
- * and the forecast block starts [GAP] after it, so both sides have the same space. Design pixels on the 480 wide grid.
+ * Where things sit on the home screen around its centre axis, which is the clock's colon (measured at draw time). The weather band is one group centred on the
+ * axis (no divider line); the data bar starts on the axis and the data words end [GAP] before it. Design pixels on the 480 wide grid.
  */
 object BandGeometry {
     const val GAP = 22f
@@ -28,13 +28,28 @@ object BandGeometry {
     /** The words' size: [DATA_TEXT_SIZE] unless their ink is wider than the room (from x 14 to the right edge), then shrunk to fit. */
     fun dataTextSize(inkWidth: Float, room: Float) = if (inkWidth > room && inkWidth > 0f) DATA_TEXT_SIZE * room / inkWidth else DATA_TEXT_SIZE
 
-    /** Where the temperature's ink must end. */
+    /** Where the data words' ink ends (and the data bar starts the other side of [GAP]): symmetric about the axis, whatever the weather group is doing. */
     fun tempInkRight(div: Float) = div - GAP
-    /** Where the right-hand block starts (its ink edge). */
-    fun rightEdge(div: Float) = div + GAP
-    fun rainIconCx(div: Float) = rightEdge(div) + RAIN_ICON / 2
-    /** The dry text's ink is drawn two columns right of [rightEdge]: measured on the emulator, the ink lands one column left of where the outline says, and the line's own pixels end one column after [divider]. */
-    fun dryTextX(div: Float) = rightEdge(div) + 2f
-    /** Where the rain-due text lines start. */
-    fun rainTextX(div: Float) = rightEdge(div) + RAIN_ICON + TEXT_AFTER_ICON
+
+    // ---- the weather group: [symbol temperature H/L] spacer [rain due / dry], one group centred on the axis (no divider line)
+    /** The standard space between the current weather and the rain/dry block. */
+    const val WEATHER_SPACER = 22f
+    const val SYMBOL = 62f
+    const val SYMBOL_GAP = 12f
+    const val STACK_GAP = 10f
+    /** The least the group may come near the screen's edges. */
+    const val EDGE = 14f
+
+    /** Symbol + temperature ink + (when there is a high/low) the stack. */
+    fun leftWidth(tempInk: Float, stackInk: Float) = SYMBOL + SYMBOL_GAP + tempInk + if (stackInk > 0f) STACK_GAP + stackInk else 0f
+    /** The rain-due block (symbol, time/chance text) or the dry text; 0 without a forecast. */
+    fun rightWidth(due: Boolean, textInk: Float) = if (due) RAIN_ICON + TEXT_AFTER_ICON + textInk else textInk
+    fun groupWidth(left: Float, right: Float) = left + if (right > 0f) WEATHER_SPACER + right else 0f
+    /** The group's left edge when it is centred on [axis]; never nearer the screen edge than [EDGE]. */
+    fun groupLeft(axis: Float, left: Float, right: Float) = maxOf(EDGE, axis - groupWidth(left, right) / 2)
+    /** The temperature's size: 46, or smaller when the group (everything but the temperature is [rest]) would not fit between the screen edges. */
+    fun tempSize(tempInk: Float, rest: Float): Float {
+        val room = 480f - 2 * EDGE - rest
+        return if (tempInk > room && tempInk > 0f) 46f * maxOf(room, 20f) / tempInk else 46f
+    }
 }

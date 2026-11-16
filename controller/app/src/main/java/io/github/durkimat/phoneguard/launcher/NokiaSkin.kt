@@ -381,43 +381,40 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         }
 
         /**
-         * The weather band on the home screen with its centre line at [cy]: the current weather at the left, a divider and, at the right, rain due (symbol, time
-         * and chance) or dry (high and low). Without a forecast yet, just the current weather centred.
+         * The weather band on the home screen with its centre line at [cy]: one group centred on the screen's axis: the current weather (symbol, temperature, high and low) and, after
+         * a spacer, rain due (symbol, time and chance) or "Dry". Without a forecast yet, just the current weather.
          */
         private val HL_SIZE = 20f
 
         private fun weatherStrip(c: Canvas, w: WeatherData, cy: Float, m0time: String, u: Float) {
             val temp = "${w.temp}°"
             val band = w.rainBand()
-            p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 46f * scaleOf(TEXT) * u; p.isFakeBoldText = true
-            val tw = p.measureText(temp) / u
-            if (band == null) { // no forecast yet: centred as before
-                val left = 240f - (62f + 14f + tw) / 2
-                weatherIcon(c, w.icon, left + 31f, cy, 62f, u)
-                text(c, temp, left + 76f, cy + 18f, 46f, u, bold = true)
-                return
-            }
-            // symmetric about the divider, which stands on the clock's colon: the same gap [BandGeometry.GAP] of space to its left and to its right
-            val div = BandGeometry.divider(clockColonX(m0time, u))
-            val hl = w.highLow()                                                                           // today's high and low, stacked, belong with the current temperature
-            p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = HL_SIZE * scaleOf(TEXT) * u; p.isFakeBoldText = false
-            val hw = hl?.let { maxOf(inkBounds(it.first, u).width(), inkBounds(it.second, u).width()) } ?: 0f
-            val stackGap = if (hl != null) 10f else 0f
-            val room = BandGeometry.tempInkRight(div) - 8f - 62f - 12f - hw - stackGap                   // what is left for the temperature after the symbol and the stack
-            val ts = if (tw > room) 46f * room / tw else 46f
+            val axis = BandGeometry.divider(clockColonX(m0time, u)) // measured first: it leaves the shared paint at the clock's size
+            val hl = w.highLow()                                    // today's high and low, stacked, belong with the current temperature
+            val hw = hl?.let { maxOf(inkW(it.first, HL_SIZE, false, u), inkW(it.second, HL_SIZE, false, u)) } ?: 0f
+            val rightW = band?.let { b -> BandGeometry.rightWidth(b.due, maxOf(inkW(b.line1, 36f, true, u), if (b.line2.isNotEmpty()) inkW(b.line2, 24f, false, u) else 0f)) } ?: 0f
+            val ts = BandGeometry.tempSize(inkW(temp, 46f, true, u), BandGeometry.leftWidth(0f, hw) + BandGeometry.groupWidth(0f, rightW))
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = ts * scaleOf(TEXT) * u; p.isFakeBoldText = true
             val rb = inkBounds(temp, u)
-            val stackLeft = BandGeometry.tempInkRight(div) - hw
-            val x0 = (if (hl != null) stackLeft - stackGap else BandGeometry.tempInkRight(div)) - rb.right // the temperature's INK ends exactly [stackGap] before the stack
-            text(c, temp, x0, cy + 18f, ts, u, bold = true)
-            weatherIcon(c, w.icon, x0 + rb.left - 12f - 31f, cy, 62f, u)                                    // the symbol sits just left of it
-            hl?.let { textInk(c, it.first, stackLeft, cy - 5f, HL_SIZE, u); textInk(c, it.second, stackLeft, cy + 19f, HL_SIZE, u) }
-            stroke.strokeWidth = 2f * u; stroke.color = ink
-            c.drawLine(div * u, (cy - 28f) * u, div * u, (cy + 28f) * u, stroke)
-            val x = if (band.due) BandGeometry.rainTextX(div) else BandGeometry.dryTextX(div)
-            if (band.due) band.icon?.let { weatherIcon(c, it, BandGeometry.rainIconCx(div), cy, BandGeometry.RAIN_ICON, u) }
+            // one group, centred on the axis: [symbol temperature H/L] spacer [rain or dry]; no divider line
+            val leftW = BandGeometry.leftWidth(rb.width(), hw)
+            val gl = BandGeometry.groupLeft(axis, leftW, rightW)
+            weatherIcon(c, w.icon, gl + BandGeometry.SYMBOL / 2, cy, BandGeometry.SYMBOL, u)
+            val tempLeft = gl + BandGeometry.SYMBOL + BandGeometry.SYMBOL_GAP                               // the temperature's INK starts here
+            text(c, temp, tempLeft - rb.left, cy + 18f, ts, u, bold = true)
+            hl?.let { val sx = tempLeft + rb.width() + BandGeometry.STACK_GAP; textInk(c, it.first, sx, cy - 5f, HL_SIZE, u); textInk(c, it.second, sx, cy + 19f, HL_SIZE, u) }
+            if (band == null) return
+            val rs = gl + leftW + BandGeometry.WEATHER_SPACER
+            val x = if (band.due) rs + BandGeometry.RAIN_ICON + BandGeometry.TEXT_AFTER_ICON else rs
+            if (band.due) band.icon?.let { weatherIcon(c, it, rs + BandGeometry.RAIN_ICON / 2, cy, BandGeometry.RAIN_ICON, u) }
             if (band.line2.isNotEmpty()) { textInk(c, band.line1, x, cy, 36f, u, bold = true); textInk(c, band.line2, x, cy + 26f, 24f, u) }
             else textInk(c, band.line1, x, cy + 13f, 36f, u, bold = true)                                   // a single line ("Dry") sits on the band's middle
+        }
+
+        /** The ink width of [s] at [size] (design pixels). */
+        private fun inkW(s: String, size: Float, bold: Boolean, u: Float): Float {
+            p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = size * scaleOf(TEXT) * u; p.isFakeBoldText = bold
+            return inkBounds(s, u).width()
         }
 
         /** The exact ink box of [s] with the paint as it is now, in design pixels relative to the text origin (the outline, not the rounded text bounds). */
