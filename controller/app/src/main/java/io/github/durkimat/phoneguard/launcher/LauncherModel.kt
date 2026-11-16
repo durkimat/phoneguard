@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS, WHEREMAP }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -534,6 +534,7 @@ class LauncherModel(
         Screen.WHEREPLACES -> "Where to?"
         Screen.WHEREJOURNEYS -> (if (whereFrom.isNotEmpty()) "From $whereFrom to " else "To ") + (wherePlace?.name ?: "")
         Screen.WHERELEGS -> whereJourney?.let { io.github.durkimat.phoneguard.where.Where.liveTag(it) } ?: "Walk"
+        Screen.WHEREMAP -> "Map"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -570,7 +571,8 @@ class LauncherModel(
         Screen.BATTERY -> "" to "Back"
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.WHEREPLACES -> "Select" to "Back"
         Screen.WHEREJOURNEYS -> "Details" to "Back"
-        Screen.WHERELEGS -> "" to "Back"
+        Screen.WHERELEGS -> "Map" to "Back"
+        Screen.WHEREMAP -> "" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
@@ -634,6 +636,7 @@ class LauncherModel(
         Screen.WHEREPLACES -> whereResults.map { io.github.durkimat.phoneguard.where.Where.placeRow(it) }
         Screen.WHEREJOURNEYS -> whereRows.map { it.label }
         Screen.WHERELEGS -> whereLegs.map { io.github.durkimat.phoneguard.where.Where.legLine(it) }
+        Screen.WHEREMAP -> emptyList()
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -714,7 +717,7 @@ class LauncherModel(
         Screen.BTDEV -> btDevKey(key)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
-        Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS -> whereKey(key)
+        Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP -> whereKey(key)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
@@ -1971,6 +1974,13 @@ class LauncherModel(
     var whereJourney: io.github.durkimat.phoneguard.where.Journey? = null
         private set
     private var whereWalk: io.github.durkimat.phoneguard.where.Plan? = null
+    /** The leg the map is looking at (Left and Right step through the legs). */
+    var whereMapLeg = 0
+        private set
+    /** The pieces of the route to draw, the leg in focus marked. */
+    val whereMapSegments: List<io.github.durkimat.phoneguard.where.MapSeg> get() = io.github.durkimat.phoneguard.where.MapPicture.segments(whereLegs, whereMapLeg)
+    /** The words under the map: the leg in focus. */
+    val whereMapCaption: String get() = whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
     private var whereQuery = ""
     /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
     var whereStatus = ""
@@ -2001,6 +2011,13 @@ class LauncherModel(
     }
 
     private fun whereKey(key: Key): Action {
+        if (screen == Screen.WHEREMAP) return when (key) {
+            Key.LEFT, Key.UP -> { whereMapLeg = (whereMapLeg - 1).coerceAtLeast(0); Action.Redraw }
+            Key.RIGHT, Key.DOWN -> { whereMapLeg = (whereMapLeg + 1).coerceAtMost((whereLegs.size - 1).coerceAtLeast(0)); Action.Redraw }
+            Key.OK, Key.SOFT_LEFT, Key.SOFT_RIGHT -> { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
         val size = when (screen) { Screen.WHEREPLACES -> whereResults.size; Screen.WHEREJOURNEYS -> whereRows.size; else -> whereLegs.size }
         return move(key, size) ?: when (screen) {
             Screen.WHEREPLACES -> when (key) {
@@ -2019,8 +2036,9 @@ class LauncherModel(
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
-            else -> when (key) {
-                Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREJOURNEYS; selected = 0; Action.Redraw }
+            else -> when (key) { // the legs of one journey
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> { whereMapLeg = selected.coerceIn(0, (whereLegs.size - 1).coerceAtLeast(0)); screen = Screen.WHEREMAP; Action.Redraw }
+                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREJOURNEYS; selected = 0; Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }

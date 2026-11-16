@@ -44,6 +44,20 @@ class WhereFlowTest {
         m.key(Key.END); assertEquals(Screen.HOME, m.screen)
     }
 
+    @Test fun theMapStepsThroughTheLegsAndBackReturnsToTheList() {
+        val m = phone(); m.key(Key.OK); m.key(Key.OK); m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3); m.key(Key.OK)
+        m.setWherePlaces(Where.parsePlaces("""{"places":[{"name":"Shop","kind":"place","area":"","lat":51.0,"lon":-0.3}]}"""), "")
+        m.key(Key.OK); m.setWherePlan(Where.parsePlan(planJson), "home", ""); m.key(Key.OK)   // the legs of the first journey
+        m.key(Key.DOWN); m.key(Key.OK)                                                          // the second leg, then the map
+        assertEquals(Screen.WHEREMAP, m.screen)
+        assertEquals(1, m.whereMapLeg)
+        assertEquals("08:25 Bus 321 to Hatfield (25 min)", m.whereMapCaption)
+        m.key(Key.LEFT); assertEquals(0, m.whereMapLeg)
+        m.key(Key.LEFT); assertEquals(0, m.whereMapLeg)
+        m.key(Key.RIGHT); m.key(Key.RIGHT); assertEquals(1, m.whereMapLeg) // stops at the last leg
+        m.key(Key.SOFT_RIGHT); assertEquals(Screen.WHERELEGS, m.screen); assertEquals(1, m.selected)
+    }
+
     @Test fun theWalkAloneShowsOneLeg() {
         val m = phone(); m.key(Key.OK); m.key(Key.OK); m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3); m.key(Key.OK)
         m.setWherePlaces(Where.parsePlaces("""{"places":[{"name":"Shop","kind":"place","area":"","lat":51.0,"lon":-0.3}]}"""), "")

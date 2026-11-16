@@ -132,6 +132,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 Screen.EVENT, Screen.MAILMSG -> page(c, m, u)
                 Screen.CALMONTH -> calMonth(c, m, u)
                 Screen.WRITE -> write(c, m, u)
+                Screen.WHEREMAP -> whereMap(c, m, u)
                 Screen.CALC -> calc(c, m, u)
                 Screen.GAMEHELP -> gameHelp(c, m, u)
                 Screen.SNAKE -> snake(c, m, u)
@@ -941,6 +942,33 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 2 -> text(c, "Sending...", 16f, 560f, 24f, u, bold = true)
             }
             if (m.voiceState == 0 && m.writeField == 2) text(c, "hold OK and speak", 240f, 530f, 24f, u, align = Paint.Align.CENTER)
+        }
+
+        /** The route drawn on a plain background (no map tiles): walking dotted, vehicles solid, the leg in focus thick, a dot at the start, a square at the end. */
+        private fun whereMap(c: Canvas, m: LauncherModel, u: Float) {
+            titleBar(c, m.title, u)
+            val segs = m.whereMapSegments
+            val all = io.github.durkimat.phoneguard.where.MapPicture.allPoints(segs)
+            val x0 = 12f; val y0 = 108f; val bw = 456f; val bh = 392f
+            stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect(x0 * u, y0 * u, (x0 + bw) * u, (y0 + bh) * u, stroke)
+            if (all.size < 2) text(c, "No map for this one", 240f, 300f, 28f, u, align = Paint.Align.CENTER)
+            else {
+                val fit = io.github.durkimat.phoneguard.where.MapFit(all, bw, bh, 22f)
+                val dash = android.graphics.DashPathEffect(floatArrayOf(7f * u, 7f * u), 0f)
+                for (pass in 0..1) for (s in segs) {
+                    if (s.current != (pass == 1)) continue // the leg in focus is drawn last, on top
+                    val path = android.graphics.Path()
+                    s.points.forEachIndexed { i, p -> val (x, y) = fit.xy(p.first, p.second); if (i == 0) path.moveTo((x0 + x) * u, (y0 + y) * u) else path.lineTo((x0 + x) * u, (y0 + y) * u) }
+                    stroke.strokeWidth = (if (s.current) 6f else 3f) * u; stroke.pathEffect = if (s.walk) dash else null
+                    c.drawPath(path, stroke); stroke.pathEffect = null
+                }
+                val a = fit.xy(all.first().first, all.first().second); val b = fit.xy(all.last().first, all.last().second)
+                fill.color = ink; c.drawCircle((x0 + a.first) * u, (y0 + a.second) * u, 9f * u, fill)
+                c.drawRect((x0 + b.first - 9) * u, (y0 + b.second - 9) * u, (x0 + b.first + 9) * u, (y0 + b.second + 9) * u, fill)
+            }
+            m.whereMapCaption.let { if (it.isNotEmpty()) marquee(c, it, 16f, 536f, 28f, 448f, u, bold = true) }
+            text(c, "" + (m.whereMapLeg + 1) + "/" + m.whereLegs.size, 464f, 566f, 22f, u, align = Paint.Align.RIGHT)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
         private fun calc(c: Canvas, m: LauncherModel, u: Float) {
