@@ -37,6 +37,17 @@ You choose where it is available on the parent page: **Timetable**, then **Mode 
 
 If the phone says **Voice isn't working right now**, Cloudflare's service was busy or its free daily allowance is used up; try again later.
 
+## The side button
+
+The button on the side of the phone (while the screen is on, locked or not):
+
+- **One press** opens the camera (after a moment, to see whether a second press follows). It does not open if the front of the phone is covered, so a knock in a pocket does nothing. It also does nothing during a call, while the phone is locked, or in a mode with no camera.
+- **Two quick presses** switch the torch on or off.
+- **Holding it** is for speaking (coming in a later update); until then it does nothing.
+- Inside the camera, one press takes the photo at once.
+
+With the screen off the button does nothing yet.
+
 ## Mobile data
 
 The phone counts how much of the SIM's mobile data has been used this month, so you do not have to look it up. It is the phone's own count, so it can differ from your provider's. There is a correction setting for that.

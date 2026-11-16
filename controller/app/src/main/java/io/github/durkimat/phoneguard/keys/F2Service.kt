@@ -15,8 +15,8 @@ import io.github.durkimat.phoneguard.launcher.LauncherData
 
 /**
  * The side button of the J36 sends F2, which Android ignores. This service (a device owner can switch it on without a prompt) sees
- * the key whatever app is in front while the screen is on: two quick presses open the camera, a long press switches the torch,
- * and inside the camera one press is the shutter. It reads no screen content: it only watches this one key.
+ * the key whatever app is in front while the screen is on: one press opens the camera, two quick presses switch the torch,
+ * a hold is for speaking (see core/F2Gesture), and inside the camera one press is the shutter. It reads no screen content: it only watches this one key.
  */
 class F2Service : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
@@ -76,10 +76,20 @@ class F2Service : AccessibilityService() {
             return true
         }
     }
-    private var downAt = 0L
-    private var lastTap = 0L
-    private var longFired = false
-    private val longPress = Runnable { longFired = true; if (!CameraActivity.isFront()) Torch.toggle(this) }
+    private val f2 = io.github.durkimat.phoneguard.core.F2Gesture()
+    private fun f2Do(outs: List<io.github.durkimat.phoneguard.core.F2Gesture.Out>) { outs.forEach { F2Actions.run(this, it) } }
+    private val f2Timer = object : Runnable {
+        override fun run() {
+            f2Do(f2.timer(android.os.SystemClock.uptimeMillis(), F2Actions.policy(this@F2Service)))
+            f2Schedule()
+        }
+    }
+    /** Ask for the next timer the gesture machine wants (one at a time); let go of the proximity sensor once the gesture is decided. */
+    private fun f2Schedule() {
+        main.removeCallbacks(f2Timer)
+        val d = f2.deadline
+        if (d >= 0) main.postDelayed(f2Timer, (d - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0)) else Proximity.release(this)
+    }
 
     /** The package whose window came to the front last (window titles and contents are never read). */
     @Volatile private var frontPkg = ""
@@ -227,23 +237,12 @@ class F2Service : AccessibilityService() {
             return true
         }
         if (ev.keyCode != KeyEvent.KEYCODE_F2) return false
+        // inside our own camera one press takes the picture at once, with no waiting for a second one
+        if (CameraActivity.isFront()) { if (ev.action == KeyEvent.ACTION_UP) CameraActivity.shutter(); return true }
+        val now = android.os.SystemClock.uptimeMillis()
         when (ev.action) {
-            KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) {
-                downAt = ev.eventTime; longFired = false
-                main.removeCallbacks(longPress); main.postDelayed(longPress, 600)
-            }
-            KeyEvent.ACTION_UP -> {
-                main.removeCallbacks(longPress)
-                if (longFired) return true
-                val now = ev.eventTime
-                if (CameraActivity.isFront()) { CameraActivity.shutter(); lastTap = 0; return true } // inside the camera one press takes the picture
-                if (now - lastTap in 40..700) {
-                    lastTap = 0
-                    if (CallState.info == null && LauncherData.cameraAllowed(this)) {
-                        try { startActivity(Intent(this, CameraActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { Log.log(this, "side button: ${e.javaClass.simpleName}") }
-                    }
-                } else lastTap = now
-            }
+            KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) { Proximity.watch(this); f2Do(f2.down(now, F2Actions.policy(this))); f2Schedule() }
+            KeyEvent.ACTION_UP -> { f2Do(f2.up(now, F2Actions.policy(this))); f2Schedule() }
         }
         return true // the key is ours: nothing else acts on it
     }

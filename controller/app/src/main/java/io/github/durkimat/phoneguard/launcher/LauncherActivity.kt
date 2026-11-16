@@ -87,7 +87,17 @@ class LauncherActivity : Activity() {
     }
 
     private var pendingDial: String? = null
-    private var lastF2 = 0L
+    private val f2 = io.github.durkimat.phoneguard.core.F2Gesture()
+    private fun f2Do(outs: List<io.github.durkimat.phoneguard.core.F2Gesture.Out>) { outs.forEach { io.github.durkimat.phoneguard.keys.F2Actions.run(this, it) } }
+    private val f2Timer = Runnable {
+        f2Do(f2.timer(android.os.SystemClock.uptimeMillis(), io.github.durkimat.phoneguard.keys.F2Actions.policy(this)))
+        f2Schedule()
+    }
+    private fun f2Schedule() {
+        ui.removeCallbacks(f2Timer)
+        val d = f2.deadline
+        if (d >= 0) ui.postDelayed(f2Timer, (d - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0)) else io.github.durkimat.phoneguard.keys.Proximity.release(this)
+    }
     private var leftKeyPending = false
     private var cameBack = true
 
@@ -498,10 +508,12 @@ class LauncherActivity : Activity() {
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
         // the side button of the J36 sends F2 (from the pmic key input, next to power): two quick presses open the camera, unless a call is on or the mode has no camera
         if (ev.keyCode == KeyEvent.KEYCODE_F2) {
-            // a double press opens the camera: one press alone is ignored, so a knock on the button does nothing
-            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
-                val now = android.os.SystemClock.uptimeMillis()
-                if (now - lastF2 in 40..700 && model.screen != Screen.CALL && LauncherData.cameraAllowed(this)) { lastF2 = 0; perform(Action.OpenCamera) } else lastF2 = now
+            // the same gesture machine as the accessibility service (this only runs when the service is off): one press camera, two torch
+            if (io.github.durkimat.phoneguard.camera.CameraActivity.isFront()) return true
+            val now = android.os.SystemClock.uptimeMillis()
+            when (ev.action) {
+                KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) { io.github.durkimat.phoneguard.keys.Proximity.watch(this); f2Do(f2.down(now, io.github.durkimat.phoneguard.keys.F2Actions.policy(this))); f2Schedule() }
+                KeyEvent.ACTION_UP -> { f2Do(f2.up(now, io.github.durkimat.phoneguard.keys.F2Actions.policy(this))); f2Schedule() }
             }
             return true
         }
