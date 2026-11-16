@@ -831,7 +831,7 @@ class LauncherActivity : Activity() {
             // Spotify came to the front: bring our Now Playing screen back after a moment instead of dropping to the home screen
             jobKeepsScreen = true
             Thread.sleep(1500)
-            ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)); model.screen = Screen.MUSIC; spPolledAt = 0; refresh() }
+            ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)); spPolledAt = 0; refresh() }
             ui.postDelayed({ jobKeepsScreen = false; spPolledAt = 0; invalidate(D.SCREEN); refresh() }, 4_000)
         } catch (e: Exception) { Log.log(this, "spotify offline play: ${e.javaClass.simpleName}"); ui.post { model.notify("Could not start Spotify"); refresh() } }
     }
