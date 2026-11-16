@@ -2005,7 +2005,7 @@ class LauncherModel(
     /** True when the dot is more than about 100 m from the route being shown. */
     val whereOffRoute: Boolean get() = whereDot?.let { d -> io.github.durkimat.phoneguard.where.WhereGeo.offRoute(d.first, d.second, io.github.durkimat.phoneguard.where.MapPicture.allPoints(whereMapSegments)) } == true
     /** The words under the map: the leg in focus, or the off-route notice, or that there is no position. */
-    val whereMapCaption: String get() = if (whereOffRoute) "Off the route: press OK to plan again" else whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
+    val whereMapCaption: String get() = if (whereOffRoute) "Off route: OK to re-plan" else whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
     private var whereQuery = ""
     /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
     var whereStatus = ""

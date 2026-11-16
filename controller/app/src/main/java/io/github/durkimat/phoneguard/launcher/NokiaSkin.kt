@@ -955,7 +955,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect(x0 * u, y0 * u, (x0 + bw) * u, (y0 + bh) * u, stroke)
             if (all.size < 2) text(c, "No map for this one", 240f, 300f, 28f, u, align = Paint.Align.CENTER)
             else {
-                val fit = io.github.durkimat.phoneguard.where.MapFit(all, bw, bh, 22f)
+                val fit = io.github.durkimat.phoneguard.where.MapFit(all, bw, bh, 36f)
                 for (pass in 0..1) for (s in segs) {
                     if (s.current != (pass == 1)) continue // the leg in focus is drawn last, on top
                     val path = android.graphics.Path()
@@ -973,7 +973,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     m.whereHeading?.let { h ->
                         val r = Math.toRadians(h.toDouble())
                         fun pt(deg: Double, len: Float) = floatArrayOf(cx + (Math.sin(r + Math.toRadians(deg)) * len * u).toFloat(), cy - (Math.cos(r + Math.toRadians(deg)) * len * u).toFloat())
-                        val tip = pt(0.0, 26f); val l = pt(-28.0, 12f); val rr = pt(28.0, 12f)
+                        val tip = pt(0.0, 34f); val l = pt(-24.0, 15f); val rr = pt(24.0, 15f)
                         c.drawPath(android.graphics.Path().apply { moveTo(cx, cy); lineTo(l[0], l[1]); lineTo(tip[0], tip[1]); lineTo(rr[0], rr[1]); close() }, fill)
                     }
                     c.drawCircle(cx, cy, 7f * u, fill); stroke.strokeWidth = 2f * u; c.drawCircle(cx, cy, 11f * u, stroke)

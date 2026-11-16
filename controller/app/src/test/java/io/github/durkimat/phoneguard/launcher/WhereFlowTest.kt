@@ -110,6 +110,6 @@ class WhereFlowTest {
         assertTrue(!m.whereOffRoute)
         m.setWhereFix(51.7700, -0.3340, 90f)              // about a kilometre north of it
         assertTrue(m.whereOffRoute)
-        assertEquals("Off the route: press OK to plan again", m.whereMapCaption)
+        assertEquals("Off route: OK to re-plan", m.whereMapCaption)
     }
 }
