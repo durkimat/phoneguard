@@ -22,7 +22,7 @@ const MODE_ROWS = [
   ["Grey screen", "gray", "bool"], ["Home screen", "launcher", [["default", "Normal"], ["nokia", "Nokia screens"]]], ["Touchscreen works", "touch", "bool"], ["Pull-down shade works", "shade", "bool"],
   ["Sound", "sound", [["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]]], ["WhatsApp checks", "wa", [["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]]],
   ["WhatsApp app", "wa_app", [["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]]], ["Internet radio", "radio", [["any", "Any station"], ["presets", "My list only"], ["off", "Off"]]],
-  ["Radios sleep when locked", "radios_sleep", "bool"], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"],
+  ["Radios sleep when locked", "radios_sleep", "bool"], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"], ["Voice typing (microphone in text boxes)", "voice_typing", "bool"], ["Voice commands", "voice_cmds", "bool"],
   ["Location", "location", [["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]]], ["Location every", "loc_every", LOC_EVERY],
   ["Notifications", "notes", [["show", "Listed"], ["off", "Cleared"]]], ["Locked to allowed apps", "kiosk", "bool"],
   ["Screen off after", "screen_off_min", [[1, "1 min"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [0, "Never"]]], ["Close idle apps after", "idle_min", [[0, "Never"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]],

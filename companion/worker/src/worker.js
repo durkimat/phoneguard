@@ -3,6 +3,8 @@ import { safeEqual } from "./crypto.js";
 import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { INDEX, APP, TIMETABLE, SPOTIFY, SEAL, CRYPTO, QR, ENROL, GUIDE, UI, PASSKEY, PHONE as PHONE_JS, LOOKOPT, TRACK, TRACKVIEW, LEAFLET, LEAFLETCSS, PROVIDERS } from "./page-assets.js";
 export { Family } from "./family.js";
+import { handleVoice } from "./voice.js";
+import { handleGeo } from "./geo.js";
 
 const PHONE = [/^\/api\/info$/, /^\/api\/version$/, /^\/api\/pair$/, /^\/api\/pair\/[A-Z0-9]+$/, /^\/api\/sync$/];
 const PARENT = [/^\/api\/enrol\/new$/, /^\/api\/pairings(\/[A-Z0-9]+\/confirm)?$/, /^\/api\/devices(\/[a-z0-9]+(\/[a-z0-9-]+(\/[a-z-]+(\/[a-z-]+)?)?)?)?$/, /^\/api\/options$/, /^\/api\/check-updates$/,
@@ -19,6 +21,8 @@ export default {
       try { const d = await (await env.FAMILY.get(env.FAMILY.idFromName("family")).fetch("https://family/version")).json(); Object.assign(mine, { data_schema: d.data_schema, storage_version: d.code_version, ...(d.needs_newer_code ? { needs_newer_code: true } : {}) }); } catch { /* the version still answers */ }
       return Response.json(mine, { headers: { "cache-control": "no-store" } });
     }
+    if (url.pathname === "/api/voice/transcribe") return req.method === "POST" ? handleVoice(req, env, env.FAMILY.get(env.FAMILY.idFromName("family"))) : Response.json({ error: "not found" }, { status: 404 });   // binary body, so it skips the text-only forwarding below
+    if (url.pathname === "/api/geo/search" || url.pathname === "/api/geo/route") return req.method === "POST" ? handleGeo(req, env.FAMILY.get(env.FAMILY.idFromName("family")), url.pathname.slice(9)) : Response.json({ error: "not found" }, { status: 404 });
     const isPhone = PHONE.some((r) => r.test(url.pathname)) || OPEN.some((r) => r.test(url.pathname)), isParent = PARENT.some((r) => r.test(url.pathname));
     if (!isPhone && !isParent) return Response.json({ error: "not found" }, { status: 404 });
     const stub = env.FAMILY.get(env.FAMILY.idFromName("family")), headers = { "content-type": "application/json", "x-pg-origin": url.origin };

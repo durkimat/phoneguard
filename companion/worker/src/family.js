@@ -5,6 +5,8 @@ import * as S from "./hub/schedule.js";
 import * as H from "./hub/hub.js";
 import { parseRelease, parseReleaseJson, parseSha256Text, parseCompanionInfo } from "./hub/store.js";
 import { migrate } from "./migrations.js";
+import { DAILY_CAP, MODES as VOICE_MODES } from "./voice.js";
+import { GEO_CAP, WHAT as GEO_WHAT } from "./geo.js";
 import { passkeyRoute } from "./passkey-routes.js";
 import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { b64, unb64, importPub, importPriv, newServerKeys, signDer, verifyDer, sha256, hex, matchNumber, randomCode } from "./crypto.js";
@@ -58,6 +60,27 @@ export class Family extends DurableObject {
     const { privKey } = await this.keys();
     const t = Date.now(), p = JSON.stringify(payload);
     return { v: V, did, n: nonce, t, p, s: await signDer(privKey, `${V}|${did}|${nonce}|${t}|${p}`) };
+  }
+
+  /** A signed phone call that is not a sync: checks the device, the signature over `v|did|ctr|n|<text>` and the counter, and uses the counter up. Returns {d} or {res}. */
+  async signedBy(body, text) {
+    const { v, did, ctr, n, s } = body;
+    const d = this.sql.exec("SELECT * FROM devices WHERE did=?", did ?? "").toArray()[0];
+    if (!d || v !== V || !Number.isInteger(ctr) || typeof n !== "string" || typeof s !== "string") return { res: json({ error: "rejected" }, 403) };
+    if (!(await verifyDer(await importPub(d.pub), s, `${v}|${did}|${ctr}|${n}|${text}`))) return { res: json({ error: "bad signature" }, 403) };
+    if (ctr <= d.ctr) return { res: json({ error: "replay" }, 409) };
+    this.sql.exec("UPDATE devices SET ctr=? WHERE did=?", ctr, did);
+    return { d };
+  }
+
+  /** Counts one use of a daily-limited feature for a phone (the day changes at 00:00 UTC, like Cloudflare's free allowance). False when the limit is reached. */
+  bump(kind, did, cap, now) {
+    const day = new Date(now).toISOString().slice(0, 10), key = `${kind}:${did}:${day}`;
+    this.sql.exec("DELETE FROM meta WHERE k LIKE ? AND k NOT LIKE ?", `${kind}:%`, `${kind}:%:${day}`);
+    const used = Number(this.sql.exec("SELECT v FROM meta WHERE k=?", key).toArray()[0]?.v ?? 0);
+    if (used >= cap) return false;
+    this.sql.exec("INSERT OR REPLACE INTO meta VALUES (?, ?)", key, String(used + 1));
+    return true;
   }
 
   async fetch(req) {
@@ -145,6 +168,27 @@ export class Family extends DurableObject {
       const out = { configVersion: row.version, cfgh: row.hash, boost, cmds, ...(unchanged ? { unchanged: true } : { config: row.cfg, cfg: row.cfg }) };
       if (cmds.length) { for (const t of ["devices", "config", "hub", "fixes"]) this.sql.exec(`DELETE FROM ${t} WHERE did=?`, did); }   // released: the phone is no longer ours
       return json(await this.reply(did, n, out));
+    }
+
+    // phone: voice to text. The front door has hashed the audio; this checks the signature, the counter, the current mode's voice setting and the daily limit.
+    if (path === "/voice/auth" && m === "POST") {
+      const { did, mode, hash } = body;
+      if (!VOICE_MODES.includes(mode) || !/^[0-9a-f]{64}$/.test(hash ?? "")) return json({ error: "rejected" }, 403);
+      const a = await this.signedBy(body, `voice:${mode}:${hash}`); if (a.res) return a.res; const d = a.d;
+      const now = Date.now(), h = this.load(did) ?? { ch: S.defaultChild(d.model || "Phone"), rt: H.newRuntime() };
+      const cfg = this.refreshConfig(did, h, now).cfg, md = cfg.modes[S.resolveMode(cfg, H.activeBoost(h.rt, now), now)] ?? {};
+      if (!(mode === "dictation" ? md.voiceTyping : md.voiceCmds)) return json({ error: "voice_off" }, 403);
+      if (!this.bump("voice", did, DAILY_CAP, now)) return json({ error: "used_up" }, 429);
+      return json({ ok: true });
+    }
+
+    // phone: "Where to?" place search and journeys. Same signature and counter checks; a daily limit per phone.
+    if (path === "/geo/auth" && m === "POST") {
+      const { did, what, hash } = body;
+      if (!GEO_WHAT.includes(what) || !/^[0-9a-f]{64}$/.test(hash ?? "")) return json({ error: "rejected" }, 403);
+      const a = await this.signedBy(body, `geo:${what}:${hash}`); if (a.res) return a.res;
+      if (!this.bump("geo", did, GEO_CAP, Date.now())) return json({ error: "used_up" }, 429);
+      return json({ ok: true });
     }
 
     // parent: family options (the Spotify app's public Client ID, switches)

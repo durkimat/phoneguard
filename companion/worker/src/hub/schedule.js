@@ -3,7 +3,7 @@
 import { zonedToUtc } from "../page/timetable.js";
 
 export const WINDOW_DAYS = 14;
-export const LOCKDOWN_KEYS = ["launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes", "idle_min", "screen_off_min", "radio", "radios_sleep"];
+export const LOCKDOWN_KEYS = ["launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes", "idle_min", "screen_off_min", "radio", "radios_sleep", "voice_typing", "voice_cmds"];
 export const NOTE_MODES = ["show", "off"];
 export const LOC_MODES = ["off", "network", "gps"];
 export const SOUNDS = ["normal", "vibrate", "silent"];
@@ -23,8 +23,8 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const sortedUnique = (a) => [...new Set(a)].sort();
 
 export function lockdownDefaults(modeId) {
-  if (modeId === "school") return { launcher: "nokia", touch: false, shade: false, kiosk: true, sound: "silent", inbound: false, wa: "open", wa_app: "simple", camera: true, location: "off", loc_every: 30, notes: "off", idle_min: 10, screen_off_min: 5, radio: "any", radios_sleep: true };
-  return { launcher: "nokia", touch: true, shade: true, kiosk: false, sound: "normal", inbound: true, wa: "30", wa_app: "auto", camera: true, location: "off", loc_every: 30, notes: "show", idle_min: 10, screen_off_min: 5, radio: "any", radios_sleep: true };
+  if (modeId === "school") return { launcher: "nokia", touch: false, shade: false, kiosk: true, sound: "silent", inbound: false, wa: "open", wa_app: "simple", camera: true, location: "off", loc_every: 30, notes: "off", idle_min: 10, screen_off_min: 5, radio: "any", radios_sleep: true, voice_typing: false, voice_cmds: false };
+  return { launcher: "nokia", touch: true, shade: true, kiosk: false, sound: "normal", inbound: true, wa: "30", wa_app: "auto", camera: true, location: "off", loc_every: 30, notes: "show", idle_min: 10, screen_off_min: 5, radio: "any", radios_sleep: true, voice_typing: true, voice_cmds: true };
 }
 
 export function modeWithDefaults(modeId, mode) {
@@ -91,7 +91,7 @@ export function buildConfig(child, nowMs, options = null) {
       launcher: m.launcher === "nokia" ? "nokia" : "default", touch: Boolean(m.touch), shade: Boolean(m.shade), kiosk: Boolean(m.kiosk),
       sound: SOUNDS.includes(m.sound) ? m.sound : "normal", inbound: Boolean(m.inbound),
       wa: WA_CHECKS.includes(m.wa) ? m.wa : "open", waApp: WA_APPS.includes(m.wa_app) ? m.wa_app : "auto", camera: Boolean(m.camera),
-      radio: RADIO_MODES.includes(m.radio) ? m.radio : "any", radiosSleep: Boolean(m.radios_sleep), ...(m.data_widget === false ? { dataWidget: false } : {}),
+      radio: RADIO_MODES.includes(m.radio) ? m.radio : "any", radiosSleep: Boolean(m.radios_sleep), ...(m.data_widget === false ? { dataWidget: false } : {}), voiceTyping: Boolean(m.voice_typing), voiceCmds: Boolean(m.voice_cmds),
       location: LOC_MODES.includes(m.location) ? m.location : "off", locEvery: Math.max(0, intOr(m.loc_every, 30)),
       notes: NOTE_MODES.includes(m.notes) ? m.notes : "show",
       idleMin: Math.max(0, Math.min(intOr(m.idle_min, 10), 1440)), screenOffMin: Math.max(0, Math.min(intOr(m.screen_off_min, 5), 1440)),

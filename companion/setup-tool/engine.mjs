@@ -35,7 +35,7 @@ export const scriptExists = (call, account, name) => call(`/accounts/${account}/
 // Upload (or update) the Worker. A first upload carries the Durable Object migration and a fresh ADMIN_TOKEN secret; an update keeps both.
 export async function uploadWorker(call, { account, name, code, adminToken, exists }) {
   const metadata = { main_module: "worker.js", compatibility_date: "2025-09-01" };
-  metadata.bindings = [{ type: "durable_object_namespace", name: "FAMILY", class_name: "Family" }];
+  metadata.bindings = [{ type: "durable_object_namespace", name: "FAMILY", class_name: "Family" }, { type: "ai", name: "AI" }];   // AI: speech to text for voice input (Workers AI, free allowance)
   if (exists) metadata.keep_bindings = ["secret_text"];
   else { metadata.bindings.push({ type: "secret_text", name: "ADMIN_TOKEN", text: adminToken }); metadata.migrations = { new_tag: "v1", new_sqlite_classes: ["Family"] }; }
   const form = new FormData();

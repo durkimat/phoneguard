@@ -94,6 +94,7 @@ export function validateChild(ch, nowMs, options = null) {
     if (!S.WA_APPS.includes(m.wa_app ?? "auto")) fail(`mode '${mid}' has an unknown WhatsApp app setting '${m.wa_app}'`);
     if ("radios_sleep" in m && typeof m.radios_sleep !== "boolean") fail(`mode '${mid}': radios_sleep must be true or false`);
     if ("data_widget" in m && typeof m.data_widget !== "boolean") fail(`mode '${mid}': data_widget must be true or false`);
+    for (const k of ["voice_typing", "voice_cmds"]) if (k in m && typeof m[k] !== "boolean") fail(`mode '${mid}': ${k} must be true or false`);
     if (!S.RADIO_MODES.includes(m.radio ?? "any")) fail(`mode '${mid}' has an unknown radio setting '${m.radio}'`);
     if (!S.NOTE_MODES.includes(m.notes ?? "show")) fail(`mode '${mid}' has an unknown notifications setting '${m.notes}'`);
     if (!S.LOC_MODES.includes(m.location ?? "off")) fail(`mode '${mid}' has an unknown location setting '${m.location}'`);

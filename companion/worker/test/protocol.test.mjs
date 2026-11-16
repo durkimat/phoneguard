@@ -193,6 +193,44 @@ console.log("Email and calendars");
   assert.equal((await post("email/clear", {})).status, 200); assert.ok(!JSON.parse((await sync({ battery: 50, cfgVersion: 0 })).body.p).config.email); ok("clearing email removes the account");
   assert.equal((await post("secret", { name: "email.password", sealed: { alg: "none" } })).status, 400); }
 
+console.log("Voice");
+{ const voice = async (wav, mode = "dictation", { c = ++ctr, signWith = sign, hashOf = wav, headers = {} } = {}) => {
+    const n = crypto.randomBytes(12).toString("hex"), hash = crypto.createHash("sha256").update(hashOf).digest("hex");
+    const r = await fetch(BASE + "/api/voice/transcribe", { method: "POST", headers: { "content-type": "audio/wav", "x-voice-mode": mode, "x-pg-v": "1", "x-pg-did": conf.did, "x-pg-ctr": String(c), "x-pg-n": n, "x-pg-s": signWith(`1|${conf.did}|${c}|${n}|voice:${mode}:${hash}`), ...headers }, body: wav });
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  };
+  const tiny = Buffer.alloc(200, 1), clip = Buffer.alloc(32044, 2);
+  await post("override", { mode: "day" });
+  let r = await voice(tiny); assert.equal(r.status, 200); assert.deepEqual(r.body, { text: "", quality: "low", seconds: 0 }); ok("a signed voice request in a mode with voice on passes the checks (a clip too short to send on answers 'low')");
+  r = await voice(clip); assert.ok([200, 503].includes(r.status)); if (r.status === 503) assert.equal(r.body.error, "unavailable"); ok("a real-sized clip reaches the speech service (no Cloudflare AI here, so 'unavailable' is the expected answer when testing locally)");
+  const used = ctr; r = await voice(tiny, "dictation", { c: used }); assert.equal(r.status, 409); ok("a repeated counter is refused as a replay");
+  r = await voice(tiny, "dictation", { signWith: (m) => crypto.sign("sha256", Buffer.from(m), { key: other.privateKey, dsaEncoding: "der" }).toString("base64") }); assert.equal(r.status, 403); ok("a signature from another key is refused");
+  r = await voice(tiny, "dictation", { hashOf: Buffer.from("different audio") }); assert.equal(r.status, 403); ok("audio that does not match what was signed is refused");
+  r = await voice(tiny, "shout"); assert.equal(r.status, 400); ok("an unknown voice mode is refused");
+  r = await voice(Buffer.alloc(600_000)); assert.equal(r.status, 413); assert.equal(r.body.error, "too_long"); ok("a recording over the size limit is refused before anything else");
+  await post("override", { mode: "school" });
+  r = await voice(tiny, "dictation"); assert.equal(r.status, 403); assert.equal(r.body.error, "voice_off"); r = await voice(tiny, "command"); assert.equal(r.body.error, "voice_off"); ok("School/work mode has voice typing and voice commands off by default");
+  await post("override", { mode: "day" });
+  r = await voice(tiny, "command"); assert.equal(r.status, 200); ok("back in Day mode voice works again");
+  let last; for (let i = 0; i < 200; i++) { last = await voice(tiny); if (last.status === 429) break; }
+  assert.equal(last.status, 429); assert.equal(last.body.error, "used_up"); ok("a phone is stopped at the daily limit with 'used_up'");
+  await post("override", { mode: "auto" }); }
+
+console.log("Where to?");
+{ const geo = async (what, body, { c = ++ctr, signWith = sign, did = conf.did } = {}) => {
+    const text = typeof body === "string" ? body : JSON.stringify(body), n = crypto.randomBytes(12).toString("hex"), hash = crypto.createHash("sha256").update(text).digest("hex");
+    const r = await fetch(BASE + "/api/geo/" + what, { method: "POST", headers: { "content-type": "application/json", "x-pg-v": "1", "x-pg-did": did, "x-pg-ctr": String(c), "x-pg-n": n, "x-pg-s": signWith(`1|${did}|${c}|${n}|geo:${what}:${hash}`) }, body: text });
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  };
+  let r = await geo("search", { q: "x" }); assert.equal(r.status, 400); ok("a signed place search is accepted by the checks (a one-letter search then answers 'bad request' without calling any outside service)");
+  r = await geo("search", { q: "x" }, { c: ctr }); assert.equal(r.status, 409); ok("a repeated counter is refused as a replay");
+  r = await geo("route", { from: { lat: 1, lon: 1 }, to: { lat: 2, lon: 2 } }, { signWith: (m) => crypto.sign("sha256", Buffer.from(m), { key: other.privateKey, dsaEncoding: "der" }).toString("base64") }); assert.equal(r.status, 403); ok("a signature from another key is refused");
+  r = await geo("search", { q: "x" }, { did: "dnotadevice" }); assert.equal(r.status, 403); ok("an unknown phone is refused");
+  r = await geo("route", { from: { lat: 1, lon: 1 }, to: { lat: 2, lon: 2 } }); assert.equal(r.status, 400); ok("places outside Britain are refused");
+  r = await geo("search", "x".repeat(3000)); assert.equal(r.status, 413); ok("an oversized request is refused");
+  let last; for (let i = 0; i < 520; i++) { last = await geo("search", { q: "x" }); if (last.status === 429) break; }
+  assert.equal(last.status, 429); assert.equal(last.body.error, "used_up"); ok("a phone is stopped at the daily limit with 'used_up'"); }
+
 console.log("Release and forget");
 assert.equal((await post("release", {})).status, 200);
 const rel = JSON.parse((await sync({ battery: 50, cfgVersion: 9999 })).body.p); assert.deepEqual(rel.cmds, [{ type: "release" }]); ok("a release request reaches the phone as a signed release command");

@@ -23,6 +23,20 @@ Press **Up** on the keypad and a symbol on the home screen is outlined. **Up** a
 
 ![A symbol outlined with the Up key](img/home-up-highlight.png)
 
+## Spotify playlists
+
+Your playlists are listed with the ones you pinned first, then the ones you played in the last two weeks, then the rest in Spotify's order. Press `*` on a playlist to pin it (a star appears next to its name); press `*` again to unpin. Pins and play times are kept on the phone only. All of your playlists are listed, not just the first 50.
+
+## Speaking instead of typing
+
+On the text-entry screens (a message, a Spotify or radio search) your child can speak instead of typing. Press **Down** from the text to reach the small microphone at the bottom, **hold OK** and speak, then let go: the words appear at the cursor, ready to correct with the keypad. **Back** or **End** while holding cancels. A quick tap does nothing but remind you to hold.
+
+The recording goes to your family's own Cloudflare Worker, which has Cloudflare's speech service turn it into text and then forgets it. Nothing is stored or logged, and the Worker only counts how many times each phone used it (up to 200 a day). It needs Wi-Fi or mobile data, and there is no microphone on password boxes.
+
+You choose where it is available on the parent page: **Timetable**, then **Mode settings**, then **Voice typing** (and **Voice commands**, which is for a later feature). It is off in School/work and on in the other modes. If it is off, the microphone is not shown.
+
+If the phone says **Voice isn't working right now**, Cloudflare's service was busy or its free daily allowance is used up; try again later.
+
 ## Mobile data
 
 The phone counts how much of the SIM's mobile data has been used this month, so you do not have to look it up. It is the phone's own count, so it can differ from your provider's. There is a correction setting for that.

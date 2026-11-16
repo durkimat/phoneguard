@@ -128,4 +128,11 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   assert.equal(H.autoSpotify(ch, rt, {}, T0 + 3600e3), null); assert.equal(H.autoSpotify(ch, rt, {}, T0 + 7 * 3600e3).kind, "storeinstall"); ok("Spotify is fetched through the store once connected: tried again no sooner than six hours, a failure is shown, the parent can switch it off");
   rt.apps.push({ pkg: SP, label: "Spotify", hidden: true }); throwsMsg(() => H.queueStoreInstall(ch, rt, SP, T0), /already on the phone/); assert.equal(H.view(ch, rt, {}, null, T0).spotify.installed, true); }
 
+{ const { ch } = fresh(), cfg = S.buildConfig(ch, T0);
+  assert.equal(cfg.modes.school.voiceTyping, false); assert.equal(cfg.modes.school.voiceCmds, false); assert.equal(cfg.modes.day.voiceTyping, true); assert.equal(cfg.modes.night.voiceCmds, true);
+  H.updateChild(ch, { modes: { ...ch.modes, school: { ...ch.modes.school, voice_typing: true } } }, T0); const c2 = S.buildConfig(ch, T0);
+  assert.equal(c2.modes.school.voiceTyping, true); assert.equal(c2.modes.school.voiceCmds, false);
+  throwsMsg(() => H.updateChild(ch, { modes: { ...ch.modes, day: { ...ch.modes.day, voice_cmds: "yes" } } }, T0), /voice_cmds must be true or false/);
+  ok("voice typing and voice commands are per-mode settings: off in School/work, on elsewhere, and only true or false is accepted"); }
+
 console.log(`\n${n} checks passed`);
