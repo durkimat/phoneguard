@@ -30,6 +30,8 @@ data class ModeDef(
     val camera: Boolean = true,
     /** Voice typing (the microphone button in text fields) and voice commands, per mode; the parent page sets them (off in School/work by default). */
     val voiceTyping: Boolean = true,
+    /** "Where to?" (places and journeys through the Worker) in this mode; the Worker refuses the lookups with where_off when it is false. */
+    val whereTo: Boolean = true,
     val voiceCmds: Boolean = true,
     /** Position reporting: "off", "network" (low accuracy) or "gps". Off also switches the phone's location off. */
     val location: String = "off",
@@ -136,6 +138,7 @@ data class Config(
                     waApp = m.optString("waApp", "auto"),
                     camera = m.optBoolean("camera", true),
                     voiceTyping = m.optBoolean("voiceTyping", true),
+                    whereTo = m.optBoolean("whereTo", true),
                     voiceCmds = m.optBoolean("voiceCmds", true),
                     location = m.optString("location", "off"),
                     locEvery = m.optInt("locEvery", 30),

@@ -80,4 +80,9 @@ class WhereFlowTest {
         m.key(Key.OK)
         assertEquals(Screen.WRITE, m.screen)
     }
+
+    @Test fun theMenuListsWhereToAfterGamesSoOtherDigitsStayPut() {
+        val all = listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(WHERE_PKG, "Where to?"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(WEATHER_PKG, "Weather"))
+        assertEquals(listOf("Weather", "Games", "Where to?", "Calculator", "Settings"), LauncherData.menu(all, emptyList()).map { it.label })
+    }
 }

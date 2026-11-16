@@ -1,0 +1,93 @@
+# repo: frameworks/base
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -809,6 +809,13 @@
+     // Lineage additions
+     private static final int MSG_TOGGLE_TORCH = 100;
+     private static final int MSG_CAMERA_LONG_PRESS = 101;
++    // Phone Guard: the side button (F2) double press switches the torch while the screen is off
++    private static final int MSG_PG_TOGGLE_TORCH = 102;
++    private static final long PG_F2_DOUBLE_MS = 400;
++    private static final long PG_F2_HOLD_MS = 600;
++    private static final int PG_TORCH_OFF_SECONDS = 600;
++    private long mPgF2DownAt;
++    private long mPgF2LastTapAt;
+ 
+     private CameraManager mCameraManager;
+     private String mRearFlashCameraId;
+@@ -918,6 +925,9 @@
+                 case MSG_TOGGLE_TORCH:
+                     toggleTorch();
+                     break;
++                case MSG_PG_TOGGLE_TORCH:
++                    toggleTorch(PG_TORCH_OFF_SECONDS);
++                    break;
+                 case MSG_CAMERA_LONG_PRESS:
+                     mIsLongPress = true;
+                     break;
+@@ -5219,6 +5229,14 @@
+                     + " policyFlags=" + Integer.toHexString(policyFlags));
+         }
+ 
++        // Phone Guard: with the screen off two quick presses of the side button (F2) switch the torch, without waking the screen and without
++        // delivering the key to anything. A hold is not a tap (holding is for speaking, which needs the screen). With the screen on the
++        // key goes to the Phone Guard accessibility service as before. See core/F2Gesture.kt in the app for the same timing.
++        if (keyCode == KeyEvent.KEYCODE_F2 && !interactive && !isInjected) {
++            handlePgF2WhenScreenOff(event, down);
++            return 0;
++        }
++
+         // Basic policy based on interactive state.
+         int result;
+         if (interactive || (isInjected && !isWakeKey)) {
+@@ -7400,6 +7418,10 @@
+     }
+ 
+     private void toggleTorch() {
++        toggleTorch(mTorchTimeout);
++    }
++
++    private void toggleTorch(int timeoutSeconds) {
+         cancelTorchOff();
+         final boolean origEnabled = mTorchEnabled;
+         try {
+@@ -7412,14 +7434,36 @@
+             // Ignore
+         }
+         // Setup torch off alarm
+-        if (mTorchEnabled && !origEnabled && mTorchTimeout > 0) {
++        if (mTorchEnabled && !origEnabled && timeoutSeconds > 0) {
+             Intent torchOff = new Intent(ACTION_TORCH_OFF);
+             torchOff.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY
+                     | Intent.FLAG_RECEIVER_FOREGROUND);
+             mTorchOffPendingIntent = PendingIntent.getBroadcast(mContext, 0, torchOff,
+                     PendingIntent.FLAG_IMMUTABLE);
+             mAlarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+-                    SystemClock.elapsedRealtime() + mTorchTimeout * 1000, mTorchOffPendingIntent);
++                    SystemClock.elapsedRealtime() + timeoutSeconds * 1000L, mTorchOffPendingIntent);
++        }
++    }
++
++    private void handlePgF2WhenScreenOff(KeyEvent event, boolean down) {
++        final long now = SystemClock.uptimeMillis();
++        if (down) {
++            if (mPgF2DownAt == 0) mPgF2DownAt = now; // ignore key repeats
++            return;
++        }
++        final long heldFor = mPgF2DownAt == 0 ? 0 : now - mPgF2DownAt;
++        mPgF2DownAt = 0;
++        if (heldFor >= PG_F2_HOLD_MS) {
++            mPgF2LastTapAt = 0;
++            return;
++        }
++        if (mPgF2LastTapAt != 0 && now - mPgF2LastTapAt <= PG_F2_DOUBLE_MS) {
++            mPgF2LastTapAt = 0;
++            mHandler.removeMessages(MSG_PG_TOGGLE_TORCH);
++            // asynchronously, like the power key torch, to keep the input thread quick
++            mHandler.sendMessage(mHandler.obtainMessage(MSG_PG_TOGGLE_TORCH));
++        } else {
++            mPgF2LastTapAt = now;
+         }
+     }
+ 

@@ -33,7 +33,7 @@ object WhereOrigin {
 object WhereReply {
     fun message(code: Int): String = when (code) {
         400 -> "Can't plan that one"
-        403 -> "Where to? is off"
+        403 -> "Where to? is off in this mode"
         429 -> "Used up for today"
         else -> "Maps aren't working right now"
     }

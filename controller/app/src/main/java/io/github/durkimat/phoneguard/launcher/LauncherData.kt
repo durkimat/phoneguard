@@ -83,8 +83,8 @@ object LauncherData {
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
-    /** "Where to?" is offered when the phone is paired to the Worker (which does the place and journey lookups) and the mode is not locked to one app. */
-    fun whereShown(c: Context): Boolean = musicShown(c) && io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c)
+    /** "Where to?" is offered when the phone is paired to the Worker (which does the place and journey lookups), the mode is not locked to one app and the mode allows it (`whereTo` in the synced config, absent = on). It sits after Classic Games so the digit keys of the other items stay where they were. */
+    fun whereShown(c: Context): Boolean = musicShown(c) && io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.whereTo(Store.config(c), Clock.now())
 
     private val builtIn = setOf(WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
 
@@ -100,7 +100,7 @@ object LauncherData {
         val others = apps - core.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
         return core + pins + one(MAIL_PKG) + one(CALENDAR_PKG) + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
-            one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + one(CALLLOG_PKG) + one(SETTINGS_PKG)
+            one(WEATHER_PKG) + one(GAMES_PKG) + one(WHERE_PKG) + one(CALC_PKG) + one(CALLLOG_PKG) + one(SETTINGS_PKG)
     }
 
     /** The built-in entries that Settings lists as groups of their own, where the mode shows them. */
