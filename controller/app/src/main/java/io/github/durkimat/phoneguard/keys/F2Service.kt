@@ -26,6 +26,49 @@ class F2Service : AccessibilityService() {
 
     companion object {
         @Volatile private var instance: F2Service? = null
+
+        /**
+         * Used by the "get an app through the store" job ([io.github.durkimat.phoneguard.StoreInstall]): the package and the words (texts and descriptions) of the
+         * window in front, or null when the service is not running or nothing can be read. Only called while that job runs.
+         */
+        fun readScreen(): Pair<String, List<String>>? = try {
+            val root = instance?.rootInActiveWindow
+            if (root == null) null else {
+                val out = ArrayList<String>()
+                fun walk(n: android.view.accessibility.AccessibilityNodeInfo, depth: Int) {
+                    if (depth > 40 || out.size > 400) return
+                    n.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { out += it }
+                    n.contentDescription?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { out += it }
+                    for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
+                }
+                walk(root, 0)
+                (root.packageName?.toString().orEmpty()) to out
+            }
+        } catch (_: Exception) { null }
+
+        /** Press the button whose text (or description) is [label]: the exact word first, then one that contains it. True when something was pressed. */
+        fun clickLabel(label: String): Boolean = try {
+            val root = instance?.rootInActiveWindow
+            if (root == null) false else {
+                val all = ArrayList<android.view.accessibility.AccessibilityNodeInfo>()
+                fun walk(n: android.view.accessibility.AccessibilityNodeInfo, depth: Int) {
+                    if (depth > 40 || all.size > 400) return
+                    all += n
+                    for (i in 0 until n.childCount) n.getChild(i)?.let { walk(it, depth + 1) }
+                }
+                walk(root, 0)
+                fun words(n: android.view.accessibility.AccessibilityNodeInfo) = listOfNotNull(n.text?.toString(), n.contentDescription?.toString()).map { it.trim() }
+                val hit = all.firstOrNull { n -> words(n).any { it.equals(label, ignoreCase = true) } }
+                    ?: all.firstOrNull { n -> words(n).any { it.contains(label, ignoreCase = true) } }
+                var n = hit
+                var done = false
+                while (n != null && !done) { if (n.isClickable && n.isEnabled) done = n.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK) else n = n.parent }
+                done
+            }
+        } catch (_: Exception) { false }
+
+        /** Whether the service is running (the job needs it to press the buttons). */
+        fun running(): Boolean = instance != null
         /** Cover the whole screen with the theme panel (false removes it). Returns false when the service is not running, so the caller shows nothing special. */
         fun cover(on: Boolean, message: String = "Starting Spotify..."): Boolean {
             val s = instance ?: return false

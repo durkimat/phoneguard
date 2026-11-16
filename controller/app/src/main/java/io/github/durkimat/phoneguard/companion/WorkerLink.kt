@@ -268,6 +268,7 @@ object WorkerLink {
         try { st.put("lock", io.github.durkimat.phoneguard.ScreenLock.state(c)) } catch (_: Exception) { }
         try { io.github.durkimat.phoneguard.net.DataUsage.state(c)?.let { st.put("data", it) } } catch (_: Exception) { }
         try { st.put("store", io.github.durkimat.phoneguard.StoreApp.state(c)) } catch (_: Exception) { }
+        st.put("storeInstall", io.github.durkimat.phoneguard.StoreInstall.SUPPORTED)
         st.put("spotifyInstalled", io.github.durkimat.phoneguard.music.MusicController.spotifyInstalled(c))
         return p
     }

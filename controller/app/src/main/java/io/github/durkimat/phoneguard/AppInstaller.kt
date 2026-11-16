@@ -73,13 +73,15 @@ object AppInstaller {
     private fun process(c: Context) {
         val cfg = Store.config(c) ?: return
         val p = prefs(c)
+        StoreInstall.cleanup(c)
         for (cmd in cfg.appCommands) {
             if (cmd.id.isEmpty() || p.getString("r_${cmd.id}", null) != null) continue // done already
-            val wait = whyWait(c, cmd)
+            val wait = whyWait(c, cmd) ?: if (cmd.kind == "storeinstall") StoreInstall.whyWait(c) else null
             if (wait != null) { Log.log(c, "app job ${cmd.id} waits: $wait"); continue }
             when {
                 cmd.kind == "update" && cmd.pkg == c.packageName -> install(c, cmd)
                 cmd.kind == "install" -> installStore(c, cmd)
+                cmd.kind == "storeinstall" -> StoreInstall.run(c, cmd) { status, detail -> record(c, cmd.id, status, detail) }
                 cmd.kind == "remove" && (cmd.pkg in Protected.all(c, cfg) || cmd.pkg == c.packageName) -> record(c, cmd.id, "failed", "protected app")
                 cmd.kind == "remove" -> remove(c, cmd)
                 else -> record(c, cmd.id, "failed", "not a job this phone does")
