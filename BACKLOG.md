@@ -1332,3 +1332,14 @@ PC does the Worker routes (`POST /voice/transcribe`, WAV 16 kHz mono 16-bit, hea
 ## Screen-off torch (double press F2) — later image, not started
 
 Today with the screen OFF neither F2 hold nor double press does anything (owner, 2026-11-08: Android drops non-wake keys while non-interactive; the raw key does arrive at the hardware). Screen ON (locked or not) the torch works from `F2Service`. For the screen-off torch: option (b) a PhoneWindowManager patch (`interceptKeyBeforeQueueing` sees F2 with the screen off; recognise the double press there and toggle the torch through CameraManager without waking the screen; needs the gesture timing in system_server, a second tested copy in Java); option (a) mark F2 as a wake key in the key layout (wakes the screen on the first press, which is not wanted for a torch). Plan: option (b) as its own image (ims48) after the voice work. Camera and speak stay disabled while locked/off.
+
+## Owner decisions relayed through the NAS session (2026-11-16, handover from PC)
+
+1. Voice work: GO. PC builds the Worker side first; the NAS builds the phone module (phase 1: mic button + transcribe + first use in "Where to?" search; F2 re-mapping after).
+2. Torch with the screen OFF: only if it has no implications like battery drain from watching for the button. Assessment: none standing (the window manager already receives every key before queueing; the patch adds one comparison for F2 and a timer only after an F2 press; no polling, no wake lock; the torch itself drains while on and still auto-offs after 10 min). So plan ims48 after the other items are finished; By-app data permission (usage access) goes into the same image.
+3. Single F2 press = camera, with a proximity block (no launch when the front is covered): ACCEPTED.
+4. Double-press window about 400 ms (tunable): ACCEPTED.
+5. Accuracy test with the children's recordings: SKIPPED for now (test with real use).
+6. Flash ims47 (TT9 default, system-only kit keeps data): YES (PC flashes).
+7. Remove CoMaps and its ~480 MB of maps from the phone: YES (PC removes it).
+8. Mobile data "By app": grant usage access in the next image (provisioning), i.e. with ims48.
