@@ -43,7 +43,7 @@ The button on the side of the phone (while the screen is on, locked or not):
 
 - **One press** opens the camera (after a moment, to see whether a second press follows). It does not open if the front of the phone is covered, so a knock in a pocket does nothing. It also does nothing during a call, while the phone is locked, or in a mode with no camera.
 - **Two quick presses** switch the torch on or off.
-- **Holding it** is for speaking (coming in a later update); until then it does nothing.
+- **Holding it** is for speaking, where voice is switched on for the mode (see Speaking instead of typing): hold, speak, let go. If a text box has the focus (on our screens or in another app) the words are typed into it; otherwise the phone takes it as a spoken command (commands are coming; for now it only shows what it understood). It needs Wi-Fi or mobile data.
 - Inside the camera, one press takes the photo at once.
 
 With the screen off the button does nothing yet.

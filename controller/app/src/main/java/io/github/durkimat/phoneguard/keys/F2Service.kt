@@ -69,6 +69,38 @@ class F2Service : AccessibilityService() {
 
         /** Whether the service is running (the job needs it to press the buttons). */
         fun running(): Boolean = instance != null
+
+        /** The package in front (for deciding whether a text box of ours or of another app is being used). */
+        fun frontPackage(): String = instance?.frontPkg.orEmpty()
+
+        /** True when another app has a text box with the focus (not a password box): a spoken dictation can go there. */
+        fun editableFocused(): Boolean = try { instance?.rootInActiveWindow?.findFocus(android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT)?.let { it.isEditable && !it.isPassword } == true } catch (_: Exception) { false }
+
+        /**
+         * Put [text] into the focused text box at the cursor: set the whole text (what was there plus the new words) and put the cursor after them;
+         * if the app refuses that, copy the words and ask the box to paste them. False when there is no suitable box.
+         */
+        fun insertText(text: String): Boolean = try {
+            val svc = instance
+            val node = svc?.rootInActiveWindow?.findFocus(android.view.accessibility.AccessibilityNodeInfo.FOCUS_INPUT)
+            if (svc == null || node == null || !node.isEditable || node.isPassword) false else {
+                val cur = if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
+                val at = node.textSelectionStart.let { if (it in 0..cur.length) it else cur.length }
+                val (full, pos) = io.github.durkimat.phoneguard.voice.VoiceText.insert(cur, at, text)
+                val set = android.os.Bundle().apply { putCharSequence(android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, full) }
+                if (node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_TEXT, set)) {
+                    val sel = android.os.Bundle().apply { putInt(android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, pos); putInt(android.view.accessibility.AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, pos) }
+                    node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_SET_SELECTION, sel)
+                    true
+                } else {
+                    val cm = svc.getSystemService(android.content.ClipboardManager::class.java)
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("", text.trim()))
+                    val ok = node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_PASTE)
+                    svc.main.postDelayed({ try { cm.clearPrimaryClip() } catch (_: Exception) { } }, 3000) // a dictation is not left on the clipboard
+                    ok
+                }
+            }
+        } catch (_: Exception) { false }
         /** Cover the whole screen with the theme panel (false removes it). Returns false when the service is not running, so the caller shows nothing special. */
         fun cover(on: Boolean, message: String = "Starting Spotify..."): Boolean {
             val s = instance ?: return false

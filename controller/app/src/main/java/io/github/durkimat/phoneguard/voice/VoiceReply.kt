@@ -4,7 +4,8 @@ import org.json.JSONObject
 
 /** What the Worker said to a voice request (contract: spec-voice.md section 8), and the plain words to show for each outcome. Pure. */
 sealed class VoiceReply {
-    data class Heard(val text: String, val low: Boolean) : VoiceReply()
+    /** [command] is the Worker's checked spoken command as JSON (only in command mode): {intent, args, say, confirm}. */
+    data class Heard(val text: String, val low: Boolean, val command: String? = null) : VoiceReply()
     object Nothing : VoiceReply()
     data class Refused(val shown: String) : VoiceReply()
     data class Failed(val shown: String) : VoiceReply()
@@ -17,7 +18,7 @@ sealed class VoiceReply {
             val j = try { JSONObject(body) } catch (_: Exception) { JSONObject() }
             if (code == 200) {
                 val t = j.optString("text").trim()
-                return if (t.isEmpty()) Nothing else Heard(t, j.optString("quality") == "low")
+                return if (t.isEmpty()) Nothing else Heard(t, j.optString("quality") == "low", j.optJSONObject("command")?.toString())
             }
             return when (j.optString("error")) {
                 "voice_off" -> Refused("Voice is off in this mode")

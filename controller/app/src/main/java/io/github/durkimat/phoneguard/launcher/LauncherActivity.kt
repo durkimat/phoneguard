@@ -30,6 +30,11 @@ class LauncherActivity : Activity() {
         /** Set while the Music screen is in front and the music plays on another Spotify device: the volume keys then change that device (returns its new level and short name). */
         @Volatile var remoteVolume: ((Boolean) -> Pair<Int, String>?)? = null
         @Volatile var inFront = false
+        @Volatile private var current: LauncherActivity? = null
+        /** True when one of our own text-entry screens is showing, so a spoken dictation goes there (our screens are drawn by hand and have no accessibility text field). */
+        fun dictationTargetOpen(): Boolean { val a = current ?: return false; return inFront && a.model.screen == Screen.WRITE && a.model.writeWifi == null }
+        /** Put dictated words into our own text-entry screen; false when none is open. */
+        fun dictate(text: String): Boolean { val a = current ?: return false; if (!dictationTargetOpen()) return false; a.ui.post { a.model.voiceInsert(text); a.invalidate(D.SCREEN); a.refresh() }; return true }
     }
 
     private fun newSkin(kind: String): PaintedSkin = (if (kind == "mac") MacSkin() else NokiaSkin()).also { s -> s.onTap = { x, y -> perform(model.tap(x, y)) } }
@@ -105,7 +110,7 @@ class LauncherActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        inFront = true
+        inFront = true; current = this
         if (model.lockSet && !model.lockParentReady) lockPush() // back from confirming the PIN: the token may be active now
         try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
@@ -132,7 +137,7 @@ class LauncherActivity : Activity() {
     }
 
     override fun onPause() {
-        inFront = false
+        inFront = false; if (current === this) current = null
         voiceStart?.let { ui.removeCallbacks(it); voiceStart = null }
         if (model.voiceState == 1) { voiceCancelled = true; voiceCap?.cancel(); model.voiceState = 0 }
         try { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(netWatch) } catch (_: Exception) { }
