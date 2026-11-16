@@ -56,6 +56,7 @@ appops() {
   timeout 20 cmd appops set $PKG GET_USAGE_STATS allow
   timeout 20 cmd appops set $PKG SYSTEM_ALERT_WINDOW allow
   aurora_ops boot
+  ime_ensure boot
 }
 # Aurora Store (the one app a parent may have Phone Guard install): installing other apps needs an app-op that only root can set, and it is
 # LOST when Phone Guard hides and shows the app again, so it is applied at boot, on a request from the app (Settings.Global pg_appops_req, written
@@ -70,6 +71,21 @@ aurora_ops() {
       say "aurora appops ($1): was [$cur], now [$(timeout 20 cmd appops get com.aurora.store REQUEST_INSTALL_PACKAGES 2>&1 | head -1)]";;
     esac;;
   esac
+}
+# Keyboard: this keypad phone types with Traditional T9, never the on-screen AOSP keyboard (it fills half the small screen). The image ships TT9 but nothing
+# selects it, so a fresh or factory-reset phone came up on LatinIME. Writing the two Settings.Secure keys directly works from here (no input-method service
+# access needed): TT9 as the only enabled keyboard and as the default. Applied at boot and re-checked every 5 minutes; logs one line only when it changes something.
+# show_ime_with_hard_keyboard is deliberately left alone: if Android counts the keypad as a hardware keyboard, hiding the IME would hide TT9's own candidate bar.
+TT9=io.github.sspanak.tt9/.ime.TraditionalT9
+ime_ensure() {
+  case "$(timeout 20 cmd package list packages io.github.sspanak.tt9 2>/dev/null)" in *package:io.github.sspanak.tt9*) ;; *) return 0;; esac
+  d=$(timeout 20 cmd settings get secure default_input_method 2>/dev/null)
+  e=$(timeout 20 cmd settings get secure enabled_input_methods 2>/dev/null)
+  if [ "$d" != "$TT9" ] || [ "$e" != "$TT9" ]; then
+    timeout 20 cmd settings put secure enabled_input_methods "$TT9"
+    timeout 20 cmd settings put secure default_input_method "$TT9"
+    say "keyboard ($1): was default [$d] enabled [$e], now TT9"
+  fi
 }
 # The watcher for app-op requests, cheap when idle. An app cannot set a system property (no way to trigger an init.rc rule from it), so the request is a
 # Settings.Global write. Settings.Global lives in one file: a native `stat` of its modification time (a few ms, no binder, no Java) tells us whether ANY
@@ -88,7 +104,7 @@ watch_tick() {   # called every 10 s
   if [ -n "$m" ]; then
     if [ "$m" != "$last_m" ]; then last_m=$m; check_req; fi
   elif [ $((ticks % 6)) -eq 0 ]; then check_req; fi
-  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; fi
+  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; ime_ensure poll; fi
 }
 i=0
 while [ $i -lt 20 ]; do

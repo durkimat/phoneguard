@@ -1320,3 +1320,7 @@ After `playOffline` starts Spotify, the launcher comes back after 1.5 s on the M
 ## 0.4.34: offline screen polish (PC emulator test of 0.4.33, 2026-11-16)
 
 PC confirmed on the emulator (airplane mode): the offline list shows with the fixed `↓` marker, and after an offline play the launcher shows Now Playing, not Home. Fixes: the offline title was clipped at 480x640, so it is now "Offline playlists"; a missing Spotify app (ActivityNotFoundException) now shows the notice "Spotify is not installed" (posted 1 s later so the Now Playing redraw does not wipe it). Spotify actually playing a download offline is still only seen on the J36 earlier (by hand).
+
+## ims47: TT9 is the default keyboard (PC, owner's J36, 2026-11-16)
+
+Bug: after a flash the default input method was the AOSP LatinIME (on-screen keyboard, half the small screen); TT9 was installed but never selected, and nothing in the image set it. Fix in `pg-provision.sh` (`ime_ensure`): at every boot, and every 5 minutes while the watcher loop runs (Family phones), if TT9 is installed and `default_input_method` or `enabled_input_methods` is not TT9 alone, write both Settings.Secure keys with `cmd settings` (no sepolicy change) and log one `keyboard (boot|poll)` line. `show_ime_with_hard_keyboard` deliberately untouched (hiding the IME could hide TT9's candidate bar if the keypad counts as a hardware keyboard). Image ims47 carries APK 0.4.34 and this script; kits `flash-{system,wipe}-ims47-20261116`. Untested on a device; Open phones only get the boot check.
