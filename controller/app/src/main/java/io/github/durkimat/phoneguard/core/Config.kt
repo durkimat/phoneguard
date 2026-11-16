@@ -28,6 +28,9 @@ data class ModeDef(
     val waApp: String = "auto",
     /** Whether our themed camera is offered in the menu in this mode. */
     val camera: Boolean = true,
+    /** Voice typing (the microphone button in text fields) and voice commands, per mode; the parent page sets them (off in School/work by default). */
+    val voiceTyping: Boolean = true,
+    val voiceCmds: Boolean = true,
     /** Position reporting: "off", "network" (low accuracy) or "gps". Off also switches the phone's location off. */
     val location: String = "off",
     /** Minutes between position reports; 0 means live (continuous). */
@@ -132,6 +135,8 @@ data class Config(
                     wa = m.optString("wa", "open"),
                     waApp = m.optString("waApp", "auto"),
                     camera = m.optBoolean("camera", true),
+                    voiceTyping = m.optBoolean("voiceTyping", true),
+                    voiceCmds = m.optBoolean("voiceCmds", true),
                     location = m.optString("location", "off"),
                     locEvery = m.optInt("locEvery", 30),
                     notes = m.optString("notes", "show"),

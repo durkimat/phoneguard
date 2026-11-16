@@ -896,7 +896,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val comp = m.composingRange
             val paint = bodyPaint()
             val cursorLine = if (comp != null || m.writeField == 0) -1 else lines.indexOfFirst { it.first <= m.cursor && m.cursor <= it.last + 1 }.let { if (it < 0) lines.size - 1 else it }
-            val shown = if (m.voiceOn) 10 else 11 // the microphone button takes the bottom right corner
+            val shown = if (m.voiceShown) 10 else 11 // the microphone button takes the bottom right corner
             var first = (lines.size - shown).coerceAtLeast(0) // keep the end, where the cursor usually is
             if (cursorLine in 0 until first) first = cursorLine
             for (n in 0 until shown) {
@@ -916,7 +916,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 }
             }
             if (lines.isEmpty() && m.writeField == 1) c.drawRect(16 * u, 116 * u, 19 * u, 147 * u, fill)
-            if (m.voiceOn) voiceButton(c, m, u)
+            if (m.voiceShown) voiceButton(c, m, u)
             if (m.voiceState == 0) text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
             if (m.writeWa) text(c, "WhatsApp", 240f, 560f, 24f, u, align = Paint.Align.CENTER)
             text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)

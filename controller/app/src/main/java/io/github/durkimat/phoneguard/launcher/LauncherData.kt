@@ -53,6 +53,8 @@ object LauncherData {
 
     /** True when the mode in force offers the themed camera. */
     fun cameraAllowed(c: Context): Boolean = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).camera
+    /** Whether the microphone button shows in text fields: the mode allows voice typing (the synced config) and the phone is paired to the Worker. */
+    fun voiceTypingAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).first
 
     private var nextCache: Pair<Long, String> = 0L to ""
     /** "15:00 Dentist": the next timed event today, or the first event tomorrow ("Tmrw 09:00 Football"); empty when there is none. Looked up at most once a minute. */

@@ -42,6 +42,9 @@ object Engine {
 
     fun locRank(l: String) = when (l) { "gps" -> 2; "network" -> 1; else -> 0 }
 
+    /** Voice typing and voice commands in the mode that is in force now (a boost does not change them). */
+    fun voice(cfg: Config?, now: Long): Pair<Boolean, Boolean> = modeDef(cfg, scheduledMode(cfg, now)).let { it.voiceTyping to it.voiceCmds }
+
     fun effective(cfg: Config?, boost: Boost?, now: Long): Effective {
         val id = scheduledMode(cfg, now)
         val s = modeDef(cfg, id)

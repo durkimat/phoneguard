@@ -154,7 +154,7 @@ object WorkerLink {
         val ctr = nextCtr(c); val n = Wire.nonce()
         val hash = java.security.MessageDigest.getInstance("SHA-256").digest(wav).joinToString("") { "%02x".format(it) }
         val sig = Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, "voice:$mode:$hash").toByteArray(Charsets.UTF_8))
-        val h = URL("https://$host/voice/transcribe").openConnection() as HttpURLConnection
+        val h = URL("https://$host/api/voice/transcribe").openConnection() as HttpURLConnection
         return try {
             h.connectTimeout = 15_000; h.readTimeout = 30_000; h.instanceFollowRedirects = false
             h.requestMethod = "POST"; h.doOutput = true

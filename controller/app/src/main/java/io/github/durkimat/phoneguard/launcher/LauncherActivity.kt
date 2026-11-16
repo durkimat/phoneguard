@@ -799,7 +799,7 @@ class LauncherActivity : Activity() {
     private var voiceCap: io.github.durkimat.phoneguard.voice.VoiceCapture? = null
     private var voiceStart: Runnable? = null
     private var voiceCancelled = false
-    private fun voiceAllowed() = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(this)
+    private fun voiceAllowed() = LauncherData.voiceTypingAllowed(this)
 
     private fun voiceRedraw() { invalidate(D.SCREEN); refresh() }
     private fun voiceNotice(text: String) { model.notify(text); voiceRedraw() }
