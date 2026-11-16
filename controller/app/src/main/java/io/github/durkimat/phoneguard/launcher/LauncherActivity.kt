@@ -729,6 +729,10 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.SpSearch -> Thread { val l = sp.search(this, a.query); ui.post { model.spResults = l ?: emptyList(); model.spStatus = if (l == null) "Could not search" else "Nothing found"; refresh() } }.start()
+            Action.DataByApp -> Thread {
+                val rows = io.github.durkimat.phoneguard.core.DataByApp.rows(io.github.durkimat.phoneguard.net.DataUsage.byApp(this))
+                ui.post { model.setDataApps(rows); refresh() }
+            }.start()
             is Action.WhereSearch -> Thread {
                 val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this)
                 val body = org.json.JSONObject().put("q", a.query).also { j -> if (o != null) j.put("near", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)) }.toString()

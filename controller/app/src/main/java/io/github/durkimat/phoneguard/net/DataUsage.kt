@@ -48,6 +48,32 @@ object DataUsage {
         b.rxBytes + b.txBytes
     } catch (e: Exception) { Log.log(c, "data usage: not readable: ${e.javaClass.simpleName}"); null }
 
+    /**
+     * Mobile data used this period by each app, as (app name, bytes): one query for the SIM, buckets added up per uid, uids named by their app label
+     * ("Android system" for uid 1000, "Removed apps", "Hotspot"). Empty when it cannot be read. Call off the main thread.
+     */
+    fun byApp(c: Context, now: Long = System.currentTimeMillis()): List<Pair<String, Long>> = try {
+        val plan = plan(c)
+        val (from, _) = plan.period(now)
+        val tm = c.getSystemService(TelephonyManager::class.java).let { val s = subId(c, plan); if (s >= 0) it.createForSubscriptionId(s) else it }
+        val id = try { tm.subscriberId } catch (_: SecurityException) { null }
+        val stats = c.getSystemService(NetworkStatsManager::class.java).querySummary(ConnectivityManager.TYPE_MOBILE, id, from, now)
+        val perUid = HashMap<Int, Long>()
+        val bucket = android.app.usage.NetworkStats.Bucket()
+        while (stats.hasNextBucket()) { stats.getNextBucket(bucket); perUid[bucket.uid] = (perUid[bucket.uid] ?: 0L) + bucket.rxBytes + bucket.txBytes }
+        stats.close()
+        val pm = c.packageManager
+        perUid.map { (uid, bytes) ->
+            val name = when (uid) {
+                android.app.usage.NetworkStats.Bucket.UID_REMOVED -> "Removed apps"
+                android.app.usage.NetworkStats.Bucket.UID_TETHERING -> "Hotspot"
+                1000 -> "Android system"
+                else -> try { pm.getPackagesForUid(uid)?.firstOrNull()?.let { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } } catch (_: Exception) { null } ?: "App $uid"
+            }
+            name to bytes
+        }
+    } catch (e: Exception) { Log.log(c, "data by app: not readable: ${e.javaClass.simpleName}"); emptyList() }
+
     private class Cache(val at: Long, val view: DataView?, val since: Long, val until: Long)
     @Volatile private var cached: Cache? = null
 

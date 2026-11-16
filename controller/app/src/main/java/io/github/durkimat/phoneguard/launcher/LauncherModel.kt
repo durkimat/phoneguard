@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS, WHEREMAP }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -151,6 +151,7 @@ sealed class Action {
     object LockLoad : Action()
     /** Mobile data plan: the activity fills in the plan, the SIMs and the renewal date; or saves what the form collected. */
     object DataLoad : Action()
+    object DataByApp : Action()
     data class SaveDataPlan(val plan: io.github.durkimat.phoneguard.core.DataPlan) : Action()
     object OpenAndroidLock : Action()
     data class SetLanguage(val tag: String) : Action()
@@ -515,6 +516,7 @@ class LauncherModel(
         Screen.CONNECTIONS -> "Connections"
         Screen.FIRSTRUN -> if (firstConfirm != null) "Are you sure?" else when (wizStep) { 0 -> "1 of 3: Wi-Fi"; 1 -> "2 of 3: Time, language"; else -> "3 of 3: Phone type" }
         Screen.DATA -> "Mobile data"
+        Screen.DATAAPPS -> "Data by app"
         Screen.TIMEZONE -> "Time zone"
         Screen.LANGUAGE -> "Language"
         Screen.PHONETYPE -> "Phone type"
@@ -578,6 +580,7 @@ class LauncherModel(
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
         Screen.TIMEZONE, Screen.LANGUAGE -> "Select" to "Back"
         Screen.DATA -> "Select" to "Back"
+        Screen.DATAAPPS -> "" to "Back"
         Screen.OPENOPTS -> "Change" to "Back"
         Screen.RUNNING -> (if (running.isEmpty()) "" else "Kill") to "Back"
         Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV -> "Select" to "Back"
@@ -619,6 +622,7 @@ class LauncherModel(
         Screen.CONNECTIONS -> connectionRows
         Screen.FIRSTRUN -> firstRunRows
         Screen.DATA -> dataRows
+        Screen.DATAAPPS -> dataApps
         Screen.TIMEZONE -> Regional.zones.map { it.name + if (it.id == tzId) " *" else "" }
         Screen.LANGUAGE -> Regional.languages.map { it.name + if (it.id.equals(langTag, true)) " *" else "" }
         Screen.PHONETYPE -> phoneTypeRows
@@ -703,6 +707,7 @@ class LauncherModel(
         Screen.CONNECTIONS -> connectionsKey(key)
         Screen.FIRSTRUN -> firstRunKey(key)
         Screen.DATA -> dataKey(key)
+        Screen.DATAAPPS -> move(key, dataApps.size) ?: when (key) { Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }; Key.END -> { goHome(); Action.Redraw }; else -> Action.None }
         Screen.TIMEZONE -> pickKey(key, Regional.zones.size) { tzId = Regional.zones[it].id; Action.SetTimeZone(tzId) }
         Screen.LANGUAGE -> pickKey(key, Regional.languages.size) { langTag = Regional.languages[it].id; Action.SetLanguage(langTag) }
         Screen.PHONETYPE -> phoneTypeKey(key)
@@ -2608,19 +2613,25 @@ class LauncherModel(
     var dataPlan = io.github.durkimat.phoneguard.core.DataPlan()
     var dataSims: List<Pair<Int, String>> = emptyList()
     var dataRenews = ""
+    /** The by-app page: the rows (or [dataAppsStatus] while loading or when nothing was used). Set by the activity. */
+    var dataApps: List<String> = emptyList()
+        private set
+    var dataAppsStatus = ""
+    fun setDataApps(rows: List<String>) { dataApps = rows; dataAppsStatus = if (rows.isEmpty()) "No mobile data used yet" else ""; selected = 0 }
 
     private val dataToggleRow: List<String> get() = if (dataShown) listOf("Mobile data: " + (if (connData == 2) "Off" else "On")) else emptyList()
 
     private val dataRows: List<String> get() {
         val v = dataView ?: return dataToggleRow + listOf(if (dataPlan.set) "No reading yet" else "No data plan set", if (dataPlan.set) "Change plan" else "Set up plan")
         return dataToggleRow + listOf("Used: " + io.github.durkimat.phoneguard.core.DataView.amount(v.used) + " (" + (v.fraction * 100).toInt() + "%)", "Left: " + io.github.durkimat.phoneguard.core.DataView.amount(v.left),
-            "Allowance: " + io.github.durkimat.phoneguard.core.DataView.amount(v.allowance), "Renews: " + dataRenews.ifEmpty { "-" }, "Change plan")
+            "Allowance: " + io.github.durkimat.phoneguard.core.DataView.amount(v.allowance), "Renews: " + dataRenews.ifEmpty { "-" }, "By app", "Change plan")
     }
 
     private fun dataKey(key: Key): Action = move(key, dataRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
             dataShown && selected == 0 -> Action.DataToggle
             selected == dataRows.size - 1 -> { pushForm(dataForm()); Action.Redraw }
+            dataView != null && selected == dataRows.size - 2 -> { dataApps = emptyList(); dataAppsStatus = "Loading..."; enter(Screen.DATAAPPS); Action.DataByApp }
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
