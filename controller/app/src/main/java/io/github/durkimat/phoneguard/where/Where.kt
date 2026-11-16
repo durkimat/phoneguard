@@ -48,9 +48,16 @@ object Where {
     /** "08:12" in the phone's own time zone, or "" when the time cannot be read. */
     fun clock(iso: String, zone: ZoneId = ZoneId.systemDefault()): String = try { OffsetDateTime.parse(iso).atZoneSameInstant(zone).format(DateTimeFormatter.ofPattern("HH:mm")) } catch (_: Exception) { "" }
 
-    /** "1.5 km  Hexham Station, Northumberland": the distance first (when the Worker sent it) so it is never cut off, then the name and area. */
-    fun placeRow(p: Place): String = (p.km?.let { km -> (if (km < 1.0) "${(km * 1000).toInt()} m" else if (km < 10) "%.1f km".format(java.util.Locale.UK, km) else "${km.toInt()} km") + "  " } ?: "") +
-        p.name + (if (p.area.isNotBlank() && !p.name.contains(p.area, true)) ", " + p.area else "")
+    /** "Hexham Station, Northumberland": the name first so it is never cut off; the distance is shown under the list for the highlighted place ([placeNote]). */
+    fun placeRow(p: Place): String = p.name + (if (p.area.isNotBlank() && !p.name.contains(p.area, true)) ", " + p.area else "")
+
+    fun kmText(km: Double): String = if (km < 1.0) "${(km * 1000).toInt()} m" else if (km < 10) "%.1f km".format(java.util.Locale.UK, km) else "${km.toInt()} km"
+
+    /** "9.2 km  Bus stop": what is said under the list about the highlighted place. */
+    fun placeNote(p: Place): String = listOfNotNull(p.km?.let { kmText(it) }, when (p.kind) { "stop" -> "Bus or train stop"; "postcode" -> "Postcode"; "address" -> "Address"; else -> null }).joinToString("  ")
+
+    /** Nearest first when the Worker sent distances (a child asking for "station" wants the closest one); otherwise the Worker's own order. */
+    fun nearestFirst(list: List<Place>): List<Place> = if (list.isNotEmpty() && list.all { it.km != null }) list.sortedBy { it.km } else list
 
     /** "53m" or "1h06": short enough for a row. */
     fun dur(min: Int): String = if (min < 60) "${min}m" else "${min / 60}h" + "%02d".format(min % 60)

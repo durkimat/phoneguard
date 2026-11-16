@@ -2019,8 +2019,11 @@ class LauncherModel(
         return Action.Redraw
     }
 
+    /** Under the places list: the distance and kind of the highlighted place. */
+    val wherePlaceNote: String get() = if (screen == Screen.WHEREPLACES) whereResults.getOrNull(selected)?.let { io.github.durkimat.phoneguard.where.Where.placeNote(it) }.orEmpty() else ""
+
     /** The places Worker answered (or why it could not). */
-    fun setWherePlaces(list: List<io.github.durkimat.phoneguard.where.Place>, status: String) { whereResults = list; whereStatus = if (list.isEmpty()) status else ""; selected = 0 }
+    fun setWherePlaces(list: List<io.github.durkimat.phoneguard.where.Place>, status: String) { whereResults = io.github.durkimat.phoneguard.where.Where.nearestFirst(list); whereStatus = if (list.isEmpty()) status else ""; selected = 0 }
 
     /** The ways to [to] arrived; [from] says where they start. */
     fun setWherePlan(plan: io.github.durkimat.phoneguard.where.Plan?, from: String, status: String) {

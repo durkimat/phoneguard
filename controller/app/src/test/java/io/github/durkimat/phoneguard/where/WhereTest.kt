@@ -11,9 +11,14 @@ class WhereTest {
     @Test fun placesParseAndShowTheAreaOnce() {
         val ps = Where.parsePlaces("""{"places":[{"name":"Hexham Station","kind":"stop","area":"Northumberland","lat":54.97,"lon":-2.1,"km":1.5},{"name":"bad"},{"name":"St Albans","kind":"place","area":"St Albans","lat":51.75,"lon":-0.34}]}""")
         assertEquals(2, ps.size)
-        assertEquals("1.5 km  Hexham Station, Northumberland", Where.placeRow(ps[0]))
-        assertEquals("800 m  A", Where.placeRow(Place("A", "place", "", 0.0, 0.0, 0.8)))
-        assertEquals("12 km  A", Where.placeRow(Place("A", "place", "", 0.0, 0.0, 12.4)))
+        assertEquals("Hexham Station, Northumberland", Where.placeRow(ps[0]))
+        assertEquals("1.5 km  Bus or train stop", Where.placeNote(ps[0]))
+        assertEquals("800 m", Where.placeNote(Place("A", "place", "", 0.0, 0.0, 0.8)))
+        assertEquals("12 km  Postcode", Where.placeNote(Place("A", "postcode", "", 0.0, 0.0, 12.4)))
+        val near = Where.nearestFirst(listOf(Place("far", "stop", "", 0.0, 0.0, 9.0), Place("near", "stop", "", 0.0, 0.0, 1.0)))
+        assertEquals(listOf("near", "far"), near.map { it.name })
+        val noKm = listOf(Place("a", "stop", "", 0.0, 0.0, null), Place("b", "stop", "", 0.0, 0.0, 1.0))
+        assertEquals(noKm, Where.nearestFirst(noKm))
         assertEquals("St Albans", Where.placeRow(ps[1]))
         assertEquals(emptyList<Place>(), Where.parsePlaces("garbage"))
     }
