@@ -79,6 +79,6 @@ class HomeFocusTest {
         val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L); m.theme = "mac"
         val t = m.homeTargets().first { it.kind == "weather" }
         assertEquals(338f, t.t, 0.01f)
-        assertEquals(372f, weatherCy(true), 0f); assertEquals(440f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
+        assertEquals(174f, weatherCy(true), 0f); assertEquals(296f, clockY(true), 0f); assertEquals(392f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
     }
 }

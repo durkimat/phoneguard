@@ -1246,3 +1246,8 @@ Owner request: keep this in view when designing and building. Not scheduled.
 
 ## 0.4.22: centre axis (owner feedback via PC, 2026-11-16)
 The screen's centre axis is the weather divider = the clock's colon (measured at draw time, default x 242 = ink columns 241..242). On the home screen: the data bar's left edge now starts on it (`BandGeometry.dataBarLeft(div)`, right edge stays 466, so about 224 px wide; the fill is the share used of that width); the date and the symbol row are nudged onto it (`DATE_NUDGE` 1.5, `BADGE_NUDGE` 2.5, plus `axisShift` = measured colon - 242 for other fonts/skins; a scrolling too-wide symbol row is not nudged). The "N GB left" words stay at x 14 and shrink if they would come within 10 px of the bar (not measured: no emulator here). The clock stays where it is; the low banner, now-playing line and the left-anchored items are unchanged.
+
+## 0.4.23: Classic Mac layout like the others, data words right-aligned (owner feedback via PC, 2026-11-16)
+- Mac: the weather band is now above the clock like every other look (`weatherCy(mac)` 174), the clock baseline is 26 px lower (`clockY(mac)` 296, ink 217..296 per the PC's measurement), the date stays. The Now playing / next event / rain note slot is the same 392 in every look (it takes the space the Mac band used to have, rows 344..399).
+- Data words ("4.8 GB left") are right-aligned: their ink ends at divider - 22, the same line as the weather group below, 22 px from the bar; shrunk only if wider than 14..(divider-22).
+- Low-data banner text baseline 81 -> 83 so the text is centred vertically in its box (60..88; the earlier 81 left the ink about 1.5 px high).

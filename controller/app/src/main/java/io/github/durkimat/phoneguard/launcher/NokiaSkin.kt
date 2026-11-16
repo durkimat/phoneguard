@@ -645,15 +645,17 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val y = dataY(Themes.byId(model?.theme).skin == "mac") // the Mac look has a title bar and a frame: the line sits just inside it
             if (v.low) {
                 fill.color = ink; c.drawRect(14f * u, (60f + y) * u, 466f * u, (88f + y) * u, fill)
-                text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 81f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+                text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 83f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
                 return
             }
             val left = BandGeometry.dataBarLeft(BandGeometry.divider(clockColonX(time, u))) // the bar starts on the centre axis
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.isFakeBoldText = true; p.textAlign = Paint.Align.LEFT; p.letterSpacing = 0f
             p.textSize = 26f * scaleOf(TEXT) * u
-            val room = left - 14f - 10f // the words never reach the bar
-            val tw = p.measureText(v.leftText) / u
-            textInk(c, v.leftText, 14f, 84f + y, if (tw > room) 26f * room / tw else 26f, u, bold = true) // its first ink column is 14, like the signal bars
+            val right = BandGeometry.tempInkRight(BandGeometry.divider(clockColonX(time, u))) // right-aligned: its ink ends where the weather group's does, 22 px before the bar
+            var size = 26f
+            var rb = inkBounds(v.leftText, u)
+            if (rb.width() > right - 14f) { size = 26f * (right - 14f) / rb.width(); p.textSize = size * scaleOf(TEXT) * u; rb = inkBounds(v.leftText, u) }
+            text(c, v.leftText, right - rb.right, 84f + y, size, u, bold = true)
             stroke.strokeWidth = 2f * u; stroke.color = ink
             c.drawRect(left * u, (63f + y) * u, BandGeometry.DATA_BAR_RIGHT * u, (85f + y) * u, stroke)
             fill.color = ink; c.drawRect(left * u, (63f + y) * u, (left + (BandGeometry.DATA_BAR_RIGHT - left) * v.fraction) * u, (85f + y) * u, fill)
@@ -661,7 +663,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
-            text(c, i.time, 240f, 270f, 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
+            text(c, i.time, 240f, clockY(Themes.byId(model?.theme).skin == "mac"), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
             text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
             badges(c, i, u)
             softKeys(c, if ((model?.homeFocus ?: -1) >= 0) "Select" else i.softLeft, model?.softKeys?.second ?: i.softRight, u) // the model knows whether the right key is Music or Contacts

@@ -77,10 +77,12 @@ enum class Layout { LIST, GRID, CUSTOM }
 const val DATA_MAC_SHIFT = 46f
 /** Where the data strip's rows start: [DATA_MAC_SHIFT] lower in the Mac look; the other looks sit 5 px lower so it is centred between the status line and the weather band. */
 fun dataY(mac: Boolean) = if (mac) DATA_MAC_SHIFT else 5f
-/** The home screen's weather group: its centre line (design pixels). Above the clock normally; the Mac look has too little room there, so it stays lower. */
-fun weatherCy(mac: Boolean) = if (mac) 372f else 130f
-/** The slot for Now playing, the next event and the rain note: where the weather used to be (lower in the Mac look). */
-fun homeSlotY(mac: Boolean) = if (mac) 440f else 392f
+/** The home screen's weather group: its centre line (design pixels), above the clock in every look (the Mac look's clock sits 26 px lower to make room). */
+fun weatherCy(mac: Boolean) = if (mac) 174f else 130f
+/** The clock's baseline. */
+fun clockY(mac: Boolean) = if (mac) 296f else 270f
+/** The slot for Now playing, the next event and the rain note: where the weather used to be, the same in every look. */
+fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
 const val GRID_COLS = 3
 /** Rows of tiles on screen at once; more rows scroll vertically. */
 const val GRID_ROWS = 3
