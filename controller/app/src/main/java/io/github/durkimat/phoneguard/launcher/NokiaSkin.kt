@@ -896,7 +896,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val comp = m.composingRange
             val paint = bodyPaint()
             val cursorLine = if (comp != null || m.writeField == 0) -1 else lines.indexOfFirst { it.first <= m.cursor && m.cursor <= it.last + 1 }.let { if (it < 0) lines.size - 1 else it }
-            val shown = if (m.voiceShown) 10 else 11 // the microphone button takes the bottom right corner
+            val shown = 11
             var first = (lines.size - shown).coerceAtLeast(0) // keep the end, where the cursor usually is
             if (cursorLine in 0 until first) first = cursorLine
             for (n in 0 until shown) {
@@ -923,18 +923,15 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
-        /** The microphone button at the bottom right of a text field (a boxed microphone; inverted while it has the focus), and the state of a recording. */
+        /** A small plain microphone in the footer, left of the character counter; a thin outline shows it has the focus. Also shows the state of a recording. */
         private fun voiceButton(c: Canvas, m: LauncherModel, u: Float) {
             val focused = m.writeField == 2 || m.voiceState != 0
-            val x0 = 412f; val y0 = 500f; val x1 = 464f; val y1 = 552f; val cx = (x0 + x1) / 2
-            if (focused) { fill.color = ink; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, fill) }
-            stroke.strokeWidth = 2 * u; stroke.color = ink; c.drawRect(x0 * u, y0 * u, x1 * u, y1 * u, stroke)
-            val fg = if (focused) lcd else ink
-            fill.color = fg; stroke.color = fg
-            c.drawRoundRect(android.graphics.RectF((cx - 6) * u, 508 * u, (cx + 6) * u, 530 * u), 6 * u, 6 * u, fill)
-            c.drawArc(android.graphics.RectF((cx - 10) * u, 518 * u, (cx + 10) * u, 538 * u), 0f, 180f, false, stroke)
-            c.drawLine(cx * u, 538 * u, cx * u, 544 * u, stroke); c.drawLine((cx - 6) * u, 545 * u, (cx + 6) * u, 545 * u, stroke)
-            fill.color = ink; stroke.color = ink
+            val cx = 396f
+            if (focused) { stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect((cx - 15) * u, 534 * u, (cx + 15) * u, 566 * u, stroke) }
+            fill.color = ink; stroke.color = ink; stroke.strokeWidth = 2 * u
+            c.drawRoundRect(android.graphics.RectF((cx - 4) * u, 538 * u, (cx + 4) * u, 553 * u), 4 * u, 4 * u, fill)
+            c.drawArc(android.graphics.RectF((cx - 8) * u, 545 * u, (cx + 8) * u, 559 * u), 0f, 180f, false, stroke)
+            c.drawLine(cx * u, 559 * u, cx * u, 563 * u, stroke)
             when (m.voiceState) {
                 1 -> { // listening: level bars and what to do
                     text(c, "Listening", 16f, 560f, 24f, u, bold = true)

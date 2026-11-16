@@ -1351,3 +1351,7 @@ Package `voice/`: `VoiceWav` (16 kHz mono 16-bit WAV, level bars), `VoiceCapture
 ## 0.4.36: voice typing matches Worker 0.8.3 (PC)
 
 Route is `POST /api/voice/transcribe` (0.4.35 used `/voice/transcribe`). The mic follows the synced mode config booleans `voiceTyping` and `voiceCmds` (per mode, always present; off in School/work, on elsewhere; absent = on): `Engine.voice(cfg, now)` and `LauncherData.voiceTypingAllowed` (also needs the phone to be paired to the Worker). The mic is hidden in the Wi-Fi password field (`LauncherModel.voiceShown`); the "Voice commands" flag is read but unused until phase 3. Replies: 409 = replay (the phone skips its counter forward), 200 per day per phone. Untested on a device; Worker 0.8.3 not deployed yet (PC waits for the owner's confirmation to deploy, flash ims47 and remove CoMaps).
+
+## 0.4.37: mic button is a small plain glyph (owner feedback on 0.4.36, via PC)
+
+The boxed, filled mic overlapped the character counter and was too big. Now a small plain microphone in the footer (centre x 396, left of the counter), a thin outline when it has the focus, the "hold OK and speak" hint, and the text area is back to 11 lines. The ims47 kit scripts' header text said "0.4.24, cheaper Aurora app-op watcher" (stale text from the ims46 kit); fixed to "0.4.34, TT9 forced as the default keyboard" and SHA256SUMS regenerated; system.img is unchanged (dc69a5fd...) and verified to hold the ime_ensure script and APK 0.4.34 (315605fa...).
