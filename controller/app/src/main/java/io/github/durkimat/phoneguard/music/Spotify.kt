@@ -169,11 +169,36 @@ object Spotify {
         return (0 until a.length()).map { a.getJSONObject(it) }.map { SpDevice(it.optString("id"), it.optString("name"), it.optString("type"), it.optBoolean("is_active"), it.optInt("volume_percent", 0)) }
     }
 
-    fun playlists(c: Context): List<SpItem>? {
-        val (code, text) = call(c, "GET", "/me/playlists?limit=50")
-        if (code != 200) return null
-        val a = JSONObject(text).optJSONArray("items") ?: JSONArray()
-        return (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { SpItem(it.optString("uri"), it.optString("name"), (it.optJSONObject("tracks")?.optInt("total") ?: 0).let { n -> if (n > 0) "$n tracks" else "" }) }
+    /** Spotify gives playlists 50 at a time; more than [PLAYLIST_CAP] are not loaded (a sane limit for a small phone). */
+    const val PLAYLIST_PAGE = 50
+    const val PLAYLIST_CAP = 300
+
+    /** One page of /me/playlists: its playlists ("N tracks" kept) and whether Spotify says there is another page. */
+    fun parsePlaylistPage(text: String): Pair<List<SpItem>, Boolean> {
+        val j = JSONObject(text)
+        val a = j.optJSONArray("items") ?: JSONArray()
+        val items = (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { SpItem(it.optString("uri"), it.optString("name"), (it.optJSONObject("tracks")?.optInt("total") ?: 0).let { n -> if (n > 0) "$n tracks" else "" }) }
+        return items to (!j.isNull("next") && j.optString("next").isNotEmpty())
+    }
+
+    /**
+     * All of the person's playlists, paged 50 at a time up to [PLAYLIST_CAP]. [onPage] gets the list so far after each page (the first page can be shown
+     * at once). Null when the first page could not be loaded; a later page that fails ends the list there.
+     */
+    fun playlists(c: Context, onPage: ((List<SpItem>) -> Unit)? = null): List<SpItem>? {
+        val all = ArrayList<SpItem>()
+        var offset = 0; var capped = false
+        while (true) {
+            val (code, text) = call(c, "GET", "/me/playlists?limit=$PLAYLIST_PAGE&offset=$offset")
+            if (code != 200) { if (offset == 0) return null; Log.log(c, "spotify playlists: page at $offset failed ($code)"); break }
+            val (page, more) = try { parsePlaylistPage(text) } catch (_: Exception) { if (offset == 0) return null; break }
+            all += page; offset += PLAYLIST_PAGE
+            if (offset == PLAYLIST_PAGE) onPage?.invoke(ArrayList(all)) // the first page is shown while the rest loads
+            if (!more || page.isEmpty()) break
+            if (all.size >= PLAYLIST_CAP) { capped = true; all.subList(PLAYLIST_CAP, all.size).clear(); break }
+        }
+        Log.log(c, "spotify playlists: ${all.size} loaded${if (capped) " (cap of $PLAYLIST_CAP hit)" else ""}")
+        return all
     }
 
     fun search(c: Context, q: String): List<SpItem>? {

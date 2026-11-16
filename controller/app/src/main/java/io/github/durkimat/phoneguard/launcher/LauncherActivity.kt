@@ -686,7 +686,7 @@ class LauncherActivity : Activity() {
             Action.SpSignIn -> start(sp.signInIntent(this))
             Action.SpSignOut -> { sp.signOut(this); spPlayer = null; model.spSignedIn = false; model.music = io.github.durkimat.phoneguard.music.MusicController.info(this); invalidate(D.INFO); refresh() }
             is Action.SpLoad -> Thread {
-                if (a.kind == "playlists") { val l = sp.playlists(this); ui.post { model.spPlaylists = l ?: emptyList(); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
+                if (a.kind == "playlists") { val l = sp.playlists(this) { first -> ui.post { model.spPlaylists = first; refresh() } }; ui.post { model.spPlaylists = l ?: emptyList(); model.spStatus = if (l == null) "Could not load" else "No playlists"; refresh() } }
                 else {
                     var l = sp.devices(this)
                     if (l != null && l.none { thisPhone(it) }) l = wakeSpotify(l) // this phone only shows once Spotify is running on it
