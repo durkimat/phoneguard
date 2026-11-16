@@ -22,6 +22,12 @@ object BandGeometry {
     fun dataBarLeft(div: Float) = div
     const val DATA_BAR_RIGHT = 466f
 
+    const val DATA_TEXT_SIZE = 26f
+    /** Where the data words' ink ends: with the weather group's, 22 px before the bar. */
+    fun dataTextRight(div: Float) = tempInkRight(div)
+    /** The words' size: [DATA_TEXT_SIZE] unless their ink is wider than the room (from x 14 to the right edge), then shrunk to fit. */
+    fun dataTextSize(inkWidth: Float, room: Float) = if (inkWidth > room && inkWidth > 0f) DATA_TEXT_SIZE * room / inkWidth else DATA_TEXT_SIZE
+
     /** Where the temperature's ink must end. */
     fun tempInkRight(div: Float) = div - GAP
     /** Where the right-hand block starts (its ink edge). */

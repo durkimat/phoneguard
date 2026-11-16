@@ -648,13 +648,14 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 83f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
                 return
             }
-            val left = BandGeometry.dataBarLeft(BandGeometry.divider(clockColonX(time, u))) // the bar starts on the centre axis
+            val div = BandGeometry.divider(clockColonX(time, u)) // measured first: it sets the paint to the clock's size, so the words' paint comes after it
+            val left = BandGeometry.dataBarLeft(div) // the bar starts on the centre axis
+            val right = BandGeometry.dataTextRight(div) // right-aligned: its ink ends where the weather group's does, 22 px before the bar
             p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.isFakeBoldText = true; p.textAlign = Paint.Align.LEFT; p.letterSpacing = 0f
-            p.textSize = 26f * scaleOf(TEXT) * u
-            val right = BandGeometry.tempInkRight(BandGeometry.divider(clockColonX(time, u))) // right-aligned: its ink ends where the weather group's does, 22 px before the bar
-            var size = 26f
+            p.textSize = BandGeometry.DATA_TEXT_SIZE * scaleOf(TEXT) * u
             var rb = inkBounds(v.leftText, u)
-            if (rb.width() > right - 14f) { size = 26f * (right - 14f) / rb.width(); p.textSize = size * scaleOf(TEXT) * u; rb = inkBounds(v.leftText, u) }
+            val size = BandGeometry.dataTextSize(rb.width(), right - 14f)
+            if (size != BandGeometry.DATA_TEXT_SIZE) { p.textSize = size * scaleOf(TEXT) * u; rb = inkBounds(v.leftText, u) }
             text(c, v.leftText, right - rb.right, 84f + y, size, u, bold = true)
             stroke.strokeWidth = 2f * u; stroke.color = ink
             c.drawRect(left * u, (63f + y) * u, BandGeometry.DATA_BAR_RIGHT * u, (85f + y) * u, stroke)

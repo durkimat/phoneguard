@@ -37,4 +37,11 @@ class BandGeometryTest {
         assertEquals(246.5f, BandGeometry.dataBarLeft(BandGeometry.divider(246.5f)), 0f)
         assertEquals(0f, BandGeometry.axisShift(242f), 0f); assertEquals(4.5f, BandGeometry.axisShift(246.5f), 0f)
     }
+
+    @Test fun theDataWordsKeepTheirSizeWhenTheyFitAndShrinkOnlyWhenTheyDoNot() {
+        val room = BandGeometry.dataTextRight(BandGeometry.divider(null)) - 14f
+        assertEquals(206f, room, 0f)
+        for (w in listOf(150f, 172f, 171f)) assertEquals(26f, BandGeometry.dataTextSize(w, room), 0f) // "12 GB left", "4.8 GB left", "999 MB left" (measured widths)
+        assertEquals(13f, BandGeometry.dataTextSize(412f, room) , 0.01f * 26f) // twice the room: half the size
+    }
 }

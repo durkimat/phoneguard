@@ -1251,3 +1251,6 @@ The screen's centre axis is the weather divider = the clock's colon (measured at
 - Mac: the weather band is now above the clock like every other look (`weatherCy(mac)` 174), the clock baseline is 26 px lower (`clockY(mac)` 296, ink 217..296 per the PC's measurement), the date stays. The Now playing / next event / rain note slot is the same 392 in every look (it takes the space the Mac band used to have, rows 344..399).
 - Data words ("4.8 GB left") are right-aligned: their ink ends at divider - 22, the same line as the weather group below, 22 px from the bar; shrunk only if wider than 14..(divider-22).
 - Low-data banner text baseline 81 -> 83 so the text is centred vertically in its box (60..88; the earlier 81 left the ink about 1.5 px high).
+
+## 0.4.24: data words were drawn tiny in 0.4.23 (never released)
+Cause: the divider (clock colon) was measured AFTER the words' paint was set, and measuring it leaves the shared Paint at the clock's size (120), so the words' ink looked 4x too wide and were shrunk to fit. Now the divider is measured first; the size rule is a pure function (`BandGeometry.dataTextSize`, `dataTextRight`) with a test that "12 GB left", "4.8 GB left" and "999 MB left" (150/172/171 px) stay at 26. Lesson: any helper that measures text mutates the shared Paint; set the paint after, not before.
