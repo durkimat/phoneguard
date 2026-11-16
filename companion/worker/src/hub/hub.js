@@ -4,6 +4,8 @@ import * as S from "./schedule.js";
 import * as PW from "./power.js";
 import { validPkg, isNewer } from "./store.js";
 
+// The one app store a parent can install from here. The address and checksum are pinned in this file: a caller can never choose them.
+export const STORE_APPS = { "com.aurora.store": { name: "Aurora Store", version: "4.8.4", url: "https://f-droid.org/repo/com.aurora.store_76.apk", sha256: "fd9c75d90d0f4a7c132b9b4a5a2cf1992a45e03b8d8ff988b7dcfbc0db2c4d11", size: 9360088 } };
 export const BOOST_CAP_MIN = 180, USAGE_DAYS = 30, OWN_PACKAGE = "io.github.durkimat.phoneguard";
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const isInt = (x) => Number.isInteger(x);
@@ -147,11 +149,18 @@ export function applyAppPolicy(ch, pkgs) {
 export function queueApp(ch, kind, pkg, name, nowMs, { url = "", sha256 = "", size = 0 } = {}, newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12)) {
   if (kind === "remove") { if (!validPkg(pkg) || pkg === OWN_PACKAGE) fail("that app cannot be removed from here"); url = sha256 = ""; }
   else if (kind === "update" && pkg === OWN_PACKAGE) { if (!url.startsWith("https://")) fail("the download address must be https"); if (!/^[0-9a-f]{64}$/.test(sha256 ?? "")) fail("the checksum is missing"); }
-  else fail("only Phone Guard can be updated, and other apps removed, from here");
+  else if (kind === "install" && STORE_APPS[pkg]) { const s = STORE_APPS[pkg]; url = s.url; sha256 = s.sha256; size = s.size; name = s.name; }
+  else fail("only Phone Guard can be updated, the app store installed, and other apps removed, from here");
   const cmds = (ch.commands ??= []);
   if (cmds.some((c) => c.kind === kind && c.pkg === pkg)) fail("that is already waiting for the phone");
   const cmd = { id: newId(), kind, pkg, name: (name ?? "").slice(0, 60) || pkg, url, sha256, size: Math.trunc(size), at: nowMs };
   cmds.push(cmd); return cmd;
+}
+/** Queues the app store (Aurora) for a phone unless it is already there or already waiting. */
+export function queueStore(ch, rt, nowMs) {
+  const pkg = Object.keys(STORE_APPS)[0];
+  if (rt.apps.some((a) => a.pkg === pkg)) fail("the app store is already on the phone");
+  return queueApp(ch, "install", pkg, STORE_APPS[pkg].name, nowMs);
 }
 export const cancelApp = (ch, id) => { ch.commands = (ch.commands ?? []).filter((c) => c.id !== id); };
 
@@ -276,6 +285,7 @@ export function view(ch, rt, options, latest, nowMs) {
     update: updateFor(rt, latest, options),
     power: PW.summarize(rt.power ?? [], nowMs), reaped: PW.summarizeReaped(rt.reaped ?? [], nowMs),
     lock: { sent: ch.lock ?? null, phone: rt.state?.lock ?? null },
+    store: { name: STORE_APPS["com.aurora.store"].name, version: STORE_APPS["com.aurora.store"].version, installed: rt.apps.some((a) => a.pkg === "com.aurora.store"), waiting: (ch.commands ?? []).some((c) => c.kind === "install" && c.pkg === "com.aurora.store"), auto: options?.app_store_auto !== false },
     spotify: { connected: Boolean(ch.secrets?.["spotify.refresh"]) },
     email: ch.email ?? null, email_password_set: Boolean(ch.secrets?.["email.password"]), calendars: (ch.calendars ?? []).map((c) => ({ ...c, url_set: Boolean(ch.secrets?.["calendar." + c.id]) })),
   };

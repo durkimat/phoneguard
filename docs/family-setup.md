@@ -163,7 +163,7 @@ Your parent page opens on the phone's status: what it is doing now, battery, whe
 
 | Section | What it does |
 |---|---|
-| **Right now** | Force a mode regardless of the timetable, give a temporary **boost** (up to 3 hours, pressing again adds time), set **holiday** dates (School becomes Day). |
+| **Right now** | Force a mode regardless of the timetable, give a temporary **boost** (up to 3 hours, pressing again adds time), set **holiday** dates (School/work becomes Day). |
 | **Timetable** | The weekly blocks, the base mode for gaps and the time zone. |
 | **Apps and modes** | A tick grid of which apps each mode allows, with select-all. New apps appear for you to **approve** or leave blocked. A **Remove** button asks the phone to uninstall an app. |
 | **Mode settings** | Per mode: grey screen, home screen, touch, pull-down shade, sound, WhatsApp checks and app, internet radio, radios sleeping, incoming calls, camera, location and how often, notifications, locking to allowed apps, screen-off and idle times, allowing new apps automatically. |

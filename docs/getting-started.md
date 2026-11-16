@@ -15,6 +15,7 @@ Pick your computer's system and follow that guide from the top. Each guide is a 
 
 ## More
 
+- [Day to day: the home screen and what to do when](day-to-day.md)
 - [Signing in to the parent page](sign-in.md): parent link and passkeys
 - [Updating later](updating.md): update your companion or a phone without installing again
 - [Troubleshooting](install/troubleshooting.md)

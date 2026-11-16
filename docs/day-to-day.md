@@ -35,7 +35,7 @@ When 10% or less is left (you can change this), the strip on the home screen tur
 
 ![The data low banner](img/home-data-low.png)
 
-You can turn the data strip off for any mode (for example School) on the parent page: **Timetable**, then **Mode settings**, then untick **Mobile data left on the home screen**.
+You can turn the data strip off for any mode (for example School/work) on the parent page: **Timetable**, then **Mode settings**, then untick **Mobile data left on the home screen**.
 
 ## Screen lock (PIN)
 

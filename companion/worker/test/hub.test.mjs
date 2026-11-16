@@ -104,4 +104,13 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   const cfg = S.buildConfig(ch, T0); assert.equal(cfg.modes.school.dataWidget, false); assert.ok(!("dataWidget" in cfg.modes.day));
   throwsMsg(() => H.updateChild(ch, { modes: { ...ch.modes, day: { ...ch.modes.day, data_widget: "yes" } } }, T0), /data_widget must be true or false/); ok("the mobile-data widget can be switched off per mode; only 'off' is sent to the phone"); }
 
+
+{ const { ch, rt } = fresh(); const AUR = "com.aurora.store";
+  const c = H.queueApp(ch, "install", AUR, "whatever", T0, { url: "https://evil.example/x.apk", sha256: "0".repeat(64), size: 1 });
+  assert.equal(c.url, H.STORE_APPS[AUR].url); assert.equal(c.sha256, H.STORE_APPS[AUR].sha256); assert.equal(c.size, H.STORE_APPS[AUR].size); assert.equal(c.name, "Aurora Store");
+  throwsMsg(() => H.queueApp(ch, "install", "com.evil.app", "x", T0, { url: "https://x/y.apk", sha256: "a".repeat(64) }), /only Phone Guard can be updated/);
+  throwsMsg(() => H.queueStore(ch, rt, T0), /already waiting/); const cfg = S.buildConfig(ch, T0); assert.equal(cfg.appCommands.find((x) => x.pkg === AUR).sha256, H.STORE_APPS[AUR].sha256);
+  H.cancelApp(ch, c.id); rt.apps = [{ pkg: AUR, label: "Aurora Store", hidden: true }]; throwsMsg(() => H.queueStore(ch, rt, T0), /already on the phone/);
+  assert.equal(H.view(ch, rt, null, null, T0).store.installed, true); assert.equal(H.view(ch, rt, { app_store_auto: false }, null, T0).store.auto, false); ok("the app store is the one app a parent can install from here, from a pinned address and checksum"); }
+
 console.log(`\n${n} checks passed`);

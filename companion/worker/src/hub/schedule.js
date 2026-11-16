@@ -48,7 +48,7 @@ export function defaultChild(name) {
     name, tz: "Europe/London", base: "day", notify: "",
     modes: {
       day: { name: "Day", allowAll: true, allow: [], gray: false, ...lockdownDefaults("day") },
-      school: { name: "School", allowAll: false, allow: [], gray: true, ...lockdownDefaults("school") },
+      school: { name: "School/work", allowAll: false, allow: [], gray: true, ...lockdownDefaults("school") },
       night: { name: "Night", allowAll: false, allow: [CLOCK], gray: false, ...lockdownDefaults("night") },
     },
     override: null, week, holiday: null, protect_extra: [], unprotect: [CLOCK], restrictions: null,

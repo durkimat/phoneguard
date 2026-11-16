@@ -114,7 +114,8 @@ export class Family extends DurableObject {
       const did = "d" + randomCode(10).toLowerCase(), recoveryKey = randomCode(24).match(/.{4}/g).join("-");
       this.sql.exec("INSERT INTO devices (did, pub, enc_pub, model, app, ctr, last_seen, state, recovery_hash, created) VALUES (?,?,?,?,?,0,NULL,'{}',?,?)", did, r.pub, r.enc_pub, r.model, r.app, hex(await sha256(recoveryKey)), Date.now());
       const child = S.defaultChild((r.model || "Phone").slice(0, 60)); child.person = child.name;
-      const h = { ch: child, rt: H.newRuntime() }; this.save(did, h); this.refreshConfig(did, h);
+      const h = { ch: child, rt: H.newRuntime() }; if (this.options().app_store_auto !== false) { try { H.queueStore(h.ch, h.rt, Date.now()); } catch { /* nothing to do */ } }   // the app store goes onto every new phone unless the parent switched that off
+      this.save(did, h); this.refreshConfig(did, h);
       this.sql.exec("UPDATE pairings SET status='confirmed', did=? WHERE id=?", did, id);
       this.sql.exec("UPDATE tokens SET used=1 WHERE hash=?", r.token);
       return json({ did, recoveryKey }); // shown once to the parent; only its hash is kept
@@ -152,6 +153,7 @@ export class Family extends DurableObject {
       for (const [k, val] of Object.entries(body)) {
         if (k === "spotify_client_id") { const c = String(val ?? "").trim().toLowerCase(); if (c && !/^[0-9a-f]{32}$/.test(c)) return json({ error: "a Spotify Client ID is 32 letters and digits (0 to 9 and a to f)" }, 400); c ? (o[k] = c) : delete o[k]; }
         else if (k === "history_days") { if (![0, 1, 3, 7, 14].includes(val)) return json({ error: "history_days must be 0, 1, 3, 7 or 14" }, 400); o[k] = val; if (val === 0) this.sql.exec("DELETE FROM fixes"); else this.sql.exec("DELETE FROM fixes WHERE t < ?", Date.now() - val * 86400_000); }
+        else if (k === "app_store_auto") { if (typeof val !== "boolean") return json({ error: "app_store_auto must be true or false" }, 400); val ? delete o[k] : (o[k] = false); }
         else if (k === "updates_enabled") { if (typeof val !== "boolean") return json({ error: "updates_enabled must be true or false" }, 400); val ? (o[k] = true) : delete o[k]; }
         else return json({ error: `unknown option '${k}'` }, 400);
       }
@@ -213,6 +215,7 @@ export class Family extends DurableObject {
         if (sub === "apps/mode-all") { if (!(body.mode in h.ch.modes)) throw new Error("no such mode"); H.setModeAll(h.ch, h.rt, body.mode, Boolean(body.allowed)); return done(); }
         if (sub === "apps/approve") { H.approveApp(h.ch, String(body.pkg), (body.modes ?? []).filter((x) => x in h.ch.modes)); return done(); }
         if (sub === "apps/dismiss") { H.dismissApp(h.ch, String(body.pkg)); return done(); }
+        if (sub === "apps/command" && body.kind === "install") { const c = H.queueStore(h.ch, h.rt, now); return done({ command: c }); }
         if (sub === "apps/command") { const c = H.queueApp(h.ch, body.kind, String(body.pkg), String(body.name ?? ""), now, body); return done({ command: c }); }
         if (sub === "apps/command/cancel") { H.cancelApp(h.ch, String(body.id)); return done(); }
         if (sub === "update") { const c = H.queueUpdate(h.ch, h.rt, this.latest(), opts, now, body.override ?? null); return done({ command: c }); }
