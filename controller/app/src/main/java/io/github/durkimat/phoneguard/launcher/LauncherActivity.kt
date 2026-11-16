@@ -145,6 +145,7 @@ class LauncherActivity : Activity() {
     override fun onPause() {
         inFront = false; if (current === this) current = null
         voiceStart?.let { ui.removeCallbacks(it); voiceStart = null }
+        io.github.durkimat.phoneguard.where.WhereTracker.stop(this); window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (model.voiceState == 1) { voiceCancelled = true; voiceCap?.cancel(); model.voiceState = 0 }
         try { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = null
@@ -393,7 +394,21 @@ class LauncherActivity : Activity() {
     }
 
     /** Draws now, and reads again whatever has changed (in the background). */
+    /** The "Where to?" map is open: follow the child's position and heading, and keep the screen on. Both stop when the map is left. Safe to call on every redraw. */
+    private fun trackWhere() {
+        val on = model.screen == Screen.WHEREMAP
+        if (on) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            io.github.durkimat.phoneguard.where.WhereTracker.start(this) { fix, heading -> ui.post { model.setWhereFix(fix?.lat, fix?.lon, heading); invalidate(D.SCREEN); redraw() } }
+        } else {
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            io.github.durkimat.phoneguard.where.WhereTracker.stop(this)
+            if (model.whereDot != null) model.clearWhereFix()
+        }
+    }
+
     private fun refresh() {
+        trackWhere()
         redraw()
         if (model.screen != loadedScreen) dirty.getAndUpdate { it or D.SCREEN }
         if (model.screen == Screen.MUSIC) { ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000) }
@@ -745,9 +760,10 @@ class LauncherActivity : Activity() {
                 }
             }.start()
             is Action.WhereRoute -> Thread {
+                io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, "${a.to.name} ${a.to.area}", ::knownWord) // place names then predict when typed
                 val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this)
                 if (o == null) { ui.post { model.setWherePlan(null, "", "I don't know where you are"); refresh() }; return@Thread }
-                val body = org.json.JSONObject().put("from", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)).put("to", org.json.JSONObject().put("lat", a.to.lat).put("lon", a.to.lon)).toString()
+                val body = org.json.JSONObject().put("from", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)).put("to", org.json.JSONObject().put("lat", a.to.lat).put("lon", a.to.lon)).also { j -> a.time?.let { j.put("time", it) } }.toString()
                 val r = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "route", body)
                 ui.post {
                     if (r == null) model.setWherePlan(null, o.label, io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK)
@@ -864,7 +880,7 @@ class LauncherActivity : Activity() {
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Play -> {
                 if (!LauncherData.musicShown(this) || !model.spSignedIn) say("Music is not available here") else Thread { voicePlay(cmd) }.start()
             }
-            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> if (!LauncherData.whereShown(this)) say("Where to? is not available here") else perform(model.openWhere(cmd.destination))
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> if (!LauncherData.whereShown(this)) say("Where to? is not available here") else perform(model.searchWhere(cmd.destination))
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Unknown -> say(cmd.say)
         }
     }

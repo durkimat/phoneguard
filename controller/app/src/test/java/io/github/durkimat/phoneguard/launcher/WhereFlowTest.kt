@@ -33,7 +33,7 @@ class WhereFlowTest {
         assertEquals("Finding the way...", m.whereStatus)
         m.setWherePlan(Where.parsePlan(planJson), "home", "")
         assertEquals("From home to Hexham Station", m.title)
-        assertEquals(2, m.rows.size)
+        assertEquals(3, m.rows.size)
         m.key(Key.OK)
         assertEquals(Screen.WHERELEGS, m.screen)
         assertEquals(2, m.rows.size)
@@ -42,6 +42,22 @@ class WhereFlowTest {
         m.key(Key.SOFT_RIGHT); assertEquals(Screen.WHEREPLACES, m.screen)
         m.key(Key.SOFT_RIGHT); assertEquals(Screen.WRITE, m.screen)    // back to the typing, with the words still there
         m.key(Key.END); assertEquals(Screen.HOME, m.screen)
+    }
+
+    @Test fun laterTimesAndTryTomorrowAskAgain() {
+        val m = phone(); m.key(Key.OK); m.key(Key.OK); m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3); m.key(Key.OK)
+        m.setWherePlaces(Where.parsePlaces("""{"places":[{"name":"Shop","kind":"place","area":"","lat":51.0,"lon":-0.3}]}"""), "")
+        m.key(Key.OK); m.setWherePlan(Where.parsePlan(planJson), "home", "")
+        m.key(Key.DOWN) // the walk
+        m.key(Key.DOWN) // later times
+        val a = m.key(Key.OK) as Action.WhereRoute
+        assertEquals("2026-11-17T08:13:00Z", a.time)
+        assertEquals("Finding the way...", m.whereStatus)
+    }
+
+    @Test fun aSpokenDestinationSearchesAtOnce() {
+        val m = phone(); val a = m.searchWhere("Hexham Station")
+        assertEquals(Screen.WHEREPLACES, m.screen); assertEquals(Action.WhereSearch("Hexham Station"), a)
     }
 
     @Test fun theMapStepsThroughTheLegsAndBackReturnsToTheList() {
@@ -63,7 +79,7 @@ class WhereFlowTest {
         m.setWherePlaces(Where.parsePlaces("""{"places":[{"name":"Shop","kind":"place","area":"","lat":51.0,"lon":-0.3}]}"""), "")
         m.key(Key.OK)
         m.setWherePlan(Where.parsePlan("""{"prefer":"walk","walk":{"minutes":12,"metres":900},"options":[]}"""), "my position", "")
-        assertEquals(listOf("Walk  12 min  900 m"), m.rows)
+        assertEquals(listOf("Walk  12m  900 m", "No bus or train: try tomorrow"), m.rows)
         m.key(Key.OK)
         assertEquals(listOf("Walk 12 min to Shop"), m.rows)
     }

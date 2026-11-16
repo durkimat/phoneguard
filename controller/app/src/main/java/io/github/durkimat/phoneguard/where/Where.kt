@@ -14,7 +14,10 @@ data class Journey(val minutes: Int, val startIso: String, val endIso: String, v
 data class Plan(val prefer: String, val walkMinutes: Int?, val walkMetres: Int?, val walkPoints: String?, val options: List<Journey>)
 
 /** One row of the journeys screen: a transit option, or the plain walk (null journey). */
-data class JourneyRow(val label: String, val journey: Journey?)
+data class JourneyRow(val label: String, val journey: Journey?, val action: RowAction = RowAction.OPEN)
+
+/** What OK does on a journeys row: open it, ask for later times, or look again tomorrow morning. */
+enum class RowAction { OPEN, LATER, TOMORROW }
 
 /** Parsing of the Worker's answers and the words shown on the keypad screens. Pure, tested without a phone. */
 object Where {
@@ -45,16 +48,32 @@ object Where {
     /** "08:12" in the phone's own time zone, or "" when the time cannot be read. */
     fun clock(iso: String, zone: ZoneId = ZoneId.systemDefault()): String = try { OffsetDateTime.parse(iso).atZoneSameInstant(zone).format(DateTimeFormatter.ofPattern("HH:mm")) } catch (_: Exception) { "" }
 
-    fun placeRow(p: Place): String = p.name + (if (p.area.isNotBlank() && !p.name.contains(p.area, true)) ", " + p.area else "")
+    /** "1.5 km  Hexham Station, Northumberland": the distance first (when the Worker sent it) so it is never cut off, then the name and area. */
+    fun placeRow(p: Place): String = (p.km?.let { km -> (if (km < 1.0) "${(km * 1000).toInt()} m" else if (km < 10) "%.1f km".format(java.util.Locale.UK, km) else "${km.toInt()} km") + "  " } ?: "") +
+        p.name + (if (p.area.isNotBlank() && !p.name.contains(p.area, true)) ", " + p.area else "")
+
+    /** "53m" or "1h06": short enough for a row. */
+    fun dur(min: Int): String = if (min < 60) "${min}m" else "${min / 60}h" + "%02d".format(min % 60)
 
     /** The journeys screen's rows, the preferred kind first (walk under about 2 miles or 45 minutes, else public transport). */
     fun journeyRows(plan: Plan, zone: ZoneId = ZoneId.systemDefault()): List<JourneyRow> {
-        val walk = plan.walkMinutes?.let { JourneyRow("Walk  $it min" + (plan.walkMetres?.let { m -> "  " + distance(m) } ?: ""), null) }
+        val walk = plan.walkMinutes?.let { JourneyRow("Walk  ${dur(it)}" + (plan.walkMetres?.let { m -> "  " + distance(m) } ?: ""), null) }
         val transit = plan.options.map { o ->
-            JourneyRow(listOf(clock(o.startIso, zone), "${o.minutes} min", if (o.transfers == 0) "direct" else "${o.transfers} change" + (if (o.transfers > 1) "s" else ""), if (o.live) "LIVE" else "").filter { it.isNotEmpty() }.joinToString("  "), o)
+            JourneyRow(listOf(clock(o.startIso, zone), dur(o.minutes), if (o.transfers == 0) "direct" else "${o.transfers} chg", if (o.live) "LIVE" else "").filter { it.isNotEmpty() }.joinToString("  "), o)
         }
-        return if (plan.prefer == "walk") listOfNotNull(walk) + transit else transit + listOfNotNull(walk)
+        val rows = if (plan.prefer == "walk") listOfNotNull(walk) + transit else transit + listOfNotNull(walk)
+        return when {
+            plan.options.isNotEmpty() -> rows + JourneyRow("Later times...", null, RowAction.LATER)
+            else -> rows + JourneyRow("No bus or train: try tomorrow", null, RowAction.TOMORROW)
+        }
     }
+
+    /** One minute after the last option leaves, as the Worker's UTC time, for "Later times..."; null when no option has a readable time. */
+    fun laterTime(plan: Plan): String? = plan.options.mapNotNull { try { OffsetDateTime.parse(it.startIso).toInstant() } catch (_: Exception) { null } }.maxOrNull()?.plusSeconds(60)?.toString()
+
+    /** 07:00 tomorrow in [zone], as a UTC time for the Worker ("Try tomorrow"). */
+    fun tomorrowMorning(now: java.time.Instant, zone: ZoneId = ZoneId.systemDefault()): String =
+        now.atZone(zone).toLocalDate().plusDays(1).atTime(7, 0).atZone(zone).toInstant().toString()
 
     fun distance(metres: Int): String = if (metres < 1000) "$metres m" else "%.1f km".format(java.util.Locale.UK, metres / 1000.0)
 

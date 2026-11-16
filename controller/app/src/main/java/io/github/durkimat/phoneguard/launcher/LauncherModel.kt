@@ -206,7 +206,7 @@ sealed class Action {
     data class SpPin(val uri: String, val pinned: Boolean) : Action()
     /** "Where to?": look a place up, or plan the way there. */
     data class WhereSearch(val query: String) : Action()
-    data class WhereRoute(val to: io.github.durkimat.phoneguard.where.Place) : Action()
+    data class WhereRoute(val to: io.github.durkimat.phoneguard.where.Place, val time: String? = null) : Action()
     /** The `#` key on a playlist: download it for offline listening, or remove the download. */
     data class SpOffline(val uri: String, val name: String, val remove: Boolean) : Action()
     /** Play radio preset n (0 is the first). */
@@ -1984,8 +1984,17 @@ class LauncherModel(
         private set
     /** The pieces of the route to draw, the leg in focus marked. */
     val whereMapSegments: List<io.github.durkimat.phoneguard.where.MapSeg> get() = io.github.durkimat.phoneguard.where.MapPicture.segments(whereLegs, whereMapLeg)
-    /** The words under the map: the leg in focus. */
-    val whereMapCaption: String get() = whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
+    /** The child's dot and which way the phone faces (set by the activity while the map is open); null until there is a fix. */
+    var whereDot: Pair<Double, Double>? = null
+        private set
+    var whereHeading: Float? = null
+        private set
+    fun setWhereFix(lat: Double?, lon: Double?, heading: Float?) { if (lat != null && lon != null) whereDot = lat to lon; if (heading != null) whereHeading = heading }
+    fun clearWhereFix() { whereDot = null; whereHeading = null }
+    /** True when the dot is more than about 100 m from the route being shown. */
+    val whereOffRoute: Boolean get() = whereDot?.let { d -> io.github.durkimat.phoneguard.where.WhereGeo.offRoute(d.first, d.second, io.github.durkimat.phoneguard.where.MapPicture.allPoints(whereMapSegments)) } == true
+    /** The words under the map: the leg in focus, or the off-route notice, or that there is no position. */
+    val whereMapCaption: String get() = if (whereOffRoute) "Off the route: press OK to plan again" else whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
     private var whereQuery = ""
     /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
     var whereStatus = ""
@@ -1993,6 +2002,12 @@ class LauncherModel(
 
     /** Opens "Where to?" with the words already typed (a spoken "navigate to ..."); the child still picks the place. */
     fun openWhere(text: String): Action = whereStart(text)
+
+    /** A spoken "navigate to X": the search runs at once and the places are listed; the child still picks the place. */
+    fun searchWhere(text: String): Action {
+        whereQuery = text; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0
+        return Action.WhereSearch(text)
+    }
 
     private fun whereStart(text: String): Action {
         startWrite("", Screen.MENU); writeField = 1; writeHead = "Where to?"
@@ -2019,7 +2034,8 @@ class LauncherModel(
         if (screen == Screen.WHEREMAP) return when (key) {
             Key.LEFT, Key.UP -> { whereMapLeg = (whereMapLeg - 1).coerceAtLeast(0); Action.Redraw }
             Key.RIGHT, Key.DOWN -> { whereMapLeg = (whereMapLeg + 1).coerceAtMost((whereLegs.size - 1).coerceAtLeast(0)); Action.Redraw }
-            Key.OK, Key.SOFT_LEFT, Key.SOFT_RIGHT -> { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw }
+            Key.OK -> { val p = wherePlace; if (whereOffRoute && p != null) { whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } else { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw } }
+            Key.SOFT_LEFT, Key.SOFT_RIGHT -> { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
@@ -2033,6 +2049,12 @@ class LauncherModel(
             }
             Screen.WHEREJOURNEYS -> when (key) {
                 Key.OK, Key.LEFT, Key.SOFT_LEFT -> whereRows.getOrNull(selected)?.let { row ->
+                    val place = wherePlace
+                    if (row.action != io.github.durkimat.phoneguard.where.RowAction.OPEN && place != null) {
+                        val t = if (row.action == io.github.durkimat.phoneguard.where.RowAction.LATER) whereWalk?.let { io.github.durkimat.phoneguard.where.Where.laterTime(it) } else io.github.durkimat.phoneguard.where.Where.tomorrowMorning(java.time.Instant.ofEpochMilli(nowMs()))
+                        whereRows = emptyList(); whereStatus = "Finding the way..."; selected = 0
+                        return Action.WhereRoute(place, t)
+                    }
                     whereJourney = row.journey
                     whereLegs = row.journey?.legs ?: whereWalk?.let { listOf(io.github.durkimat.phoneguard.where.Leg("walk", "", "", "", wherePlace?.name.orEmpty(), "", "", it.walkMinutes ?: 0, false, it.walkPoints)) }.orEmpty()
                     screen = Screen.WHERELEGS; selected = 0; Action.Redraw

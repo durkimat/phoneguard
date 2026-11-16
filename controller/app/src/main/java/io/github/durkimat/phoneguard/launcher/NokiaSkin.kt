@@ -948,26 +948,41 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun whereMap(c: Canvas, m: LauncherModel, u: Float) {
             titleBar(c, m.title, u)
             val segs = m.whereMapSegments
-            val all = io.github.durkimat.phoneguard.where.MapPicture.allPoints(segs)
+            val dot = m.whereDot
+            val all = io.github.durkimat.phoneguard.where.MapPicture.allPoints(segs).let { if (dot != null) it + dot else it }
             val x0 = 12f; val y0 = 108f; val bw = 456f; val bh = 392f
             stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect(x0 * u, y0 * u, (x0 + bw) * u, (y0 + bh) * u, stroke)
             if (all.size < 2) text(c, "No map for this one", 240f, 300f, 28f, u, align = Paint.Align.CENTER)
             else {
                 val fit = io.github.durkimat.phoneguard.where.MapFit(all, bw, bh, 22f)
-                val dash = android.graphics.DashPathEffect(floatArrayOf(7f * u, 7f * u), 0f)
                 for (pass in 0..1) for (s in segs) {
                     if (s.current != (pass == 1)) continue // the leg in focus is drawn last, on top
                     val path = android.graphics.Path()
                     s.points.forEachIndexed { i, p -> val (x, y) = fit.xy(p.first, p.second); if (i == 0) path.moveTo((x0 + x) * u, (y0 + y) * u) else path.lineTo((x0 + x) * u, (y0 + y) * u) }
-                    stroke.strokeWidth = (if (s.current) 6f else 3f) * u; stroke.pathEffect = if (s.walk) dash else null
+                    val w = (if (s.current) 6f else 3f) * u; stroke.strokeWidth = w; stroke.pathEffect = if (s.walk) android.graphics.DashPathEffect(floatArrayOf(3f * w, 2.5f * w), 0f) else null
                     c.drawPath(path, stroke); stroke.pathEffect = null
                 }
-                val a = fit.xy(all.first().first, all.first().second); val b = fit.xy(all.last().first, all.last().second)
-                fill.color = ink; c.drawCircle((x0 + a.first) * u, (y0 + a.second) * u, 9f * u, fill)
-                c.drawRect((x0 + b.first - 9) * u, (y0 + b.second - 9) * u, (x0 + b.first + 9) * u, (y0 + b.second + 9) * u, fill)
+                val route = io.github.durkimat.phoneguard.where.MapPicture.allPoints(segs)
+                val a = fit.xy(route.first().first, route.first().second); val b = fit.xy(route.last().first, route.last().second)
+                fill.color = ink; stroke.strokeWidth = 2.5f * u
+                c.drawCircle((x0 + a.first) * u, (y0 + a.second) * u, 8f * u, stroke)     // the start: a ring
+                c.drawRect((x0 + b.first - 9) * u, (y0 + b.second - 9) * u, (x0 + b.first + 9) * u, (y0 + b.second + 9) * u, fill) // the end: a square
+                if (dot != null) { // the child: a dot with a cone showing which way the phone faces
+                    val d = fit.xy(dot.first, dot.second); val cx = (x0 + d.first) * u; val cy = (y0 + d.second) * u
+                    m.whereHeading?.let { h ->
+                        val r = Math.toRadians(h.toDouble())
+                        fun pt(deg: Double, len: Float) = floatArrayOf(cx + (Math.sin(r + Math.toRadians(deg)) * len * u).toFloat(), cy - (Math.cos(r + Math.toRadians(deg)) * len * u).toFloat())
+                        val tip = pt(0.0, 26f); val l = pt(-28.0, 12f); val rr = pt(28.0, 12f)
+                        c.drawPath(android.graphics.Path().apply { moveTo(cx, cy); lineTo(l[0], l[1]); lineTo(tip[0], tip[1]); lineTo(rr[0], rr[1]); close() }, fill)
+                    }
+                    c.drawCircle(cx, cy, 7f * u, fill); stroke.strokeWidth = 2f * u; c.drawCircle(cx, cy, 11f * u, stroke)
+                }
+                text(c, "N", x0 + bw - 20f, y0 + 26f, 22f, u, bold = true, align = Paint.Align.CENTER) // north is up
+                if (dot == null) text(c, "No GPS yet", x0 + 8f, y0 + 26f, 22f, u)
             }
             m.whereMapCaption.let { if (it.isNotEmpty()) marquee(c, it, 16f, 536f, 28f, 448f, u, bold = true) }
             text(c, "" + (m.whereMapLeg + 1) + "/" + m.whereLegs.size, 464f, 566f, 22f, u, align = Paint.Align.RIGHT)
+            text(c, "< leg >", 240f, 566f, 22f, u, align = Paint.Align.CENTER) // Left and Right step through the legs
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 

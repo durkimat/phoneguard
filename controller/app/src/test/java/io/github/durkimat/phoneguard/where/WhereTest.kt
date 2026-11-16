@@ -11,7 +11,9 @@ class WhereTest {
     @Test fun placesParseAndShowTheAreaOnce() {
         val ps = Where.parsePlaces("""{"places":[{"name":"Hexham Station","kind":"stop","area":"Northumberland","lat":54.97,"lon":-2.1,"km":1.5},{"name":"bad"},{"name":"St Albans","kind":"place","area":"St Albans","lat":51.75,"lon":-0.34}]}""")
         assertEquals(2, ps.size)
-        assertEquals("Hexham Station, Northumberland", Where.placeRow(ps[0]))
+        assertEquals("1.5 km  Hexham Station, Northumberland", Where.placeRow(ps[0]))
+        assertEquals("800 m  A", Where.placeRow(Place("A", "place", "", 0.0, 0.0, 0.8)))
+        assertEquals("12 km  A", Where.placeRow(Place("A", "place", "", 0.0, 0.0, 12.4)))
         assertEquals("St Albans", Where.placeRow(ps[1]))
         assertEquals(emptyList<Place>(), Where.parsePlaces("garbage"))
     }
@@ -25,11 +27,15 @@ class WhereTest {
     @Test fun journeyRowsPutThePreferredKindFirst() {
         val p = Where.parsePlan(plan)
         val rows = Where.journeyRows(p, utc)
-        assertEquals(listOf("08:12  53 min  1 change  LIVE", "08:40  70 min  direct", "Walk  120 min  9.0 km"), rows.map { it.label })
-        assertTrue(rows.last().journey == null)
+        assertEquals(listOf("08:12  53m  1 chg  LIVE", "08:40  1h10  direct", "Walk  2h00  9.0 km", "Later times..."), rows.map { it.label })
+        assertTrue(rows[2].journey == null)
+        assertEquals(RowAction.LATER, rows.last().action)
+        assertEquals("2026-11-17T08:41:00Z", Where.laterTime(p))
         val walkFirst = Where.journeyRows(p.copy(prefer = "walk", walkMinutes = 12, walkMetres = 900), utc)
-        assertEquals("Walk  12 min  900 m", walkFirst.first().label)
-        assertEquals(emptyList<JourneyRow>(), Where.journeyRows(Where.parsePlan("""{"prefer":"none","walk":null,"options":[]}"""), utc))
+        assertEquals("Walk  12m  900 m", walkFirst.first().label)
+        val none = Where.journeyRows(Where.parsePlan("""{"prefer":"none","walk":null,"options":[]}"""), utc)
+        assertEquals(listOf("No bus or train: try tomorrow"), none.map { it.label }); assertEquals(RowAction.TOMORROW, none[0].action)
+        assertEquals("2026-11-18T07:00:00Z", Where.tomorrowMorning(java.time.Instant.parse("2026-11-17T20:00:00Z"), utc))
     }
 
     @Test fun legLinesAreShort() {
