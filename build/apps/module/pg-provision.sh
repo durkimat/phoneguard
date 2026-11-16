@@ -59,7 +59,7 @@ appops() {
 }
 # Aurora Store (the one app a parent may have Phone Guard install): installing other apps needs an app-op that only root can set, and it is
 # LOST when Phone Guard hides and shows the app again, so it is applied at boot, on a request from the app (Settings.Global pg_appops_req, written
-# after an install and after the app is shown) and every minute while the store is installed. Idempotent; logs only when it had to change something.
+# after an install and after the app is shown) and every 5 minutes as a safety net while the store is installed. Idempotent; logs only when it had to change something.
 # (-u: it is hidden from the child, and `path` does not show a hidden package.) All-files access is NOT given: Aurora installs and downloads without it.
 aurora_ops() {
   case "$(timeout 20 cmd package list packages -u com.aurora.store 2>/dev/null)" in *package:com.aurora.store*)
@@ -71,12 +71,24 @@ aurora_ops() {
     esac;;
   esac
 }
-# One pass of the watcher: an app request, and a check every ~60 s (the loops sleep 3 s).
-ticks=0
-watch_tick() {
+# The watcher for app-op requests, cheap when idle. An app cannot set a system property (no way to trigger an init.rc rule from it), so the request is a
+# Settings.Global write. Settings.Global lives in one file: a native `stat` of its modification time (a few ms, no binder, no Java) tells us whether ANY
+# global setting changed since the last look, and only then is the request key read (`cmd settings`). So an idle phone costs one tiny stat every 10 s,
+# not a settings query. If the file cannot be stat'ed from this domain, the key is read once a minute instead. A slow safety-net check of the app-op itself
+# runs every 5 minutes (the app also asks after every hide/show, install, boot and update).
+SETTINGS_FILE=/data/system/users/0/settings_global.xml
+last_m=""; ticks=0
+check_req() {
   req=$(timeout 20 cmd settings get global pg_appops_req 2>/dev/null)
   case "$req" in ""|null|0) ;; *) aurora_ops request; timeout 20 cmd settings put global pg_appops_req 0;; esac
-  ticks=$((ticks+1)); [ $ticks -ge 20 ] && { ticks=0; aurora_ops poll; }
+}
+watch_tick() {   # called every 10 s
+  ticks=$((ticks+1))
+  m=$(stat -c %Y "$SETTINGS_FILE" 2>/dev/null)
+  if [ -n "$m" ]; then
+    if [ "$m" != "$last_m" ]; then last_m=$m; check_req; fi
+  elif [ $((ticks % 6)) -eq 0 ]; then check_req; fi
+  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; fi
 }
 i=0
 while [ $i -lt 20 ]; do
@@ -88,7 +100,7 @@ if [ $i -ge 20 ]; then say "gave up: package not found"; exit 1; fi
 
 if timeout 20 cmd device_policy list-owners 2>/dev/null | grep -q "$PKG"; then
   say "already device owner (Family phone)"; appops; enrol
-  while :; do sleep 3; watch_tick; done
+  while :; do sleep 10; watch_tick; done
 fi
 finish; appops
 say "plumbing done, no device owner (edition chosen on the phone)"
@@ -98,7 +110,7 @@ while :; do
   ed=$(timeout 20 cmd settings get global pg_edition 2>/dev/null)
   case "$ed" in
     open) say "edition is open: done"; exit 0;; # (an Open phone has no store to give grants to)
-    family) say "edition is family: watching for app-op requests"; while :; do sleep 3; watch_tick; done;;
+    family) say "edition is family: watching for app-op requests"; while :; do sleep 10; watch_tick; done;;
   esac
   req=$(timeout 20 cmd settings get global pg_owner_req 2>/dev/null)
   if [ "$req" = "1" ]; then
@@ -106,5 +118,5 @@ while :; do
     if [ $? -eq 0 ]; then say "device owner set: $out"; timeout 20 cmd settings put global pg_owner_req 0
     else say "set-device-owner refused: $out"; timeout 20 cmd settings put global pg_owner_req -1; fi
   fi
-  watch_tick; sleep 3
+  sleep 3
 done
