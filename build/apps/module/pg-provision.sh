@@ -93,7 +93,7 @@ ime_ensure() {
 # ("warn=<bytes> limit=<bytes> day=<1-31>"; "none" when no mobile policy has a warning or limit). Applied at boot and every 5 minutes; written only when it changes.
 data_policy() {
   new=none
-  for l in $(timeout 20 dumpsys netpolicy 2>/dev/null | sed -n '/Network policies:/,/Subscription plans:/p' | grep 'matchRule=MOBILE' | tr ' ' '#'); do
+  for l in $(timeout 20 dumpsys netpolicy 2>/dev/null | sed -n '/Network policies:/,/Subscription plans:/p' | grep -E 'matchRule=(MOBILE|CARRIER)' | tr ' ' '#'); do
     l=$(echo "$l" | tr '#' ' ')
     w=$(echo "$l" | sed -n 's/.*warningBytes=\(-\{0,1\}[0-9]*\).*/\1/p'); m=$(echo "$l" | sed -n 's/.*limitBytes=\(-\{0,1\}[0-9]*\).*/\1/p')
     d=$(echo "$l" | sed -n 's/.*start=[0-9]\{4\}-[0-9]\{2\}-\([0-9]\{2\}\)T.*/\1/p')
