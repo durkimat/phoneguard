@@ -61,4 +61,32 @@ class MapFitTest {
         val f = MapFit(listOf(51.5 to -0.1, 55.9 to -3.2), 456f, 392f, 36f)
         assertEquals(null, f.zoom()); assertTrue(f.tiles().isEmpty())
     }
+
+    @Test fun zoomingInDoublesTheScaleAndKeepsTheFocusInTheMiddle() {
+        val pts = listOf(51.7520 to -0.3360, 51.7610 to -0.3220)
+        val whole = MapFit(pts, 456f, 392f, 36f)
+        val focus = 51.7560 to -0.3300
+        val z1 = MapFit(pts, 456f, 392f, 36f, 1, focus)
+        val a = z1.xy(focus.first, focus.second)
+        assertEquals(228f, a.first, 0.5f); assertEquals(196f, a.second, 0.5f)
+        val p = whole.xy(51.7520, -0.3360); val q = whole.xy(51.7610, -0.3220)
+        val p1 = z1.xy(51.7520, -0.3360); val q1 = z1.xy(51.7610, -0.3220)
+        assertEquals(2f * Math.abs(q.first - p.first), Math.abs(q1.first - p1.first), 1.5f)
+        assertEquals(whole.zoom()!! + 1, z1.zoom())
+        assertTrue(z1.zoomed && !whole.zoomed)
+        // zoomed out with no focus keeps the route centred
+        val out = MapFit(pts, 456f, 392f, 36f, -1, null)
+        val mid = out.xy(51.7565, -0.3290)
+        assertEquals(228f, mid.first, 6f); assertEquals(196f, mid.second, 6f)
+    }
+
+    @Test fun edgeArrowOnlyWhenOffTheBoxAndPointsTowardsIt() {
+        assertEquals(null, MapPicture.edgeArrow(200f, 150f, 456f, 392f, 16f))
+        val right = MapPicture.edgeArrow(900f, 196f, 456f, 392f, 16f)!!
+        assertEquals(440f, right.first, 0.5f); assertEquals(196f, right.second, 0.5f); assertEquals(Math.PI / 2, right.third, 0.01)
+        val up = MapPicture.edgeArrow(228f, -500f, 456f, 392f, 16f)!!
+        assertEquals(16f, up.second, 0.5f); assertEquals(0.0, up.third, 0.01)
+        val corner = MapPicture.edgeArrow(2000f, 2000f, 456f, 392f, 16f)!!
+        assertTrue(corner.first <= 440.5f && corner.second <= 376.5f)
+    }
 }

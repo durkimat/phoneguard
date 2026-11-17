@@ -22,6 +22,9 @@ object TileMap {
     private var retryAt = 0L
     @Volatile var problem = 0
         private set
+    /** True once this visit has used its [SESSION_MAX] tiles and a wanted one was left out. */
+    @Volatile var capped = false
+        private set
 
     @Synchronized fun get(key: String): Bitmap? = cache[key]
     @Synchronized fun have(): Boolean = cache.isNotEmpty()
@@ -33,7 +36,7 @@ object TileMap {
         val app = c.applicationContext
         for (t in tiles) {
             if (cache.containsKey(t.key) || !pending.add(t.key)) continue
-            if (asked >= SESSION_MAX) { pending.remove(t.key); continue }
+            if (asked >= SESSION_MAX) { pending.remove(t.key); capped = true; continue }
             asked++
             worker.execute { try { fetch(app, t); onArrive() } finally { synchronized(this) { pending.remove(t.key) } } }
         }
@@ -61,8 +64,8 @@ object TileMap {
     }
 
     /** A new visit to the map: forget old failures and count again. */
-    @Synchronized fun begin() { problem = 0; asked = 0; retryAt = 0 }
+    @Synchronized fun begin() { problem = 0; asked = 0; retryAt = 0; capped = false }
 
     /** The map was left: free the pictures. */
-    @Synchronized fun release() { cache.clear(); problem = 0; asked = 0 }
+    @Synchronized fun release() { cache.clear(); problem = 0; asked = 0; capped = false }
 }

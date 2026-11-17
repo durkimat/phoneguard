@@ -722,7 +722,7 @@ class LauncherModel(
         Screen.BTDEV -> btDevKey(key)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
-        Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP -> whereKey(key)
+        Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP -> whereKey(key, digit)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
@@ -1999,7 +1999,7 @@ class LauncherModel(
         val plan = io.github.durkimat.phoneguard.where.Where.parsePlan(io.github.durkimat.phoneguard.where.WhereDemo.PLAN_JSON)
         wherePlace = io.github.durkimat.phoneguard.where.WhereDemo.PLACE; whereWalk = plan; whereFrom = "home"
         whereRows = io.github.durkimat.phoneguard.where.Where.journeyRows(plan, java.time.ZoneId.of("UTC"))
-        whereJourney = plan.options[0]; whereLegs = plan.options[0].legs; whereMapLeg = 1; whereDemo = true; clearWhereFix()
+        whereJourney = plan.options[0]; whereLegs = plan.options[0].legs; whereMapLeg = 1; whereZoom = 0; whereDemo = true; clearWhereFix()
         screen = Screen.WHEREMAP
     }
     /** True when the dot is more than about 100 m from the route being shown. */
@@ -2013,7 +2013,12 @@ class LauncherModel(
     var whereRecent = false
         private set
     /** The map picture's fit, and the tiles it needs. */
-    val whereMapFit: io.github.durkimat.phoneguard.where.MapFit? get() = io.github.durkimat.phoneguard.where.MapPicture.fit(whereMapSegments, whereDot)
+    /** How far the map is zoomed: 0 shows the whole route, each step in doubles the scale (keys 3 and 1; 5 shows the whole route again). */
+    var whereZoom = 0
+        private set
+    val whereMapFit: io.github.durkimat.phoneguard.where.MapFit? get() = io.github.durkimat.phoneguard.where.MapPicture.fit(whereMapSegments, whereDot, whereZoom)
+    /** The spot the edge arrow points at: the end of the leg being looked at (the next stop, or the destination on the last leg). */
+    val whereMapTarget: Pair<Double, Double>? get() = whereMapSegments.firstOrNull { it.current }?.points?.lastOrNull() ?: whereMapSegments.lastOrNull()?.points?.lastOrNull()
     val whereMapTiles: List<io.github.durkimat.phoneguard.where.Tile> get() = if (screen == Screen.WHEREMAP) whereMapFit?.tiles().orEmpty() else emptyList()
     /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
     var whereStatus = ""
@@ -2061,8 +2066,14 @@ class LauncherModel(
         if (screen == Screen.WHEREJOURNEYS) selected = 0
     }
 
-    private fun whereKey(key: Key): Action {
+    private fun whereKey(key: Key, digit: Int = -1): Action {
         if (screen == Screen.WHEREMAP) return when (key) {
+            Key.DIGIT -> when (digit) {
+                1 -> { whereZoom = (whereZoom - 1).coerceAtLeast(io.github.durkimat.phoneguard.where.MapFit.ZOOM_OUT); Action.Redraw }
+                3 -> { whereZoom = (whereZoom + 1).coerceAtMost(io.github.durkimat.phoneguard.where.MapFit.ZOOM_IN); Action.Redraw }
+                5 -> { whereZoom = 0; Action.Redraw }
+                else -> Action.None
+            }
             Key.LEFT, Key.UP -> { whereMapLeg = (whereMapLeg - 1).coerceAtLeast(0); Action.Redraw }
             Key.RIGHT, Key.DOWN -> { whereMapLeg = (whereMapLeg + 1).coerceAtMost((whereLegs.size - 1).coerceAtLeast(0)); Action.Redraw }
             Key.OK -> { val p = wherePlace; if (whereOffRoute && p != null) { whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } else { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw } }
@@ -2095,7 +2106,7 @@ class LauncherModel(
                 else -> Action.None
             }
             else -> when (key) { // the legs of one journey
-                Key.OK, Key.LEFT, Key.SOFT_LEFT -> { whereMapLeg = selected.coerceIn(0, (whereLegs.size - 1).coerceAtLeast(0)); screen = Screen.WHEREMAP; Action.Redraw }
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> { whereMapLeg = selected.coerceIn(0, (whereLegs.size - 1).coerceAtLeast(0)); whereZoom = 0; screen = Screen.WHEREMAP; Action.Redraw }
                 Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREJOURNEYS; selected = 0; Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None

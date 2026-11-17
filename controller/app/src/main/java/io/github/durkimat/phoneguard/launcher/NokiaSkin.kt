@@ -984,18 +984,31 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                         val r = Math.toRadians(h.toDouble())
                         fun pt(deg: Double, len: Float) = floatArrayOf(cx + (Math.sin(r + Math.toRadians(deg)) * len * u).toFloat(), cy - (Math.cos(r + Math.toRadians(deg)) * len * u).toFloat())
                         val tip = pt(0.0, 34f); val l = pt(-24.0, 15f); val rr = pt(24.0, 15f)
-                        c.drawPath(android.graphics.Path().apply { moveTo(cx, cy); lineTo(l[0], l[1]); lineTo(tip[0], tip[1]); lineTo(rr[0], rr[1]); close() }, fill)
+                        val cone = android.graphics.Path().apply { moveTo(cx, cy); lineTo(l[0], l[1]); lineTo(tip[0], tip[1]); lineTo(rr[0], rr[1]); close() }
+                        tilePaint.style = Paint.Style.FILL; tilePaint.color = (ink and 0x00FFFFFF) or (0x70 shl 24); c.drawPath(cone, tilePaint) // see-through, so the map shows under it
+                        stroke.strokeWidth = 1.5f * u; c.drawPath(cone, stroke)
                     }
                     c.drawCircle(cx, cy, 7f * u, fill); stroke.strokeWidth = 2f * u; c.drawCircle(cx, cy, 11f * u, stroke)
+                }
+                m.whereMapTarget?.let { t -> // the next stop or the destination is off the picture: an arrow on the edge points to it
+                    val (tx, ty) = fit.xy(t.first, t.second)
+                    io.github.durkimat.phoneguard.where.MapPicture.edgeArrow(tx, ty, bw, bh, 16f)?.let { (ax, ay, ang) ->
+                        fun q(len: Float, side: Double, back: Float) = floatArrayOf((x0 + ax) * u + (Math.sin(ang) * len + Math.sin(ang + side) * back).toFloat() * u, (y0 + ay) * u - (Math.cos(ang) * len + Math.cos(ang + side) * back).toFloat() * u)
+                        val tip = q(8f, 0.0, 0f); val l = q(-8f, -Math.PI / 2, 9f); val r = q(-8f, Math.PI / 2, 9f)
+                        fill.color = lcd; stroke.strokeWidth = 5f * u; val path = android.graphics.Path().apply { moveTo(tip[0], tip[1]); lineTo(l[0], l[1]); lineTo(r[0], r[1]); close() }
+                        c.drawPath(path, stroke.also { it.color = lcd }); stroke.color = ink; fill.color = ink; c.drawPath(path, fill) // an outline in paper colour keeps it clear of the map
+                    }
                 }
                 fun halo(l: Float, t: Float, r: Float, b: Float) { fill.color = lcd; c.drawRect((x0 + l) * u, (y0 + t) * u, (x0 + r) * u, (y0 + b) * u, fill); fill.color = ink }
                 halo(bw - 38f, 4f, bw - 2f, 36f); text(c, "N", x0 + bw - 20f, y0 + 26f, 22f, u, bold = true, align = Paint.Align.CENTER) // north is up
                 if (dot == null) { halo(2f, 4f, 150f, 36f); text(c, "No GPS yet", x0 + 8f, y0 + 26f, 22f, u) }
                 val credit = if (pictures > 0) "(c) OpenStreetMap contributors" else if (io.github.durkimat.phoneguard.where.TileMap.problem == 429) "Map pictures used up for today" else ""
+                if (io.github.durkimat.phoneguard.where.TileMap.capped) { halo(2f, bh - 46f, bw - 2f, bh - 24f); text(c, "Map pictures limit for this visit", x0 + 8f, y0 + bh - 30f, 15f, u) }
                 if (credit.isNotEmpty()) { halo(2f, bh - 24f, bw - 2f, bh - 2f); text(c, credit, x0 + 8f, y0 + bh - 8f, 15f, u) }
             }
             m.whereMapCaption.let { if (it.isNotEmpty()) marquee(c, it, 16f, 536f, 28f, 448f, u, bold = true) }
             text(c, "" + (m.whereMapLeg + 1) + "/" + m.whereLegs.size, 464f, 566f, 22f, u, align = Paint.Align.RIGHT)
+            text(c, if (m.whereZoom == 0) "1 out 3 in" else "1 out 3 in 5 all", 16f, 566f, 20f, u) // zoom hint, left
             text(c, "< leg >", 240f, 566f, 22f, u, align = Paint.Align.CENTER) // Left and Right step through the legs
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
