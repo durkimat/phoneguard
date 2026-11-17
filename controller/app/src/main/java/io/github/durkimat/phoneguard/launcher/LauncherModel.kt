@@ -2013,7 +2013,7 @@ class LauncherModel(
     var whereRecent = false
         private set
     /** The map picture's fit, and the tiles it needs. */
-    /** How far the map is zoomed: 0 shows the whole route, each step in doubles the scale (keys 3 and 1; 5 shows the whole route again). */
+    /** How far the map is zoomed: 0 shows the whole route, each step in doubles the scale (keys 3 in and 9 out; 6 shows the whole route again). */
     var whereZoom = 0
         private set
     val whereMapFit: io.github.durkimat.phoneguard.where.MapFit? get() = io.github.durkimat.phoneguard.where.MapPicture.fit(whereMapSegments, whereDot, whereZoom)
@@ -2069,9 +2069,9 @@ class LauncherModel(
     private fun whereKey(key: Key, digit: Int = -1): Action {
         if (screen == Screen.WHEREMAP) return when (key) {
             Key.DIGIT -> when (digit) {
-                1 -> { whereZoom = (whereZoom - 1).coerceAtLeast(io.github.durkimat.phoneguard.where.MapFit.ZOOM_OUT); Action.Redraw }
+                9 -> { whereZoom = (whereZoom - 1).coerceAtLeast(io.github.durkimat.phoneguard.where.MapFit.ZOOM_OUT); Action.Redraw }
                 3 -> { whereZoom = (whereZoom + 1).coerceAtMost(io.github.durkimat.phoneguard.where.MapFit.ZOOM_IN); Action.Redraw }
-                5 -> { whereZoom = 0; Action.Redraw }
+                6 -> { whereZoom = 0; Action.Redraw }
                 else -> Action.None
             }
             Key.LEFT, Key.UP -> { whereMapLeg = (whereMapLeg - 1).coerceAtLeast(0); Action.Redraw }

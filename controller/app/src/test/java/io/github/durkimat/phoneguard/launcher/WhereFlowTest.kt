@@ -137,7 +137,7 @@ class WhereFlowTest {
         assertEquals(Screen.WRITE, n.screen)
     }
 
-    @Test fun keysOneAndThreeZoomTheMapAndFiveShowsItAllAgain() {
+    @Test fun keysThreeAndNineZoomTheMapAndSixShowsItAllAgain() {
         val m = phone()
         m.loadWhereDemo()
         assertEquals(Screen.WHEREMAP, m.screen); assertEquals(0, m.whereZoom)
@@ -145,8 +145,9 @@ class WhereFlowTest {
         assertEquals(2, m.whereZoom)
         repeat(10) { m.key(Key.DIGIT, 3) }
         assertEquals(io.github.durkimat.phoneguard.where.MapFit.ZOOM_IN, m.whereZoom)
-        m.key(Key.DIGIT, 5); assertEquals(0, m.whereZoom)
-        repeat(10) { m.key(Key.DIGIT, 1) }
+        m.key(Key.DIGIT, 6); assertEquals(0, m.whereZoom)
+        m.key(Key.DIGIT, 1); m.key(Key.DIGIT, 5); assertEquals(0, m.whereZoom) // the old keys do nothing now
+        repeat(10) { m.key(Key.DIGIT, 9) }
         assertEquals(io.github.durkimat.phoneguard.where.MapFit.ZOOM_OUT, m.whereZoom)
         assertTrue(m.whereMapFit != null)
     }

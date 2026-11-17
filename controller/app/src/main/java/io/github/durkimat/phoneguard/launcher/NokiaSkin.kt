@@ -1003,12 +1003,20 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 halo(bw - 38f, 4f, bw - 2f, 36f); text(c, "N", x0 + bw - 20f, y0 + 26f, 22f, u, bold = true, align = Paint.Align.CENTER) // north is up
                 if (dot == null) { halo(2f, 4f, 150f, 36f); text(c, "No GPS yet", x0 + 8f, y0 + 26f, 22f, u) }
                 val credit = if (pictures > 0) "(c) OpenStreetMap contributors" else if (io.github.durkimat.phoneguard.where.TileMap.problem == 429) "Map pictures used up for today" else ""
-                if (io.github.durkimat.phoneguard.where.TileMap.capped) { halo(2f, bh - 46f, bw - 2f, bh - 24f); text(c, "Map pictures limit for this visit", x0 + 8f, y0 + bh - 30f, 15f, u) }
-                if (credit.isNotEmpty()) { halo(2f, bh - 24f, bw - 2f, bh - 2f); text(c, credit, x0 + 8f, y0 + bh - 8f, 15f, u) }
+                if (io.github.durkimat.phoneguard.where.TileMap.capped) { halo(2f, bh - 46f, bw - 60f, bh - 24f); text(c, "Map pictures limit for this visit", x0 + 8f, y0 + bh - 30f, 15f, u) }
+                run { // the zoom hint, bottom right: a rounded box with "3", a solid triangle pointing down, "9" (3 zooms in, 9 out; 6, not drawn, shows it all)
+                    val bx = x0 + bw - 12f - 42f; val by = y0 + bh - 12f - 122f
+                    fill.color = lcd; c.drawRoundRect(bx * u, by * u, (bx + 42f) * u, (by + 122f) * u, 14f * u, 14f * u, fill)
+                    stroke.strokeWidth = 3f * u; stroke.color = ink; c.drawRoundRect((bx + 1.5f) * u, (by + 1.5f) * u, (bx + 40.5f) * u, (by + 120.5f) * u, 13f * u, 13f * u, stroke)
+                    text(c, "3", bx + 21f, by + 31f, 24f, u, bold = true, align = Paint.Align.CENTER)
+                    fill.color = ink
+                    c.drawPath(android.graphics.Path().apply { moveTo((bx + 4f) * u, (by + 33f) * u); lineTo((bx + 38f) * u, (by + 33f) * u); lineTo((bx + 21f) * u, (by + 89f) * u); close() }, fill)
+                    text(c, "9", bx + 21f, by + 113f, 24f, u, bold = true, align = Paint.Align.CENTER)
+                }
+                if (credit.isNotEmpty()) { halo(2f, bh - 24f, bw - 60f, bh - 2f); text(c, credit, x0 + 8f, y0 + bh - 8f, 15f, u) }
             }
             m.whereMapCaption.let { if (it.isNotEmpty()) marquee(c, it, 16f, 536f, 28f, 448f, u, bold = true) }
             text(c, "" + (m.whereMapLeg + 1) + "/" + m.whereLegs.size, 464f, 566f, 22f, u, align = Paint.Align.RIGHT)
-            text(c, if (m.whereZoom == 0) "1 out 3 in" else "1 out 3 in 5 all", 16f, 566f, 20f, u) // zoom hint, left
             text(c, "< leg >", 240f, 566f, 22f, u, align = Paint.Align.CENTER) // Left and Right step through the legs
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
