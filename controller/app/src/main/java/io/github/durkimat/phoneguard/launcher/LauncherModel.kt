@@ -637,7 +637,7 @@ class LauncherModel(
         Screen.BTDEV -> btDevRows
         Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
-        Screen.WHEREPLACES -> whereResults.map { io.github.durkimat.phoneguard.where.Where.placeRow(it) }
+        Screen.WHEREPLACES -> (if (whereRecent) listOf("Search for a place...") else emptyList()) + whereResults.map { io.github.durkimat.phoneguard.where.Where.placeRow(it) }
         Screen.WHEREJOURNEYS -> whereRows.map { it.label }
         Screen.WHERELEGS -> whereLegs.map { io.github.durkimat.phoneguard.where.Where.legLine(it) }
         Screen.WHEREMAP -> emptyList()
@@ -2007,6 +2007,14 @@ class LauncherModel(
     /** The words under the map: the leg in focus, or the off-route notice, or that there is no position. */
     val whereMapCaption: String get() = if (whereOffRoute) "Off route: OK to re-plan" else whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
     private var whereQuery = ""
+    /** The places picked before (newest first), read when "Where to?" opens; set by the activity. */
+    var whereRecentsLoader: () -> List<io.github.durkimat.phoneguard.where.Place> = { emptyList() }
+    /** True while the places list shows the recent places (first row "Search for a place...") instead of search results. */
+    var whereRecent = false
+        private set
+    /** The map picture's fit, and the tiles it needs. */
+    val whereMapFit: io.github.durkimat.phoneguard.where.MapFit? get() = io.github.durkimat.phoneguard.where.MapPicture.fit(whereMapSegments, whereDot)
+    val whereMapTiles: List<io.github.durkimat.phoneguard.where.Tile> get() = if (screen == Screen.WHEREMAP) whereMapFit?.tiles().orEmpty() else emptyList()
     /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
     var whereStatus = ""
     var whereFrom = ""
@@ -2016,22 +2024,31 @@ class LauncherModel(
 
     /** A spoken "navigate to X": the search runs at once and the places are listed; the child still picks the place. */
     fun searchWhere(text: String): Action {
-        whereQuery = text; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0
+        whereRecent = false; whereQuery = text; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0
         return Action.WhereSearch(text)
     }
 
     private fun whereStart(text: String): Action {
+        if (text.isEmpty()) {
+            val recents = whereRecentsLoader()
+            if (recents.isNotEmpty()) { whereRecent = true; whereResults = recents; whereStatus = ""; screen = Screen.WHEREPLACES; selected = 1.coerceAtMost(recents.size); return Action.Redraw }
+        }
+        return whereWrite(text)
+    }
+
+    private fun whereWrite(text: String): Action {
+        whereRecent = false
         startWrite("", Screen.MENU); writeField = 1; writeHead = "Where to?"
         writeText = text; cursor = text.length
         writeDone = { q ->
             if (q.length < 2) { notice = "Type at least two letters"; whereStart(q) }
-            else { whereQuery = q; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0; Action.WhereSearch(q) }
+            else { whereRecent = false; whereQuery = q; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0; Action.WhereSearch(q) }
         }
         return Action.Redraw
     }
 
     /** Under the places list: the distance and kind of the highlighted place. */
-    val wherePlaceNote: String get() = if (screen == Screen.WHEREPLACES) whereResults.getOrNull(selected)?.let { io.github.durkimat.phoneguard.where.Where.placeNote(it) }.orEmpty() else ""
+    val wherePlaceNote: String get() = if (screen == Screen.WHEREPLACES) whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { io.github.durkimat.phoneguard.where.Where.placeNote(it) }.orEmpty() else ""
 
     /** The places Worker answered (or why it could not). */
     fun setWherePlaces(list: List<io.github.durkimat.phoneguard.where.Place>, status: String) { whereResults = io.github.durkimat.phoneguard.where.Where.nearestFirst(list); whereStatus = if (list.isEmpty()) status else ""; selected = 0 }
@@ -2053,11 +2070,11 @@ class LauncherModel(
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
-        val size = when (screen) { Screen.WHEREPLACES -> whereResults.size; Screen.WHEREJOURNEYS -> whereRows.size; else -> whereLegs.size }
+        val size = when (screen) { Screen.WHEREPLACES -> whereResults.size + (if (whereRecent) 1 else 0); Screen.WHEREJOURNEYS -> whereRows.size; else -> whereLegs.size }
         return move(key, size) ?: when (screen) {
             Screen.WHEREPLACES -> when (key) {
-                Key.OK, Key.LEFT, Key.SOFT_LEFT -> whereResults.getOrNull(selected)?.let { p -> wherePlace = p; whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } ?: Action.None
-                Key.RIGHT, Key.SOFT_RIGHT -> whereStart(whereQuery)
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (whereRecent && selected == 0) whereWrite("") else whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { p -> wherePlace = p; whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } ?: Action.None
+                Key.RIGHT, Key.SOFT_RIGHT -> whereWrite(if (whereRecent) "" else whereQuery)
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
@@ -2073,7 +2090,7 @@ class LauncherModel(
                     whereLegs = row.journey?.legs ?: whereWalk?.let { listOf(io.github.durkimat.phoneguard.where.Leg("walk", "", "", "", wherePlace?.name.orEmpty(), "", "", it.walkMinutes ?: 0, false, it.walkPoints)) }.orEmpty()
                     screen = Screen.WHERELEGS; selected = 0; Action.Redraw
                 } ?: Action.None
-                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0); Action.Redraw }
+                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0) + (if (whereRecent) 1 else 0); Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }

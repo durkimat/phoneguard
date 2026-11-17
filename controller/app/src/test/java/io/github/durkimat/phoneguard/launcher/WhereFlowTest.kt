@@ -112,4 +112,28 @@ class WhereFlowTest {
         assertTrue(m.whereOffRoute)
         assertEquals("Off route: OK to re-plan", m.whereMapCaption)
     }
+
+    @Test fun recentPlacesShowUnderTheSearchRowAndOkPicksOne() {
+        val m = phone()
+        m.whereRecentsLoader = { Where.parsePlaces("""{"places":[{"name":"Hexham Station","kind":"stop","area":"","lat":54.97,"lon":-2.1},{"name":"The Library","kind":"place","area":"St Albans","lat":51.75,"lon":-0.33}]}""") }
+        m.key(Key.OK); m.key(Key.OK)        // Menu, Where to?
+        assertEquals(Screen.WHEREPLACES, m.screen)
+        assertEquals(listOf("Search for a place...", "Hexham Station", "The Library, St Albans"), m.rows)
+        assertEquals(1, m.selected)         // the newest place is already highlighted
+        assertTrue(m.key(Key.OK) is Action.WhereRoute)
+        assertEquals("Hexham Station", m.wherePlace?.name)
+    }
+
+    @Test fun theSearchRowOpensTheSearchBoxAndNoRecentsGoesStraightThere() {
+        val m = phone()
+        m.whereRecentsLoader = { Where.parsePlaces("""{"places":[{"name":"Hexham Station","kind":"stop","area":"","lat":54.97,"lon":-2.1}]}""") }
+        m.key(Key.OK); m.key(Key.OK)
+        m.key(Key.UP)                       // up to "Search for a place..."
+        assertEquals(0, m.selected)
+        m.key(Key.OK)
+        assertEquals(Screen.WRITE, m.screen)
+        val n = phone()
+        n.key(Key.OK); n.key(Key.OK)
+        assertEquals(Screen.WRITE, n.screen)
+    }
 }

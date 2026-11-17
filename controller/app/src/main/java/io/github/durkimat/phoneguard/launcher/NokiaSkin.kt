@@ -62,6 +62,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         override val viewHeight get() = height
         private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.MONOSPACE }
         override val fill = Paint()
+        private val tilePaint = Paint().apply { isFilterBitmap = true }
         override val stroke = Paint().apply { style = Paint.Style.STROKE }
 
         init {
@@ -950,12 +951,21 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             titleBar(c, m.title, u)
             val segs = m.whereMapSegments
             val dot = m.whereDot
-            val all = io.github.durkimat.phoneguard.where.MapPicture.allPoints(segs).let { if (dot != null) it + dot else it }
-            val x0 = 12f; val y0 = 108f; val bw = 456f; val bh = 392f
+            val fit0 = m.whereMapFit
+            val x0 = 12f; val y0 = 108f; val bw = io.github.durkimat.phoneguard.where.MapPicture.BOX_W; val bh = io.github.durkimat.phoneguard.where.MapPicture.BOX_H
             stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect(x0 * u, y0 * u, (x0 + bw) * u, (y0 + bh) * u, stroke)
-            if (all.size < 2) text(c, "No map for this one", 240f, 300f, 28f, u, align = Paint.Align.CENTER)
+            if (fit0 == null) text(c, "No map for this one", 240f, 300f, 28f, u, align = Paint.Align.CENTER)
             else {
-                val fit = io.github.durkimat.phoneguard.where.MapFit(all, bw, bh, 36f)
+                val fit = fit0
+                // the map pictures under everything else, in light tones of the ink; whatever has not arrived stays plain
+                var pictures = 0
+                c.save(); c.clipRect(x0 * u, y0 * u, (x0 + bw) * u, (y0 + bh) * u)
+                tilePaint.color = ink
+                for (t in m.whereMapTiles) io.github.durkimat.phoneguard.where.TileMap.get(t.key)?.let { bmp ->
+                    pictures++
+                    c.drawBitmap(bmp, null, android.graphics.RectF((x0 + t.left) * u, (y0 + t.top) * u, (x0 + t.left + t.size) * u + 1f, (y0 + t.top + t.size) * u + 1f), tilePaint)
+                }
+                c.restore()
                 for (pass in 0..1) for (s in segs) {
                     if (s.current != (pass == 1)) continue // the leg in focus is drawn last, on top
                     val path = android.graphics.Path()
@@ -978,8 +988,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     }
                     c.drawCircle(cx, cy, 7f * u, fill); stroke.strokeWidth = 2f * u; c.drawCircle(cx, cy, 11f * u, stroke)
                 }
-                text(c, "N", x0 + bw - 20f, y0 + 26f, 22f, u, bold = true, align = Paint.Align.CENTER) // north is up
-                if (dot == null) text(c, "No GPS yet", x0 + 8f, y0 + 26f, 22f, u)
+                fun halo(l: Float, t: Float, r: Float, b: Float) { fill.color = lcd; c.drawRect((x0 + l) * u, (y0 + t) * u, (x0 + r) * u, (y0 + b) * u, fill); fill.color = ink }
+                halo(bw - 38f, 4f, bw - 2f, 36f); text(c, "N", x0 + bw - 20f, y0 + 26f, 22f, u, bold = true, align = Paint.Align.CENTER) // north is up
+                if (dot == null) { halo(2f, 4f, 150f, 36f); text(c, "No GPS yet", x0 + 8f, y0 + 26f, 22f, u) }
+                val credit = if (pictures > 0) "(c) OpenStreetMap contributors" else if (io.github.durkimat.phoneguard.where.TileMap.problem == 429) "Map pictures used up for today" else ""
+                if (credit.isNotEmpty()) { halo(2f, bh - 24f, bw - 2f, bh - 2f); text(c, credit, x0 + 8f, y0 + bh - 8f, 15f, u) }
             }
             m.whereMapCaption.let { if (it.isNotEmpty()) marquee(c, it, 16f, 536f, 28f, 448f, u, bold = true) }
             text(c, "" + (m.whereMapLeg + 1) + "/" + m.whereLegs.size, 464f, 566f, 22f, u, align = Paint.Align.RIGHT)

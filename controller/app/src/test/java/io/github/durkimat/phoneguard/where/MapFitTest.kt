@@ -34,4 +34,31 @@ class MapFitTest {
         assertTrue(segs[0].walk && !segs[0].current)
         assertTrue(!segs[1].walk && segs[1].current)
     }
+
+    @Test fun tilesCoverTheBoxAtAMatchingZoom() {
+        // about 1 km of St Albans streets
+        val f = MapFit(listOf(51.7520 to -0.3360, 51.7610 to -0.3220), 456f, 392f, 36f)
+        val z = f.zoom()!!
+        assertTrue(z in 14..17)
+        val t = f.tiles()
+        assertTrue(t.isNotEmpty() && t.size <= MapFit.MAX_TILES)
+        assertTrue(t.all { it.z == z })
+        assertTrue(t.minOf { it.left } <= 0f && t.maxOf { it.left + it.size } >= 456f)
+        assertTrue(t.minOf { it.top } <= 0f && t.maxOf { it.top + it.size } >= 392f)
+        assertTrue(t.all { it.size in 150f..400f })
+    }
+
+    @Test fun aKnownPointFallsInTheRightTile() {
+        // Slippy tile maths: lat 51.5074, lon -0.1278 (London) at zoom 15 is tile 16372/10896
+        val f = MapFit(listOf(51.5074 to -0.1278), 456f, 392f, 36f)
+        assertEquals(16, f.zoom())
+        val z = 15
+        val n = 1 shl z
+        assertEquals(16372, Math.floor(MapFit.lonToX(-0.1278) * n).toInt()); assertEquals(10896, Math.floor(MapFit.latToY(51.5074) * n).toInt())
+    }
+
+    @Test fun aRouteTooWideForTilesGetsNone() {
+        val f = MapFit(listOf(51.5 to -0.1, 55.9 to -3.2), 456f, 392f, 36f)
+        assertEquals(null, f.zoom()); assertTrue(f.tiles().isEmpty())
+    }
 }

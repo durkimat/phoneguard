@@ -168,6 +168,33 @@ object WorkerLink {
         catch (e: Exception) { Log.log(c, "geo $kind: ${e.javaClass.simpleName}"); null }
     }
 
+    /** One map tile (`GET /api/geo/tile/z/x/y`, signed with the tag `geo:tile` over the text "z/x/y"): the status code and the PNG bytes, or null with no network. */
+    fun tile(c: Context, z: Int, x: Int, y: Int): Pair<Int, ByteArray>? {
+        if (!isPaired(c)) return 0 to ByteArray(0)
+        val key = "$z/$x/$y"
+        return try { signedGet(c, "/api/geo/tile/$key", "geo:tile", key, 20_000) }
+        catch (e: Exception) { Log.log(c, "geo tile: ${e.javaClass.simpleName}"); null }
+    }
+
+    private fun signedGet(c: Context, path: String, tag: String, signed: String, readTimeoutMs: Int): Pair<Int, ByteArray> {
+        val s = sp(c)
+        val did = s.getString("did", "")!!; val host = host(c)
+        val ctr = nextCtr(c); val n = Wire.nonce()
+        val hash = java.security.MessageDigest.getInstance("SHA-256").digest(signed.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        val sig = Keys.sign(CompanionCrypto.phoneMessage(V, did, ctr, n, "$tag:$hash").toByteArray(Charsets.UTF_8))
+        val h = URL("https://$host$path").openConnection() as HttpURLConnection
+        try {
+            h.connectTimeout = 15_000; h.readTimeout = readTimeoutMs; h.instanceFollowRedirects = false
+            h.requestMethod = "GET"
+            h.setRequestProperty("X-Pg-V", V.toString()); h.setRequestProperty("X-Pg-Did", did); h.setRequestProperty("X-Pg-Ctr", ctr.toString())
+            h.setRequestProperty("X-Pg-N", n); h.setRequestProperty("X-Pg-S", sig)
+            val code = h.responseCode
+            val bytes = (if (code < 400) h.inputStream else h.errorStream)?.readBytes() ?: ByteArray(0)
+            if (code == 409) s.edit().putLong("ctr", ctr + 1000).apply()
+            return code to bytes
+        } finally { h.disconnect() }
+    }
+
     /**
      * One signed POST with a binary or JSON body: headers X-Pg-V, X-Pg-Did, X-Pg-Ctr, X-Pg-N and X-Pg-S, the signature over
      * `phoneMessage(V, did, ctr, n, p)` with `p = tag + ":" + sha256hex(body)` so the body cannot be swapped. The counter is shared with the sync.

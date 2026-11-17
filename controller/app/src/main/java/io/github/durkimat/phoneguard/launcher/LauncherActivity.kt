@@ -45,7 +45,7 @@ class LauncherActivity : Activity() {
     private var contentSet = false
     /** The look settings a parent is holding from HA; the phone's own choice for these is kept but not shown. */
     private var lockedLook: Set<String> = emptySet()
-    private val model = LauncherModel()
+    private val model = LauncherModel().also { m -> m.whereRecentsLoader = { io.github.durkimat.phoneguard.where.RecentPlaces.load(this) } }
     private val ui = Handler(Looper.getMainLooper())
     private val calendar by lazy { io.github.durkimat.phoneguard.calendar.CompositeCalendar(this) }
     private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
@@ -413,15 +413,25 @@ class LauncherActivity : Activity() {
     /** The "Where to?" map is open: follow the child's position and heading, and keep the screen on. Both stop when the map is left. Safe to call on every redraw. */
     private fun trackWhere() {
         val on = model.screen == Screen.WHEREMAP
-        if (on && model.whereDemo) { window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); demoDot?.let { model.setWhereFix(it.first, it.second, it.third) }; return }
+        if (on != mapWasOn) { mapWasOn = on; if (on) io.github.durkimat.phoneguard.where.TileMap.begin() else io.github.durkimat.phoneguard.where.TileMap.release() }
+        if (on && model.whereDemo) { window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); demoDot?.let { model.setWhereFix(it.first, it.second, it.third) }; wantTiles(); return }
         if (on) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            io.github.durkimat.phoneguard.where.WhereTracker.start(this) { fix, heading -> ui.post { model.setWhereFix(fix?.lat, fix?.lon, heading); invalidate(D.SCREEN); redraw() } }
+            io.github.durkimat.phoneguard.where.WhereTracker.start(this) { fix, heading -> ui.post { model.setWhereFix(fix?.lat, fix?.lon, heading); wantTiles(); invalidate(D.SCREEN); redraw() } }
+            wantTiles()
         } else {
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             io.github.durkimat.phoneguard.where.WhereTracker.stop(this)
             if (model.whereDot != null) model.clearWhereFix()
         }
+    }
+
+    private var mapWasOn = false
+
+    /** Asks for the map pictures the open map needs (those not already held); each arrival redraws it. */
+    private fun wantTiles() {
+        val t = model.whereMapTiles
+        if (t.isNotEmpty()) io.github.durkimat.phoneguard.where.TileMap.want(this, t) { ui.post { if (model.screen == Screen.WHEREMAP) { invalidate(D.SCREEN); redraw() } } }
     }
 
     private fun refresh() {
@@ -766,7 +776,7 @@ class LauncherActivity : Activity() {
                 ui.post { model.setDataApps(rows); refresh() }
             }.start()
             is Action.WhereSearch -> Thread {
-                val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this)
+                val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this, 4_000)
                 val body = org.json.JSONObject().put("q", a.query).also { j -> if (o != null) j.put("near", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)) }.toString()
                 val r = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "search", body)
                 ui.post {
@@ -778,7 +788,8 @@ class LauncherActivity : Activity() {
             }.start()
             is Action.WhereRoute -> Thread {
                 io.github.durkimat.phoneguard.whatsapp.LearnedStore.learn(this, "${a.to.name} ${a.to.area}", ::knownWord) // place names then predict when typed
-                val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this)
+                io.github.durkimat.phoneguard.where.RecentPlaces.remember(this, a.to)
+                val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this, 12_000)
                 if (o == null) { ui.post { model.setWherePlan(null, "", "I don't know where you are"); refresh() }; return@Thread }
                 val body = org.json.JSONObject().put("from", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)).put("to", org.json.JSONObject().put("lat", a.to.lat).put("lon", a.to.lon)).also { j -> a.time?.let { j.put("time", it) } }.toString()
                 val r = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "route", body)

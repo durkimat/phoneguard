@@ -36,3 +36,9 @@ Body: `{ "from": { "lat", "lon" }, "to": { "lat", "lon" }, "time": "2026-11-17T0
 | 413 | `{"error":"too_long"}` | Body over 2,000 characters. |
 | 429 | `{"error":"used_up"}` | 500 requests used today. |
 | 503 | `{"error":"unavailable"}` | One of the public services is down or too slow. Try again later. |
+
+## Map pictures: `GET /api/geo/tile/{z}/{x}/{y}`
+
+A 256 px PNG of OpenStreetMap, zoom 11 to 18 only. Signed like the other geo calls (`X-Pg-V`, `X-Pg-Did`, `X-Pg-Ctr`, `X-Pg-N`, `X-Pg-S`); the signature covers `V|did|ctr|n|geo:tile:<sha256 of the text "z/x/y" in lowercase hex>`, for example of `15/16345/10890`. The same errors as the other calls (403 where_off, 409 replay, 429 used_up, 503 unavailable). 4,000 tiles per phone per day, separate from the 500 searches and routes; the Worker keeps tiles for seven days.
+
+The phone asks for the six to twelve tiles the open map needs, one at a time, turns them into four light tones of the screen's ink (so the route stays the darkest thing), keeps up to 40 in memory while the map is open and drops them when it is left. A tile it cannot get leaves the plain background. The map shows "(c) OpenStreetMap contributors" whenever a picture is on it.

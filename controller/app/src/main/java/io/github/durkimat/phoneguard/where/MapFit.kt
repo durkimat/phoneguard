@@ -1,31 +1,61 @@
 package io.github.durkimat.phoneguard.where
 
+import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.max
+import kotlin.math.floor
+import kotlin.math.ln
 import kotlin.math.min
+import kotlin.math.tan
+
+/** A map tile (OpenStreetMap "slippy" numbering) and where it lands on screen inside the map box. */
+data class Tile(val z: Int, val x: Int, val y: Int, val left: Float, val top: Float, val size: Float) { val key: String get() = "$z/$x/$y" }
 
 /**
- * Fits a route into a rectangle of the screen: a flat (equirectangular) projection, the longitude squeezed by the cosine of the middle latitude so shapes
- * look right, scaled to fill the box with a margin and centred. North is up. Pure, tested without a phone.
+ * Fits a route into a rectangle of the screen with the Web Mercator projection the map tiles use, scaled to fill the box with a margin and centred.
+ * North is up. [tiles] lists the map tiles that cover the box at a zoom whose tiles come out near their natural 256 px. Pure, tested without a phone.
  */
 class MapFit(points: List<Pair<Double, Double>>, private val w: Float, private val h: Float, pad: Float) {
-    private val minLat: Double; private val maxLat: Double; private val minLon: Double
-    private val k: Double; private val cosLat: Double
+    private val minWX: Double; private val minWY: Double
+    private val k: Double
     private val offX: Double; private val offY: Double
 
     init {
-        val lats = points.map { it.first }; val lons = points.map { it.second }
-        minLat = lats.minOrNull() ?: 0.0; maxLat = lats.maxOrNull() ?: 0.0; minLon = lons.minOrNull() ?: 0.0
-        val maxLon = lons.maxOrNull() ?: 0.0
-        cosLat = cos(Math.toRadians((minLat + maxLat) / 2))
-        val dx = (maxLon - minLon) * cosLat; val dy = maxLat - minLat
+        val xs = points.map { lonToX(it.second) }; val ys = points.map { latToY(it.first) }
+        minWX = xs.minOrNull() ?: 0.0; minWY = ys.minOrNull() ?: 0.0
+        val dx = (xs.maxOrNull() ?: 0.0) - minWX; val dy = (ys.maxOrNull() ?: 0.0) - minWY
         val bw = (w - 2 * pad).toDouble(); val bh = (h - 2 * pad).toDouble()
-        k = when { dx <= 1e-9 && dy <= 1e-9 -> 0.0; dx <= 1e-9 -> bh / dy; dy <= 1e-9 -> bw / dx; else -> min(bw / dx, bh / dy) }
+        k = when { dx <= 1e-12 && dy <= 1e-12 -> 0.0; dx <= 1e-12 -> bh / dy; dy <= 1e-12 -> bw / dx; else -> min(bw / dx, bh / dy) }
         offX = pad + (bw - dx * k) / 2; offY = pad + (bh - dy * k) / 2
     }
 
     /** Screen position inside the box for a latitude and longitude (x to the right, y down). */
-    fun xy(lat: Double, lon: Double): Pair<Float, Float> = ((offX + (lon - minLon) * cosLat * k).toFloat()) to ((offY + (maxLat - lat) * k).toFloat())
+    fun xy(lat: Double, lon: Double): Pair<Float, Float> = ((offX + (lonToX(lon) - minWX) * k).toFloat()) to ((offY + (latToY(lat) - minWY) * k).toFloat())
+
+    /** The zoom (11 to 18) at which a 256 px tile is closest to its natural size on this picture; null when the route is too wide for tiles. */
+    fun zoom(): Int? {
+        if (k <= 0.0) return 16
+        val z = Math.round(ln(k / 256.0) / ln(2.0)).toInt()
+        return if (z < MIN_ZOOM) null else min(z, MAX_ZOOM)
+    }
+
+    /** The tiles covering the whole box, the ones nearest the middle first, at most [MAX_TILES]. Empty when the route is too wide for tiles. */
+    fun tiles(): List<Tile> {
+        val z = zoom() ?: return emptyList()
+        val n = 1 shl z; val size = (k / n).toFloat()
+        fun wx(sx: Double) = minWX + (sx - offX) / k
+        fun wy(sy: Double) = minWY + (sy - offY) / k
+        val x0 = floor(wx(0.0) * n).toInt().coerceIn(0, n - 1); val x1 = floor(wx(w.toDouble()) * n).toInt().coerceIn(0, n - 1)
+        val y0 = floor(wy(0.0) * n).toInt().coerceIn(0, n - 1); val y1 = floor(wy(h.toDouble()) * n).toInt().coerceIn(0, n - 1)
+        val out = ArrayList<Tile>()
+        for (ty in y0..y1) for (tx in x0..x1) out.add(Tile(z, tx, ty, (offX + (tx.toDouble() / n - minWX) * k).toFloat(), (offY + (ty.toDouble() / n - minWY) * k).toFloat(), size))
+        return out.sortedBy { t -> val cx = t.left + t.size / 2 - w / 2; val cy = t.top + t.size / 2 - h / 2; cx * cx + cy * cy }.take(MAX_TILES)
+    }
+
+    companion object {
+        const val MIN_ZOOM = 11; const val MAX_ZOOM = 18; const val MAX_TILES = 16
+        fun lonToX(lon: Double) = (lon + 180.0) / 360.0
+        fun latToY(lat: Double): Double { val r = Math.toRadians(lat.coerceIn(-85.0, 85.0)); return (1.0 - ln(tan(r) + 1.0 / cos(r)) / PI) / 2.0 }
+    }
 }
 
 /** One piece of the picture: a leg's line, walking (dotted) or by vehicle (solid), and whether it is the leg being looked at. */
@@ -37,4 +67,9 @@ object MapPicture {
         legs.mapIndexedNotNull { i, l -> l.points?.let { p -> Polyline.decode(p).takeIf { it.size >= 2 }?.let { MapSeg(it, l.mode == "walk", i == current) } } }
 
     fun allPoints(segs: List<MapSeg>): List<Pair<Double, Double>> = segs.flatMap { it.points }
+
+    /** The map box on the screen and the margin inside it; the skin and the tile loader both fit the picture the same way. */
+    const val BOX_W = 456f; const val BOX_H = 392f; const val PAD = 36f
+    fun fit(segs: List<MapSeg>, dot: Pair<Double, Double>?): MapFit? =
+        allPoints(segs).let { if (dot != null) it + dot else it }.takeIf { it.size >= 2 }?.let { MapFit(it, BOX_W, BOX_H, PAD) }
 }
