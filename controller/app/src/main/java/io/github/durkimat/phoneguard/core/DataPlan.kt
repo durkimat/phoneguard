@@ -30,7 +30,7 @@ data class DataPlan(
     fun period(now: Long, zone: ZoneId = ZoneId.systemDefault()): Pair<Long, Long> {
         val today = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(now), zone).toLocalDate()
         val anchor = parseDate(start)
-        val day = anchor?.dayOfMonth ?: renewDay.coerceIn(1, 28)
+        val day = anchor?.dayOfMonth ?: renewDay.coerceIn(1, 31)
         // the latest start on or before today: this month's [day] (clamped to the month's length), else last month's
         fun startIn(m: LocalDate) = m.withDayOfMonth(day.coerceAtMost(m.lengthOfMonth()))
         var s = startIn(today.withDayOfMonth(1))
@@ -43,6 +43,20 @@ data class DataPlan(
 
     companion object {
         fun parseDate(s: String): LocalDate? = try { if (s.isBlank()) null else LocalDate.parse(s.trim()) } catch (_: Exception) { null }
+    }
+}
+
+/** Android's own data plan as the image hands it over (Settings.Global pg_data_policy, "warn=<bytes> limit=<bytes> day=<1-31>"): the allowance and the cycle day. */
+object AndroidPlan {
+    class Plan(val allowance: Long, val day: Int)
+
+    /** The limit when one is set, else the warning; null for "none", an empty value or anything unreadable. */
+    fun parse(text: String?): Plan? {
+        if (text.isNullOrBlank() || text == "none" || text == "null") return null
+        val kv = text.trim().split(' ').mapNotNull { p -> p.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
+        val warn = kv["warn"]?.toLongOrNull() ?: -1; val limit = kv["limit"]?.toLongOrNull() ?: -1
+        val allowance = if (limit > 0) limit else if (warn > 0) warn else return null
+        return Plan(allowance, (kv["day"]?.toIntOrNull() ?: 1).coerceIn(1, 31))
     }
 }
 

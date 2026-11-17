@@ -52,7 +52,7 @@ With the screen off the button does nothing yet.
 
 The phone counts how much of the SIM's mobile data has been used this month, so you do not have to look it up. It is the phone's own count, so it can differ from your provider's. There is a correction setting for that.
 
-Set it up once, on the phone: **Menu, Settings, Connections, Mobile data, Change plan** (on the keypad: **Menu, 9, 3, 3**, then the last row). Enter the allowance in GB and the day of the month the plan renews. If you set a **Correction** (in MB) the phone adds it to its own count, so the figure matches your provider.
+The phone uses Android's own data plan: set the **data warning** (or limit) and the **usage cycle** day once in Android Settings > Network > Data usage, and the phone takes the allowance and the renewal day from there (it re-reads them every five minutes). If Android has no warning or limit, set the plan on the phone instead: **Menu, Settings, Connections, Mobile data, Change plan** (on the keypad: **Menu, 9, 3, 3**, then the last row). Enter the allowance in GB and the day of the month the plan renews. If you set a **Correction** (in MB) the phone adds it to its own count, so the figure matches your provider.
 
 ![The Mobile data page](img/mobile-data.png)
 

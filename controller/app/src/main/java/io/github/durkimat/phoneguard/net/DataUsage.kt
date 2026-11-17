@@ -18,10 +18,19 @@ import org.json.JSONObject
 object DataUsage {
     private fun sp(c: Context) = c.applicationContext.createDeviceProtectedStorageContext().getSharedPreferences("dataplan", Context.MODE_PRIVATE)
 
+    /** The plan in use: Android's own warning (or limit) and cycle day when the image has handed them over, else what was entered on the phone. The correction, warning share and SIM are always the phone's. */
     fun plan(c: Context): DataPlan {
         val p = sp(c)
-        return DataPlan(p.getLong("allowance", 0), p.getInt("renewDay", 1), p.getString("start", "") ?: "", p.getInt("warnPct", 10), p.getLong("correctionMb", 0), p.getInt("subId", -1))
+        val mine = DataPlan(p.getLong("allowance", 0), p.getInt("renewDay", 1), p.getString("start", "") ?: "", p.getInt("warnPct", 10), p.getLong("correctionMb", 0), p.getInt("subId", -1))
+        val a = android(c) ?: return mine
+        return mine.copy(allowance = a.allowance, renewDay = a.day, start = "")
     }
+
+    /** True when the numbers come from Android's own plan (so "Change plan" is only a fallback). */
+    fun fromAndroid(c: Context): Boolean = android(c) != null
+
+    private fun android(c: Context): io.github.durkimat.phoneguard.core.AndroidPlan.Plan? =
+        try { io.github.durkimat.phoneguard.core.AndroidPlan.parse(android.provider.Settings.Global.getString(c.contentResolver, "pg_data_policy")) } catch (_: Exception) { null }
 
     fun save(c: Context, plan: DataPlan) {
         sp(c).edit().putLong("allowance", plan.allowance).putInt("renewDay", plan.renewDay.coerceIn(1, 28)).putString("start", plan.start).putInt("warnPct", plan.warnPct.coerceIn(1, 50))

@@ -57,6 +57,7 @@ appops() {
   timeout 20 cmd appops set $PKG SYSTEM_ALERT_WINDOW allow
   aurora_ops boot
   ime_ensure boot
+  data_policy boot
 }
 # Aurora Store (the one app a parent may have Phone Guard install): installing other apps needs an app-op that only root can set, and it is
 # LOST when Phone Guard hides and shows the app again, so it is applied at boot, on a request from the app (Settings.Global pg_appops_req, written
@@ -87,6 +88,21 @@ ime_ensure() {
     say "keyboard ($1): was default [$d] enabled [$e], now TT9"
   fi
 }
+# Mobile data plan: the owner sets the warning (or limit) and the cycle day once in Android's own Settings > Data usage; the app cannot read that policy
+# (MANAGE_NETWORK_POLICY is signature-only), so it is read here with `dumpsys netpolicy` and handed over as Settings.Global pg_data_policy
+# ("warn=<bytes> limit=<bytes> day=<1-31>"; "none" when no mobile policy has a warning or limit). Applied at boot and every 5 minutes; written only when it changes.
+data_policy() {
+  new=none
+  for l in $(timeout 20 dumpsys netpolicy 2>/dev/null | sed -n '/Network policies:/,/Subscription plans:/p' | grep 'matchRule=MOBILE' | tr ' ' '#'); do
+    l=$(echo "$l" | tr '#' ' ')
+    w=$(echo "$l" | sed -n 's/.*warningBytes=\(-\{0,1\}[0-9]*\).*/\1/p'); m=$(echo "$l" | sed -n 's/.*limitBytes=\(-\{0,1\}[0-9]*\).*/\1/p')
+    d=$(echo "$l" | sed -n 's/.*start=[0-9]\{4\}-[0-9]\{2\}-\([0-9]\{2\}\)T.*/\1/p')
+    [ -z "$w" ] && w=-1; [ -z "$m" ] && m=-1; [ -z "$d" ] && d=01
+    if [ "$w" -gt 0 ] 2>/dev/null || [ "$m" -gt 0 ] 2>/dev/null; then new="warn=$w limit=$m day=$(expr "$d" + 0)"; break; fi
+  done
+  cur=$(timeout 20 cmd settings get global pg_data_policy 2>/dev/null)
+  if [ "$cur" != "$new" ]; then timeout 20 cmd settings put global pg_data_policy "$new"; say "data policy ($1): was [$cur], now [$new]"; fi
+}
 # The watcher for app-op requests, cheap when idle. An app cannot set a system property (no way to trigger an init.rc rule from it), so the request is a
 # Settings.Global write. Settings.Global lives in one file: a native `stat` of its modification time (a few ms, no binder, no Java) tells us whether ANY
 # global setting changed since the last look, and only then is the request key read (`cmd settings`). So an idle phone costs one tiny stat every 10 s,
@@ -104,7 +120,7 @@ watch_tick() {   # called every 10 s
   if [ -n "$m" ]; then
     if [ "$m" != "$last_m" ]; then last_m=$m; check_req; fi
   elif [ $((ticks % 6)) -eq 0 ]; then check_req; fi
-  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; ime_ensure poll; fi
+  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; ime_ensure poll; data_policy poll; fi
 }
 i=0
 while [ $i -lt 20 ]; do
