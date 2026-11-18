@@ -445,7 +445,7 @@ class LauncherActivity : Activity() {
     private class Loaded {
         var info: HomeInfo? = null; var weather: WeatherData? = null; var androidSettings = false; var notes: List<io.github.durkimat.phoneguard.notes.NoteItem> = emptyList()
         var spConfigured = false; var spSignedIn = false; var sleepLabel: String? = null; var spectrum = false
-        var waLinked = false; var waEnabled = false; var waCode: String? = null
+        var waSetupAvail = false; var waSetupActive = false; var waOfficial = false; var waSimNumber = ""; var waLinked = false; var waEnabled = false; var waCode: String? = null
         var radioNames: List<String> = emptyList(); var radioMode = "any"
         var playingProvider: Provider? = null; var provStatus: Map<Provider, Int> = emptyMap()
         var contacts: List<Contact>? = null; var calls: List<CallEntry>? = null; var convos: List<Convo>? = null
@@ -481,6 +481,10 @@ class LauncherActivity : Activity() {
                     r.waLinked = WhatsApp.linked(this)
                     r.waEnabled = WhatsApp.policy(this) != "off" && !LauncherData.useRealWhatsApp(this)
                     r.waCode = WhatsApp.pairCode
+                    r.waSetupActive = io.github.durkimat.phoneguard.whatsapp.SetupRunner.active(this)
+                    r.waSetupAvail = r.waSetupActive || io.github.durkimat.phoneguard.whatsapp.SetupRunner.canStart(this)
+                    r.waOfficial = try { packageManager.getApplicationInfo(LauncherData.WHATSAPP, 0); true } catch (_: Exception) { false }
+                    r.waSimNumber = io.github.durkimat.phoneguard.whatsapp.SetupRunner.simNumber(this)
                     r.radioNames = io.github.durkimat.phoneguard.music.Radio.stations(this).map { it.name }
                     providerStates().let { (playing, status) -> r.playingProvider = playing; r.provStatus = status }
                     r.radioMode = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).radio
@@ -523,6 +527,7 @@ class LauncherActivity : Activity() {
             model.spConfigured = r.spConfigured; if (screen != Screen.MUSIC) model.spSignedIn = r.spSignedIn
             model.sleepLabel = r.sleepLabel ?: ""; model.spectrum = r.spectrum
             model.waLinked = r.waLinked; model.waEnabled = r.waEnabled
+            model.waSetupAvail = r.waSetupAvail; model.waSetupActive = r.waSetupActive; model.waOfficial = r.waOfficial; model.waSimNumber = r.waSimNumber
             model.radioNames = r.radioNames; model.radioMode = r.radioMode
             model.playingProvider = r.playingProvider; model.provStatus = r.provStatus
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
@@ -646,6 +651,15 @@ class LauncherActivity : Activity() {
                 val r = WhatsApp.logout(this)
                 ui.post { model.notify(if (r.startsWith("error")) "Could not unlink: " + r.removePrefix("error: ").take(30) else "Unlinked"); invalidate(D.WA or D.INFO); refresh() }
             }.start()
+            Action.SetupStart -> Thread {
+                val ok = io.github.durkimat.phoneguard.whatsapp.SetupRunner.start(this)
+                ui.post { model.notify(if (ok) "Setup started" else "Setup is not allowed now"); invalidate(D.WA or D.INFO); refresh() }
+            }.start()
+            Action.SetupEnd -> Thread { io.github.durkimat.phoneguard.whatsapp.SetupRunner.end(this); ui.post { model.notify("Setup finished"); invalidate(D.WA or D.INFO); refresh() } }.start()
+            Action.SetupOpenOfficial -> {
+                try { startActivity(packageManager.getLaunchIntentForPackage(LauncherData.WHATSAPP)?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { model.notify("Could not open WhatsApp") }
+                refresh()
+            }
             Action.WaOpen -> { WhatsApp.touch(this); invalidate(D.WA or D.INFO); refresh() }
             is Action.WaRead -> { WhatsApp.readChat(this, a.chat); WhatsApp.store(this).markRead(a.chat); invalidate(D.WA or D.INFO); refresh() }
             is Action.SendWa -> Thread {

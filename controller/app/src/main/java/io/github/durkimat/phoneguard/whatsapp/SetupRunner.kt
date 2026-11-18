@@ -67,6 +67,10 @@ object SetupRunner {
         Controller.evaluateAsync(c, "setup window end")
     }
 
+    /** This phone's own number as Android reports it (best effort: may be blank), to prefill the link screen. */
+    @android.annotation.SuppressLint("MissingPermission", "HardwareIds")
+    fun simNumber(c: Context): String = try { c.getSystemService(android.telephony.TelephonyManager::class.java).line1Number.orEmpty() } catch (_: Exception) { "" }
+
     /** For the check-in: whether the companion has allowed it and whether it is running. */
     fun report(c: Context): JSONObject {
         val cfg = Store.config(c)?.whatsapp

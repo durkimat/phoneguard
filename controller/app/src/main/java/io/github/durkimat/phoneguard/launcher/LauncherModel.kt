@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -164,6 +164,10 @@ sealed class Action {
     data class SaveSpeaker(val shown: Boolean) : Action()
     /** Start linking WhatsApp: this is the account's phone number (digits, with country code). */
     data class PairWa(val number: String) : Action()
+    /** The setup window (SIM method): start it, open the official app inside it, end it. */
+    object SetupStart : Action()
+    object SetupOpenOfficial : Action()
+    object SetupEnd : Action()
     /** Unlink WhatsApp from the account. */
     object UnlinkWa : Action()
     /** Refresh WhatsApp names and ask for older messages, without unlinking. */
@@ -337,7 +341,7 @@ class LauncherModel(
         Screen.LOOK -> listOf("Theme", "Font", "Menu style", "Appearance")
         Screen.SOUNDSET -> listOf("Predictive text", "Speakerphone", "Sound test")
         Screen.THISPHONE -> listOf("Screen lock", "Time zone", "Language") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
-            (if (waEnabled) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList())
+            (if (waEnabled || waSetupAvail || waSetupActive) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList())
         else -> listOf("Look", "Sound and typing", "Connections", "This phone") + extraItems.filter { it.pkg == NOTES_PKG }.map { "Notifications" } + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
     }
 
@@ -346,6 +350,11 @@ class LauncherModel(
     var convos: List<Convo> = emptyList()
     /** WhatsApp: whether the account is linked, the chats (newest first), the count unread and the bridge's state. */
     var waEnabled = false
+    /** SIM method: the companion allowed the setup window ([waSetupAvail]) or it is running ([waSetupActive]); whether the official WhatsApp is installed; this phone's own number if Android tells us. */
+    var waSetupAvail = false
+    var waSetupActive = false
+    var waOfficial = false
+    var waSimNumber = ""
     /** Whether an account is linked. Not linked: the WhatsApp entry offers to link one. */
     var waLinked = false
     /** How a sender's name is shortened in the one-line chat previews (see [NameStyle]). */
@@ -498,6 +507,7 @@ class LauncherModel(
         Screen.SPEAKER -> "Speakerphone"
         Screen.WAPAIR -> "Link WhatsApp"
         Screen.WASET -> "WhatsApp"
+        Screen.WASETUP -> "WhatsApp setup"
         Screen.WANAMES -> "Names in lists"
         Screen.APPS -> "Android Apps"
         Screen.GAMES -> "Classic Games"
@@ -655,7 +665,8 @@ class LauncherModel(
         Screen.CALLLOG -> calls.map { (when (it.type) { 2 -> "> "; 3 -> "! "; else -> "< " }) + it.name }
         Screen.CALC, Screen.DIAL, Screen.CALL, Screen.WAPAIR -> emptyList()
         Screen.CALLMENU -> (if (speakerShown) listOf(if (call?.speaker == true) "Speaker off" else "Speaker on") else emptyList()) + (if (call?.muted == true) "Unmute" else "Mute")
-        Screen.WASET -> if (waLinked) listOf("Re-sync names and messages", "Names in lists", "Unlink account") else listOf("Link account")
+        Screen.WASET -> waSetRows().map { waSetLabel(it) }
+        Screen.WASETUP -> waSetupRows()
         Screen.WANAMES -> NameStyle.all.map { it.second + if (it.first == waNameStyle) " *" else "" }
         Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "", "Forget learned words")
@@ -685,7 +696,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
+    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -743,6 +754,7 @@ class LauncherModel(
         Screen.WAPAIR -> waPair(key, digit)
         Screen.WANAMES -> waNames(key, digit)
         Screen.WASET -> waSettings(key, digit)
+        Screen.WASETUP -> waSetup(key, digit)
         Screen.THREAD -> thread(key, digit)
         Screen.CHAT -> chat(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
@@ -896,12 +908,37 @@ class LauncherModel(
         else -> Action.None
     }
 
-    private fun waSettings(key: Key, digit: Int): Action = move(key, if (waLinked) 3 else 1) ?: when (key) {
+    private fun waSetRows(): List<String> = (if (waSetupAvail || waSetupActive) listOf("setup") else emptyList()) + (if (waLinked) listOf("resync", "names", "unlink") else listOf("link"))
+    private fun waSetLabel(id: String) = when (id) {
+        "setup" -> if (waSetupActive) "Setup (running)" else "Set up WhatsApp"
+        "resync" -> "Re-sync names and messages"; "names" -> "Names in lists"; "unlink" -> "Unlink account"; else -> "Link account"
+    }
+
+    /** The setup window's steps. Not started: one row. Running: open the official app to register, link this phone to it, then Done. */
+    private fun waSetupRows(): List<String> =
+        if (!waSetupActive) listOf("Start setup (30 minutes)")
+        else listOf(if (waOfficial) "1. Open WhatsApp and register" else "1. WhatsApp is not installed yet", "2. Link this phone to it" + if (waLinked) " (done)" else "", "3. Done")
+
+    private fun waSetup(key: Key, digit: Int): Action = move(key, waSetupRows().size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
-            !waLinked -> startPair()
-            selected == 0 -> { notice = "Re-syncing..."; Action.ResyncWa }
-            selected == 1 -> { enter(Screen.WANAMES, NameStyle.all.indexOfFirst { it.first == waNameStyle }.coerceAtLeast(0)); Action.Redraw }
-            else -> { leave(); Action.UnlinkWa }
+            !waSetupActive -> Action.SetupStart
+            selected == 0 -> if (waOfficial) Action.SetupOpenOfficial else { notice = "Ask for it to be installed on the companion"; Action.Redraw }
+            selected == 1 -> if (waLinked) { notice = "Already linked"; Action.Redraw } else { waPairNumber = waSimNumber.filter { it.isDigit() }.take(15); waCode = null; enter(Screen.WAPAIR); Action.Redraw }
+            else -> { leave(); Action.SetupEnd }
+        }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        else -> Action.None
+    }
+
+    private fun waSettings(key: Key, digit: Int): Action = move(key, waSetRows().size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (waSetRows().getOrNull(selected)) {
+            "setup" -> { enter(Screen.WASETUP); Action.Redraw }
+            "link" -> startPair()
+            "resync" -> { notice = "Re-syncing..."; Action.ResyncWa }
+            "names" -> { enter(Screen.WANAMES, NameStyle.all.indexOfFirst { it.first == waNameStyle }.coerceAtLeast(0)); Action.Redraw }
+            "unlink" -> { leave(); Action.UnlinkWa }
+            else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
@@ -1468,7 +1505,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.WASET, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.WASET, Screen.WASETUP, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */

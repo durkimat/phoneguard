@@ -25,6 +25,7 @@ class JourneyTest {
         it.edition = s.edition
         it.androidSettings = true
         it.waEnabled = s.whatsApp; it.waLinked = s.whatsApp && s.linked
+        it.waSetupAvail = s.whatsApp && !s.linked   // the SIM-method setup window is on offer on the unlinked phone
         it.contacts = listOf(Contact("Dad", listOf("0111")), Contact("Mum", listOf("0222", "0333")), Contact("Nan", listOf("0444")))
         val chat = listOf(Convo("0222", "Mum", listOf(Msg("Dinner at 6?", 1000, false), Msg("ok", 2000, true)), 1), Convo("0111", "Dad", listOf(Msg("Hi", 500, false)), 0))
         it.convos = chat
