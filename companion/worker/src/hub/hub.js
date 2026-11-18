@@ -106,10 +106,10 @@ export function validateChild(ch, nowMs, options = null) {
   }
   const w = S.whatsappWithDefaults(ch);
   if (!Array.isArray(w.allowed) || !w.allowed.every((x) => typeof x === "string")) fail("the WhatsApp allowed list must be a list of numbers and group names");
-  if (!S.WA_SETUPS.includes(w.setup)) fail("WhatsApp setup must be 'sim' or 'smartphone'");
+  if (w.setup != null && !S.WA_SETUPS.includes(w.setup)) fail("WhatsApp setup must be 'sim' or 'smartphone'");
   if (w.who != null && !S.WA_WHO.includes(w.who)) fail("WhatsApp who must be 'group', 'people' or 'all'");
-  if (!Array.isArray(w.groups) || !w.groups.every((x) => typeof x === "string")) fail("the WhatsApp groups must be a list of group names");
-  if (w.who === "group" && !w.groups.some((x) => x.trim())) fail("groups-only WhatsApp needs at least one group name");
+  if (w.groups != null && (!Array.isArray(w.groups) || !w.groups.every((x) => typeof x === "string"))) fail("the WhatsApp groups must be a list of group names");
+  if (w.who === "group" && !(w.groups ?? []).some((x) => x.trim())) fail("groups-only WhatsApp needs at least one group name");
   if (w.tag_sent != null && typeof w.tag_sent !== "boolean") fail("tag_sent must be true or false");
   if (!(1 <= Number(w.perMinute) && Number(w.perMinute) <= 60) || !(1 <= Number(w.perDay) && Number(w.perDay) <= 2000)) fail("WhatsApp send limits must be 1 to 60 a minute and 1 to 2000 a day");
   if ("idle_dry_run" in ch && typeof ch.idle_dry_run !== "boolean") fail("idle_dry_run must be true or false");
