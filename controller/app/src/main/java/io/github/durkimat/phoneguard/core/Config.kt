@@ -61,6 +61,13 @@ data class WaConfig(
     val allowed: List<String> = emptyList(),
     val perMinute: Int = 5,
     val perDay: Int = 200,
+    /** "sim" (the official app on this phone is the account, we link to it) or "smartphone" (a linked device of the account on another phone). */
+    val setup: String = "smartphone",
+    /** "people", "group" (only the groups listed in [allowed], as "g:Name") or "all". */
+    val who: String = "people",
+    /** Put the child's name in front of what the phone sends ([tagName]), so the group can tell who wrote it. */
+    val tagSent: Boolean = false,
+    val tagName: String = "",
 )
 
 /** An absolute span of time with one mode. HA resolves holidays and timezones into these. */
@@ -209,6 +216,10 @@ data class Config(
                         allowed = (w.optJSONArray("allowed") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                         perMinute = w.optInt("perMinute", 5),
                         perDay = w.optInt("perDay", 200),
+                        setup = w.optString("setup", "smartphone"),
+                        who = w.optString("who", "people"),
+                        tagSent = w.optBoolean("tagSent", false),
+                        tagName = w.optString("tagName", ""),
                     )
                 },
             )

@@ -33,7 +33,21 @@ export function modeWithDefaults(modeId, mode) {
   return out;
 }
 
-export const whatsappDefaults = () => ({ all: false, allowed: [], perMinute: 5, perDay: 200 });
+export const WA_SETUPS = ["smartphone", "sim"], WA_WHO = ["people", "group", "all"];
+export const whatsappDefaults = () => ({ all: false, allowed: [], perMinute: 5, perDay: 200, setup: "smartphone", who: null, groups: [], tag_sent: null });
+/** Who the phone talks to, worked out from the settings. Old settings (no "who") keep meaning "all" or "people". Groups-only is stricter: 3 a minute, 100 a day unless set. */
+export function whatsappPlan(child) {
+  const w = whatsappWithDefaults(child), who = w.who ?? (w.all ? "all" : "people"), explicit = child.whatsapp ?? {};
+  const groups = (w.groups ?? []).map((x) => String(x).trim()).filter(Boolean);
+  const strict = who === "group";
+  return {
+    who, setup: w.setup, groups, strict,
+    all: who === "all",
+    allowed: strict ? groups.map((g) => "g:" + g) : (w.allowed ?? []).map((x) => String(x).trim()).filter(Boolean),
+    perMinute: intOr(strict && explicit.perMinute == null ? 3 : w.perMinute, 5), perDay: intOr(strict && explicit.perDay == null ? 100 : w.perDay, 200),
+    tagSent: w.tag_sent == null ? w.setup === "smartphone" : Boolean(w.tag_sent),
+  };
+}
 export const whatsappWithDefaults = (child) => ({ ...whatsappDefaults(), ...(child.whatsapp ?? {}) });
 
 export function defaultChild(name) {
@@ -104,8 +118,9 @@ export function buildConfig(child, nowMs, options = null) {
     protectExtra: sortedUnique(child.protect_extra ?? []), unprotect: sortedUnique(child.unprotect ?? []),
   };
   if (child.restrictions != null) cfg.restrictions = sortedUnique(child.restrictions);
-  const w = whatsappWithDefaults(child);
-  cfg.whatsapp = { all: Boolean(w.all), allowed: w.allowed.map((x) => String(x).trim()).filter(Boolean), perMinute: intOr(w.perMinute, 5), perDay: intOr(w.perDay, 200) };
+  const w = whatsappPlan(child);
+  cfg.whatsapp = { all: w.all, allowed: w.allowed, perMinute: w.perMinute, perDay: w.perDay, setup: w.setup, who: w.who, tagSent: w.tagSent };
+  if (w.tagSent) cfg.whatsapp.tagName = String(child.person || child.name || "").trim().slice(0, 30);
   if (child.location) cfg.location = { lat: Math.round(Number(child.location.lat) * 1000) / 1000, lon: Math.round(Number(child.location.lon) * 1000) / 1000 };
   if (options?.spotify_client_id) cfg.spotifyClientId = options.spotify_client_id;
   if (child.spotify_refresh) cfg.spotifyRefresh = child.spotify_refresh;

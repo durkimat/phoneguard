@@ -6,7 +6,7 @@ import { validPkg, isNewer } from "./store.js";
 
 // The one app store a parent can install from here. The address and checksum are pinned in this file: a caller can never choose them.
 /** Apps the phone fetches itself through the app store (Aurora): it opens the store page and presses Install. Needs a phone app that reports `storeInstall`. */
-export const STORE_INSTALLS = { "com.spotify.music": { name: "Spotify" } };
+export const STORE_INSTALLS = { "com.spotify.music": { name: "Spotify" }, "com.whatsapp": { name: "WhatsApp" } };
 export const STORE_APPS = { "com.aurora.store": { name: "Aurora Store", version: "4.8.4", url: "https://f-droid.org/repo/com.aurora.store_76.apk", sha256: "fd9c75d90d0f4a7c132b9b4a5a2cf1992a45e03b8d8ff988b7dcfbc0db2c4d11", size: 9360088 } };
 export const BOOST_CAP_MIN = 180, USAGE_DAYS = 30, OWN_PACKAGE = "io.github.durkimat.phoneguard";
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -24,6 +24,7 @@ export function updateChild(ch, patch, nowMs, options = null) {
   for (let [k, v] of Object.entries(patch)) {
     if (k === "whatsapp" && v && typeof v === "object" && !Array.isArray(v)) {
       v = { ...v };
+      if (Array.isArray(v.groups)) v.groups = [...new Set(v.groups.map((x) => (typeof x === "string" ? x.trim() : x)).filter(Boolean))];
       if (Array.isArray(v.allowed)) { const seen = []; for (let x of v.allowed) { x = typeof x === "string" ? x.trim() : x; if (x && !seen.includes(x)) seen.push(x); } v.allowed = seen; }
     }
     if (k === "radio_stations") {
@@ -105,6 +106,11 @@ export function validateChild(ch, nowMs, options = null) {
   }
   const w = S.whatsappWithDefaults(ch);
   if (!Array.isArray(w.allowed) || !w.allowed.every((x) => typeof x === "string")) fail("the WhatsApp allowed list must be a list of numbers and group names");
+  if (!S.WA_SETUPS.includes(w.setup)) fail("WhatsApp setup must be 'sim' or 'smartphone'");
+  if (w.who != null && !S.WA_WHO.includes(w.who)) fail("WhatsApp who must be 'group', 'people' or 'all'");
+  if (!Array.isArray(w.groups) || !w.groups.every((x) => typeof x === "string")) fail("the WhatsApp groups must be a list of group names");
+  if (w.who === "group" && !w.groups.some((x) => x.trim())) fail("groups-only WhatsApp needs at least one group name");
+  if (w.tag_sent != null && typeof w.tag_sent !== "boolean") fail("tag_sent must be true or false");
   if (!(1 <= Number(w.perMinute) && Number(w.perMinute) <= 60) || !(1 <= Number(w.perDay) && Number(w.perDay) <= 2000)) fail("WhatsApp send limits must be 1 to 60 a minute and 1 to 2000 a day");
   if ("idle_dry_run" in ch && typeof ch.idle_dry_run !== "boolean") fail("idle_dry_run must be true or false");
   if ("keep_running" in ch && !(Array.isArray(ch.keep_running) && ch.keep_running.every((x) => typeof x === "string"))) fail("the keep-running list must be a list of app names");

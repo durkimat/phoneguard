@@ -207,6 +207,12 @@ class EngineTest {
         assertEquals("30", c.modes["day"]!!.wa); assertEquals("open", c.modes["school"]!!.wa)
         assertEquals(listOf("+44 7700 900111", "g:Family"), c.whatsapp!!.allowed); assertEquals(3, c.whatsapp!!.perMinute); assertEquals(false, c.whatsapp!!.all)
     }
+    @Test fun whatsAppSetupWhoAndTagAreReadFromTheConfig() {
+        val c = Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"}},"segments":[],"whatsapp":{"all":false,"allowed":["g:Family"],"perMinute":3,"perDay":100,"setup":"sim","who":"group","tagSent":true,"tagName":"Rowan"}}""").whatsapp!!
+        assertEquals("sim", c.setup); assertEquals("group", c.who); assertEquals(true, c.tagSent); assertEquals("Rowan", c.tagName)
+        val d = Config.parse("""{"version":1,"base":"day","windowEnd":0,"modes":{"day":{"name":"Day"}},"segments":[],"whatsapp":{"all":false,"allowed":[]}}""").whatsapp!!
+        assertEquals("smartphone", d.setup); assertEquals("people", d.who); assertEquals(false, d.tagSent)
+    }
 
     @Test fun theRealWhatsAppIsUsedWhenAskedForAndThere() {
         assertTrue(Engine.useRealWhatsApp("auto", true)); assertTrue(Engine.useRealWhatsApp("full", true))

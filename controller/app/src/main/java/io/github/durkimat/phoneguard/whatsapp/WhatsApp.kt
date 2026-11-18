@@ -361,7 +361,12 @@ object WhatsApp {
         }.start()
     }
 
-    fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, text); "sent" } catch (e: Throwable) { e.message ?: "error" }
+    /** What is actually sent: with the tag on, the child's name goes in front so a group can tell who wrote it. Our own copy keeps the plain text. */
+    fun tagged(c: Context, text: String): String {
+        val w = io.github.durkimat.phoneguard.Store.config(c)?.whatsapp ?: return text
+        return if (w.tagSent && w.tagName.isNotBlank()) "${w.tagName}: ${text.trim()}" else text
+    }
+    fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, tagged(c, text)); "sent" } catch (e: Throwable) { e.message ?: "error" }
     /**
      * Pulls names and gaps back in without unlinking: asks WhatsApp again for the address-book names and the groups, gives
      * stored messages their senders' names, then asks the owner's main phone for older messages in the recently active chats
