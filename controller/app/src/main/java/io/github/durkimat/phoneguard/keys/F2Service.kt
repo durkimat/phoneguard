@@ -185,6 +185,8 @@ class F2Service : AccessibilityService() {
             // pop-ups and the system's own windows do not count as the app in front
             if (p.isNotEmpty() && p != packageName) Log.log(this, "window: $p/${event.className}") // the pop-up detector: any other app's or the system's window that comes to the front
             if (p.isNotEmpty() && p != "android" && p != "com.android.systemui") frontPkg = p
+            // SIM method: the official WhatsApp is not for the child to use (a link may open it): send them home unless a setup window is running
+            if (p == "com.whatsapp" && io.github.durkimat.phoneguard.whatsapp.SetupRunner.officialBlocked(this)) { Log.log(this, "official WhatsApp opened: sent home"); performGlobalAction(GLOBAL_ACTION_HOME) }
         }
     }
     override fun onInterrupt() {}

@@ -97,6 +97,8 @@ object Engine {
                 touch = ld.touch || b.touch, shade = ld.shade || b.shade, kiosk = ld.kiosk && b.kiosk,
             )
         }
+        // SIM method: the official app is the account's primary and stays out of sight (our screens read it through the linked-device link); only an explicit "full" shows it
+        if (cfg?.whatsapp?.setup == "sim" && waApp == "auto") waApp = "simple"
         return Effective(id, Allowed(all, if (all) emptySet() else pkgs), gray, ld, sound, inbound, wa, waApp, camera, location, locEvery, notes, s.idleMin, radio, radiosSleep, dataWidget)
     }
 

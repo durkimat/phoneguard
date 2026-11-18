@@ -71,9 +71,27 @@ object SetupRunner {
     @android.annotation.SuppressLint("MissingPermission", "HardwareIds")
     fun simNumber(c: Context): String = try { c.getSystemService(android.telephony.TelephonyManager::class.java).line1Number.orEmpty() } catch (_: Exception) { "" }
 
+    /** SIM method after setup: the official app should stay in the background (it only opens inside the setup window or where the mode shows it in full). */
+    fun officialBlocked(c: Context): Boolean {
+        val cfg = Store.config(c) ?: return false
+        if (cfg.whatsapp?.setup != "sim" || active(c)) return false
+        return Engine.effective(cfg, Store.boost(c), Clock.now()).waApp != "full"
+    }
+
+    private fun officialVersion(c: Context): String? = try { c.packageManager.getPackageInfo("com.whatsapp", 0).versionName } catch (_: Exception) { null }
+
+    /** Tells pg-provision (root) whether to keep the official app quiet and unrestricted in the background: Settings.Global pg_wa_quiet, written only when it changes. */
+    fun syncQuiet(c: Context) {
+        val want = if (Store.config(c)?.whatsapp?.setup == "sim" && officialVersion(c) != null) "1" else "0"
+        try {
+            if (android.provider.Settings.Global.getString(c.contentResolver, "pg_wa_quiet") != want) android.provider.Settings.Global.putString(c.contentResolver, "pg_wa_quiet", want)
+        } catch (e: Exception) { Log.log(c, "wa quiet flag: ${e.javaClass.simpleName}") }
+    }
+
     /** For the check-in: whether the companion has allowed it and whether it is running. */
     fun report(c: Context): JSONObject {
         val cfg = Store.config(c)?.whatsapp
         return JSONObject().put("allowed", SetupWindow.canStart(cfg, Clock.now())).put("active", until(c) != null).put("until", until(c) ?: 0L)
+            .put("official", JSONObject().put("installed", officialVersion(c) != null).put("version", officialVersion(c) ?: ""))
     }
 }

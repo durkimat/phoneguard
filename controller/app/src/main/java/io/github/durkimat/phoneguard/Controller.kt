@@ -63,6 +63,7 @@ object Controller {
         val res = Enforcer.applyApps(app, cfg, eff.allowed, hideStockHome = false) // not hidden: Android binds its recents and gesture service inside the stock launcher at every start, and hiding it made that crash at boot
         lap("apps")
         Enforcer.applyRestrictions(app, cfg); lap("restrict")
+        io.github.durkimat.phoneguard.whatsapp.SetupRunner.syncQuiet(app)
         Enforcer.protectProcesses(app); lap("protect")
         Enforcer.setGray(app, eff.gray); lap("gray")
         NoPopups.baseline(app); LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app)); lap("lockdown")

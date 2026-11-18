@@ -58,6 +58,7 @@ appops() {
   aurora_ops boot
   ime_ensure boot
   data_policy boot
+  wa_quiet boot
 }
 # Aurora Store (the one app a parent may have Phone Guard install): installing other apps needs an app-op that only root can set, and it is
 # LOST when Phone Guard hides and shows the app again, so it is applied at boot, on a request from the app (Settings.Global pg_appops_req, written
@@ -103,6 +104,16 @@ data_policy() {
   cur=$(timeout 20 cmd settings get global pg_data_policy 2>/dev/null)
   if [ "$cur" != "$new" ]; then timeout 20 cmd settings put global pg_data_policy "$new"; say "data policy ($1): was [$cur], now [$new]"; fi
 }
+# Official WhatsApp as the account's primary (SIM method): the app sets pg_wa_quiet=1 once the official app is installed and the companion chose the SIM method. Then it
+# makes no notifications (the launcher shows our own unread counts) and may run in the background without limits (appops only: no extra service access needed).
+# Idempotent; logs one line only when it had to change something. Applied at boot, on a settings change and every 5 minutes.
+wa_quiet() {
+  [ "$(timeout 20 cmd settings get global pg_wa_quiet 2>/dev/null)" = "1" ] || return 0
+  case "$(timeout 20 cmd package list packages com.whatsapp 2>/dev/null)" in *package:com.whatsapp*) ;; *) return 0;; esac
+  n=$(timeout 20 cmd appops get com.whatsapp POST_NOTIFICATION 2>&1 | head -1); b=$(timeout 20 cmd appops get com.whatsapp RUN_ANY_IN_BACKGROUND 2>&1 | head -1)
+  case "$n" in *deny*|*ignore*) ;; *) timeout 20 cmd appops set com.whatsapp POST_NOTIFICATION deny; say "official whatsapp ($1): notifications were [$n], now [$(timeout 20 cmd appops get com.whatsapp POST_NOTIFICATION 2>&1 | head -1)]";; esac
+  case "$b" in *allow*) ;; *) timeout 20 cmd appops set com.whatsapp RUN_ANY_IN_BACKGROUND allow; say "official whatsapp ($1): background was [$b], now [$(timeout 20 cmd appops get com.whatsapp RUN_ANY_IN_BACKGROUND 2>&1 | head -1)]";; esac
+}
 # The watcher for app-op requests, cheap when idle. An app cannot set a system property (no way to trigger an init.rc rule from it), so the request is a
 # Settings.Global write. Settings.Global lives in one file: a native `stat` of its modification time (a few ms, no binder, no Java) tells us whether ANY
 # global setting changed since the last look, and only then is the request key read (`cmd settings`). So an idle phone costs one tiny stat every 10 s,
@@ -111,6 +122,7 @@ data_policy() {
 SETTINGS_FILE=/data/system/users/0/settings_global.xml
 last_m=""; ticks=0
 check_req() {
+  wa_quiet change
   req=$(timeout 20 cmd settings get global pg_appops_req 2>/dev/null)
   case "$req" in ""|null|0) ;; *) aurora_ops request; timeout 20 cmd settings put global pg_appops_req 0;; esac
 }
@@ -120,7 +132,7 @@ watch_tick() {   # called every 10 s
   if [ -n "$m" ]; then
     if [ "$m" != "$last_m" ]; then last_m=$m; check_req; fi
   elif [ $((ticks % 6)) -eq 0 ]; then check_req; fi
-  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; ime_ensure poll; data_policy poll; fi
+  if [ $ticks -ge 30 ]; then ticks=0; aurora_ops poll; ime_ensure poll; data_policy poll; wa_quiet poll; fi
 }
 i=0
 while [ $i -lt 20 ]; do

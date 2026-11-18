@@ -37,4 +37,9 @@ class SetupWindowTest {
         assertTrue(Engine.effective(cfg, Boost(Engine.SETUP, 1_000), 2_000).let { !it.inbound && it.modeId == "night" })   // after the end the mode is back exactly
         assertEquals(1_000L, Engine.nextBoundary(cfg, Boost(Engine.SETUP, 1_000), 10))
     }
+
+    @Test fun simMethodKeepsTheOfficialAppOutOfTheMenusUnlessFull() {
+        fun eff(setup: String, waApp: String) = Engine.effective(Config.parse("""{"version":1,"base":"d","windowEnd":0,"modes":{"d":{"name":"D","allowAll":true,"waApp":"$waApp"}},"segments":[],"whatsapp":{"allowed":[],"setup":"$setup"}}"""), null, 10).waApp
+        assertEquals("simple", eff("sim", "auto")); assertEquals("auto", eff("smartphone", "auto")); assertEquals("full", eff("sim", "full")); assertEquals("simple", eff("sim", "simple"))
+    }
 }
