@@ -22,7 +22,7 @@ const MODE_ROWS = [
   ["Grey screen", "gray", "bool"], ["Home screen", "launcher", [["default", "Normal"], ["nokia", "Nokia screens"]]], ["Touchscreen works", "touch", "bool"], ["Pull-down shade works", "shade", "bool"],
   ["Sound", "sound", [["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]]], ["WhatsApp checks", "wa", [["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]]],
   ["WhatsApp app", "wa_app", [["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]]], ["Internet radio", "radio", [["any", "Any station"], ["presets", "My list only"], ["off", "Off"]]],
-  ["Radios sleep when locked", "radios_sleep", "bool"], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"], ["Voice typing (microphone in text boxes)", "voice_typing", "bool"], ["Voice commands", "voice_cmds", "bool"],
+  ["Radios sleep when locked", "radios_sleep", "bool"], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"], ["Voice typing (microphone in text boxes)", "voice_typing", "bool"], ["Voice commands", "voice_cmds", "bool"], ["Where to? (maps and journeys; also keeps GPS on in this mode)", "where_to", "bool"],
   ["Location", "location", [["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]]], ["Location every", "loc_every", LOC_EVERY],
   ["Notifications", "notes", [["show", "Listed"], ["off", "Cleared"]]], ["Locked to allowed apps", "kiosk", "bool"],
   ["Screen off after", "screen_off_min", [[1, "1 min"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [0, "Never"]]], ["Close idle apps after", "idle_min", [[0, "Never"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]],
@@ -61,6 +61,7 @@ export async function phoneScreen(ctx, did) {
     tile("Last seen", ago(v.device.last_seen), v.device.version ? `Phone Guard ${v.device.version}${st0.owner === false ? ", not managed" : ""}` : ""),
     h("div", { class: "tile" }, h("div", { class: "mut" }, "Location"), h("div", { class: "tv" }, fix ? ago(fix[0]) : "Not shared"), h("div", { class: "mut" }, fix ? ["within ", Math.round(fix[3]), " m. ", mapLink(fix)] : "Switch on in Mode settings, Location")),
     st0.data?.allowance > 0 ? tile("Mobile data", `${dataLeft(st0.data)} left`, `${dataGb(st0.data.used)} of ${dataGb(st0.data.allowance)} used`, st0.data.used >= st0.data.allowance * 0.9 ? "bad" : "") : null,
+    v.quota && (v.quota.voice.used || v.quota.geo.used || v.quota.tile.used) ? tile("Voice and maps today", `${v.quota.voice.used} of ${v.quota.voice.cap} voice`, `${v.quota.geo.used} of ${v.quota.geo.cap} searches and journeys, ${v.quota.tile.used} of ${v.quota.tile.cap} map pictures. Resets at 00:00 UTC.`, ["voice", "geo", "tile"].some((k) => v.quota[k].used >= v.quota[k].cap * 0.9) ? "bad" : "") : null,
     tile("Screen time today", todaySec ? hmin(todaySec) : "none yet", "as reported by the phone"),
     tile("WhatsApp", st0.wa?.linked ? "Linked" : "Not linked", st0.wa?.linked ? "" : "Set up in the Services tab"));
   const header = h("div", {},

@@ -1,9 +1,11 @@
 // "Where to?": place search and journeys for the phone. The Worker asks two free public services on the phone's behalf (Transitous for
 // places, buses, trains and walking routes; postcodes.io for UK postcodes) and hands back a small, tidy answer. Nothing is stored.
 import { hex } from "./crypto.js";
+import { matchCategory, searchCategory } from "./poi.js";
 
 export const GEO_CAP = 500;                    // requests per phone per day (search and route together)
-export const WHAT = ["search", "route"];
+export const TILE_CAP = 4000;                  // map pictures per phone per day (a view is about 6 to 12)
+export const WHAT = ["search", "route", "tile"];
 const MAX_BODY = 2000;
 const TRANSITOUS = "https://api.transitous.org/api";
 const UA = { "user-agent": "phoneguard-companion (family parental-control helper)" };
@@ -85,9 +87,39 @@ export async function handleGeo(req, stub, what, f = fetch) {
   try {
     if (what === "search") {
       if (clean(b.q, 80).length < 2) return err("bad request", 400);
+      const cat = matchCategory(b.q);   // "cafe", "post office", "pizza": a kind of place around the phone, not a name
+      if (cat) {
+        const here = inBritain(b.near) ? { lat: b.near.lat, lon: b.near.lon, lastKnown: b.near.lastKnown === true } : null;
+        return Response.json(here ? await searchCategory(f, cat, here) : { places: [], category: cat.id, error: "need_position" }, { headers: { "cache-control": "no-store" } });
+      }
       return Response.json({ places: await searchPlaces(f, b.q, b.near) }, { headers: { "cache-control": "no-store" } });
     }
     if (!inBritain(b.from) || !inBritain(b.to)) return err("bad request", 400);
     return Response.json(await planRoute(f, b.from, b.to, b.time), { headers: { "cache-control": "no-store" } });
   } catch { return err("unavailable", 503); }   // one of the public services is down or slow
+}
+
+const TILE = /^\/api\/geo\/tile\/(\d{1,2})\/(\d{1,6})\/(\d{1,6})$/;
+
+/** GET /api/geo/tile/{z}/{x}/{y}: one OpenStreetMap map picture (PNG), passed on from our own cache where possible. Zoom 11 to 18 only, as the OSM usage policy asks for light use. */
+export async function handleTile(req, stub, f = fetch, cache = globalThis.caches?.default) {
+  const m = TILE.exec(new URL(req.url).pathname); if (!m) return err("not found", 404);
+  const [z, x, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (z < 11 || z > 18 || x >= 2 ** z || y >= 2 ** z) return err("bad request", 400);
+  const h = req.headers, hash = hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${z}/${x}/${y}`))));
+  const auth = await stub.fetch(new Request("https://family/geo/auth", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ v: Number(h.get("x-pg-v")), did: h.get("x-pg-did") ?? "", ctr: Number(h.get("x-pg-ctr")), n: h.get("x-pg-n") ?? "", s: h.get("x-pg-s") ?? "", what: "tile", hash }) }));
+  if (!auth.ok) return new Response(auth.body, { status: auth.status, headers: { "content-type": "application/json" } });
+  const url = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, key = new Request(url);
+  const hit = await cache?.match(key).catch(() => null);
+  const out = (r) => new Response(r.body, { status: 200, headers: { "content-type": "image/png", "cache-control": "private, max-age=604800" } });
+  if (hit) return out(hit);
+  try {
+    const r = await f(url, { headers: UA, signal: AbortSignal.timeout(15_000) });
+    if (!r.ok) return err("unavailable", 503);
+    const bytes = await r.arrayBuffer();
+    const keep = new Response(bytes, { headers: { "content-type": "image/png", "cache-control": "public, max-age=604800" } });
+    await cache?.put(key, keep).catch(() => {});
+    return out(new Response(bytes));
+  } catch { return err("unavailable", 503); }
 }

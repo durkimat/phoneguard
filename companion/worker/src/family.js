@@ -6,7 +6,7 @@ import * as H from "./hub/hub.js";
 import { parseRelease, parseReleaseJson, parseSha256Text, parseCompanionInfo } from "./hub/store.js";
 import { migrate } from "./migrations.js";
 import { DAILY_CAP, MODES as VOICE_MODES } from "./voice.js";
-import { GEO_CAP, WHAT as GEO_WHAT } from "./geo.js";
+import { GEO_CAP, TILE_CAP, WHAT as GEO_WHAT } from "./geo.js";
 import { passkeyRoute } from "./passkey-routes.js";
 import { COMPANION_VERSION, SCHEMA, PROTOCOL } from "./version.js";
 import { b64, unb64, importPub, importPriv, newServerKeys, signDer, verifyDer, sha256, hex, matchNumber, randomCode } from "./crypto.js";
@@ -73,6 +73,13 @@ export class Family extends DurableObject {
     return { d };
   }
 
+  /** The settings of the mode a phone is in right now (the timetable, an override or a boost decides which). */
+  modeNow(did, d, now) {
+    const h = this.load(did) ?? { ch: S.defaultChild(d.model || "Phone"), rt: H.newRuntime() };
+    const cfg = this.refreshConfig(did, h, now).cfg;
+    return cfg.modes[S.resolveMode(cfg, H.activeBoost(h.rt, now), now)] ?? {};
+  }
+
   /** Counts one use of a daily-limited feature for a phone (the day changes at 00:00 UTC, like Cloudflare's free allowance). False when the limit is reached. */
   bump(kind, did, cap, now) {
     const day = new Date(now).toISOString().slice(0, 10), key = `${kind}:${did}:${day}`;
@@ -81,6 +88,12 @@ export class Family extends DurableObject {
     if (used >= cap) return false;
     this.sql.exec("INSERT OR REPLACE INTO meta VALUES (?, ?)", key, String(used + 1));
     return true;
+  }
+
+  /** How much of each daily allowance a phone has used today (UTC day), for the parent page. */
+  quota(did, now) {
+    const day = new Date(now).toISOString().slice(0, 10), used = (k) => Number(this.sql.exec("SELECT v FROM meta WHERE k=?", `${k}:${did}:${day}`).toArray()[0]?.v ?? 0);
+    return { voice: { used: used("voice"), cap: DAILY_CAP }, geo: { used: used("geo"), cap: GEO_CAP }, tile: { used: used("tile"), cap: TILE_CAP }, resets: "00:00 UTC" };
   }
 
   async fetch(req) {
@@ -175,8 +188,7 @@ export class Family extends DurableObject {
       const { did, mode, hash } = body;
       if (!VOICE_MODES.includes(mode) || !/^[0-9a-f]{64}$/.test(hash ?? "")) return json({ error: "rejected" }, 403);
       const a = await this.signedBy(body, `voice:${mode}:${hash}`); if (a.res) return a.res; const d = a.d;
-      const now = Date.now(), h = this.load(did) ?? { ch: S.defaultChild(d.model || "Phone"), rt: H.newRuntime() };
-      const cfg = this.refreshConfig(did, h, now).cfg, md = cfg.modes[S.resolveMode(cfg, H.activeBoost(h.rt, now), now)] ?? {};
+      const now = Date.now(), md = this.modeNow(did, d, now);
       if (!(mode === "dictation" ? md.voiceTyping : md.voiceCmds)) return json({ error: "voice_off" }, 403);
       if (!this.bump("voice", did, DAILY_CAP, now)) return json({ error: "used_up" }, 429);
       return json({ ok: true });
@@ -187,7 +199,9 @@ export class Family extends DurableObject {
       const { did, what, hash } = body;
       if (!GEO_WHAT.includes(what) || !/^[0-9a-f]{64}$/.test(hash ?? "")) return json({ error: "rejected" }, 403);
       const a = await this.signedBy(body, `geo:${what}:${hash}`); if (a.res) return a.res;
-      if (!this.bump("geo", did, GEO_CAP, Date.now())) return json({ error: "used_up" }, 429);
+      const now = Date.now();
+      if (!this.modeNow(did, a.d, now).whereTo) return json({ error: "where_off" }, 403);
+      if (!(what === "tile" ? this.bump("tile", did, TILE_CAP, now) : this.bump("geo", did, GEO_CAP, now))) return json({ error: "used_up" }, 429);
       return json({ ok: true });
     }
 
@@ -248,7 +262,7 @@ export class Family extends DurableObject {
         const span = this.sql.exec("SELECT MIN(t) a, MAX(t) b, COUNT(*) n FROM fixes WHERE did=?", did).toArray()[0];
         return json({ points, thinned: step > 1, retention_days: this.historyDays(), stored: span.n, first: span.a, last: span.b });
       }
-      if (sub === "view" && m === "GET") { const v = H.view(h.ch, h.rt, opts, this.latest(), now); this.save(did, h); return json(v); }
+      if (sub === "view" && m === "GET") { const v = H.view(h.ch, h.rt, opts, this.latest(), now); this.save(did, h); return json({ ...v, quota: this.quota(did, now) }); }
       if (m !== "POST") return json({ error: "not found" }, 404);
       const done = (extra = {}) => { this.save(did, h); const r = this.refreshConfig(did, h, now); return json({ ok: true, version: r.version, ...extra }); };
       try {

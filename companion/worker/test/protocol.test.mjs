@@ -222,14 +222,17 @@ console.log("Where to?");
     const r = await fetch(BASE + "/api/geo/" + what, { method: "POST", headers: { "content-type": "application/json", "x-pg-v": "1", "x-pg-did": did, "x-pg-ctr": String(c), "x-pg-n": n, "x-pg-s": signWith(`1|${did}|${c}|${n}|geo:${what}:${hash}`) }, body: text });
     return { status: r.status, body: await r.json().catch(() => ({})) };
   };
+  await post("override", { mode: "day" });
   let r = await geo("search", { q: "x" }); assert.equal(r.status, 400); ok("a signed place search is accepted by the checks (a one-letter search then answers 'bad request' without calling any outside service)");
   r = await geo("search", { q: "x" }, { c: ctr }); assert.equal(r.status, 409); ok("a repeated counter is refused as a replay");
   r = await geo("route", { from: { lat: 1, lon: 1 }, to: { lat: 2, lon: 2 } }, { signWith: (m) => crypto.sign("sha256", Buffer.from(m), { key: other.privateKey, dsaEncoding: "der" }).toString("base64") }); assert.equal(r.status, 403); ok("a signature from another key is refused");
   r = await geo("search", { q: "x" }, { did: "dnotadevice" }); assert.equal(r.status, 403); ok("an unknown phone is refused");
   r = await geo("route", { from: { lat: 1, lon: 1 }, to: { lat: 2, lon: 2 } }); assert.equal(r.status, 400); ok("places outside Britain are refused");
   r = await geo("search", "x".repeat(3000)); assert.equal(r.status, 413); ok("an oversized request is refused");
+  await post("override", { mode: "school" }); r = await geo("search", { q: "x" }); assert.equal(r.status, 403); assert.equal(r.body.error, "where_off"); ok("School/work mode has Where to? off by default and the Worker refuses");
+  await post("override", { mode: "day" });
   let last; for (let i = 0; i < 520; i++) { last = await geo("search", { q: "x" }); if (last.status === 429) break; }
-  assert.equal(last.status, 429); assert.equal(last.body.error, "used_up"); ok("a phone is stopped at the daily limit with 'used_up'"); }
+  assert.equal(last.status, 429); assert.equal(last.body.error, "used_up"); ok("a phone is stopped at the daily limit with 'used_up'"); await post("override", { mode: "auto" }); }
 
 console.log("Release and forget");
 assert.equal((await post("release", {})).status, 200);

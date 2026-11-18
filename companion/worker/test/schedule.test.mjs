@@ -6,7 +6,7 @@ const cases = JSON.parse(fs.readFileSync(new URL("./golden-schedule.json", impor
 let n = 0, bad = 0;
 for (const c of cases) {
   const got = buildConfig(c.child, c.now, c.options); delete got.version;
-  for (const m of Object.values(got.modes)) { delete m.voiceTyping; delete m.voiceCmds; }   // Worker-only additions: the Home Assistant code has no voice settings
+  for (const [mid, m] of Object.entries(got.modes)) { if (m.whereTo && m.location === "gps" && c.child.modes?.[mid]?.location !== "gps") m.location = "off"; delete m.voiceTyping; delete m.voiceCmds; delete m.whereTo; }   // Worker-only additions: the Home Assistant code has no voice settings
   try { assert.equal(canon(got), canon(c.cfg)); n++; console.log("  ok  " + c.name); }
   catch (e) { bad++; console.log("  FAIL " + c.name); for (const k of new Set([...Object.keys(got), ...Object.keys(c.cfg)])) if (canon(got[k]) !== canon(c.cfg[k])) console.log("     differs:", k, canon(got[k])?.slice(0, 300), "\n     expected:", canon(c.cfg[k])?.slice(0, 300)); }
 }

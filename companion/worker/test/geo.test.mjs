@@ -1,6 +1,6 @@
 // "Where to?": place search and journeys, with pretend Transitous and postcodes.io answers.
 import assert from "node:assert/strict";
-import { searchPlaces, planRoute, postcodeOf, outcodeOf, km, handleGeo } from "../src/geo.js";
+import { searchPlaces, planRoute, postcodeOf, outcodeOf, km, handleGeo, handleTile } from "../src/geo.js";
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
 
 assert.equal(postcodeOf("wf177dx"), "WF17 7DX"); assert.equal(postcodeOf("AL1  3rd"), "AL1 3RD"); assert.equal(postcodeOf("SW1A 1AA"), "SW1A 1AA"); assert.equal(postcodeOf("M1 1AE"), "M1 1AE"); assert.equal(postcodeOf("hatfield"), null); assert.equal(postcodeOf("12345"), null);
@@ -57,5 +57,20 @@ const plan = { direct: [{ duration: 1242, legs: [{ mode: "WALK", distance: 1422,
   r = await handleGeo(req("/api/geo/search", { q: "hexham" }), stub(429, { error: "used_up" }), "search", f); assert.equal(r.status, 429);
   r = await handleGeo(req("/api/geo/search", { q: "hexham" }), stub(), "search", async () => json({}, 500)); assert.equal(r.status, 503); assert.equal((await r.json()).error, "unavailable");
   ok("the route checks the body, passes the database's refusals straight through, and says 'unavailable' when the public services fail"); }
+
+// map pictures
+{ const stub = (status = 200) => ({ fetch: async () => Response.json({ ok: true }, { status }) });
+  const treq = (p) => new Request("https://x" + p, { headers: { "x-pg-v": "1", "x-pg-did": "d", "x-pg-ctr": "5", "x-pg-n": "n", "x-pg-s": "s" } });
+  const store = new Map(), cache = { match: async (k) => (store.has(k.url) ? new Response(store.get(k.url)) : undefined), put: async (k, r) => { store.set(k.url, await r.arrayBuffer()); } };
+  let calls = 0; const png = async () => { calls++; return new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 }); };
+  let r = await handleTile(treq("/api/geo/tile/15/16345/10890"), stub(), png, cache); assert.equal(r.status, 200); assert.equal(r.headers.get("content-type"), "image/png"); assert.equal((await r.arrayBuffer()).byteLength, 4);
+  r = await handleTile(treq("/api/geo/tile/15/16345/10890"), stub(), png, cache); assert.equal(r.status, 200); assert.equal(calls, 1);
+  assert.equal((await handleTile(treq("/api/geo/tile/5/1/1"), stub(), png, cache)).status, 400);
+  assert.equal((await handleTile(treq("/api/geo/tile/19/1/1"), stub(), png, cache)).status, 400);
+  assert.equal((await handleTile(treq("/api/geo/tile/12/99999/1"), stub(), png, cache)).status, 400);
+  assert.equal((await handleTile(treq("/api/geo/tile/15/1"), stub(), png, cache)).status, 404);
+  assert.equal((await handleTile(treq("/api/geo/tile/15/16345/10891"), stub(429), png, cache)).status, 429);
+  assert.equal((await handleTile(treq("/api/geo/tile/15/16345/10892"), stub(), async () => new Response("x", { status: 500 }), cache)).status, 503);
+  ok("map pictures: signed, zoom 11 to 18 only, kept in our cache, refusals passed through, 503 when OpenStreetMap is down"); }
 
 console.log(`\n${n} checks passed`);
