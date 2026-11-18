@@ -145,6 +145,20 @@ export async function phoneScreen(ctx, did) {
   const keepDefault = v.keep_running, stDry = status();
   // ---- the app store (Aurora): installed from here, shown only in the modes the parent ticks ---------------------------------------------------------
   const stStore = status(), store = v.store;
+  // ---- overnight updates of the apps the store installed ------------------------------------------------------------------
+  const au = v.auto_update ?? { on: true, data: false, at: "03:00", exclude: [] }, stU = status(), upd = v.device.state?.updates, DAY = 86400000;
+  const uOn = check(au.on !== false, () => {}), uData = check(au.data === true, () => {}), uAt = h("input", { type: "time", value: au.at ?? "03:00", "aria-label": "Update time" }), uEx = h("textarea", { rows: "3", "aria-label": "Apps left out" }, (au.exclude ?? []).join("\n"));
+  const uRes = upd?.results ?? [], uFail = uRes.filter((r) => r.status === "failed"), uDone = uRes.filter((r) => r.status === "updated");
+  const noWifiWeek = upd && upd.why === "no Wi-Fi" && Date.now() - (upd.lastWifi || upd.at || Date.now()) > 7 * DAY;
+  const updSec = sec("Update apps overnight", h("p", { class: "mut" }, "At a quiet time the phone wakes up and updates the apps the app store installed (Spotify, WhatsApp and so on) when nobody is using them. The app store itself and Phone Guard are never updated this way; Phone Guard has its own update. If an update changes how an app looks, steps the phone does by itself (for example downloading a Spotify playlist) may stop working: a failure shows up here and nothing else is affected."),
+    h("label", { class: "fld chk" }, uOn, h("span", {}, "Update apps overnight", h("small", {}, "Untick to pause updates for this phone."))),
+    h("label", { class: "fld chk" }, uData, h("span", {}, "Allow mobile data", h("small", {}, "Off: Wi-Fi only. Updates can be large."))),
+    field("Time", uAt, "The phone's local time. Default 03:00."), field("Leave these apps out (one app name per line)", uEx, "For example com.spotify.music. Package names as shown under Apps."),
+    h("button", { class: "pri", on: { click: () => patchChild({ auto_update: { on: uOn.checked, data: uData.checked, at: uAt.value || "03:00", exclude: uEx.value.split("\n").map((x) => x.trim()).filter(Boolean) } }, stU, "Saved.") } }, "Save"), stU.el,
+    !upd?.at ? h("p", { class: "mut" }, "No overnight check has run yet.") : h("p", { class: "mut" }, "Last check " + ago(upd.at) + (upd.why ? ": " + upd.why : ".") + (uDone.length ? " Updated " + uDone.length + "." : "")),
+    noWifiWeek ? h("p", { class: "bad" }, "No Wi-Fi for a week, so nothing has updated. Allow mobile data above, or check the Wi-Fi.") : null,
+    uFail.length ? h("p", { class: "bad" }, "Could not update: " + uFail.map((r) => `${r.name} (${r.detail})`).join("; ")) : null,
+    uRes.length ? h("ul", { class: "mut" }, uRes.map((r) => h("li", {}, `${r.name}: ` + (r.status === "updated" ? `${r.from} to ${r.to}` : r.status === "current" ? `up to date (${r.to})` : r.status === "skipped" ? `skipped, ${r.detail}` : `failed, ${r.detail} (${r.from})`)))) : null);
   const storeSec = sec("App store (Aurora Store)", h("p", { class: "mut" }, "Aurora lets apps be installed from Google Play, with no Google account. It runs as its own app, not in the Phone Guard look. It stays hidden until you tick it under Apps and modes for the modes where you want it (for example free time); any app it installs also starts hidden until you tick it."),
     h("p", {}, store.installed ? `Aurora Store is on this phone (version ${store.version} was sent).` : store.waiting ? "Waiting for the phone to install it (it needs Wi-Fi and will do it at a check-in)." : "Aurora Store is not on this phone."),
     store.installed || store.waiting ? null : h("div", { class: "row" }, h("button", { class: "pri", on: { click: () => act("/apps/command", { kind: "install", pkg: "com.aurora.store" }, stStore, "Sent. The phone installs it at its next check-in.").then(redraw, () => {}) } }, "Install Aurora Store on this phone")),
@@ -283,7 +297,7 @@ export async function phoneScreen(ctx, did) {
     h("div", { class: "row" }, h("button", { class: "small", on: { click: () => { try { localStorage.setItem("pgTodoHidden", "1"); } catch { /* private mode */ } todoCard.remove(); } } }, "Hide this"))) : null;
 
   // ---- tabs: day-to-day first, set-up things behind their own tabs -------------------------------------------------------------
-  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, storeSec, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, lockSec, updates, manage]]];
+  const TABS = [["today", "Today", [todoCard, right, histSec, usage, battery]], ["timetable", "Timetable", [timetable, modes, restr]], ["apps", "Apps", [apps, storeSec, updSec, nokia]], ["services", "Services", [whatsapp, spotify, emailSec, calSec, radioSec, weather]], ["phone", "The phone", [look, lockSec, updates, manage]]];
   const body = h("div", { class: "cols" }), bar = h("div", { class: "tabs", role: "tablist" }, TABS.map(([id, label]) => h("button", { class: "tab", role: "tab", "data-tab": id, on: { click: () => tabShow(id) } }, label)));
   tabShow = (id) => { if (!TABS.some((t) => t[0] === id)) id = "today"; openTab = id; for (const b of bar.children) { const on = b.dataset.tab === id; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); } body.replaceChildren(...TABS.find((t) => t[0] === id)[2].filter(Boolean)); };
   tabShow(openTab);

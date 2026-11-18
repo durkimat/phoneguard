@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * whatever happens (a job that was cut short by a restart is tidied up at the next start). Needs Wi-Fi and an unlocked phone; the sign-in to the app stays a person's step.
  */
 object StoreInstall {
-    private val running = AtomicBoolean(false)
-    private fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("storeinstall", Context.MODE_PRIVATE)
+    internal val running = AtomicBoolean(false)
+    internal fun prefs(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("storeinstall", Context.MODE_PRIVATE)
 
     /** What this phone's app can do: reported to the parent page so the Worker only sends the job to a phone that can run it. */
     const val SUPPORTED = true
@@ -35,22 +35,22 @@ object StoreInstall {
         return null
     }
 
-    private fun isInstalled(c: Context, pkg: String) = try {
+    internal fun isInstalled(c: Context, pkg: String) = try {
         c.packageManager.getApplicationInfo(pkg, PackageManager.MATCH_UNINSTALLED_PACKAGES).let { (it.flags and ApplicationInfo.FLAG_INSTALLED) != 0 }
     } catch (_: Exception) { false }
 
-    private fun openStorePage(c: Context, pkg: String) {
+    internal fun openStorePage(c: Context, pkg: String) {
         try {
             c.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")).setPackage(StoreApp.PKG).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
         } catch (e: Exception) { Log.log(c, "store page: ${e.javaClass.simpleName}") }
     }
 
-    private fun goHome(c: Context) {
+    internal fun goHome(c: Context) {
         try { c.startActivity(Intent(c, io.github.durkimat.phoneguard.launcher.LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)) } catch (_: Exception) { }
     }
 
     /** Put everything back as it was: Aurora hidden again if it was, the cover gone. Safe to repeat. */
-    private fun restore(c: Context) {
+    internal fun restore(c: Context) {
         try {
             F2Service.cover(false)
             val p = prefs(c)
@@ -98,7 +98,7 @@ object StoreInstall {
                     StoreDrive.Step.Open -> openStorePage(c, cmd.pkg)
                     StoreDrive.Step.AskInstallPermission -> StoreApp.requestOps(c)
                     is StoreDrive.Step.Fail -> outcome = "failed" to s.detail
-                    StoreDrive.Step.Wait -> {}
+                    StoreDrive.Step.Wait, StoreDrive.Step.UpToDate -> {}
                 }
             }
             if (outcome == null && isInstalled(c, cmd.pkg)) outcome = "done" to "installed ${cmd.name}"

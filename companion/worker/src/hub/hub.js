@@ -13,7 +13,16 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const isInt = (x) => Number.isInteger(x);
 const fail = (m) => { throw new Error(m); };
 
-export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "wa_setup", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars"];
+export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "wa_setup", "auto_update", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars"];
+
+/** Overnight app updates (default on, Wi-Fi only, 03:00). Stored only once the companion changes something; the phone's defaults are the same. */
+export function cleanAutoUpdate(v) {
+  if (v == null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) fail("auto_update must be an object");
+  const out = { on: v.on !== false, data: v.data === true, at: String(v.at ?? "03:00"), exclude: [...new Set((Array.isArray(v.exclude) ? v.exclude : []).filter((x) => typeof x === "string" && /^[A-Za-z0-9_.]+$/.test(x)))].sort() };
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(out.at)) fail("the update time must be like 03:00");
+  return out;
+}
 
 /**
  * The WhatsApp setup window (SIM method). The companion only ALLOWS it (valid 24 h, cancellable) and can add 15 minutes or end it; the phone
@@ -43,6 +52,7 @@ export function updateChild(ch, patch, nowMs, options = null) {
       if (Array.isArray(v.groups)) v.groups = [...new Set(v.groups.map((x) => (typeof x === "string" ? x.trim() : x)).filter(Boolean))];
       if (Array.isArray(v.allowed)) { const seen = []; for (let x of v.allowed) { x = typeof x === "string" ? x.trim() : x; if (x && !seen.includes(x)) seen.push(x); } v.allowed = seen; }
     }
+    if (k === "auto_update") v = cleanAutoUpdate(v);
     if (k === "wa_setup") v = cleanWaSetup(v, ch.wa_setup, nowMs);
     if (k === "radio_stations") {
       const clean = [], urls = new Set();
@@ -324,7 +334,7 @@ export function view(ch, rt, options, latest, nowMs) {
     modes: Object.fromEntries(Object.entries(ch.modes).map(([id, m]) => [id, S.modeWithDefaults(id, m)])),
     override: ch.override in ch.modes ? ch.override : null, week: ch.week, holiday: ch.holiday ?? null,
     mode_now: S.resolveMode(cfg, b, nowMs), boost: b, now: nowMs,
-    restrictions: ch.restrictions ?? null, whatsapp: S.whatsappWithDefaults(ch), wa_setup: ch.wa_setup ?? null, radio_stations: ch.radio_stations ?? [], pinned: ch.pinned ?? [], look: ch.look ?? {},
+    restrictions: ch.restrictions ?? null, whatsapp: S.whatsappWithDefaults(ch), wa_setup: ch.wa_setup ?? null, auto_update: ch.auto_update ?? null, radio_stations: ch.radio_stations ?? [], pinned: ch.pinned ?? [], look: ch.look ?? {},
     notes_hide: ch.notes_hide ?? [], keep_running: ch.keep_running ?? S.DEFAULT_KEEP_RUNNING, idle_dry_run: Boolean(ch.idle_dry_run), location: ch.location ?? null,
     options: { ...(options ?? {}) },
     device: { last_seen: rt.last_seen, state: rt.state, cfgh: rt.cfgh, version: rt.state?.version ?? "", fix: rt.fix },

@@ -72,6 +72,9 @@ data class WaConfig(
     val setupWindow: SetupAllow? = null,
 )
 
+/** Overnight updates (see [UpdatePlan]): [on], whether mobile [data] may be used, the quiet time in [atMin] minutes after local midnight, apps never updated. */
+data class AutoUpdate(val on: Boolean = true, val data: Boolean = false, val atMin: Int = 180, val exclude: Set<String> = emptySet())
+
 /** The companion's side of the setup window: allowed until [allowedUntil], [extraMin] minutes added so far, [endRev] goes up when it says "End now". */
 data class SetupAllow(val allowedUntil: Long, val extraMin: Int, val endRev: Int)
 
@@ -100,6 +103,8 @@ data class Config(
     /** A parent forcing one mode regardless of the timetable, until HA clears it. */
     val override: String? = null,
     val whatsapp: WaConfig? = null,
+    /** Overnight app updates through the store. Absent = the defaults (on, Wi-Fi only, 03:00). */
+    val autoUpdate: AutoUpdate? = null,
     /** Apps the parent put in the Nokia main menu itself; the other allowed apps go under "Android Apps". */
     val pinned: List<String> = emptyList(),
     /** The parent's radio stations in preset order; null means the phone's built-in list. */
@@ -215,6 +220,9 @@ data class Config(
                 keepRunning = if (o.has("keepRunning")) strings(o.optJSONArray("keepRunning")) else null,
                 radioStations = o.optJSONArray("radioStations")?.let { a -> (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { x -> RadioStation(x.optString("name"), x.optString("url")).takeIf { it.name.isNotBlank() && it.url.startsWith("https://") } } } },
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
+                autoUpdate = o.optJSONObject("autoUpdate")?.let { u ->
+                    AutoUpdate(u.optBoolean("on", true), u.optBoolean("data", false), u.optInt("atMin", 180).coerceIn(0, 1439), (u.optJSONArray("exclude") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) }.toSet() })
+                },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(
                         all = w.optBoolean("all", false),

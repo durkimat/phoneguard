@@ -5,7 +5,7 @@ package io.github.durkimat.phoneguard.core
  * what is on the screen (the front window's package and the words of its buttons and labels) and says what to do. It follows the reference script that
  * works over adb on the J36: Aurora's first-run pages (Anonymous, Next, Finish, Allow), then the app's store page (Install), then Android's installer (Install).
  */
-class StoreDrive {
+class StoreDrive(private val update: Boolean = false) {
     sealed class Step {
         data class Tap(val label: String) : Step()
         /** Nothing to do yet: look again in a few seconds. */
@@ -15,6 +15,8 @@ class StoreDrive {
         /** Aurora is asking for permission to install apps: ask the phone's helper to set it, then look again. */
         object AskInstallPermission : Step()
         data class Fail(val detail: String) : Step()
+        /** Update mode: the store page shows the app as installed with no Update button, so there is nothing to do. */
+        object UpToDate : Step()
     }
 
     private var steps = 0
@@ -54,7 +56,13 @@ class StoreDrive {
         if (has("allow")) return Step.Tap("Allow")
         if (contains("continue to aurora") && has("continue")) return Step.Tap("Continue")
         if (contains("not found") || has("unavailable")) return Step.Fail("the app was not found in the store")
-        if (has("install") && installTaps < 4) { installTaps++; onStorePage = true; return Step.Tap("Install") }
+        if (update) {
+            // an installed app's page offers Update when a newer version exists, otherwise Open/Uninstall; a plain Install means the store does not know it as installed
+            if (has("update") && installTaps < 4) { installTaps++; onStorePage = true; return Step.Tap("Update") }
+            if (installTaps == 0 && (has("open") || contains("uninstall")) && !has("install")) return Step.UpToDate
+            if (installTaps == 0 && has("install")) return Step.Fail("the store does not list it as installed here")
+        }
+        if (!update && has("install") && installTaps < 4) { installTaps++; onStorePage = true; return Step.Tap("Install") }
         if (!onStorePage && installTaps == 0 && (has("retry") || contains("no internet") || contains("could not connect"))) {
             retries++
             return if (retries > 2) Step.Fail("the app store could not reach Google Play") else if (has("retry")) Step.Tap("Retry") else Step.Wait

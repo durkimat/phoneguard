@@ -200,6 +200,7 @@
         </receiver>
 
         <receiver android:name=".whatsapp.WaAlarmReceiver" android:exported="false" />
+        <receiver android:name=".UpdateRunner$Alarm" android:exported="false" />
 
         <receiver android:name=".AlarmReceiver" android:directBootAware="true" android:exported="false" />
 

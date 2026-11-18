@@ -64,6 +64,7 @@ object Controller {
         lap("apps")
         Enforcer.applyRestrictions(app, cfg); lap("restrict")
         io.github.durkimat.phoneguard.whatsapp.SetupRunner.syncQuiet(app)
+        try { UpdateRunner.schedule(app) } catch (e: Exception) { Log.log(app, "updates: schedule ${e.javaClass.simpleName}") }
         Enforcer.protectProcesses(app); lap("protect")
         Enforcer.setGray(app, eff.gray); lap("gray")
         NoPopups.baseline(app); LockdownEnforcer.apply(app, eff.lockdown, Enforcer.launcherPackages(app)); lap("lockdown")
