@@ -161,6 +161,9 @@ object AppInstaller {
         if (StoreApp.installed(c)) StoreApp.ensureGrants(c)
     }
 
+    /** Remove step of "Remove WhatsApp" on the phone (SIM method): uninstalls the official app now, as a companion "remove" job would. Run off the main thread. */
+    fun removeOfficialWhatsApp(c: Context) = remove(c, AppCmd("local-wa-remove-" + System.currentTimeMillis(), "remove", "com.whatsapp", "WhatsApp", "", "", 0))
+
     private fun remove(c: Context, cmd: AppCmd) {
         try {
             // an app we hid (a new one starts hidden) looks uninstalled to a plain lookup, so ask for uninstalled packages too and show it again first

@@ -30,4 +30,19 @@ class WaSetupFlowTest {
         val m = phone(); m.edition = "family"; m.waSetupAvail = true; m.waSetupActive = true; m.toWhatsAppSettings(); m.key(Key.OK); m.key(Key.DOWN); m.key(Key.DOWN)
         assertTrue(m.key(Key.OK) is Action.SetupEnd)
     }
+
+    @Test fun removeWalksUnlinkDeleteAccountUninstall() {
+        val m = phone(); m.edition = "family"; m.waEnabled = true; m.waLinked = true; m.waSim = true; m.waOfficial = true; m.toWhatsAppSettings()
+        m.pick("Remove WhatsApp..."); assertEquals(Screen.WAREMOVE, m.screen)
+        assertTrue(m.key(Key.OK) is Action.UnlinkWa)
+        m.key(Key.DOWN); assertTrue(m.key(Key.OK) is Action.Redraw)                              // delete account needs a running setup window
+        m.waSetupActive = true; assertTrue(m.key(Key.OK) is Action.SetupOpenOfficial)
+        m.key(Key.DOWN); assertTrue(m.key(Key.OK) is Action.UninstallOfficial)
+    }
+
+    @Test fun setUpRowLeadsTheMessagesWhatsAppList() {
+        val m = LauncherModel(listOf(MenuItem("m", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d"); m.waEnabled = true; m.waSetupAvail = true
+        m.key(Key.OK); m.pick("Messages"); m.pick("WhatsApp"); assertEquals(Screen.WHATSAPP, m.screen)
+        assertEquals(listOf("Set up WhatsApp", "Link account"), m.rows); m.key(Key.OK); assertEquals(Screen.WASETUP, m.screen)
+    }
 }

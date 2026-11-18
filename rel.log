@@ -1,0 +1,9 @@
+Signer #1 certificate DN: CN=Phone Guard release
+Signer #1 certificate SHA-256 digest: 1255b4d68ba9a5d17e125c0b54a5c70d6ca9485e3ccb24589fb3de329b2b4875
+Signer #1 certificate SHA-1 digest: 8bb13a46e06d62482993ea027dbc56f1ab0c434c
+== checks
+ok: not testOnly
+ok: no debug receiver
+ok: no cleartext setting
+ok: no lab code
+-rw-r--r-- 1 matthew matthew 34226981 Nov 18 07:14 app/build/outputs/apk/release/phoneguard-release.apk
