@@ -13,7 +13,23 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const isInt = (x) => Number.isInteger(x);
 const fail = (m) => { throw new Error(m); };
 
-export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars"];
+export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "wa_setup", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars"];
+
+/**
+ * The WhatsApp setup window (SIM method). The companion only ALLOWS it (valid 24 h, cancellable) and can add 15 minutes or end it; the phone
+ * starts it. {allowed_until, extra_min, end_rev} are all the phone needs: it remembers extra_min and end_rev when it starts, and ends the window
+ * when end_rev goes up or the time (30 min + the extra added since) runs out. Anything else in the patch is ignored.
+ */
+export const WA_SETUP_ALLOW_MS = 24 * 3600_000;
+export function cleanWaSetup(v, prev, nowMs) {
+  if (v == null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) fail("wa_setup must be an object");
+  const old = prev ?? {}, out = { allowed_until: Number(old.allowed_until) || 0, extra_min: Number(old.extra_min) || 0, end_rev: Number(old.end_rev) || 0 };
+  if ("allow" in v) out.allowed_until = v.allow ? nowMs + WA_SETUP_ALLOW_MS : 0;
+  if (v.extend) out.extra_min += 15;
+  if (v.end) out.end_rev += 1;
+  return out;
+}
 
 export function newRuntime() { return { apps: [], state: {}, cfgh: "", usage: {}, power: [], reaped: [], labels: {}, fix: null, boost: null, release: false, last_seen: null }; }
 
@@ -27,6 +43,7 @@ export function updateChild(ch, patch, nowMs, options = null) {
       if (Array.isArray(v.groups)) v.groups = [...new Set(v.groups.map((x) => (typeof x === "string" ? x.trim() : x)).filter(Boolean))];
       if (Array.isArray(v.allowed)) { const seen = []; for (let x of v.allowed) { x = typeof x === "string" ? x.trim() : x; if (x && !seen.includes(x)) seen.push(x); } v.allowed = seen; }
     }
+    if (k === "wa_setup") v = cleanWaSetup(v, ch.wa_setup, nowMs);
     if (k === "radio_stations") {
       const clean = [], urls = new Set();
       for (const x of v ?? []) {

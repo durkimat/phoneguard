@@ -48,6 +48,11 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
     H.updateChild(c2, { whatsapp: { perMinute: 7 } }, T0); assert.equal(S.buildConfig(c2, T0).whatsapp.perMinute, 7);
     const c3 = S.defaultChild("Him"); assert.deepEqual(S.buildConfig(c3, T0).whatsapp, { all: false, allowed: [], perMinute: 5, perDay: 200 });
     H.updateChild(c3, { whatsapp: { all: true } }, T0); assert.deepEqual(S.buildConfig(c3, T0).whatsapp, { all: true, allowed: [], perMinute: 5, perDay: 200 }); ok("WhatsApp who/setup: groups-only is strict, old settings keep their meaning"); }
+  { const c5 = S.defaultChild("Her"); assert.equal(S.buildConfig(c5, T0).whatsapp.setupWindow, undefined);
+    H.updateChild(c5, { wa_setup: { allow: true } }, T0); assert.deepEqual(S.buildConfig(c5, T0).whatsapp.setupWindow, { allowedUntil: T0 + 24 * 3600_000, extraMin: 0, endRev: 0 });
+    H.updateChild(c5, { wa_setup: { extend: true } }, T0); H.updateChild(c5, { wa_setup: { extend: true, end: true } }, T0); assert.deepEqual(S.buildConfig(c5, T0).whatsapp.setupWindow, { allowedUntil: T0 + 24 * 3600_000, extraMin: 30, endRev: 1 });
+    assert.equal(S.buildConfig(c5, T0 + 25 * 3600_000).whatsapp.setupWindow, undefined);
+    H.updateChild(c5, { wa_setup: { allow: false } }, T0); assert.equal(S.buildConfig(c5, T0).whatsapp.setupWindow, undefined); ok("WhatsApp setup window: allow 24 h, extend, end, cancel, expiry"); }
   H.updateChild(ch, { location: { lat: 51.75123, lon: -0.33987 } }, T0); assert.deepEqual(ch.location, { lat: 51.751, lon: -0.34 }); throwsMsg(() => H.updateChild(ch, { location: { lat: 99, lon: 0 } }, T0), /out of range/); ok("location rounded and range-checked");
   throwsMsg(() => H.updateChild(ch, { radio_stations: [{ name: "x", url: "http://plain" }] }, T0), /https/); H.updateChild(ch, { radio_stations: [{ name: " BBC ", url: "https://a" }, { name: "dup", url: "https://a" }] }, T0); assert.deepEqual(ch.radio_stations, [{ name: "BBC", url: "https://a" }]); ok("radio stations must be https and de-duplicated");
   throwsMsg(() => H.updateChild(ch, { look: { theme: "neon" } }, T0), /not one of/); H.updateChild(ch, { look: { theme: "amber", font: "" } }, T0); assert.deepEqual(ch.look, { theme: "amber" }); assert.equal(S.buildConfig(ch, T0).look.theme, "amber"); ok("look checked and reaches the phone config");

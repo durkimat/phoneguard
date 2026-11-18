@@ -68,7 +68,12 @@ data class WaConfig(
     /** Put the child's name in front of what the phone sends ([tagName]), so the group can tell who wrote it. */
     val tagSent: Boolean = false,
     val tagName: String = "",
+    /** Present only while the companion allows the WhatsApp setup window (SIM method). */
+    val setupWindow: SetupAllow? = null,
 )
+
+/** The companion's side of the setup window: allowed until [allowedUntil], [extraMin] minutes added so far, [endRev] goes up when it says "End now". */
+data class SetupAllow(val allowedUntil: Long, val extraMin: Int, val endRev: Int)
 
 /** An absolute span of time with one mode. HA resolves holidays and timezones into these. */
 data class Segment(val from: Long, val to: Long, val mode: String)
@@ -220,6 +225,7 @@ data class Config(
                         who = w.optString("who", "people"),
                         tagSent = w.optBoolean("tagSent", false),
                         tagName = w.optString("tagName", ""),
+                        setupWindow = w.optJSONObject("setupWindow")?.let { SetupAllow(it.optLong("allowedUntil", 0), it.optInt("extraMin", 0), it.optInt("endRev", 0)) },
                     )
                 },
             )

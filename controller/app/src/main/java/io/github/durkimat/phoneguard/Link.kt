@@ -182,11 +182,11 @@ object Link {
             apps.put(JSONObject().put("pkg", pkg).put("label", label).put("hidden", pkg in Store.hidden(c)))
         }
         val state = JSONObject()
-            .put("mode", eff.modeId).put("boost", boost?.let { JSONObject().put("mode", it.mode).put("until", it.until) })
+            .put("mode", eff.modeId).put("boost", boost?.takeIf { it.mode != Engine.SETUP }?.let { JSONObject().put("mode", it.mode).put("until", it.until) } ?: Store.storedBoost(c)?.let { JSONObject().put("mode", it.mode).put("until", it.until) })
             .put("hidden", Store.hidden(c).size).put("gray", Enforcer.isGray(c)).put("canGray", Enforcer.canWriteSecure(c))
             .put("owner", Dpm.isOwner(c)).put("battery", bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY))
             .put("version", BuildConfig.VERSION_NAME).put("tz", TimeZone.getDefault().id).put("clock", now)
-            .put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status))
+            .put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("setup", io.github.durkimat.phoneguard.whatsapp.SetupRunner.report(c)))
         state.put("usageAllowed", Usage.allowed(c)).put("canOverlay", TouchBlocker.canDraw(c)).put("canSilence", SoundEnforcer.canSilence(c))
             .put("lockdown", JSONObject().put("launcher", eff.lockdown.launcher).put("touch", eff.lockdown.touch)
                 .put("shade", eff.lockdown.shade).put("kiosk", eff.lockdown.kiosk).put("touchBlocked", TouchBlocker.isOn()).put("locked", Kiosk.locked(c)))

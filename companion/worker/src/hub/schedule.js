@@ -123,6 +123,8 @@ export function buildConfig(child, nowMs, options = null) {
   // the new settings are only sent when they differ from the old behaviour, so an unchanged phone keeps its config (and hash)
   if (w.setup !== "smartphone") cfg.whatsapp.setup = w.setup;
   if (child.whatsapp?.who != null) cfg.whatsapp.who = w.who;
+  const ws = child.wa_setup;
+  if (ws && Number(ws.allowed_until) > nowMs) cfg.whatsapp.setupWindow = { allowedUntil: Number(ws.allowed_until), extraMin: Number(ws.extra_min) || 0, endRev: Number(ws.end_rev) || 0 };
   if (w.tagSent) { cfg.whatsapp.tagSent = true; cfg.whatsapp.tagName = String(child.person || child.name || "").trim().slice(0, 30); }
   if (child.location) cfg.location = { lat: Math.round(Number(child.location.lat) * 1000) / 1000, lon: Math.round(Number(child.location.lon) * 1000) / 1000 };
   if (options?.spotify_client_id) cfg.spotifyClientId = options.spotify_client_id;

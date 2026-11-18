@@ -100,7 +100,7 @@ object Controller {
         arm(app, alarmAt)
         io.github.durkimat.phoneguard.net.RadioManager.evaluate(app, "config")
 
-        val modeName = Engine.modeDef(cfg, eff.modeId).name + (if (boost != null) " + boost" else "")
+        val modeName = (if (eff.modeId == Engine.SETUP) "WhatsApp setup" else Engine.modeDef(cfg, eff.modeId).name) + (if (boost != null) " + boost" else "")
         val until = change?.let { HM.format(Date(it.first)) } ?: "no change planned"
         val line = "$modeName until $until"
         Store.summary(app, line)

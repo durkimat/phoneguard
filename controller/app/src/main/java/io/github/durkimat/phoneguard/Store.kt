@@ -43,7 +43,13 @@ object Store {
         }
     }
 
+    /** A running WhatsApp setup window shows up as a boost of the built-in [Engine.SETUP] mode (it is never stored as one, and never reported to the Worker as one). */
     fun boost(c: Context): Boost? {
+        io.github.durkimat.phoneguard.whatsapp.SetupRunner.until(c)?.let { return Boost(io.github.durkimat.phoneguard.core.Engine.SETUP, it) }
+        return storedBoost(c)
+    }
+
+    fun storedBoost(c: Context): Boost? {
         val t = sp(c).getString("boost", null) ?: return null
         return try { JSONObject(t).let { Boost(it.getString("mode"), it.getLong("until")) } } catch (_: Exception) { null }
     }

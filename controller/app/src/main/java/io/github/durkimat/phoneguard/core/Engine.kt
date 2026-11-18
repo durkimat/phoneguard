@@ -17,6 +17,10 @@ data class Effective(val modeId: String, val allowed: Allowed, val gray: Boolean
 
 object Engine {
     const val EMERGENCY = "emergency"
+    /** Built in: the WhatsApp setup window (see [SetupWindow]). Not a mode a parent can pick; it arrives as a boost of this id. */
+    const val SETUP = "wasetup"
+    /** Packages the setup window lets through besides ours: the official WhatsApp and the store it was installed from. */
+    val SETUP_APPS = setOf("com.whatsapp", "com.aurora.store")
     const val DAY_MS = 24L * 60 * 60 * 1000
     const val WARN_MS = 10L * 60 * 1000
 
@@ -66,6 +70,11 @@ object Engine {
         var radio = s.radio
         var radiosSleep = s.radiosSleep
         var dataWidget = s.dataWidget
+        if (boost != null && boost.mode == SETUP && now < boost.until) {
+            // setup window: only WhatsApp and the store (Messages and calls are ours and the phone's), touch on, calls allowed, radios awake, the real WhatsApp shown;
+            // what the mode said about sound, camera, position and notes stays
+            return Effective(SETUP, Allowed(false, SETUP_APPS), false, Lockdown("nokia", true, false, false), sound, true, wa, "full", camera, location, locEvery, notes, s.idleMin, radio, false, dataWidget)
+        }
         if (boost != null && now < boost.until) {
             val b = modeDef(cfg, boost.mode)
             all = all || b.allowAll
