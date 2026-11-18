@@ -77,9 +77,11 @@ export function updateChild(ch, patch, nowMs, options = null) {
     if (k === "pinned" && Array.isArray(v)) v = [...new Set(v.filter((x) => typeof x === "string" && x))];
     if (UPDATABLE.includes(k)) ch[k] = v;
   }
-  if ("alarm_volume" in ch && ch.alarm_volume != null && !(Number.isInteger(ch.alarm_volume) && ch.alarm_volume >= 1 && ch.alarm_volume <= 7)) fail("alarm volume must be a whole number from 1 to 7");
-  if ("time_local" in ch && ch.time_local != null && typeof ch.time_local !== "boolean") fail("time_local must be true or false");
-  try { validateChild(ch, nowMs, options); }
+  try {
+    if ("alarm_volume" in ch && ch.alarm_volume != null && !(Number.isInteger(ch.alarm_volume) && ch.alarm_volume >= 1 && ch.alarm_volume <= 7)) fail("alarm volume must be a whole number from 1 to 7");
+    if ("time_local" in ch && ch.time_local != null && typeof ch.time_local !== "boolean") fail("time_local must be true or false");
+    validateChild(ch, nowMs, options);
+  }
   catch (e) { for (const k of UPDATABLE) delete ch[k]; Object.assign(ch, before); throw e; }   // a bad change is never kept, let alone sent to the phone
 }
 
