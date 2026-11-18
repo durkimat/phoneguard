@@ -120,7 +120,7 @@ const HERE = { lat: 51.75, lon: -0.33 };
   r = await handleGeo(req({ q: "cafe", near: { lat: 40, lon: 0 } }), stub(), "search", f); assert.equal((await r.json()).error, "need_position");
   ok("a kind of place with a position asks Overpass once; without a position (or outside Britain) it says need_position and asks nobody");
   seen.length = 0; r = await handleGeo(req({ q: "hexham", near: { lat: 54.97, lon: -2.1 } }), stub(), "search", f); j = await r.json(); assert.deepEqual(Object.keys(j), ["places"]); assert.equal(j.places[0].kind, "stop"); assert.ok(seen.every((u) => u.includes("transitous")));
-  assert.equal(Object.keys(j.places[0]).sort().join(), "area,km,kind,lat,lon,name"); ok("a name search is exactly as before: {places} only, the same fields, never touching Overpass");
+  assert.equal(Object.keys(j.places[0]).sort().join(), "area,kind,km,lat,lon,name"); ok("a name search is exactly as before: {places} only, the same fields, never touching Overpass");
   clearPoiCache(); r = await handleGeo(req({ q: "pubs", near: HERE }), stub(), "search", async () => json({}, 503)); assert.equal(r.status, 503); assert.equal((await r.json()).error, "unavailable");
   clearPoiCache(); r = await handleGeo(req({ q: "pubs", near: HERE }), stub(429), "search", f); assert.equal(r.status, 429);
   ok("Overpass down: 'unavailable' (the phone says it can't search now); the daily limit is passed through");
