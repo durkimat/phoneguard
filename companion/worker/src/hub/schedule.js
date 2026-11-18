@@ -126,7 +126,7 @@ export function buildConfig(child, nowMs, options = null) {
   const ws = child.wa_setup;
   if (ws && Number(ws.allowed_until) > nowMs) cfg.whatsapp.setupWindow = { allowedUntil: Number(ws.allowed_until), extraMin: Number(ws.extra_min) || 0, endRev: Number(ws.end_rev) || 0 };
   if (w.tagSent) { cfg.whatsapp.tagSent = true; cfg.whatsapp.tagName = String(child.person || child.name || "").trim().slice(0, 30); }
-  if (child.auto_update) { const u = child.auto_update, [hh, mm] = String(u.at ?? "03:00").split(":").map(Number); cfg.autoUpdate = { on: u.on !== false, data: u.data === true, atMin: (hh || 0) * 60 + (mm || 0), exclude: [...(u.exclude ?? [])].sort() }; }
+  if (child.auto_update) { const u = child.auto_update, [hh, mm] = String(u.at ?? "03:00").split(":").map(Number); cfg.autoUpdate = { on: u.on !== false, data: u.data === true, atMin: (hh || 0) * 60 + (mm || 0), lenMin: Math.trunc(Number(u.len ?? 60)) || 60, exclude: [...(u.exclude ?? [])].sort() }; }
   if (child.location) cfg.location = { lat: Math.round(Number(child.location.lat) * 1000) / 1000, lon: Math.round(Number(child.location.lon) * 1000) / 1000 };
   if (options?.spotify_client_id) cfg.spotifyClientId = options.spotify_client_id;
   if (child.spotify_refresh) cfg.spotifyRefresh = child.spotify_refresh;

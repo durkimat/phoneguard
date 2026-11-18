@@ -35,7 +35,7 @@ class UpdatePlanTest {
         fun cfg(extra: String) = Config.parse("""{"version":1,"base":"d","windowEnd":0,"modes":{"d":{"name":"D"}},"segments":[]$extra}""")
         assertEquals(AutoUpdate(), UpdatePlan.settings(cfg("")))
         val u = UpdatePlan.settings(cfg(""","autoUpdate":{"on":false,"data":true,"atMin":90,"exclude":["a.b"]}"""))
-        assertEquals(AutoUpdate(false, true, 90, setOf("a.b")), u)
+        assertEquals(AutoUpdate(false, true, 90, setOf("a.b"), 60), u); assertEquals(120, UpdatePlan.settings(cfg(""","autoUpdate":{"lenMin":120}""")).lenMin)
     }
 
     @Test fun updateModeDrivesTheStorePage() {

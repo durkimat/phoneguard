@@ -27,6 +27,7 @@ object PlaylistJob {
     /** The notice to show when the job cannot start now (null when it can). Removing works without Wi-Fi. */
     fun whyNot(c: Context, removing: Boolean): String? {
         if (running.get()) return "Another job is running"
+        if (io.github.durkimat.phoneguard.StoreInstall.running.get()) return "The phone is busy with the app store"
         if (!MusicController.spotifyInstalled(c)) return "Spotify is not installed"
         if (!F2Service.running()) return "Phone Guard keys are off"
         if (c.getSystemService(KeyguardManager::class.java).isDeviceLocked) return "Unlock the phone first"

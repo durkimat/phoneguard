@@ -19,7 +19,8 @@ export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", 
 export function cleanAutoUpdate(v) {
   if (v == null) return null;
   if (typeof v !== "object" || Array.isArray(v)) fail("auto_update must be an object");
-  const out = { on: v.on !== false, data: v.data === true, at: String(v.at ?? "03:00"), exclude: [...new Set((Array.isArray(v.exclude) ? v.exclude : []).filter((x) => typeof x === "string" && /^[A-Za-z0-9_.]+$/.test(x)))].sort() };
+  const len = Math.trunc(Number(v.len ?? 60)); if (!(len >= 10 && len <= 480)) fail("the update window must be 10 to 480 minutes");
+  const out = { on: v.on !== false, data: v.data === true, at: String(v.at ?? "03:00"), len, exclude: [...new Set((Array.isArray(v.exclude) ? v.exclude : []).filter((x) => typeof x === "string" && /^[A-Za-z0-9_.]+$/.test(x)))].sort() };
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(out.at)) fail("the update time must be like 03:00");
   return out;
 }

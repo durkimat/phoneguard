@@ -73,7 +73,7 @@ data class WaConfig(
 )
 
 /** Overnight updates (see [UpdatePlan]): [on], whether mobile [data] may be used, the quiet time in [atMin] minutes after local midnight, apps never updated. */
-data class AutoUpdate(val on: Boolean = true, val data: Boolean = false, val atMin: Int = 180, val exclude: Set<String> = emptySet())
+data class AutoUpdate(val on: Boolean = true, val data: Boolean = false, val atMin: Int = 180, val exclude: Set<String> = emptySet(), val lenMin: Int = 60)
 
 /** The companion's side of the setup window: allowed until [allowedUntil], [extraMin] minutes added so far, [endRev] goes up when it says "End now". */
 data class SetupAllow(val allowedUntil: Long, val extraMin: Int, val endRev: Int)
@@ -221,7 +221,7 @@ data class Config(
                 radioStations = o.optJSONArray("radioStations")?.let { a -> (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { x -> RadioStation(x.optString("name"), x.optString("url")).takeIf { it.name.isNotBlank() && it.url.startsWith("https://") } } } },
                 pinned = (o.optJSONArray("pinned") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) } },
                 autoUpdate = o.optJSONObject("autoUpdate")?.let { u ->
-                    AutoUpdate(u.optBoolean("on", true), u.optBoolean("data", false), u.optInt("atMin", 180).coerceIn(0, 1439), (u.optJSONArray("exclude") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) }.toSet() })
+                    AutoUpdate(u.optBoolean("on", true), u.optBoolean("data", false), u.optInt("atMin", 180).coerceIn(0, 1439), (u.optJSONArray("exclude") ?: JSONArray()).let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }, u.optInt("lenMin", 60).coerceIn(10, 480))
                 },
                 whatsapp = o.optJSONObject("whatsapp")?.let { w ->
                     WaConfig(

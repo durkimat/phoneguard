@@ -61,10 +61,18 @@ object UpdateRunner {
         return UpdatePlan.network(caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true, caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true, s)
     }
 
+    /** The apps the store installed that the companion has not left out: what a run updates. */
     private fun candidates(c: Context): List<String> {
         val s = UpdatePlan.settings(Store.config(c))
         return c.packageManager.getInstalledPackages(PackageManager.MATCH_UNINSTALLED_PACKAGES).map { it.packageName }
             .filter { UpdatePlan.skip(it, installer(c, it), c.packageName, s, false) == null }.sorted()
+    }
+
+    /** Every app the store installed (for the companion's per-app ticks), whether or not it is ticked. */
+    private fun storeApps(c: Context): List<String> {
+        val all = AutoUpdate()
+        return c.packageManager.getInstalledPackages(PackageManager.MATCH_UNINSTALLED_PACKAGES).map { it.packageName }
+            .filter { UpdatePlan.skip(it, installer(c, it), c.packageName, all, false) == null }.sorted()
     }
 
     /** The overnight run. Runs on its own thread; records what happened for the check-in. */
@@ -88,7 +96,10 @@ object UpdateRunner {
             }
             if (why == null) {
                 wake.acquire(60 * 60_000L)
+                val windowEnd = Clock.now() + s.lenMin * 60_000L
                 for (pkg in apps) {
+                    if (Clock.now() >= windowEnd) { why = "the update window ended"; break }
+                    if (io.github.durkimat.phoneguard.music.PlaylistJob.busy()) { why = "a playlist download was running"; break }   // one overnight window: the two jobs take turns
                     if (network(app, s) != "go") { why = "network lost"; break }
                     if (CallState.info != null) { why = "a call came in"; break }
                     results.put(updateOne(app, pkg))
@@ -166,6 +177,7 @@ object UpdateRunner {
     fun report(c: Context): JSONObject {
         val p = prefs(c); val s = UpdatePlan.settings(Store.config(c))
         return JSONObject().put("on", s.on).put("at", p.getLong("at", 0)).put("why", p.getString("why", "").orEmpty()).put("lastWifi", p.getLong("lastWifi", 0))
+            .put("lenMin", s.lenMin).put("apps", JSONArray(storeApps(c).map { JSONObject().put("pkg", it).put("name", label(c, it)).put("version", version(c, it).orEmpty()) }))
             .put("results", try { JSONArray(p.getString("results", "[]")) } catch (_: Exception) { JSONArray() })
     }
 }
