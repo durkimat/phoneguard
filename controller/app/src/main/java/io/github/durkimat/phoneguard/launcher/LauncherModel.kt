@@ -2313,6 +2313,28 @@ class LauncherModel(
     }
 
     /** A key came up: the blaster stops moving that way, or lets a charged beam go. */
+    /**
+     * The delete key (top right) is being held: where a text can be edited, delete a word (a number goes whole). Returns false when this screen has nothing to delete
+     * this way, so the caller stops repeating. A short tap still deletes one character, through [onKey].
+     */
+    fun onHoldDelete(): Boolean {
+        when (screen) {
+            Screen.WRITE -> when (writeField) {
+                0 -> { if (writeTo.isEmpty()) return false; writeTo = ""; return true }
+                1 -> {
+                    if (seq.isNotEmpty()) commit()
+                    if (writeText.isEmpty() || cursor == 0) return false
+                    val (t, c) = WordDelete.back(writeText, cursor); writeText = t; cursor = c; lastDigit = -1; return true
+                }
+                else -> return false
+            }
+            Screen.DIAL -> { if (dialNumber.isEmpty()) return false; dialNumber = ""; return true }
+            Screen.CALC -> return calc.clear()
+            Screen.WAPAIR -> { if (waCode != null || waLinked || waPairNumber.isEmpty()) return false; waPairNumber = ""; return true }
+            else -> return false
+        }
+    }
+
     fun onRelease(key: Key, digit: Int): Action {
         if (screen != Screen.SHOOTER) return Action.None
         val dirs = shotDirs(key, digit)

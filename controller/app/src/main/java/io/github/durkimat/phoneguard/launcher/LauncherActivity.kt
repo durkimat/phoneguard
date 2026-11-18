@@ -591,6 +591,10 @@ class LauncherActivity : Activity() {
             else if (ev.action == KeyEvent.ACTION_UP && presetDown) { presetDown = false; ui.removeCallbacks(storePreset); if (!presetStored) perform(model.onKey(k.first, k.second)); presetStored = false }
             return true
         }
+        if (k.first == Key.SOFT_RIGHT || k.first == Key.RIGHT) {
+            if (ev.action == KeyEvent.ACTION_UP) ui.removeCallbacks(holdDelete)
+            else if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0 && k.first == Key.SOFT_RIGHT) { ui.removeCallbacks(holdDelete); ui.postDelayed(holdDelete, android.view.ViewConfiguration.getLongPressTimeout().toLong()) }
+        }
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
             val before = model.screen
             val was = model.provider
@@ -607,6 +611,13 @@ class LauncherActivity : Activity() {
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */
     private val moveOnly = setOf(Screen.MENU, Screen.SETTINGS, Screen.CONTACTS, Screen.CALLLOG, Screen.INBOX, Screen.APPS, Screen.GAMES, Screen.WHATSAPP, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.DEVICES, Screen.SEARCHRES, Screen.WIFI, Screen.BT, Screen.THEME, Screen.FONT, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.RUNNING, Screen.NOTES, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS)
+
+    /** The delete key held on a text: after the long-press delay a word goes at a time, again every [WordDelete.REPEAT_MS] until the key is let go (or nothing is left). */
+    private val holdDelete: Runnable = object : Runnable {
+        override fun run() {
+            if (model.onHoldDelete()) { saveBest(); refresh(); ui.postDelayed(this, WordDelete.REPEAT_MS) }
+        }
+    }
 
     private var presetDigit = 0
     private var presetStored = false

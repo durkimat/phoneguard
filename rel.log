@@ -6,4 +6,4 @@ ok: not testOnly
 ok: no debug receiver
 ok: no cleartext setting
 ok: no lab code
--rw-r--r-- 1 matthew matthew 34226981 Nov 18 07:17 app/build/outputs/apk/release/phoneguard-release.apk
+-rw-r--r-- 1 matthew matthew 34226981 Nov 18 07:29 app/build/outputs/apk/release/phoneguard-release.apk
