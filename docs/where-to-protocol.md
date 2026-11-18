@@ -42,3 +42,13 @@ Body: `{ "from": { "lat", "lon" }, "to": { "lat", "lon" }, "time": "2026-11-17T0
 A 256 px PNG of OpenStreetMap, zoom 11 to 18 only. Signed like the other geo calls (`X-Pg-V`, `X-Pg-Did`, `X-Pg-Ctr`, `X-Pg-N`, `X-Pg-S`); the signature covers `V|did|ctr|n|geo:tile:<sha256 of the text "z/x/y" in lowercase hex>`, for example of `15/16345/10890`. The same errors as the other calls (403 where_off, 409 replay, 429 used_up, 503 unavailable). 4,000 tiles per phone per day, separate from the 500 searches and routes; the Worker keeps tiles for seven days.
 
 The phone asks for the six to twelve tiles the open map needs, one at a time, turns them into four light tones of the screen's ink (so the route stays the darkest thing), keeps up to 40 in memory while the map is open and drops them when it is left. A tile it cannot get leaves the plain background. The map shows "(c) OpenStreetMap contributors" whenever a picture is on it.
+
+## Search by kind of place ("cafe", "pub", "post office", "pizza")
+
+A search whose whole text is a kind-of-place word (table in `companion/worker/src/poi.js`) is looked up around the phone instead of by name. The body's `near` must carry the phone's position (`{lat, lon, lastKnown?}`); without one (or outside Britain) the answer is `{"places":[],"category":"cafe","error":"need_position"}` and the phone asks for a town.
+
+The answer is `{"places":[{"name","kind":"poi","type","info?","lat","lon","km","osm"}],"category","radius","near"}`: at most 15 places, nearest first, `radius` 1000 or 2000 metres (2000 only when fewer than 5 were found within 1 km). `info` holds only what OpenStreetMap says: `hours` (as written), `open`/`until`/`opens` (worked out in London time, a hint), `takeaway`, `diet`, `wheelchair`, `phone`. No website. A place with no name has `name: ""`.
+
+Where the data comes from: OpenStreetMap through Nominatim (`nominatim.openstreetmap.org/search`, one request with `extratags`, `viewbox` +-radius and `bounded=1`), at most one request a second per Worker instance, our descriptive User-Agent, results remembered for five minutes per kind and square kilometre. Only if Nominatim fails, one short try at Overpass (main server, 5 second query). Both down: 503 `unavailable`, and the phone says "Can't search places now".
+
+Credit: the data is (c) OpenStreetMap contributors, available under the Open Database Licence (ODbL). The phone's map already prints "(c) OpenStreetMap contributors"; this section and the family docs carry the same notice for the place details.

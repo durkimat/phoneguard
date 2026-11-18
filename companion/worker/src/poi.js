@@ -1,8 +1,11 @@
 // "Where to?" search by TYPE of place ("cafe", "pub", "post office", "pizza"): the words are matched against a small table, and a match
-// is looked up around the phone on OpenStreetMap (Overpass). Only words from the table ever reach the query, never what was typed.
-// The one network call is overpass(); everything else is pure, so the tests fake that one function.
+// is looked up around the phone on OpenStreetMap: Nominatim first (one request, tags included, at most one a second), Overpass only as a
+// fallback when Nominatim fails. Only words from the table ever reach a query, never what was typed.
+// The network calls are nominatim() and overpass(); everything else is pure, so the tests fake `lookup` (or `f`).
 import { km } from "./geo.js";
 
+export const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+export const NOMINATIM_GAP_MS = 1000;   // the usage policy: at most one request a second
 export const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
 const UA = { "user-agent": "phoneguard-companion (family parental-control helper)" };
 export const RADIUS_M = 1000, WIDE_M = 2000, WIDEN_BELOW = 5, MAX_PLACES = 15, CACHE_MS = 5 * 60_000, CACHE_MAX = 50;
@@ -63,9 +66,9 @@ export function matchCategory(text) {
 }
 
 /** The Overpass question: every matching node, way or relation within `radius` metres, tags and a centre point only. */
-export function buildQuery(cat, lat, lon, radius) {
+export function buildQuery(cat, lat, lon, radius, seconds = 10) {
   const around = `(around:${radius},${Number(lat).toFixed(5)},${Number(lon).toFixed(5)})`;
-  return `[out:json][timeout:10];(${cat.filters.map((f) => `nwr${f}${around};`).join("")});out tags center 80;`;
+  return `[out:json][timeout:${seconds}];(${cat.filters.map((f) => `nwr${f}${around};`).join("")});out tags center 80;`;
 }
 
 // ---- opening hours: "Mo-Fr 09:00-17:00; Sa 10:00-16:00", the common shapes only; anything else is shown as written and never guessed at.
@@ -153,11 +156,11 @@ export function present(p, here, now) {
 }
 
 /** The ONE network call. Tries the main Overpass server and, only for a network error, 429 or 5xx, the second one; never retries beyond that. */
-export async function overpass(f, query, endpoints = OVERPASS) {
+export async function overpass(f, query, endpoints = OVERPASS, timeoutMs = 12_000) {
   let last;
   for (const url of endpoints) {
     try {
-      const r = await f(url, { method: "POST", headers: { ...UA, "content-type": "application/x-www-form-urlencoded" }, body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(12_000) });
+      const r = await f(url, { method: "POST", headers: { ...UA, "content-type": "application/x-www-form-urlencoded" }, body: `data=${encodeURIComponent(query)}`, signal: AbortSignal.timeout(timeoutMs) });
       if (r.ok) return await r.json();
       last = new Error(`${new URL(url).host} answered ${r.status}`);
       if (r.status !== 429 && r.status < 500) throw Object.assign(last, { final: true });   // our question is wrong: a second server would say the same
@@ -166,18 +169,80 @@ export async function overpass(f, query, endpoints = OVERPASS) {
   throw last ?? new Error("overpass failed");
 }
 
+// ---- Nominatim: the first choice (one request returns the places with their tags)
+const FOLD_Q = { takeaway: "fast food", pharmacy: "pharmacy", atm: "atm", fuel: "petrol station", parking: "car park", doctors: "doctors", convenience: "convenience store", post_box: "post box", post_office: "post office", playground: "playground" };
+/** What Nominatim is asked for: the category word, or "<cuisine> restaurant" for a cuisine word. */
+export function nominatimText(cat) {
+  if (cat.cuisine) return cat.cuisine === "fish and chips" ? "fish and chip shop" : `${cat.cuisine} restaurant`;
+  return FOLD_Q[cat.id] ?? cat.id.replace(/_/g, " ");
+}
+/** The [key, value] pairs a result must carry to count (read from the category's own Overpass filters), and the cuisine pattern if it has one. */
+export function wanted(cat) {
+  const pairs = [];
+  for (const f of cat.filters) {
+    const m = /^\["([a-z_]+)"(?:="([a-z_]+)"|~"\^\(([a-z_|]+)\)\$")\]/.exec(f); if (!m) continue;
+    for (const v of (m[2] ?? m[3]).split("|")) pairs.push([m[1], v]);
+  }
+  const c = /\["cuisine"~"([a-z_|]+)"\]/.exec(cat.filters[0] ?? "");
+  return { pairs, cuisine: c ? new RegExp(`(^|;)(${c[1]})(;|$)`) : null };
+}
+/** The viewbox for Nominatim: a square of +-radius metres around the point, as left,top,right,bottom. */
+export function viewbox(lat, lon, radius) {
+  const dLat = radius / 110_540, dLon = radius / (111_320 * Math.cos(lat * Math.PI / 180));
+  return [lon - dLon, lat + dLat, lon + dLon, lat - dLat].map((x) => x.toFixed(5)).join(",");
+}
+export function nominatimUrl(cat, lat, lon, radius) {
+  return `${NOMINATIM}?${new URLSearchParams({ q: nominatimText(cat), format: "jsonv2", limit: "40", extratags: "1", addressdetails: "0", "accept-language": "en", bounded: "1", viewbox: viewbox(lat, lon, radius) })}`;
+}
+
+let nextAt = 0;   // when the next Nominatim request may start (per Worker instance)
+/** Spaces Nominatim requests at least NOMINATIM_GAP_MS apart, queueing callers that arrive together. */
+export async function pace(now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms))) {
+  const t = now(), wait = Math.max(0, nextAt - t);
+  nextAt = Math.max(t, nextAt) + NOMINATIM_GAP_MS;
+  if (wait) await sleep(wait);
+}
+
+/** Nominatim's answer turned into the same element shape Overpass gives (tags and a position), keeping only results of the asked-for kind. */
+export function nominatimElements(list, cat) {
+  const { pairs, cuisine } = wanted(cat), out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    const lat = Number(r.lat), lon = Number(r.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !r.osm_id || !pairs.some(([k, v]) => r.category === k && r.type === v)) continue;
+    const tags = { ...(r.extratags ?? {}), [r.category]: r.type };
+    if (r.name) tags.name = r.name;
+    if (cuisine && !cuisine.test(String(tags.cuisine ?? "").toLowerCase().replace(/ /g, ""))) continue;
+    out.push({ type: r.osm_type, id: r.osm_id, lat, lon, tags });
+  }
+  return out;
+}
+
+/** One Nominatim request (paced, 8 s limit, our User-Agent). Throws on a network error or any non-OK answer. */
+export async function nominatim(f, cat, lat, lon, radius, clock = {}) {
+  await pace(clock.now, clock.sleep);
+  const r = await f(nominatimUrl(cat, lat, lon, radius), { headers: UA, signal: AbortSignal.timeout(8_000) });
+  if (!r.ok) throw new Error(`nominatim answered ${r.status}`);
+  return nominatimElements(await r.json(), cat);
+}
+
+/** Elements of this category within `radius` of the point: Nominatim; and if that fails (not if it merely finds nothing), one short try at Overpass. */
+export async function lookup(f, cat, lat, lon, radius) {
+  try { return await nominatim(f, cat, lat, lon, radius); }
+  catch { return (await overpass(f, buildQuery(cat, lat, lon, radius, 5), [OVERPASS[0]], 5_000))?.elements ?? []; }
+}
+
 const memo = new Map();   // per Worker instance: "cat|lat|lon" -> {at, places}; a short-lived courtesy to the public server, not a store
 const cellKey = (id, p) => `${id}|${p.lat.toFixed(2)}|${p.lon.toFixed(2)}`;
-export const clearPoiCache = () => memo.clear();
+export const clearPoiCache = () => { memo.clear(); nextAt = 0; };
 
-/** Places of this category around `near`: 1 km, widening once to 2 km when fewer than 5 are found. At most two Overpass questions per search (none when remembered). */
-export async function searchCategory(f, cat, near, now = new Date(), ask = overpass) {
+/** Places of this category around `near`: 1 km, widening once to 2 km when fewer than 5 are found. At most two lookups per search (none when remembered). */
+export async function searchCategory(f, cat, near, now = new Date(), look = lookup) {
   const key = cellKey(cat.id, near), hit = memo.get(key);
   let places, radius;
   if (hit && now.getTime() - hit.at < CACHE_MS) ({ places, radius } = hit);
   else {
     radius = RADIUS_M;
-    const get = async (r) => ((await ask(f, buildQuery(cat, near.lat, near.lon, r)))?.elements ?? []).map((e) => tidy(e, cat)).filter(Boolean);
+    const get = async (r) => (await look(f, cat, near.lat, near.lon, r)).map((e) => tidy(e, cat)).filter(Boolean);
     places = await get(radius);
     if (places.length < WIDEN_BELOW) { radius = WIDE_M; places = await get(radius); }
     if (memo.size >= CACHE_MAX) memo.delete(memo.keys().next().value);
