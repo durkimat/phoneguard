@@ -29,4 +29,11 @@ class ToneAndRecentTest {
         assertEquals("Hexham Station", back[0].name); assertEquals("Northumberland", back[0].area); assertEquals(54.97, back[0].lat, 1e-9)
         assertEquals(emptyList<Place>(), RecentPlaces.decode("not json"))
     }
+
+    @Test fun aRecentKeepsItsTypeAndOldSavedOnesStillRead() {
+        val l = RecentPlaces.add(emptyList(), Place("Marco's", "poi", "", 51.75, -0.33, 0.2, "Italian restaurant", PlaceInfo(hours = "x")))
+        val back = RecentPlaces.decode(RecentPlaces.encode(l))
+        assertEquals("Italian restaurant", back[0].type); assertEquals(null, back[0].info)
+        assertEquals("", RecentPlaces.decode("""[{"name":"Old","kind":"stop","area":"","lat":1.0,"lon":2.0}]""")[0].type)
+    }
 }

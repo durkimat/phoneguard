@@ -683,22 +683,26 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val row = m.rows.getOrNull(idx) ?: break
                 val top = 104f + n * rowH
                 val style = chrome.row(m, idx)
-                val prefix = style?.prefix ?: if (m.plainRows > 0) "" else if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
+                val prefix = style?.prefix ?: if (m.plainRows > 0 || m.screen == Screen.WHEREDETAIL) "" else if (idx < 9) "${idx + 1}  " else if (idx == 9 && m.screen == Screen.MENU) "0  " else "   "
                 val tx = style?.tx ?: 20f
                 val room = style?.room ?: 440f
-                val label = ellipsize(prefix + row, room, 32f)
+                // a place found by kind has its kind in smaller type under the name (the name moves up a little to make room)
+                val sub = m.rowSubs.getOrNull(idx).orEmpty()
+                val ny = if (sub.isEmpty()) top + 42f else top + 31f; val ns = if (sub.isEmpty()) 32f else 29f
+                val label = ellipsize(prefix + row, room, ns)
                 if (idx == m.selected) {
                     val sel = chrome.selection(this)
                     fill.color = sel?.first ?: ink; c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill); fill.color = ink
                     // a playlist's marker (downloaded, downloading, pinned) stays fixed at the left while only the name scrolls
                     val mark = if (m.screen == Screen.PLAYLISTS) listOf(PlaylistOffline.DOWNLOADED, PlaylistOffline.DOWNLOADING, PlaylistOffline.PINNED).firstOrNull { row.startsWith(it) } else null
-                    if (mark == null) marquee(c, prefix + row, tx, top + 42f, 32f, room, u, bold = true, color = sel?.second ?: lcd)
+                    if (mark == null) marquee(c, prefix + row, tx, ny, ns, room, u, bold = true, color = sel?.second ?: lcd)
                     else {
                         val fixed = prefix + mark; val fw = measureBold(fixed, 32f)
                         text(c, fixed, tx, top + 42f, 32f, u, bold = true, color = sel?.second ?: lcd)
                         marquee(c, row.removePrefix(mark), tx + fw, top + 42f, 32f, room - fw, u, bold = true, color = sel?.second ?: lcd)
                     }
-                } else text(c, label, tx, top + 42f, 32f, u)
+                } else text(c, label, tx, ny, ns, u)
+                if (sub.isNotEmpty()) text(c, ellipsize(sub, room, 21f), tx, top + 54f, 21f, u, color = if (idx == m.selected) (chrome.selection(this)?.second ?: lcd) else ink)
                 chrome.rowExtras(this, c, m, idx, top, idx == m.selected, u)
                 // the Music menu shows what each provider is doing: a play triangle while it plays, two bars while it is paused
                 m.rowMarks.getOrNull(idx)?.takeIf { it > 0 }?.let { mark ->

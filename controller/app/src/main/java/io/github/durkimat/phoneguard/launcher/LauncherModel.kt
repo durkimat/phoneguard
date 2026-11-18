@@ -17,7 +17,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -211,6 +211,8 @@ sealed class Action {
     data class SpPin(val uri: String, val pinned: Boolean) : Action()
     /** "Where to?": look a place up, or plan the way there. */
     data class WhereSearch(val query: String) : Action()
+    /** A kind of place was asked for with no position: the town the child named is found, then the kind of place around it. */
+    data class WhereTown(val town: String, val query: String) : Action()
     data class WhereRoute(val to: io.github.durkimat.phoneguard.where.Place, val time: String? = null) : Action()
     /** The `#` key on a playlist: download it for offline listening, or remove the download. */
     data class SpOffline(val uri: String, val name: String, val remove: Boolean) : Action()
@@ -548,6 +550,7 @@ class LauncherModel(
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> if (spOfflineOnly) "Offline playlists" else "Playlists"
         Screen.WHEREPLACES -> "Where to?"
+        Screen.WHEREDETAIL -> wherePlace?.name.orEmpty()
         Screen.WHEREJOURNEYS -> (if (whereFrom.isNotEmpty()) "From $whereFrom to " else "To ") + (wherePlace?.name ?: "")
         Screen.WHERELEGS -> whereJourney?.let { io.github.durkimat.phoneguard.where.Where.liveTag(it) } ?: "Walk"
         Screen.WHEREMAP -> "Map"
@@ -586,6 +589,7 @@ class LauncherModel(
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
         Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.WHEREPLACES -> "Select" to "Back"
+        Screen.WHEREDETAIL -> "Go" to "Back"
         Screen.WHEREJOURNEYS -> "Details" to "Back"
         Screen.WHERELEGS -> "Map" to "Back"
         Screen.WHEREMAP -> "" to "Back"
@@ -652,6 +656,7 @@ class LauncherModel(
         Screen.SOUNDTEST -> io.github.durkimat.phoneguard.SoundTest.routes
         Screen.PLAYLISTS -> spPlaylists.map { it.label }
         Screen.WHEREPLACES -> (if (whereRecent) listOf("Search for a place...") else emptyList()) + whereResults.map { io.github.durkimat.phoneguard.where.Where.placeRow(it) }
+        Screen.WHEREDETAIL -> wherePlace?.let { io.github.durkimat.phoneguard.where.Where.detailLines(it) }.orEmpty()
         Screen.WHEREJOURNEYS -> whereRows.map { it.label }
         Screen.WHERELEGS -> whereLegs.map { io.github.durkimat.phoneguard.where.Where.legLine(it) }
         Screen.WHEREMAP -> emptyList()
@@ -738,7 +743,7 @@ class LauncherModel(
         Screen.BTDEV -> btDevKey(key)
         Screen.SOUNDTEST -> soundTestKey(key)
         Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES -> spListKey(key)
-        Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP -> whereKey(key, digit)
+        Screen.WHEREPLACES, Screen.WHEREDETAIL, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP -> whereKey(key, digit)
         Screen.NOTES -> notesKey(key)
         Screen.NOTE -> noteDetailKey(key, digit)
         Screen.SNAKE -> snakeKey(key, digit)
@@ -2088,6 +2093,16 @@ class LauncherModel(
     /** What the list says when it is empty ("Searching...", "No places found", "Connect first"...), and where the way starts from ("my position" or "home"). */
     var whereStatus = ""
     var whereFrom = ""
+    /** Where a search by kind of place looked: "from last known position", "near home", "near Hatfield"; empty when the phone had a current fix. Shown under the list. */
+    var whereNear = ""
+        private set
+    /** The kind of place asked for when there was no position: said again once the child names a town. */
+    private var whereTownFor = ""
+
+    /** The short kind line drawn under each name in the places list (empty where the Worker sent none). */
+    val rowSubs: List<String> get() = if (screen == Screen.WHEREPLACES) (if (whereRecent) listOf("") else emptyList()) + whereResults.map { io.github.durkimat.phoneguard.where.Where.placeSub(it) } else emptyList()
+    /** Detail pages are for places found by kind in this search; the recent places go straight to the ways there. */
+    private fun hasDetail(p: io.github.durkimat.phoneguard.where.Place?) = p != null && p.kind == "poi" && !whereRecent
 
     /** Opens "Where to?" with the words already typed (a spoken "navigate to ..."); the child still picks the place. */
     fun openWhere(text: String): Action = whereStart(text)
@@ -2118,10 +2133,18 @@ class LauncherModel(
     }
 
     /** Under the places list: the distance and kind of the highlighted place. */
-    val wherePlaceNote: String get() = if (screen == Screen.WHEREPLACES) whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { io.github.durkimat.phoneguard.where.Where.placeNote(it) }.orEmpty() else ""
+    val wherePlaceNote: String get() = if (screen == Screen.WHEREPLACES) whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { p -> listOf(io.github.durkimat.phoneguard.where.Where.placeNote(p), if (p.kind == "poi") whereNear else "").filter { it.isNotEmpty() }.joinToString("  ") }.orEmpty() else ""
 
     /** The places Worker answered (or why it could not). */
-    fun setWherePlaces(list: List<io.github.durkimat.phoneguard.where.Place>, status: String) { whereResults = io.github.durkimat.phoneguard.where.Where.nearestFirst(list); whereStatus = if (list.isEmpty()) status else ""; selected = 0 }
+    fun setWherePlaces(list: List<io.github.durkimat.phoneguard.where.Place>, status: String, near: String = "") { whereResults = io.github.durkimat.phoneguard.where.Where.nearestFirst(list); whereStatus = if (list.isEmpty()) status else ""; whereNear = near; selected = 0 }
+
+    /** The Worker needs a position to look for a kind of place and the phone has none: ask for a town, then look around it ([Action.WhereTown]). */
+    fun askWhereTown(query: String) {
+        whereTownFor = query; whereRecent = false
+        startWrite("", Screen.MENU); writeField = 1; writeHead = "Which town?"; writeText = ""; cursor = 0
+        writeDone = { t -> if (t.length < 2) { notice = "Type at least two letters"; askWhereTown(query); Action.Redraw } else { whereResults = emptyList(); whereStatus = "Searching..."; whereNear = ""; screen = Screen.WHEREPLACES; selected = 0; Action.WhereTown(t, whereTownFor) } }
+        screen = Screen.WRITE
+    }
 
     /** The ways to [to] arrived; [from] says where they start. */
     fun setWherePlan(plan: io.github.durkimat.phoneguard.where.Plan?, from: String, status: String) {
@@ -2146,11 +2169,21 @@ class LauncherModel(
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
-        val size = when (screen) { Screen.WHEREPLACES -> whereResults.size + (if (whereRecent) 1 else 0); Screen.WHEREJOURNEYS -> whereRows.size; else -> whereLegs.size }
+        val size = when (screen) { Screen.WHEREPLACES -> whereResults.size + (if (whereRecent) 1 else 0); Screen.WHEREJOURNEYS -> whereRows.size; Screen.WHEREDETAIL -> rows.size; else -> whereLegs.size }
         return move(key, size) ?: when (screen) {
             Screen.WHEREPLACES -> when (key) {
-                Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (whereRecent && selected == 0) whereWrite("") else whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { p -> wherePlace = p; whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } ?: Action.None
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (whereRecent && selected == 0) whereWrite("") else whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { p ->
+                    wherePlace = p
+                    if (hasDetail(p)) { screen = Screen.WHEREDETAIL; selected = 0; Action.Redraw }
+                    else { whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) }
+                } ?: Action.None
                 Key.RIGHT, Key.SOFT_RIGHT -> whereWrite(if (whereRecent) "" else whereQuery)
+                Key.END -> { goHome(); Action.Redraw }
+                else -> Action.None
+            }
+            Screen.WHEREDETAIL -> when (key) {
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> wherePlace?.let { p -> whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } ?: Action.None
+                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0) + (if (whereRecent) 1 else 0); Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
@@ -2166,7 +2199,7 @@ class LauncherModel(
                     whereLegs = row.journey?.legs ?: whereWalk?.let { listOf(io.github.durkimat.phoneguard.where.Leg("walk", "", "", "", wherePlace?.name.orEmpty(), "", "", it.walkMinutes ?: 0, false, it.walkPoints)) }.orEmpty()
                     screen = Screen.WHERELEGS; selected = 0; Action.Redraw
                 } ?: Action.None
-                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0) + (if (whereRecent) 1 else 0); Action.Redraw }
+                Key.RIGHT, Key.SOFT_RIGHT -> { if (hasDetail(wherePlace)) { screen = Screen.WHEREDETAIL; selected = 0 } else { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0) + (if (whereRecent) 1 else 0) }; Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }

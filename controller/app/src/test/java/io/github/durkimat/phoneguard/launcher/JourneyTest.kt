@@ -179,7 +179,7 @@ class JourneyTest {
     @Test fun everyScreenCanBeReached() {
         val reached = explored.values.flatMap { it.seen.keys.map { s -> s.screen } }.toSet()
         // a live call, and typed text sent to Spotify, which the keys alone cannot produce
-        val needsSomethingElse = setOf(Screen.CALL, Screen.CALLMENU, Screen.SEARCHRES, Screen.FIRSTRUN, Screen.WHEREPLACES, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP, Screen.DATAAPPS) // DATAAPPS needs a data plan reading; the Where to? lists need answers from the Worker (WhereFlowTest); FIRSTRUN is only on a new phone and cannot be left: EditionScreensTest
+        val needsSomethingElse = setOf(Screen.CALL, Screen.CALLMENU, Screen.SEARCHRES, Screen.FIRSTRUN, Screen.WHEREPLACES, Screen.WHEREDETAIL, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP, Screen.DATAAPPS) // DATAAPPS needs a data plan reading; the Where to? lists need answers from the Worker (WhereFlowTest); FIRSTRUN is only on a new phone and cannot be left: EditionScreensTest
         val missing = Screen.values().filter { it !in reached && it !in needsSomethingElse }
         assertEquals("screens no key path reaches (add data to the test phone or fix the route): $missing", emptyList<Screen>(), missing)
     }

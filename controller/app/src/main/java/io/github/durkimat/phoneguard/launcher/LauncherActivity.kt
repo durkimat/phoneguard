@@ -807,12 +807,34 @@ class LauncherActivity : Activity() {
             }.start()
             is Action.WhereSearch -> Thread {
                 val o = io.github.durkimat.phoneguard.where.WhereOrigin.get(this, 4_000)
-                val body = org.json.JSONObject().put("q", a.query).also { j -> if (o != null) j.put("near", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon)) }.toString()
+                val body = org.json.JSONObject().put("q", a.query).also { j -> if (o != null) j.put("near", org.json.JSONObject().put("lat", o.lat).put("lon", o.lon).also { n -> if (o.lastKnown) n.put("lastKnown", true) }) }.toString()
                 val r = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "search", body)
                 ui.post {
                     if (r == null) model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK)
-                    else if (r.first == 200) model.setWherePlaces(io.github.durkimat.phoneguard.where.Where.parsePlaces(r.second), "No places found")
-                    else model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.where.WhereReply.message(r.first))
+                    else if (r.first == 200) {
+                        val ans = io.github.durkimat.phoneguard.where.Where.parseAnswer(r.second)
+                        if (ans.error == "need_position") model.askWhereTown(a.query)
+                        else model.setWherePlaces(ans.places, "No places found", if (ans.category != null && o != null && o.lastKnown) (if (o.label == "home") "near home" else "from last known position") else "")
+                    }
+                    else model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.where.WhereReply.search(r.first))
+                    refresh()
+                }
+            }.start()
+            is Action.WhereTown -> Thread {
+                // the child named a town: find it (an ordinary name search), then look for the kind of place around it
+                fun call(body: org.json.JSONObject) = io.github.durkimat.phoneguard.companion.WorkerLink.geo(this, "search", body.toString())
+                val t = call(org.json.JSONObject().put("q", a.town))
+                val town = if (t != null && t.first == 200) io.github.durkimat.phoneguard.where.Where.parsePlaces(t.second).firstOrNull() else null
+                val r = if (town == null) null else call(org.json.JSONObject().put("q", a.query).put("near", org.json.JSONObject().put("lat", town.lat).put("lon", town.lon)))
+                ui.post {
+                    when {
+                        t == null -> model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK)
+                        t.first != 200 -> model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.where.WhereReply.search(t.first))
+                        town == null -> model.setWherePlaces(emptyList(), "Can't find that town")
+                        r == null -> model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.voice.VoiceReply.NO_NETWORK)
+                        r.first != 200 -> model.setWherePlaces(emptyList(), io.github.durkimat.phoneguard.where.WhereReply.search(r.first))
+                        else -> model.setWherePlaces(io.github.durkimat.phoneguard.where.Where.parseAnswer(r.second).places, "No places found", "near ${town.name}")
+                    }
                     refresh()
                 }
             }.start()

@@ -7,7 +7,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** A place from `/api/geo/search` (docs/where-to-protocol.md). */
-data class Place(val name: String, val kind: String, val area: String, val lat: Double, val lon: Double, val km: Double?)
+data class Place(val name: String, val kind: String, val area: String, val lat: Double, val lon: Double, val km: Double?, val type: String = "", val info: PlaceInfo? = null)
+
+/** What the list answer said about a place found by kind ("cafe", "pub"), kept only where it was sent: opening hours (and whether open now, a hint), takeaway, diet, wheelchair access, phone. */
+data class PlaceInfo(val hours: String = "", val open: Boolean? = null, val until: String = "", val opens: String = "", val takeaway: String = "", val diet: List<String> = emptyList(), val wheelchair: String = "", val phone: String = "")
+
+/** The Worker's answer to a search: the places, what kind of place was asked for (null for a name search), and why there are none ("need_position"). */
+class PlacesAnswer(val places: List<Place>, val category: String?, val error: String?)
 
 data class Leg(val mode: String, val line: String, val headsign: String, val fromName: String, val toName: String, val departIso: String, val arriveIso: String, val minutes: Int, val live: Boolean, val points: String?)
 data class Journey(val minutes: Int, val startIso: String, val endIso: String, val transfers: Int, val live: Boolean, val legs: List<Leg>)
@@ -21,13 +27,26 @@ enum class RowAction { OPEN, LATER, TOMORROW }
 
 /** Parsing of the Worker's answers and the words shown on the keypad screens. Pure, tested without a phone. */
 object Where {
-    fun parsePlaces(text: String): List<Place> = try {
-        val a = JSONObject(text).optJSONArray("places") ?: JSONArray()
-        (0 until a.length()).mapNotNull { i ->
-            a.optJSONObject(i)?.let { o -> if (o.has("lat") && o.has("lon") && o.optString("name").isNotBlank())
-                Place(o.optString("name").trim(), o.optString("kind"), o.optString("area").trim(), o.getDouble("lat"), o.getDouble("lon"), if (o.has("km")) o.optDouble("km") else null) else null }
+    private fun info(o: JSONObject?): PlaceInfo? = o?.let {
+        val d = it.optJSONArray("diet")
+        PlaceInfo(it.optString("hours").trim(), if (it.has("open")) it.optBoolean("open") else null, it.optString("until"), it.optString("opens"), it.optString("takeaway"),
+            (0 until (d?.length() ?: 0)).map { i -> d!!.optString(i) }.filter { x -> x.isNotBlank() }, it.optString("wheelchair"), it.optString("phone").trim())
+    }
+
+    private fun placesOf(a: JSONArray): List<Place> = (0 until a.length()).mapNotNull { i ->
+        a.optJSONObject(i)?.let { o ->
+            val type = o.optString("type").trim(); val name = o.optString("name").trim().ifEmpty { type } // a place with no name shows its kind as the title
+            if (o.has("lat") && o.has("lon") && name.isNotBlank()) Place(name, o.optString("kind"), o.optString("area").trim(), o.getDouble("lat"), o.getDouble("lon"), if (o.has("km")) o.optDouble("km") else null, type, info(o.optJSONObject("info"))) else null
         }
-    } catch (_: Exception) { emptyList() }
+    }
+
+    fun parsePlaces(text: String): List<Place> = try { placesOf(JSONObject(text).optJSONArray("places") ?: JSONArray()) } catch (_: Exception) { emptyList() }
+
+    /** A search answer with its extras; an old Worker sends only the places, so category and error come back null. */
+    fun parseAnswer(text: String): PlacesAnswer = try {
+        val j = JSONObject(text)
+        PlacesAnswer(placesOf(j.optJSONArray("places") ?: JSONArray()), j.optString("category").ifEmpty { null }, j.optString("error").ifEmpty { null })
+    } catch (_: Exception) { PlacesAnswer(emptyList(), null, null) }
 
     private fun geometry(o: JSONObject?): String? = o?.optJSONObject("geometry")?.optString("points")?.takeIf { it.isNotEmpty() }
 
@@ -55,6 +74,32 @@ object Where {
 
     /** "9.2 km  Bus stop": what is said under the list about the highlighted place. */
     fun placeNote(p: Place): String = listOfNotNull(p.km?.let { kmText(it) }, when (p.kind) { "stop" -> "Bus or train stop"; "postcode" -> "Postcode"; "address" -> "Address"; else -> null }).joinToString("  ")
+
+    /** The short line under a place's name in the list: its kind ("Italian restaurant") when the Worker sent one. */
+    fun placeSub(p: Place): String = p.type.takeIf { it.isNotBlank() && !it.equals(p.name, true) }.orEmpty()
+
+    /** "250 m, about 3 min walk" from the distance the list already gave (walking at 80 m a minute); "" when there is no distance. */
+    fun walkLine(p: Place): String = p.km?.let { k -> kmText(k) + ", about " + maxOf(1, Math.round(k * 1000 / 80.0).toInt()) + " min walk" }.orEmpty()
+
+    /** The lines of a place's detail page: only what the data says, never an "unknown" line. */
+    fun detailLines(p: Place): List<String> {
+        val i = p.info
+        val out = ArrayList<String>()
+        if (p.type.isNotBlank() && !p.type.equals(p.name, true)) out += p.type
+        if (p.area.isNotBlank() && p.kind == "poi") out += p.area
+        if (i != null) {
+            val open = when { i.open == true -> "Open" + (if (i.until.isNotEmpty()) " until ${i.until}" else " now"); i.open == false -> "Closed" + (if (i.opens.isNotEmpty()) ", opens ${i.opens}" else ""); else -> "" }
+            if (open.isNotEmpty()) out += open
+            if (i.hours.isNotEmpty()) out += if (open.isEmpty()) "Hours: ${i.hours}" else i.hours
+            val extras = listOfNotNull(when (i.takeaway) { "yes" -> "Takeaway"; "only" -> "Takeaway only"; "no" -> "No takeaway"; else -> null }) + i.diet.mapNotNull { when (it) { "vegan" -> "Vegan options"; "vegetarian" -> "Vegetarian options"; else -> null } }
+            if (extras.isNotEmpty()) out += extras.joinToString(", ")
+            when (i.wheelchair) { "yes" -> out += "Wheelchair: yes"; "limited" -> out += "Wheelchair: limited"; "no" -> out += "Wheelchair: no" }
+            if (i.phone.isNotEmpty()) out += i.phone
+        }
+        walkLine(p).takeIf { it.isNotEmpty() }?.let { out += it }
+        if (out.isEmpty()) out += "No more details held for this place"
+        return out
+    }
 
     /** Nearest first when the Worker sent distances (a child asking for "station" wants the closest one); otherwise the Worker's own order. */
     fun nearestFirst(list: List<Place>): List<Place> = if (list.isNotEmpty() && list.all { it.km != null }) list.sortedBy { it.km } else list

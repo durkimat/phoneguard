@@ -151,4 +151,45 @@ class WhereFlowTest {
         assertEquals(io.github.durkimat.phoneguard.where.MapFit.ZOOM_OUT, m.whereZoom)
         assertTrue(m.whereMapFit != null)
     }
+
+    private val poiJson = """{"places":[
+      {"name":"Marco's","kind":"poi","type":"Italian restaurant","info":{"hours":"Mo-Su 12:00-22:00","open":true,"until":"22:00","takeaway":"yes","diet":["vegetarian"],"wheelchair":"yes","phone":"01727 555 0142"},"lat":51.75,"lon":-0.33,"km":0.25},
+      {"name":"","kind":"poi","type":"Cash machine","lat":51.751,"lon":-0.33,"km":0.4}],"category":"restaurant","radius":1000,"near":{"lat":51.75,"lon":-0.33}}"""
+
+    @Test fun aPlaceFoundByKindOpensItsDetailThenTheWaysThereAndBackComesBackToTheDetail() {
+        val m = phone(); m.key(Key.OK); m.key(Key.OK); m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3); m.key(Key.OK)
+        m.setWherePlaces(Where.parseAnswer(poiJson).places, "No places found", "from last known position")
+        assertEquals(listOf("Marco's", "Cash machine"), m.rows); assertEquals(listOf("Italian restaurant", ""), m.rowSubs)   // an unnamed place is titled by its kind, with no second line
+        assertEquals("250 m  from last known position", m.wherePlaceNote)
+        val a = m.key(Key.OK)
+        assertEquals(Screen.WHEREDETAIL, m.screen); assertTrue(a is Action.Redraw); assertEquals("Marco's", m.title)
+        assertEquals(listOf("Italian restaurant", "Open until 22:00", "Mo-Su 12:00-22:00", "Takeaway, Vegetarian options", "Wheelchair: yes", "01727 555 0142", "250 m, about 3 min walk"), m.rows)
+        assertEquals("Go", m.softKeys.first)
+        val r = m.key(Key.OK); assertTrue(r is Action.WhereRoute); assertEquals(Screen.WHEREJOURNEYS, m.screen)
+        m.setWherePlan(Where.parsePlan(planJson), "my position", "")
+        m.key(Key.SOFT_RIGHT); assertEquals(Screen.WHEREDETAIL, m.screen)      // Back from the ways returns to the detail
+        m.key(Key.SOFT_RIGHT); assertEquals(Screen.WHEREPLACES, m.screen); assertEquals(0, m.selected)
+        m.key(Key.DOWN); m.key(Key.OK); assertEquals(Screen.WHEREDETAIL, m.screen); assertEquals("Cash machine", m.title)
+        assertEquals(listOf("400 m, about 5 min walk"), m.rows.filter { it.contains("walk") })
+        m.key(Key.END); assertEquals(Screen.HOME, m.screen)
+    }
+
+    @Test fun placesFromAnOldWorkerAndTheRecentPlacesStillGoStraightToTheWays() {
+        val m = phone(); m.key(Key.OK); m.key(Key.OK); m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3); m.key(Key.OK)
+        m.setWherePlaces(Where.parseAnswer("""{"places":[{"name":"Hexham Station","kind":"stop","area":"Northumberland","lat":54.97,"lon":-2.1}]}""").places, "")
+        assertTrue(m.key(Key.OK) is Action.WhereRoute); assertEquals(Screen.WHEREJOURNEYS, m.screen)
+        val r = phone(); r.whereRecentsLoader = { Where.parsePlaces(poiJson).take(1) }; r.key(Key.OK); r.key(Key.OK)
+        assertEquals(Screen.WHEREPLACES, r.screen); assertEquals(1, r.selected); assertTrue(r.key(Key.OK) is Action.WhereRoute)   // recents: row 0 is "Search for a place...", the rest go straight to the ways
+    }
+
+    @Test fun noPositionAsksForATownThenSearchesAroundIt() {
+        val m = phone(); m.key(Key.OK); m.key(Key.OK); m.key(Key.DIGIT, 2); m.key(Key.DIGIT, 2); m.key(Key.OK)
+        m.askWhereTown("cafe")
+        assertEquals(Screen.WRITE, m.screen)
+        m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3)
+        val a = m.key(Key.OK)
+        assertTrue(a is Action.WhereTown); assertEquals("cafe", (a as Action.WhereTown).query); assertEquals(2, a.town.length)
+        assertEquals(Screen.WHEREPLACES, m.screen); assertEquals("Searching...", m.whereStatus)
+        m.setWherePlaces(Where.parseAnswer(poiJson).places, "", "near Hatfield"); assertEquals("250 m  near Hatfield", m.wherePlaceNote)
+    }
 }

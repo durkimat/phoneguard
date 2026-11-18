@@ -62,4 +62,24 @@ class WhereTest {
         assertEquals(38.5, pts[0].first, 1e-6); assertEquals(-120.2, pts[0].second, 1e-6)
         assertEquals(43.252, pts[2].first, 1e-6); assertEquals(-126.453, pts[2].second, 1e-6)
     }
+
+    @Test fun placesFoundByKindKeepTheirTypeAndInfoAndUnnamedOnesAreTitledByType() {
+        val a = Where.parseAnswer("""{"places":[{"name":"Marco's","kind":"poi","type":"Italian restaurant","info":{"hours":"Mo-Su 12:00-22:00","open":false,"opens":"12:00","takeaway":"only","diet":["vegan","vegetarian"],"wheelchair":"limited","phone":"01727 555 0142"},"lat":51.75,"lon":-0.33,"km":0.25},{"name":"","kind":"poi","type":"Post box","lat":51.7,"lon":-0.3,"km":0.6},{"name":"","kind":"poi","lat":1.0,"lon":1.0}],"category":"restaurant","radius":2000,"error":null}""")
+        assertEquals(2, a.places.size); assertEquals("restaurant", a.category); assertEquals(null, a.error)
+        val p = a.places[0]; assertEquals("Italian restaurant", Where.placeSub(p)); assertEquals(false, p.info!!.open); assertEquals(listOf("vegan", "vegetarian"), p.info!!.diet)
+        assertEquals("Post box", a.places[1].name); assertEquals("", Where.placeSub(a.places[1])); assertEquals(null, a.places[1].info)
+        assertEquals(listOf("Italian restaurant", "Closed, opens 12:00", "Mo-Su 12:00-22:00", "Takeaway only, Vegan options, Vegetarian options", "Wheelchair: limited", "01727 555 0142", "250 m, about 3 min walk"), Where.detailLines(p))
+        assertEquals("No more details held for this place", Where.detailLines(Place("Smiths", "poi", "", 0.0, 0.0, null)).single())
+        assertEquals(listOf("Hours: Mo-Sa 9-5 by appointment"), Where.detailLines(Place("X", "poi", "", 0.0, 0.0, null, "X", PlaceInfo(hours = "Mo-Sa 9-5 by appointment"))))
+        assertEquals("1 min walk" , Where.walkLine(Place("A", "poi", "", 0.0, 0.0, 0.01)).substringAfter(", about "))
+    }
+
+    @Test fun anAnswerFromAnOldWorkerOrTheNeedPositionAnswerParses() {
+        val old = Where.parseAnswer("""{"places":[{"name":"Hexham Station","kind":"stop","area":"Northumberland","lat":54.97,"lon":-2.1}]}""")
+        assertEquals(1, old.places.size); assertEquals(null, old.category); assertEquals(null, old.error); assertEquals("", old.places[0].type); assertEquals(null, old.places[0].info)
+        val need = Where.parseAnswer("""{"places":[],"category":"cafe","error":"need_position"}""")
+        assertEquals("need_position", need.error); assertTrue(need.places.isEmpty())
+        assertTrue(Where.parseAnswer("garbage").places.isEmpty())
+        assertEquals("Can't search places now", WhereReply.search(503)); assertEquals("Used up for today", WhereReply.search(429))
+    }
 }
