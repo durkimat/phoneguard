@@ -324,7 +324,7 @@ export function view(ch, rt, options, latest, nowMs) {
     modes: Object.fromEntries(Object.entries(ch.modes).map(([id, m]) => [id, S.modeWithDefaults(id, m)])),
     override: ch.override in ch.modes ? ch.override : null, week: ch.week, holiday: ch.holiday ?? null,
     mode_now: S.resolveMode(cfg, b, nowMs), boost: b, now: nowMs,
-    restrictions: ch.restrictions ?? null, whatsapp: S.whatsappWithDefaults(ch), radio_stations: ch.radio_stations ?? [], pinned: ch.pinned ?? [], look: ch.look ?? {},
+    restrictions: ch.restrictions ?? null, whatsapp: S.whatsappWithDefaults(ch), wa_setup: ch.wa_setup ?? null, radio_stations: ch.radio_stations ?? [], pinned: ch.pinned ?? [], look: ch.look ?? {},
     notes_hide: ch.notes_hide ?? [], keep_running: ch.keep_running ?? S.DEFAULT_KEEP_RUNNING, idle_dry_run: Boolean(ch.idle_dry_run), location: ch.location ?? null,
     options: { ...(options ?? {}) },
     device: { last_seen: rt.last_seen, state: rt.state, cfgh: rt.cfgh, version: rt.state?.version ?? "", fix: rt.fix },
