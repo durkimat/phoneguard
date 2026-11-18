@@ -151,4 +151,11 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   throwsMsg(() => H.updateChild(ch, { modes: { ...ch.modes, day: { ...ch.modes.day, voice_cmds: "yes" } } }, T0), /voice_cmds must be true or false/);
   ok("voice typing and voice commands are per-mode settings: off in School/work, on elsewhere, and only true or false is accepted"); }
 
+{ const { ch } = fresh(), cfg = S.buildConfig(ch, T0);
+  assert.equal(cfg.modes.school.alarms, false); assert.equal("alarms" in cfg.modes.day, false); assert.equal("alarmVolume" in cfg, false); assert.equal("timeLocal" in cfg, false);
+  H.updateChild(ch, { modes: { ...ch.modes, school: { ...ch.modes.school, alarms: true } } }, T0); assert.equal("alarms" in S.buildConfig(ch, T0).modes.school, false);
+  H.updateChild(ch, { alarm_volume: 6, time_local: true }, T0); const c2 = S.buildConfig(ch, T0); assert.equal(c2.alarmVolume, 6); assert.equal(c2.timeLocal, true);
+  throwsMsg(() => H.updateChild(ch, { alarm_volume: 9 }, T0), /1 to 7/); throwsMsg(() => H.updateChild(ch, { modes: { ...ch.modes, day: { ...ch.modes.day, alarms: "no" } } }, T0), /alarms must be true or false/);
+  ok("alarms are a per-mode setting (off in School by default, sent only when off), with an alarm volume and a 'time can be set on the phone' option"); }
+
 console.log(`\n${n} checks passed`);

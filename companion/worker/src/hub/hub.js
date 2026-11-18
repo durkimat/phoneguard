@@ -13,7 +13,7 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const isInt = (x) => Number.isInteger(x);
 const fail = (m) => { throw new Error(m); };
 
-export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "wa_setup", "auto_update", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars"];
+export const UPDATABLE = ["name", "person", "override", "tz", "base", "notify", "modes", "week", "holiday", "protect_extra", "unprotect", "restrictions", "whatsapp", "wa_setup", "auto_update", "pinned", "location", "notes_hide", "keep_running", "idle_dry_run", "radio_stations", "look", "email", "calendars", "alarm_volume", "time_local"];
 
 /** Overnight app updates (default on, Wi-Fi only, 03:00). Stored only once the companion changes something; the phone's defaults are the same. */
 export function cleanAutoUpdate(v) {
@@ -77,6 +77,8 @@ export function updateChild(ch, patch, nowMs, options = null) {
     if (k === "pinned" && Array.isArray(v)) v = [...new Set(v.filter((x) => typeof x === "string" && x))];
     if (UPDATABLE.includes(k)) ch[k] = v;
   }
+  if ("alarm_volume" in ch && ch.alarm_volume != null && !(Number.isInteger(ch.alarm_volume) && ch.alarm_volume >= 1 && ch.alarm_volume <= 7)) fail("alarm volume must be a whole number from 1 to 7");
+  if ("time_local" in ch && ch.time_local != null && typeof ch.time_local !== "boolean") fail("time_local must be true or false");
   try { validateChild(ch, nowMs, options); }
   catch (e) { for (const k of UPDATABLE) delete ch[k]; Object.assign(ch, before); throw e; }   // a bad change is never kept, let alone sent to the phone
 }
@@ -123,7 +125,7 @@ export function validateChild(ch, nowMs, options = null) {
     if (!S.WA_APPS.includes(m.wa_app ?? "auto")) fail(`mode '${mid}' has an unknown WhatsApp app setting '${m.wa_app}'`);
     if ("radios_sleep" in m && typeof m.radios_sleep !== "boolean") fail(`mode '${mid}': radios_sleep must be true or false`);
     if ("data_widget" in m && typeof m.data_widget !== "boolean") fail(`mode '${mid}': data_widget must be true or false`);
-    for (const k of ["voice_typing", "voice_cmds", "where_to"]) if (k in m && typeof m[k] !== "boolean") fail(`mode '${mid}': ${k} must be true or false`);
+    for (const k of ["voice_typing", "voice_cmds", "where_to", "alarms"]) if (k in m && typeof m[k] !== "boolean") fail(`mode '${mid}': ${k} must be true or false`);
     if (!S.RADIO_MODES.includes(m.radio ?? "any")) fail(`mode '${mid}' has an unknown radio setting '${m.radio}'`);
     if (!S.NOTE_MODES.includes(m.notes ?? "show")) fail(`mode '${mid}' has an unknown notifications setting '${m.notes}'`);
     if (!S.LOC_MODES.includes(m.location ?? "off")) fail(`mode '${mid}' has an unknown location setting '${m.location}'`);
@@ -335,7 +337,7 @@ export function view(ch, rt, options, latest, nowMs) {
     modes: Object.fromEntries(Object.entries(ch.modes).map(([id, m]) => [id, S.modeWithDefaults(id, m)])),
     override: ch.override in ch.modes ? ch.override : null, week: ch.week, holiday: ch.holiday ?? null,
     mode_now: S.resolveMode(cfg, b, nowMs), boost: b, now: nowMs,
-    restrictions: ch.restrictions ?? null, whatsapp: S.whatsappWithDefaults(ch), wa_setup: ch.wa_setup ?? null, auto_update: ch.auto_update ?? null, radio_stations: ch.radio_stations ?? [], pinned: ch.pinned ?? [], look: ch.look ?? {},
+    restrictions: ch.restrictions ?? null, whatsapp: S.whatsappWithDefaults(ch), wa_setup: ch.wa_setup ?? null, auto_update: ch.auto_update ?? null, radio_stations: ch.radio_stations ?? [], pinned: ch.pinned ?? [], look: ch.look ?? {}, alarm_volume: ch.alarm_volume ?? null, time_local: Boolean(ch.time_local),
     notes_hide: ch.notes_hide ?? [], keep_running: ch.keep_running ?? S.DEFAULT_KEEP_RUNNING, idle_dry_run: Boolean(ch.idle_dry_run), location: ch.location ?? null,
     options: { ...(options ?? {}) },
     device: { last_seen: rt.last_seen, state: rt.state, cfgh: rt.cfgh, version: rt.state?.version ?? "", fix: rt.fix },
