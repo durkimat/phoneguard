@@ -15,6 +15,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         Log.log(c, "trigger ${i.action?.substringAfterLast('.')}")
         GuardService.start(c)
+        io.github.durkimat.phoneguard.alarm.AlarmStore.reschedule(c) // alarms and the timer survive a restart, an update and a clock or zone change
         val pending = goAsync() // the evaluation waits on the system for seconds: not on the main thread
         Controller.evaluateAsync(c, i.action?.substringAfterLast('.') ?: "boot") {
             try {

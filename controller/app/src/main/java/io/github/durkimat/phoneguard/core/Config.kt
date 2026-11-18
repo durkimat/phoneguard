@@ -30,7 +30,7 @@ data class ModeDef(
     val camera: Boolean = true,
     /** Voice typing (the microphone button in text fields) and voice commands, per mode; the parent page sets them (off in School/work by default). */
     val voiceTyping: Boolean = true,
-    /** "Where to?" (places and journeys through the Worker) in this mode; the Worker refuses the lookups with where_off when it is false. */
+    /** "Navigate" (places and journeys through the Worker) in this mode; the Worker refuses the lookups with where_off when it is false. */
     val whereTo: Boolean = true,
     val voiceCmds: Boolean = true,
     /** Position reporting: "off", "network" (low accuracy) or "gps". Off also switches the phone's location off. */
@@ -49,6 +49,8 @@ data class ModeDef(
     val radiosSleep: Boolean = true,
     /** Whether the mobile data left is shown on the home screen (when a plan is set on the phone). */
     val dataWidget: Boolean = true,
+    /** Whether alarms and the timer may ring in this mode (the parent page turns this off in School/work). Absent = on. */
+    val alarms: Boolean = true,
 )
 
 /** One internet radio station: a name for the screens and an https stream address. */
@@ -126,6 +128,10 @@ data class Config(
     val appCommands: List<AppCmd> = emptyList(),
     /** Look settings a parent chose in HA (each optional); they win over the phone's own choice for that setting. */
     val look: ParentLook? = null,
+    /** Alarm volume the parent chose (1 to 7), or 0 to leave it to the phone's own setting. */
+    val alarmVolume: Int = 0,
+    /** Whether the Clock app offers "Set time" (otherwise the time comes from the network only). */
+    val timeLocal: Boolean = false,
 ) {
     companion object {
         private fun strings(a: JSONArray?): Set<String> {
@@ -165,6 +171,7 @@ data class Config(
                     radio = m.optString("radio", "any"),
                     radiosSleep = m.optBoolean("radiosSleep", true),
                     dataWidget = m.optBoolean("dataWidget", true),
+                    alarms = m.optBoolean("alarms", true),
                 )
             }
             val segs = o.optJSONArray("segments")?.let { a ->
@@ -196,6 +203,8 @@ data class Config(
                 unprotect = strings(o.optJSONArray("unprotect")),
                 restrictions = if (o.has("restrictions")) strings(o.getJSONArray("restrictions")) else null,
                 override = o.optString("override", "").ifEmpty { null },
+                alarmVolume = o.optInt("alarmVolume", 0).coerceIn(0, 7),
+                timeLocal = o.optBoolean("timeLocal", false),
                 lat = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lat"),
                 lon = o.optJSONObject("location")?.takeIf { it.has("lat") && it.has("lon") }?.optDouble("lon"),
                 notesHide = strings(o.optJSONArray("notesHide")),

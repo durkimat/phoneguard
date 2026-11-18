@@ -46,8 +46,11 @@ object Engine {
 
     fun locRank(l: String) = when (l) { "gps" -> 2; "network" -> 1; else -> 0 }
 
-    /** Whether "Where to?" is on in the mode in force now (absent in older configs = on). */
+    /** Whether "Navigate" is on in the mode in force now (absent in older configs = on). */
     fun whereTo(cfg: Config?, now: Long): Boolean = modeDef(cfg, scheduledMode(cfg, now)).whereTo
+
+    /** Whether alarms and the timer may ring in the mode in force now (absent in older configs = on). */
+    fun alarms(cfg: Config?, now: Long): Boolean = modeDef(cfg, scheduledMode(cfg, now)).alarms
 
     /** Voice typing and voice commands in the mode that is in force now (a boost does not change them). */
     fun voice(cfg: Config?, now: Long): Pair<Boolean, Boolean> = modeDef(cfg, scheduledMode(cfg, now)).let { it.voiceTyping to it.voiceCmds }

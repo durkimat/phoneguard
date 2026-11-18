@@ -12,7 +12,7 @@ import org.junit.Test
 class JourneyTest {
     private val items = listOf(
         MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
-        MenuItem(MAIL_PKG, "Email"), MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(MUSIC_PKG, "Music"), MenuItem(WHERE_PKG, "Where to?"), MenuItem(APPS_PKG, "Apps"), MenuItem(WEATHER_PKG, "Weather"),
+        MenuItem(MAIL_PKG, "Email"), MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(MUSIC_PKG, "Music"), MenuItem(WHERE_PKG, "Navigate"), MenuItem(APPS_PKG, "Apps"), MenuItem(WEATHER_PKG, "Weather"),
         MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(CALLLOG_PKG, "Calls"), MenuItem(SETTINGS_PKG, "Settings"),
     )
 
@@ -179,7 +179,7 @@ class JourneyTest {
     @Test fun everyScreenCanBeReached() {
         val reached = explored.values.flatMap { it.seen.keys.map { s -> s.screen } }.toSet()
         // a live call, and typed text sent to Spotify, which the keys alone cannot produce
-        val needsSomethingElse = setOf(Screen.CALL, Screen.CALLMENU, Screen.SEARCHRES, Screen.FIRSTRUN, Screen.WHEREPLACES, Screen.WHEREDETAIL, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP, Screen.DATAAPPS) // DATAAPPS needs a data plan reading; the Where to? lists need answers from the Worker (WhereFlowTest); FIRSTRUN is only on a new phone and cannot be left: EditionScreensTest
+        val needsSomethingElse = setOf(Screen.CALL, Screen.CALLMENU, Screen.SEARCHRES, Screen.FIRSTRUN, Screen.WHEREPLACES, Screen.WHEREDETAIL, Screen.WHEREJOURNEYS, Screen.WHERELEGS, Screen.WHEREMAP, Screen.DATAAPPS, Screen.CLOCK, Screen.ALARMS, Screen.TIMER, Screen.STOPWATCH, Screen.RING) // the Clock app is reached with Up on the home screen (ClockFlowTest) and RING is shown by the alarm; DATAAPPS needs a data plan reading; the Navigate lists need answers from the Worker (WhereFlowTest); FIRSTRUN is only on a new phone and cannot be left: EditionScreensTest
         val missing = Screen.values().filter { it !in reached && it !in needsSomethingElse }
         assertEquals("screens no key path reaches (add data to the test phone or fix the route): $missing", emptyList<Screen>(), missing)
     }

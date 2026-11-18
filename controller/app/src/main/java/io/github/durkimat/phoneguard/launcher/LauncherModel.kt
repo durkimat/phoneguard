@@ -1,5 +1,12 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.phoneguard.alarm.Alarm
+import io.github.durkimat.phoneguard.alarm.AlarmMath
+import io.github.durkimat.phoneguard.alarm.ClockPrefs
+import io.github.durkimat.phoneguard.alarm.Stopwatch
+import io.github.durkimat.phoneguard.alarm.TimerState
+import io.github.durkimat.phoneguard.alarm.Tones
+
 import io.github.durkimat.phoneguard.core.OpenConfig
 import io.github.durkimat.phoneguard.calendar.AgendaItem
 import io.github.durkimat.phoneguard.calendar.Cal
@@ -17,7 +24,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -196,6 +203,9 @@ sealed class Action {
     data class CallVolume(val delta: Int) : Action()
     /** The call screen is finished with. */
     object CloseCall : Action()
+    /** The ring screen: snooze the alarm (nine minutes) or stop it. */
+    object AlarmSnooze : Action()
+    object AlarmStop : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
     object MusicPlayPause : Action()
@@ -209,7 +219,7 @@ sealed class Action {
     data class SpPlay(val uri: String) : Action()
     /** A playlist was pinned or unpinned on the Playlists screen: the phone remembers it. */
     data class SpPin(val uri: String, val pinned: Boolean) : Action()
-    /** "Where to?": look a place up, or plan the way there. */
+    /** "Navigate": look a place up, or plan the way there. */
     data class WhereSearch(val query: String) : Action()
     /** A kind of place was asked for with no position: the town the child named is found, then the kind of place around it. */
     data class WhereTown(val town: String, val query: String) : Action()
@@ -549,11 +559,16 @@ class LauncherModel(
         Screen.SOUNDTEST -> "Sound test"
         Screen.MUSICMENU -> "Music"
         Screen.PLAYLISTS -> if (spOfflineOnly) "Offline playlists" else "Playlists"
-        Screen.WHEREPLACES -> "Where to?"
+        Screen.WHEREPLACES -> "Navigate"
         Screen.WHEREDETAIL -> wherePlace?.name.orEmpty()
         Screen.WHEREJOURNEYS -> (if (whereFrom.isNotEmpty()) "From $whereFrom to " else "To ") + (wherePlace?.name ?: "")
         Screen.WHERELEGS -> whereJourney?.let { io.github.durkimat.phoneguard.where.Where.liveTag(it) } ?: "Walk"
         Screen.WHEREMAP -> "Map"
+        Screen.CLOCK -> "Clock"
+        Screen.ALARMS -> "Alarms"
+        Screen.TIMER -> "Timer"
+        Screen.STOPWATCH -> "Stopwatch"
+        Screen.RING -> if (ringKind == "timer") "Timer" else "Alarm"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -593,6 +608,10 @@ class LauncherModel(
         Screen.WHEREJOURNEYS -> "Details" to "Back"
         Screen.WHERELEGS -> "Map" to "Back"
         Screen.WHEREMAP -> "" to "Back"
+        Screen.CLOCK, Screen.ALARMS -> "Select" to "Back"
+        Screen.TIMER -> (if (timer.running) "Pause" else if (timer.paused) "Resume" else "Start") to "Back"
+        Screen.STOPWATCH -> (if (stopwatch.running) "Stop" else "Start") to "Back"
+        Screen.RING -> (if (ringKind == "timer") "" else "Snooze") to "Stop"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
@@ -660,6 +679,9 @@ class LauncherModel(
         Screen.WHEREJOURNEYS -> whereRows.map { it.label }
         Screen.WHERELEGS -> whereLegs.map { io.github.durkimat.phoneguard.where.Where.legLine(it) }
         Screen.WHEREMAP -> emptyList()
+        Screen.CLOCK -> clockRows
+        Screen.ALARMS -> alarmRows
+        Screen.TIMER, Screen.STOPWATCH, Screen.RING -> emptyList()
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -706,7 +728,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
+    private val numbered = setOf(Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -782,6 +804,11 @@ class LauncherModel(
         Screen.EVENT -> eventKey(key)
         Screen.EVMENU -> evMenuKey(key)
         Screen.FORM -> formKey(key)
+        Screen.CLOCK -> clockKey(key)
+        Screen.ALARMS -> alarmsKey(key)
+        Screen.TIMER -> timerKey(key, digit, nowMs)
+        Screen.STOPWATCH -> stopwatchKey(key, nowMs)
+        Screen.RING -> ringKey(key)
         Screen.MAILBOX -> mailBoxKey(key)
         Screen.MAILLIST -> mailListKey(key)
         Screen.MAILMSG -> mailMsgKey(key)
@@ -1478,6 +1505,7 @@ class LauncherModel(
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
         if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
         if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
+        add(clockTarget())
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
     }
 
@@ -1488,7 +1516,7 @@ class LauncherModel(
         val list = homeTargets()
         if (list.isEmpty()) { homeFocus = -1; return null }
         return when (key) {
-            Key.UP, Key.LEFT -> { homeFocus = if (homeFocus < 0) (list.indexOfFirst { it.kind == "weather" }.takeIf { it >= 0 } ?: 0) else (homeFocus - 1).coerceAtLeast(0); Action.Redraw }
+            Key.UP, Key.LEFT -> { homeFocus = if (homeFocus < 0) (list.indexOfFirst { it.kind == "clock" }.takeIf { it >= 0 } ?: 0) else (homeFocus - 1).coerceAtLeast(0); Action.Redraw }
             Key.DOWN, Key.RIGHT -> { homeFocus = if (homeFocus < 0) -1 else if (homeFocus + 1 >= list.size) -1 else homeFocus + 1; Action.Redraw }
             Key.END, Key.SOFT_RIGHT -> { homeFocus = -1; Action.Redraw }
             Key.OK, Key.SOFT_LEFT -> {
@@ -1500,6 +1528,7 @@ class LauncherModel(
                     "bt" -> { openConnection(Screen.BT); Action.BtLoad }
                     "battery" -> { enter(Screen.BATTERY); Action.Redraw }
                     "weather" -> openWeather()
+                    "clock" -> openClock()
                     "data" -> { enter(Screen.DATA); Action.DataLoad }
                     else -> t.badge?.let { openBadge(it) } ?: Action.Redraw
                 }
@@ -1537,7 +1566,7 @@ class LauncherModel(
     }
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
-    private val rowScreens = setOf(Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
+    private val rowScreens = setOf(Screen.CLOCK, Screen.ALARMS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
         Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
@@ -1636,6 +1665,7 @@ class LauncherModel(
         }
         if (screen == Screen.HOME) {
             if (weather != null && y in (weatherCy(Themes.byId(theme).skin == "mac") - 34f)..(weatherCy(Themes.byId(theme).skin == "mac") + 34f)) return openWeather()
+            clockTarget().let { if (x in it.l..it.r && y in it.t..it.b) return openClock() }
             if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
             return Action.None
         }
@@ -2037,7 +2067,164 @@ class LauncherModel(
         else -> Action.None
     }
 
-    // ---- "Where to?": type or speak a place, pick it, see the ways to get there (the Worker's /api/geo calls; docs/where-to-protocol.md)
+
+    // ---- Clock: alarms, timer, stopwatch, set time. The activity loads the saved state in and saves what the model changes (the callbacks).
+    var alarms: List<Alarm> = emptyList()
+    var clockPrefs = ClockPrefs()
+    var timer = TimerState()
+    var stopwatch = Stopwatch()
+    /** Alarms may ring in the mode in force (the screens say so when not), and whether "Set time" is offered. */
+    var alarmsAllowed = true
+    var timeSettable = false
+    var onAlarms: (List<Alarm>) -> Unit = {}
+    var onClockPrefs: (ClockPrefs) -> Unit = {}
+    var onTimer: (TimerState) -> Unit = {}
+    var onStopwatch: (Stopwatch) -> Unit = {}
+    var onSetTime: (Long) -> Boolean = { false }
+    var ringKind = "alarm"; var ringTime = ""; var ringQuiet = false
+
+    fun setRing(kind: String, time: String, quiet: Boolean) {
+        ringKind = kind; ringTime = time; ringQuiet = quiet
+        if (screen != Screen.RING) { trail.clear(); screen = Screen.RING; selected = 0 }
+    }
+
+    /** Where the clock sits on the home screen, for the keypad highlight and a touch. */
+    fun clockTarget(): HomeTarget { val y = clockY(Themes.byId(theme).skin == "mac"); return HomeTarget("clock", 50f, y - 100f, 430f, y + 12f) }
+
+    fun openClock(): Action { enter(Screen.CLOCK); return Action.Redraw }
+
+    private val clockRows: List<String> get() = buildList {
+        add("Alarms"); add("Timer"); add("Stopwatch")
+        if (timeSettable) add("Set time")
+        add("Alarm sound and volume")
+    }
+
+    private fun clockKey(key: Key): Action {
+        val r = clockRows
+        return move(key, r.size) ?: when (key) {
+            Key.OK, Key.SOFT_LEFT -> when (r.getOrNull(selected)) {
+                "Alarms" -> { enter(Screen.ALARMS); if (!alarmsAllowed) notify("Alarms are off in this mode"); Action.Redraw }
+                "Timer" -> { enter(Screen.TIMER); Action.Redraw }
+                "Stopwatch" -> { enter(Screen.STOPWATCH); Action.Redraw }
+                "Set time" -> { pushForm(setTimeForm()); Action.Redraw }
+                "Alarm sound and volume" -> { pushForm(alarmSettingsForm()); Action.Redraw }
+                else -> Action.None
+            }
+            Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private val alarmRows: List<String> get() = alarms.map { AlarmMath.row(it) } + (if (alarms.size < AlarmMath.MAX_ALARMS) listOf("Add alarm") else emptyList())
+
+    private fun alarmsKey(key: Key): Action {
+        val n = alarmRows.size
+        return move(key, n) ?: when (key) {
+            Key.OK, Key.SOFT_LEFT -> {
+                val a = alarms.getOrNull(selected) ?: Alarm(AlarmMath.freeId(alarms), 7, 0)
+                if (a.id == 0) Action.None else { pushForm(alarmForm(a, alarms.none { it.id == a.id })); Action.Redraw }
+            }
+            Key.LEFT, Key.RIGHT -> { // switch the chosen alarm on or off without opening it
+                val a = alarms.getOrNull(selected) ?: return Action.None
+                saveAlarm(a.copy(on = !a.on), false); Action.Redraw
+            }
+            Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun saveAlarm(a: Alarm, announce: Boolean) {
+        alarms = (alarms.filter { it.id != a.id } + a).sortedBy { it.id }.take(AlarmMath.MAX_ALARMS)
+        onAlarms(alarms)
+        if (announce || a.on) AlarmMath.next(a, System.currentTimeMillis(), zone)?.let { if (a.on && announce) notify("Rings " + AlarmMath.until(it - System.currentTimeMillis())) }
+    }
+
+    private fun alarmForm(a0: Alarm, isNew: Boolean): Form {
+        var a = a0
+        val rows: () -> List<FormRow> = {
+            buildList {
+                add(FormRow("Alarm", { if (a.on) "On" else "Off" }, onStep = { _, _ -> a = a.copy(on = !a.on) }, okStep = true))
+                add(FormRow("Hour", { "%02d".format(a.hour) }, onStep = { d, big -> a = a.copy(hour = ((a.hour + d * (if (big) 6 else 1)) % 24 + 24) % 24) }))
+                add(FormRow("Minute", { "%02d".format(a.minute) }, onStep = { d, big -> a = a.copy(minute = ((a.minute + d * (if (big) 10 else 1)) % 60 + 60) % 60) }))
+                AlarmMath.dayNames.forEachIndexed { i, n ->
+                    add(FormRow(n, { if (a.days and (1 shl i) != 0) "On" else "-" }, onStep = { _, _ -> a = a.copy(days = a.days xor (1 shl i)) }, okStep = true))
+                }
+                add(FormRow("Repeat", { AlarmMath.daysLabel(a.days) }, onStep = { d, _ ->
+                    val presets = listOf(0, AlarmMath.WEEKDAYS, AlarmMath.WEEKEND, AlarmMath.EVERY)
+                    val i = presets.indexOf(a.days).let { if (it < 0) (if (d > 0) -1 else 0) else it }
+                    a = a.copy(days = presets[((i + d) % presets.size + presets.size) % presets.size])
+                }))
+                add(FormRow("Sound", { Tones.byId(a.tone).name }, onStep = { d, _ ->
+                    val i = Tones.all.indexOfFirst { it.id == a.tone }.coerceAtLeast(0)
+                    a = a.copy(tone = Tones.all[((i + d) % Tones.all.size + Tones.all.size) % Tones.all.size].id)
+                }))
+                if (!isNew) add(FormRow("Delete this alarm", run = { alarms = alarms.filter { it.id != a.id }; onAlarms(alarms); leave(); Action.Redraw }))
+            }
+        }
+        return Form(if (isNew) "New alarm" else "Alarm", "Save", rows) { saveAlarm(a.copy(on = a.on || isNew), true); leave(); Action.Redraw }
+    }
+
+    private fun alarmSettingsForm(): Form = Form("Alarm sound", "Done", {
+        listOf(
+            FormRow("Volume", { "${clockPrefs.volume} of ${AlarmMath.MAX_VOLUME}" }, onStep = { d, _ -> clockPrefs = clockPrefs.copy(volume = (clockPrefs.volume + d).coerceIn(1, AlarmMath.MAX_VOLUME)); onClockPrefs(clockPrefs) }),
+            FormRow("Gradual (gets louder)", { if (clockPrefs.crescendo) "On" else "Off" }, onStep = { _, _ -> clockPrefs = clockPrefs.copy(crescendo = !clockPrefs.crescendo); onClockPrefs(clockPrefs) }, okStep = true),
+        )
+    }) { leave(); Action.Redraw }
+
+    private fun setTimeForm(): Form {
+        var at = java.time.ZonedDateTime.now(zone).withSecond(0).withNano(0)
+        val rows: () -> List<FormRow> = {
+            listOf(
+                FormRow("Date", { Cal.dayName(at.toLocalDate()) + " " + at.dayOfMonth + " " + Cal.monthName(at.monthValue).take(3) + " " + at.year }, onStep = { d, big -> at = at.plusDays(d * (if (big) 7L else 1L)) }),
+                FormRow("Hour", { "%02d".format(at.hour) }, onStep = { d, big -> at = at.withHour(((at.hour + d * (if (big) 6 else 1)) % 24 + 24) % 24) }),
+                FormRow("Minute", { "%02d".format(at.minute) }, onStep = { d, big -> at = at.withMinute(((at.minute + d * (if (big) 10 else 1)) % 60 + 60) % 60) }),
+            )
+        }
+        return Form("Set time", "Set", rows) {
+            val ok = onSetTime(at.toInstant().toEpochMilli())
+            leave(); notify(if (ok) "Time set" else "This phone can't change the time"); Action.Redraw
+        }
+    }
+
+    private fun timerKey(key: Key, digit: Int, nowMs: Long): Action {
+        val t = timer
+        val idle = !t.running && !t.paused
+        fun set(n: TimerState) { timer = n; onTimer(n) }
+        return when (key) {
+            Key.OK, Key.SOFT_LEFT -> { set(if (t.running) t.pause(nowMs) else t.start(nowMs)); Action.Redraw }
+            Key.UP -> { if (idle) set(t.copy(length = (t.length + 60).coerceAtMost(99 * 3600))); Action.Redraw }
+            Key.DOWN -> { if (idle) set(t.copy(length = (t.length - 60).coerceAtLeast(10))); Action.Redraw }
+            Key.RIGHT -> { if (idle) set(t.copy(length = (t.length + 10).coerceAtMost(99 * 3600))); Action.Redraw }
+            Key.LEFT -> { if (idle) set(t.copy(length = (t.length - 10).coerceAtLeast(10))); Action.Redraw }
+            Key.DIGIT -> { if (idle) set(t.copy(length = (if (digit == 0) 10 else digit) * 60)); Action.Redraw }
+            Key.STAR -> { if (!idle) set(t.reset()); Action.Redraw }
+            Key.SOFT_RIGHT -> { leave(); Action.Redraw } // a running timer carries on
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun stopwatchKey(key: Key, nowMs: Long): Action {
+        fun set(n: Stopwatch) { stopwatch = n; onStopwatch(n) }
+        return when (key) {
+            Key.OK, Key.SOFT_LEFT -> { set(stopwatch.toggle(nowMs)); Action.Redraw }
+            Key.DOWN, Key.POUND -> { set(stopwatch.lap(nowMs)); Action.Redraw }
+            Key.STAR -> { if (!stopwatch.running) set(Stopwatch()); Action.Redraw }
+            Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    private fun ringKey(key: Key): Action = when (key) {
+        Key.OK, Key.SOFT_LEFT -> if (ringKind == "timer") Action.AlarmStop else Action.AlarmSnooze
+        Key.SOFT_RIGHT, Key.END -> Action.AlarmStop
+        else -> Action.None
+    }
+
+    // ---- "Navigate": type or speak a place, pick it, see the ways to get there (the Worker's /api/geo calls; docs/where-to-protocol.md)
     var whereResults: List<io.github.durkimat.phoneguard.where.Place> = emptyList()
         private set
     var whereRows: List<io.github.durkimat.phoneguard.where.JourneyRow> = emptyList()
@@ -2077,7 +2264,7 @@ class LauncherModel(
     /** The words under the map: the leg in focus, or the off-route notice, or that there is no position. */
     val whereMapCaption: String get() = if (whereOffRoute) "Off route: OK to re-plan" else whereLegs.getOrNull(whereMapLeg)?.let { io.github.durkimat.phoneguard.where.Where.legLine(it) } ?: ""
     private var whereQuery = ""
-    /** The places picked before (newest first), read when "Where to?" opens; set by the activity. */
+    /** The places picked before (newest first), read when "Navigate" opens; set by the activity. */
     var whereRecentsLoader: () -> List<io.github.durkimat.phoneguard.where.Place> = { emptyList() }
     /** True while the places list shows the recent places (first row "Search for a place...") instead of search results. */
     var whereRecent = false
@@ -2104,7 +2291,7 @@ class LauncherModel(
     /** Detail pages are for places found by kind in this search; the recent places go straight to the ways there. */
     private fun hasDetail(p: io.github.durkimat.phoneguard.where.Place?) = p != null && p.kind == "poi" && !whereRecent
 
-    /** Opens "Where to?" with the words already typed (a spoken "navigate to ..."); the child still picks the place. */
+    /** Opens "Navigate" with the words already typed (a spoken "navigate to ..."); the child still picks the place. */
     fun openWhere(text: String): Action = whereStart(text)
 
     /** A spoken "navigate to X": the search runs at once and the places are listed; the child still picks the place. */
@@ -2123,7 +2310,7 @@ class LauncherModel(
 
     private fun whereWrite(text: String): Action {
         whereRecent = false
-        startWrite("", Screen.MENU); writeField = 1; writeHead = "Where to?"
+        startWrite("", Screen.MENU); writeField = 1; writeHead = "Navigate"
         writeText = text; cursor = text.length
         writeDone = { q ->
             if (q.length < 2) { notice = "Type at least two letters"; whereStart(q) }

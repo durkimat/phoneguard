@@ -33,7 +33,7 @@ The answer also carries `command`: one of a short fixed list, already checked by
 "command": { "intent": "navigate" | "play" | "call" | "timer" | "unknown",
              "args": { ... }, "say": "text to show", "confirm": true | false }
 ```
-- `navigate`: `{ "destination": "Hertfordshire Sports Village" }` (open "Where to?" with the words filled in; the child still picks the place).
+- `navigate`: `{ "destination": "Hertfordshire Sports Village" }` (open "Navigate" with the words filled in; the child still picks the place).
 - `play`: `{ "query": "my study playlist", "kind": "playlist" | "artist" | "song" | "any" }`.
 - `call`: `{ "name": "Granny" }`, with `confirm: true`. The phone finds the contact itself; the Worker never sees the contact list.
 - `timer`: `{ "minutes": 10 }` (1 to 600).

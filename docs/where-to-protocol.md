@@ -1,4 +1,4 @@
-# Where to?: what the phone sends for places and journeys
+# Navigate: what the phone sends for places and journeys
 
 Two calls. Both are signed like voice: the same headers, the same counter as sync, and a daily limit per phone (500 requests of either kind; the day changes at 00:00 UTC). The Worker asks two free public services on the phone's behalf, Transitous (named places, stops, buses, trains, walking routes) and postcodes.io (UK postcodes), and stores nothing.
 

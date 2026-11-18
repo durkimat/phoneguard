@@ -1,4 +1,4 @@
-// "Where to?": place search and journeys for the phone. The Worker asks two free public services on the phone's behalf (Transitous for
+// "Navigate": place search and journeys for the phone. The Worker asks two free public services on the phone's behalf (Transitous for
 // places, buses, trains and walking routes; postcodes.io for UK postcodes) and hands back a small, tidy answer. Nothing is stored.
 import { hex } from "./crypto.js";
 import { matchCategory, searchCategory } from "./poi.js";

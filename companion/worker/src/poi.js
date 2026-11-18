@@ -1,4 +1,4 @@
-// "Where to?" search by TYPE of place ("cafe", "pub", "post office", "pizza"): the words are matched against a small table, and a match
+// "Navigate" search by TYPE of place ("cafe", "pub", "post office", "pizza"): the words are matched against a small table, and a match
 // is looked up around the phone on OpenStreetMap: Nominatim first (one request, tags included, at most one a second), Overpass only as a
 // fallback when Nominatim fails. Only words from the table ever reach a query, never what was typed.
 // The network calls are nominatim() and overpass(); everything else is pure, so the tests fake `lookup` (or `f`).

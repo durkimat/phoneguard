@@ -8,10 +8,15 @@ import org.junit.Test
 class HomeFocusTest {
     private fun model(withSettings: Boolean = true) = LauncherModel(if (withSettings) listOf(MenuItem(SETTINGS_PKG, "Settings")) else listOf(MenuItem("pkg.a", "A")))
 
+    /** The first Up lands on the clock; more Ups climb to the first symbol at the top. */
+    private fun top(m: LauncherModel) { m.onKey(Key.UP); while (m.homeFocus > 0) m.onKey(Key.UP) }
+
     @Test fun upFromTheHomeScreenHighlightsASymbolAndOkOpensWhatIsBehindIt() {
         val m = model()
         assertEquals(-1, m.homeFocus)
         m.onKey(Key.UP)
+        assertEquals("clock", m.homeFocusTarget()?.kind)
+        top(m)
         assertEquals(0, m.homeFocus)
         assertEquals("signal", m.homeFocusTarget()?.kind)
         m.onKey(Key.DOWN) // Wi-Fi
@@ -23,12 +28,12 @@ class HomeFocusTest {
 
     @Test fun bluetoothBatteryAndSignalGoToTheirScreens() {
         val m = model(); m.dataShown = true
-        m.onKey(Key.UP); m.onKey(Key.DOWN); m.onKey(Key.DOWN) // signal, Wi-Fi, Bluetooth
+        top(m); m.onKey(Key.DOWN); m.onKey(Key.DOWN) // signal, Wi-Fi, Bluetooth
         assertEquals("bt", m.homeFocusTarget()?.kind)
         assertEquals(Action.BtLoad, m.onKey(Key.OK)); assertEquals(Screen.BT, m.screen)
-        val b = model(); b.onKey(Key.UP); b.onKey(Key.OK)
+        val b = model(); top(b); b.onKey(Key.OK)
         assertEquals(Screen.CONNECTIONS, b.screen)
-        val c = model(); repeat(1) { c.onKey(Key.UP) }; repeat(3) { c.onKey(Key.DOWN) }
+        val c = model(); top(c); repeat(3) { c.onKey(Key.DOWN) }
         assertEquals("battery", c.homeFocusTarget()?.kind)
         c.onKey(Key.OK); assertEquals(Screen.BATTERY, c.screen)
     }
@@ -52,16 +57,16 @@ class HomeFocusTest {
 
     @Test fun symbolsTheModeHidesCannotBeChosen() {
         val m = model(withSettings = false); m.wifiShown = false; m.btShown = false
-        assertTrue(m.homeTargets().isEmpty())
+        assertEquals(listOf("clock"), m.homeTargets().map { it.kind }) // the clock is always there
         m.onKey(Key.UP)
-        assertEquals(-1, m.homeFocus); assertNull(m.homeFocusTarget())
+        assertEquals("clock", m.homeFocusTarget()?.kind)
     }
 
     @Test fun weatherAndNotificationSymbolsAreReachable() {
         val m = model(); m.badges = listOf(Badge(BadgeKind.SMS, 2))
         val kinds = m.homeTargets().map { it.kind }
-        assertEquals(listOf("signal", "wifi", "bt", "battery", "badge"), kinds)
-        repeat(1) { m.onKey(Key.UP) }; repeat(4) { m.onKey(Key.DOWN) }
+        assertEquals(listOf("signal", "wifi", "bt", "battery", "clock", "badge"), kinds)
+        m.onKey(Key.UP); m.onKey(Key.DOWN)
         assertEquals("badge", m.homeFocusTarget()?.kind)
         m.onKey(Key.OK); assertEquals(Screen.INBOX, m.screen)
     }

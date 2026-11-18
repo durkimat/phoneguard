@@ -1,7 +1,7 @@
 package io.github.durkimat.phoneguard.where
 
 /**
- * A made-up journey for trying the "Where to?" map on an emulator with no network, no pairing and no location (debug builds only; the launcher reads the
+ * A made-up journey for trying the "Navigate" map on an emulator with no network, no pairing and no location (debug builds only; the launcher reads the
  * `pg_where_demo` and `pg_where_dot` extras, see LauncherActivity). Three legs near St Albans: walk, bus, walk.
  */
 object WhereDemo {

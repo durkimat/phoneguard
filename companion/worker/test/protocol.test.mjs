@@ -216,7 +216,7 @@ console.log("Voice");
   assert.equal(last.status, 429); assert.equal(last.body.error, "used_up"); ok("a phone is stopped at the daily limit with 'used_up'");
   await post("override", { mode: "auto" }); }
 
-console.log("Where to?");
+console.log("Navigate");
 { const geo = async (what, body, { c = ++ctr, signWith = sign, did = conf.did } = {}) => {
     const text = typeof body === "string" ? body : JSON.stringify(body), n = crypto.randomBytes(12).toString("hex"), hash = crypto.createHash("sha256").update(text).digest("hex");
     const r = await fetch(BASE + "/api/geo/" + what, { method: "POST", headers: { "content-type": "application/json", "x-pg-v": "1", "x-pg-did": did, "x-pg-ctr": String(c), "x-pg-n": n, "x-pg-s": signWith(`1|${did}|${c}|${n}|geo:${what}:${hash}`) }, body: text });
@@ -229,7 +229,7 @@ console.log("Where to?");
   r = await geo("search", { q: "x" }, { did: "dnotadevice" }); assert.equal(r.status, 403); ok("an unknown phone is refused");
   r = await geo("route", { from: { lat: 1, lon: 1 }, to: { lat: 2, lon: 2 } }); assert.equal(r.status, 400); ok("places outside Britain are refused");
   r = await geo("search", "x".repeat(3000)); assert.equal(r.status, 413); ok("an oversized request is refused");
-  await post("override", { mode: "school" }); r = await geo("search", { q: "x" }); assert.equal(r.status, 403); assert.equal(r.body.error, "where_off"); ok("School/work mode has Where to? off by default and the Worker refuses");
+  await post("override", { mode: "school" }); r = await geo("search", { q: "x" }); assert.equal(r.status, 403); assert.equal(r.body.error, "where_off"); ok("School/work mode has Navigate off by default and the Worker refuses");
   await post("override", { mode: "day" });
   let last; for (let i = 0; i < 520; i++) { last = await geo("search", { q: "x" }); if (last.status === 429) break; }
   assert.equal(last.status, 429); assert.equal(last.body.error, "used_up"); ok("a phone is stopped at the daily limit with 'used_up'"); await post("override", { mode: "auto" }); }

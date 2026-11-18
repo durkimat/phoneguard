@@ -5,7 +5,7 @@ import android.content.Intent
 import io.github.durkimat.phoneguard.launcher.LauncherActivity
 
 /**
- * Spoken commands (phase 3). Nothing is done here beyond judging the command: a call, a play, a timer or "Where to?" is handed to the launcher, which acts
+ * Spoken commands (phase 3). Nothing is done here beyond judging the command: a call, a play, a timer or "Navigate" is handed to the launcher, which acts
  * through the same screens and rules as by hand (a call only opens the dial pad with the number filled in and waits for OK).
  */
 object VoiceCommands {

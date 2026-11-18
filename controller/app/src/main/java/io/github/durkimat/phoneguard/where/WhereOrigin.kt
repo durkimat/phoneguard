@@ -6,7 +6,7 @@ import io.github.durkimat.phoneguard.Store
 
 /**
  * Where the way starts. A position under two minutes old if the phone has one; otherwise a fresh one-off fix is asked for and waited on (up to the time the
- * caller allows), which is allowed because the mode that offers Where to? always has location on; otherwise the newest position under 20 minutes old;
+ * caller allows), which is allowed because the mode that offers Navigate always has location on; otherwise the newest position under 20 minutes old;
  * otherwise the home place the parent set (the weather location), said plainly as "home". Null when none of these exists.
  */
 object WhereOrigin {
@@ -53,7 +53,7 @@ object WhereReply {
 
     fun message(code: Int): String = when (code) {
         400 -> "Can't plan that one"
-        403 -> "Where to? is off in this mode"
+        403 -> "Navigate is off in this mode"
         429 -> "Used up for today"
         else -> "Maps aren't working right now"
     }

@@ -1,4 +1,4 @@
-// "Where to?": place search and journeys, with pretend Transitous and postcodes.io answers.
+// "Navigate": place search and journeys, with pretend Transitous and postcodes.io answers.
 import assert from "node:assert/strict";
 import { searchPlaces, planRoute, postcodeOf, outcodeOf, km, handleGeo, handleTile } from "../src/geo.js";
 let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };

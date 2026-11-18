@@ -18,9 +18,9 @@ class WordDeleteTest {
     }
 
     @Test fun holdingDeleteInTheMessageEditorTakesAWordAtATime() {
-        val m = LauncherModel(listOf(MenuItem(WHERE_PKG, "Where to?"), MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d")
+        val m = LauncherModel(listOf(MenuItem(WHERE_PKG, "Navigate"), MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d")
         assertFalse(m.onHoldDelete())                    // not on a text screen: nothing to do
-        m.onKey(Key.OK, -1, 0L); m.onKey(Key.OK, -1, 0L)   // Menu, Where to? (a text editor)
+        m.onKey(Key.OK, -1, 0L); m.onKey(Key.OK, -1, 0L)   // Menu, Navigate (a text editor)
         assertEquals(Screen.WRITE, m.screen)
         for (d in listOf(4, 3, 0, 6, 6, 0, 8, 8)) m.onKey(Key.DIGIT, d, 0L)   // some letters, spaces between
         val before = m.writeText; assertTrue(before.isNotEmpty())

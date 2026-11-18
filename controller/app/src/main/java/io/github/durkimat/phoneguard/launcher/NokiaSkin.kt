@@ -121,12 +121,15 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
             c.drawColor(lcd)
             chrome.background(this, c, t, m, u)
-            statusLine(c, i, u)
+            statusLine(c, i, u, m.screen != Screen.HOME)
             chrome.beginContent(this, c, u)
             when (m.screen) {
                 Screen.HOME -> { home(c, i, u); i.dataView?.let { dataWidget(c, it, i.time, u) }; homeLower(c, m, i, u) }
                 Screen.WEATHER -> weatherScreen(c, m, u)
                 Screen.BATTERY -> batteryScreen(c, m, u)
+                Screen.TIMER -> timerScreen(c, m, u)
+                Screen.STOPWATCH -> stopwatchScreen(c, m, u)
+                Screen.RING -> ringScreen(c, m, u)
                 Screen.NOTE -> noteScreen(c, m, u)
                 Screen.MUSIC -> musicScreen(c, m, u)
                 Screen.THREAD -> thread(c, m, u)
@@ -162,7 +165,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             p.letterSpacing = 0f
         }
 
-        private fun statusLine(c: Canvas, i: HomeInfo, u: Float) {
+        private fun statusLine(c: Canvas, i: HomeInfo, u: Float, clock: Boolean) {
             if (i.signalBars < 0) text(c, "No SIM", 14f, 32f, 24f, u)
             else for (b in 0 until 4) {
                 val h = 8f + 7f * b
@@ -175,7 +178,16 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             c.drawRect(bx * u, 10 * u, (bx + 52) * u, 36 * u, stroke)
             c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
             c.drawRect((bx + 5) * u, 15 * u, (bx + 5 + 42f * i.batteryPct / 100f) * u, 31 * u, fill)
-            text(c, (if (i.charging) "+" else "") + i.batteryPct + "%", bx - 8, 33f, 24f, u, align = Paint.Align.RIGHT)
+            // the level reads inside the icon: ink over the empty part, the background colour over the filled part
+            val label = if (i.charging) "+${i.batteryPct}" else "${i.batteryPct}%"
+            val lx = bx + 26f
+            val level = (bx + 5 + 42f * i.batteryPct / 100f) * u
+            c.save(); c.clipRect(level, 15 * u, (bx + 47) * u, 31 * u)
+            text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER); c.restore()
+            c.save(); c.clipRect((bx + 5) * u, 15 * u, level, 31 * u)
+            text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER, color = lcd); c.restore()
+            // the time, where the percentage used to be (the home screen has its big clock)
+            if (clock) text(c, i.time, bx - 8, 33f, 24f, u, align = Paint.Align.RIGHT)
             // Wi-Fi: a dot and three arcs, solid when connected, faint when on with no connection, faint with a slash when switched off (not drawn where the mode hides it)
             if (i.wifi >= 0) {
                 val faint = i.wifi != 1
@@ -590,6 +602,42 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 for (line in m.wrapper(if (n.title.isNotEmpty()) n.title + "\n" + n.text else n.text).take(10)) { text(c, line, 20f, y, 26f, u); y += 36f }
                 text(c, "0 clear", 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
             }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun timerScreen(c: Canvas, m: LauncherModel, u: Float) {
+            titleBar(c, m.title, u)
+            val t = m.timer
+            val left = t.leftSec(io.github.durkimat.phoneguard.Clock.now())
+            text(c, io.github.durkimat.phoneguard.alarm.AlarmMath.mmss(left.toLong()), 240f, 290f, 110f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
+            text(c, if (t.running) "Running" else if (t.paused) "Paused" else "Set the time", 240f, 350f, 30f, u, bold = true, align = Paint.Align.CENTER)
+            stroke.strokeWidth = 2 * u; c.drawLine(16 * u, 392 * u, 464 * u, 392 * u, stroke)
+            val hints = if (!t.running && !t.paused) listOf("Up, down: minutes", "Left, right: 10 seconds", "1 to 9: that many minutes") else listOf("* resets the timer", "Back leaves it running")
+            hints.forEachIndexed { n, h -> text(c, h, 240f, 436f + n * 36f, 26f, u, align = Paint.Align.CENTER) }
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun stopwatchScreen(c: Canvas, m: LauncherModel, u: Float) {
+            titleBar(c, m.title, u)
+            val s = m.stopwatch
+            val now = io.github.durkimat.phoneguard.Clock.now()
+            text(c, s.text(now), 240f, 230f, 84f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
+            stroke.strokeWidth = 2 * u; c.drawLine(16 * u, 262 * u, 464 * u, 262 * u, stroke)
+            val laps = s.laps
+            laps.withIndex().toList().takeLast(5).reversed().forEachIndexed { n, (i, e) ->
+                val prev = if (i == 0) 0L else laps[i - 1]
+                text(c, "Lap ${i + 1}", 20f, 304f + n * 40f, 26f, u)
+                text(c, io.github.durkimat.phoneguard.alarm.AlarmMath.mmss((e - prev) / 1000) + "." + ((e - prev) % 1000 / 100), 464f, 304f + n * 40f, 26f, u, align = Paint.Align.RIGHT)
+            }
+            if (laps.isEmpty()) text(c, if (s.running) "Down: lap" else "* resets", 240f, 310f, 26f, u, align = Paint.Align.CENTER)
+            softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        private fun ringScreen(c: Canvas, m: LauncherModel, u: Float) {
+            titleBar(c, m.title, u)
+            text(c, m.ringTime, 240f, 270f, if (m.ringKind == "timer") 80f else 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
+            text(c, if (m.ringKind == "timer") "Time is up" else "Snooze: ${io.github.durkimat.phoneguard.alarm.AlarmMath.SNOOZE_MIN} minutes", 240f, 340f, 30f, u, bold = true, align = Paint.Align.CENTER)
+            if (m.ringQuiet) text(c, "Quiet while on a call", 240f, 390f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 

@@ -5,9 +5,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The Where to? screens, walked by key with the Worker's answers put in by hand. */
+/** The Navigate screens, walked by key with the Worker's answers put in by hand. */
 class WhereFlowTest {
-    private val items = listOf(MenuItem(WHERE_PKG, "Where to?"), MenuItem(SETTINGS_PKG, "Settings"))
+    private val items = listOf(MenuItem(WHERE_PKG, "Navigate"), MenuItem(SETTINGS_PKG, "Settings"))
     private fun phone() = LauncherModel(items, contactsApp = "c", messagesApp = "m", dialerApp = "d")
     private fun LauncherModel.key(k: Key, d: Int = -1) = onKey(k, d, 0L)
 
@@ -19,7 +19,7 @@ class WhereFlowTest {
     @Test fun typeSearchPickJourneyAndLegsAndBackOut() {
         val m = phone()
         m.key(Key.OK)                       // Menu
-        m.key(Key.OK)                       // Where to?
+        m.key(Key.OK)                       // Navigate
         assertEquals(Screen.WRITE, m.screen)
         m.key(Key.DIGIT, 4); m.key(Key.DIGIT, 3)          // some letters
         val a = m.key(Key.OK)
@@ -98,8 +98,8 @@ class WhereFlowTest {
     }
 
     @Test fun theMenuListsWhereToAfterGamesSoOtherDigitsStayPut() {
-        val all = listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(WHERE_PKG, "Where to?"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(WEATHER_PKG, "Weather"))
-        assertEquals(listOf("Weather", "Games", "Where to?", "Calculator", "Settings"), LauncherData.menu(all, emptyList()).map { it.label })
+        val all = listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(WHERE_PKG, "Navigate"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(WEATHER_PKG, "Weather"))
+        assertEquals(listOf("Weather", "Games", "Navigate", "Calculator", "Settings"), LauncherData.menu(all, emptyList()).map { it.label })
     }
 
     @Test fun theDemoJourneyShowsOnTheMapAndTheDotCanBeOffRoute() {
@@ -116,7 +116,7 @@ class WhereFlowTest {
     @Test fun recentPlacesShowUnderTheSearchRowAndOkPicksOne() {
         val m = phone()
         m.whereRecentsLoader = { Where.parsePlaces("""{"places":[{"name":"Hexham Station","kind":"stop","area":"","lat":54.97,"lon":-2.1},{"name":"The Library","kind":"place","area":"St Albans","lat":51.75,"lon":-0.33}]}""") }
-        m.key(Key.OK); m.key(Key.OK)        // Menu, Where to?
+        m.key(Key.OK); m.key(Key.OK)        // Menu, Navigate
         assertEquals(Screen.WHEREPLACES, m.screen)
         assertEquals(listOf("Search for a place...", "Hexham Station", "The Library, St Albans"), m.rows)
         assertEquals(1, m.selected)         // the newest place is already highlighted

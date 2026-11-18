@@ -194,7 +194,7 @@ export class Family extends DurableObject {
       return json({ ok: true });
     }
 
-    // phone: "Where to?" place search and journeys. Same signature and counter checks; a daily limit per phone.
+    // phone: "Navigate" place search and journeys. Same signature and counter checks; a daily limit per phone.
     if (path === "/geo/auth" && m === "POST") {
       const { did, what, hash } = body;
       if (!GEO_WHAT.includes(what) || !/^[0-9a-f]{64}$/.test(hash ?? "")) return json({ error: "rejected" }, 403);

@@ -1,4 +1,4 @@
-// "Where to?" search by kind of place: the word table, the Overpass question, opening hours, the tidy answer, the 1 km / 2 km rule,
+// "Navigate" search by kind of place: the word table, the Overpass question, opening hours, the tidy answer, the 1 km / 2 km rule,
 // the short memory and the failure paths. Everything is pretend: no test touches a real server.
 import assert from "node:assert/strict";
 import { matchCategory, buildQuery, parseWeek, openNow, typeLabel, tidy, overpass, searchCategory, clearPoiCache, OVERPASS, MAX_PLACES, nominatimText, wanted, viewbox, nominatimUrl, nominatimElements, nominatim, lookup, pace, NOMINATIM } from "../src/poi.js";

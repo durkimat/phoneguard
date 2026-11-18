@@ -11,7 +11,7 @@ import android.location.LocationManager
 import android.os.Looper
 
 /**
- * The child's dot and which way the phone faces, only while the "Where to?" map is open: location updates every few seconds (when the mode keeps
+ * The child's dot and which way the phone faces, only while the "Navigate" map is open: location updates every few seconds (when the mode keeps
  * location on; otherwise there are none and the map says so) and the rotation sensor for the heading (the GPS bearing instead when moving faster
  * than about 1 m/s). Nothing listens once [stop] is called, which the launcher does when the map is left.
  */

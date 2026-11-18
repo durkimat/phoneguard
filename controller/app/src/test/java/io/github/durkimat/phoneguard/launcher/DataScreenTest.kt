@@ -16,8 +16,8 @@ class DataScreenTest {
         assertFalse(m.homeTargets().any { it.kind == "data" })
         m.dataView = DataView(5_200_000_000L, 10_000_000_000L, 10)
         val kinds = m.homeTargets().map { it.kind }
-        assertEquals(listOf("signal", "wifi", "bt", "battery", "data"), kinds)
-        repeat(1) { m.onKey(Key.UP) }; repeat(4) { m.onKey(Key.DOWN) }
+        assertEquals(listOf("signal", "wifi", "bt", "battery", "data", "clock"), kinds)
+        m.onKey(Key.UP); m.onKey(Key.UP) // the clock, then the data bar above it
         assertEquals("data", m.homeFocusTarget()?.kind)
         assertEquals(Action.DataLoad, m.onKey(Key.OK)); assertEquals(Screen.DATA, m.screen)
     }

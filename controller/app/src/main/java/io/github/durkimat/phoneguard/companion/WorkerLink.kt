@@ -159,7 +159,7 @@ object WorkerLink {
     }
 
     /**
-     * "Where to?": `kind` is "search" or "route" (`/api/geo/<kind>`), [json] the request body. Signed like voice with the tag `geo:<kind>`. Returns the status
+     * "Navigate": `kind` is "search" or "route" (`/api/geo/<kind>`), [json] the request body. Signed like voice with the tag `geo:<kind>`. Returns the status
      * code and body, or null when the Worker could not be reached (no network).
      */
     fun geo(c: Context, kind: String, json: String): Pair<Int, String>? {

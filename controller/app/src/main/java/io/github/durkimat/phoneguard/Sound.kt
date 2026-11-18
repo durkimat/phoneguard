@@ -56,6 +56,7 @@ object SoundEnforcer {
 
     /** Called when the ringer or Do Not Disturb changes: if the mode wants a fixed sound, put it back. */
     fun reassert(c: Context) {
+        if (io.github.durkimat.phoneguard.alarm.RingState.sounding) return // an alarm is ringing through Do Not Disturb: put back when it ends
         val now = Clock.now()
         val eff = Engine.effective(Store.config(c), Store.boost(c), now)
         if (eff.sound != "normal") {

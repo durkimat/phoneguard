@@ -123,6 +123,7 @@ class LauncherActivity : Activity() {
         // coming back from another app shows the home screen; a key press while we are in front must not reset it
         if (cameBack) { if (!jobKeepsScreen) model.goHome(); cameBack = false }
         model.voiceOn = voiceAllowed()
+        loadClock()
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
         refresh()
         pendingDial?.let { model.startDial(it); pendingDial = null; refresh() }
@@ -397,7 +398,7 @@ class LauncherActivity : Activity() {
     }
 
     /** Draws now, and reads again whatever has changed (in the background). */
-    /** Debug builds only: the made-up Where to? journey and dot (see WhereDemo). The dot is kept and put back on every redraw, so nothing else can clear it. */
+    /** Debug builds only: the made-up Navigate journey and dot (see WhereDemo). The dot is kept and put back on every redraw, so nothing else can clear it. */
     private var demoDot: Triple<Double?, Double?, Float?>? = null
     private fun debugExtras(i: Intent?) {
         i ?: return
@@ -410,7 +411,7 @@ class LauncherActivity : Activity() {
         refresh()
     }
 
-    /** The "Where to?" map is open: follow the child's position and heading, and keep the screen on. Both stop when the map is left. Safe to call on every redraw. */
+    /** The "Navigate" map is open: follow the child's position and heading, and keep the screen on. Both stop when the map is left. Safe to call on every redraw. */
     private fun trackWhere() {
         val on = model.screen == Screen.WHEREMAP
         if (on != mapWasOn) { mapWasOn = on; if (on) io.github.durkimat.phoneguard.where.TileMap.begin() else io.github.durkimat.phoneguard.where.TileMap.release() }
@@ -434,11 +435,31 @@ class LauncherActivity : Activity() {
         if (t.isNotEmpty()) io.github.durkimat.phoneguard.where.TileMap.want(this, t) { ui.post { if (model.screen == Screen.WHEREMAP) { invalidate(D.SCREEN); redraw() } } }
     }
 
+    private val clockTick = object : Runnable {
+        override fun run() { if (inFront && (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH)) { redraw(); ui.postDelayed(this, if (model.screen == Screen.STOPWATCH) 100 else 500) } }
+    }
+
+    /** Puts the saved alarms, timer and stopwatch into the model, and has it save what the person changes. */
+    private fun loadClock() {
+        val st = io.github.durkimat.phoneguard.alarm.AlarmStore
+        model.alarms = st.alarms(this); model.clockPrefs = st.prefs(this); model.timer = st.timer(this); model.stopwatch = st.stopwatch(this)
+        val cfg = io.github.durkimat.phoneguard.Store.config(this)
+        model.alarmsAllowed = io.github.durkimat.phoneguard.core.Engine.alarms(cfg, io.github.durkimat.phoneguard.Clock.now())
+        val auto = android.provider.Settings.Global.getInt(contentResolver, android.provider.Settings.Global.AUTO_TIME, 1) == 1
+        model.timeSettable = cfg?.timeLocal == true || !auto
+        model.onAlarms = { st.saveAlarms(this, it) }
+        model.onClockPrefs = { st.savePrefs(this, it) }
+        model.onTimer = { st.saveTimer(this, it) }
+        model.onStopwatch = { st.saveStopwatch(this, it) }
+        model.onSetTime = { ms -> try { getSystemService(android.app.AlarmManager::class.java).setTime(ms); st.reschedule(this); true } catch (e: Exception) { Log.log(this, "set time: ${e.javaClass.simpleName}"); false } }
+    }
+
     private fun refresh() {
         trackWhere()
         redraw()
         if (model.screen != loadedScreen) dirty.getAndUpdate { it or D.SCREEN }
         if (model.screen == Screen.MUSIC) { ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000) }
+        if (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH) { ui.removeCallbacks(clockTick); ui.postDelayed(clockTick, 200) }
         load()
     }
 
@@ -951,16 +972,15 @@ class LauncherActivity : Activity() {
                 ui.post { if (i == null) say("No contact called ${cmd.name}") else { model.startDial(all[i].numbers.first()); say("Call ${all[i].name}? Press the call key") } }
             }.start()
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Timer -> {
-                val ok = try {
-                    startActivity(Intent(android.provider.AlarmClock.ACTION_SET_TIMER).putExtra(android.provider.AlarmClock.EXTRA_LENGTH, cmd.minutes * 60)
-                        .putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, true).putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, "Timer").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true
-                } catch (e: Exception) { Log.log(this, "voice timer: ${e.javaClass.simpleName}"); false }
-                say(if (ok) "Timer set for ${cmd.minutes} min" else "Timers are not available here")
+                // our own timer (the Clock app's), started now; it rings through the same ring screen
+                val t = io.github.durkimat.phoneguard.alarm.TimerState(length = cmd.minutes * 60).start(io.github.durkimat.phoneguard.Clock.now())
+                io.github.durkimat.phoneguard.alarm.AlarmStore.saveTimer(this, t); model.timer = t
+                say("Timer set for ${cmd.minutes} min")
             }
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Play -> {
                 if (!LauncherData.musicShown(this) || !model.spSignedIn) say("Music is not available here") else Thread { voicePlay(cmd) }.start()
             }
-            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> if (!LauncherData.whereShown(this)) say("Where to? is not available here") else perform(model.searchWhere(cmd.destination))
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Navigate -> if (!LauncherData.whereShown(this)) say("Navigate is not available here") else perform(model.searchWhere(cmd.destination))
             is io.github.durkimat.phoneguard.voice.VoiceCommand.Unknown -> say(cmd.say)
         }
     }
