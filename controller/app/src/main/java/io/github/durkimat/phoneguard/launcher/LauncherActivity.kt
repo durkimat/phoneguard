@@ -447,6 +447,13 @@ class LauncherActivity : Activity() {
         model.alarmsAllowed = io.github.durkimat.phoneguard.core.Engine.alarms(cfg, io.github.durkimat.phoneguard.Clock.now())
         val auto = android.provider.Settings.Global.getInt(contentResolver, android.provider.Settings.Global.AUTO_TIME, 1) == 1
         model.timeSettable = cfg?.timeLocal == true || !auto
+        model.tonePicks = mapOf("ring" to io.github.durkimat.phoneguard.alarm.ToneStore.pick(this, "ring"), "sms" to io.github.durkimat.phoneguard.alarm.ToneStore.pick(this, "sms"), "wa" to io.github.durkimat.phoneguard.alarm.ToneStore.pick(this, "wa"))
+        model.onPreview = { io.github.durkimat.phoneguard.alarm.ToneStore.preview(it) }
+        model.onTonePick = { slot, id -> Thread {
+            val ok = io.github.durkimat.phoneguard.alarm.ToneStore.set(this, slot, id)
+            if (slot == "wa") io.github.durkimat.phoneguard.notes.NoteService.instance?.applyWaTone()
+            if (!ok && slot != "wa") ui.post { model.notify("This phone would not take that tune"); refresh() }
+        }.start() }
         model.onAlarms = { st.saveAlarms(this, it) }
         model.onClockPrefs = { st.savePrefs(this, it) }
         model.onTimer = { st.saveTimer(this, it) }

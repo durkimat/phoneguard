@@ -352,7 +352,7 @@ class LauncherModel(
     /** The Settings groups and what is in each, every one numbered 1.. in the order shown (rows come and go with the mode and the edition). */
     private fun groupRows(on: Screen): List<String> = when (on) {
         Screen.LOOK -> listOf("Theme", "Font", "Menu style", "Appearance")
-        Screen.SOUNDSET -> listOf("Predictive text", "Speakerphone", "Sound test")
+        Screen.SOUNDSET -> listOf("Predictive text", "Speakerphone", "Ringtone and message tones", "Sound test")
         Screen.THISPHONE -> listOf("Screen lock", "Time zone", "Language") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
             (if (waEnabled || waSetupAvail || waSetupActive) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList())
         else -> listOf("Look", "Sound and typing", "Connections", "This phone") + extraItems.filter { it.pkg == NOTES_PKG }.map { "Notifications" } + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
@@ -1414,6 +1414,7 @@ class LauncherModel(
                 "Appearance" -> enter(Screen.APPEARANCE)
                 "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
                 "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
+                "Ringtone and message tones" -> { pushForm(tonesForm()); out = Action.Redraw }
                 "Sound test" -> enter(Screen.SOUNDTEST)
                 "WhatsApp" -> enter(Screen.WASET)
                 "Android settings" -> out = Action.Launch("com.android.settings")
@@ -2081,6 +2082,10 @@ class LauncherModel(
     var onTimer: (TimerState) -> Unit = {}
     var onStopwatch: (Stopwatch) -> Unit = {}
     var onSetTime: (Long) -> Boolean = { false }
+    /** The tune picked for calls ("ring"), texts ("sms") and WhatsApp ("wa"): a tune id or "stock". The activity saves a pick and plays a preview. */
+    var tonePicks: Map<String, String> = emptyMap()
+    var onTonePick: (String, String) -> Unit = { _, _ -> }
+    var onPreview: (String) -> Unit = {}
     var ringKind = "alarm"; var ringTime = ""; var ringQuiet = false
 
     fun setRing(kind: String, time: String, quiet: Boolean) {
@@ -2158,12 +2163,22 @@ class LauncherModel(
                 }))
                 add(FormRow("Sound", { Tones.byId(a.tone).name }, onStep = { d, _ ->
                     val i = Tones.all.indexOfFirst { it.id == a.tone }.coerceAtLeast(0)
-                    a = a.copy(tone = Tones.all[((i + d) % Tones.all.size + Tones.all.size) % Tones.all.size].id)
+                    a = a.copy(tone = Tones.all[((i + d) % Tones.all.size + Tones.all.size) % Tones.all.size].id); onPreview(a.tone)
                 }))
                 if (!isNew) add(FormRow("Delete this alarm", run = { alarms = alarms.filter { it.id != a.id }; onAlarms(alarms); leave(); Action.Redraw }))
             }
         }
         return Form(if (isNew) "New alarm" else "Alarm", "Save", rows) { saveAlarm(a.copy(on = a.on || isNew), true); leave(); Action.Redraw }
+    }
+
+    private fun tonesForm(): Form {
+        val opts = listOf("stock") + Tones.all.map { it.id }
+        fun row(label: String, slot: String) = FormRow(label, { tonePicks[slot]?.takeIf { it != "stock" }?.let { Tones.byId(it).name } ?: "Phone's own" }, onStep = { d, _ ->
+            val i = opts.indexOf(tonePicks[slot] ?: "stock").coerceAtLeast(0)
+            val n = opts[((i + d) % opts.size + opts.size) % opts.size]
+            tonePicks = tonePicks + (slot to n); onTonePick(slot, n); onPreview(n)
+        })
+        return Form("Tones", "Done", { listOf(row("Calls", "ring"), row("Text messages", "sms"), row("WhatsApp", "wa")) }) { leave(); Action.Redraw }
     }
 
     private fun alarmSettingsForm(): Form = Form("Alarm sound", "Done", {

@@ -22,6 +22,11 @@ object Tones {
         Tone("beep", "Beep-beep", "beep:d=8,o=6,b=180:c7,p,c7,p,c7,p,c7,2p"),
         Tone("chime", "Rising chime", "chime:d=8,o=5,b=130:c,e,g,c6,4e6,2p"),
         Tone("morning", "Morning", "morning:d=4,o=5,b=110:c,e,g,2c6,p,g,e,2c,p"),
+        // short message-style blips
+        Tone("sms", "Text beep-beep", "sms:d=16,o=6,b=200:e7,p,e7,4p"),
+        Tone("pair", "Two-note chime", "pair:d=8,o=6,b=150:g,4e7,2p"),
+        Tone("pop", "Soft pop", "pop:d=32,o=6,b=200:c,g,c7,4p"),
+        Tone("double", "Double beep", "double:d=8,o=6,b=170:a,p,a,2p"),
     )
     const val DEFAULT = "chime"
     fun byId(id: String): Tone = all.firstOrNull { it.id == id } ?: all.first { it.id == DEFAULT }

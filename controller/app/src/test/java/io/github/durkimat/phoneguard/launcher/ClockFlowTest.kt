@@ -110,3 +110,23 @@ class ClockFlowTest {
         assertEquals("" to "Stop", m.softKeys)
     }
 }
+
+class TonesFlowTest {
+    private fun phone() = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d")
+    private fun LauncherModel.key(k: Key, d: Int = -1) = onKey(k, d, 0L)
+
+    @Test fun pickTonesForCallsTextsAndWhatsAppWithAPreview() {
+        val m = phone(); val picks = mutableListOf<Pair<String, String>>(); val heard = mutableListOf<String>()
+        m.onTonePick = { s, id -> picks += s to id }; m.onPreview = { heard += it }
+        m.key(Key.OK); m.key(Key.OK)                 // Menu, Settings
+        m.key(Key.DIGIT, 2); m.key(Key.DIGIT, 3)     // Sound and typing, Ringtone and message tones
+        assertEquals(Screen.FORM, m.screen); assertEquals("Tones", m.title)
+        assertEquals(listOf("Calls: Phone's own", "Text messages: Phone's own", "WhatsApp: Phone's own"), m.rows)
+        m.key(Key.RIGHT)                             // calls: the first tune
+        m.key(Key.DOWN); m.key(Key.RIGHT); m.key(Key.RIGHT)
+        m.key(Key.DOWN); m.key(Key.LEFT)             // WhatsApp: back round to the last tune
+        assertEquals(listOf("ring" to "waltz", "sms" to "waltz", "sms" to "elise", "wa" to "double"), picks)
+        assertEquals(listOf("waltz", "waltz", "elise", "double"), heard)
+        assertEquals("Calls: Classic waltz", m.rows[0])
+    }
+}

@@ -70,13 +70,13 @@ class AlarmTest {
     @Test fun everyToneParsesAndRenders() {
         for (t in Tones.all) {
             val n = Tones.parse(t.rtttl)
-            assertTrue(t.id, n.size >= 4)
+            assertTrue(t.id, n.size >= 3)
             val pcm = Tones.render(t)
             assertEquals(t.id, Tones.lengthMs(t) * 16.0, pcm.size.toDouble(), 16.0 * n.size) // within a rounding of every note
             assertTrue(t.id, pcm.any { it.toInt() != 0 })
-            assertTrue(t.id, Tones.lengthMs(t) in 400..12_000)
+            assertTrue(t.id, Tones.lengthMs(t) in 300..12_000)
         }
-        assertEquals(8, Tones.all.size)
+        assertEquals(12, Tones.all.size)
         assertEquals("Classic waltz", Tones.byId("waltz").name)
         assertEquals(Tones.DEFAULT, Tones.byId("nope").id)
     }

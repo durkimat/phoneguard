@@ -10,8 +10,8 @@ import io.github.durkimat.phoneguard.Log
  * app. It reads the title and text only to show them on the phone's own screen; nothing is sent anywhere.
  */
 class NoteService : NotificationListenerService() {
-    override fun onListenerConnected() { refresh() }
-    override fun onNotificationPosted(sbn: StatusBarNotification) { detect(sbn); handle(sbn) }
+    override fun onListenerConnected() { refresh(); applyWaTone() }
+    override fun onNotificationPosted(sbn: StatusBarNotification) { detect(sbn); if (sbn.packageName in WA) applyWaTone(); handle(sbn) }
 
     /**
      * The pop-up detector: every notification that is posted is logged (who, which channel, how loud: no message text), so a notice that
@@ -51,7 +51,34 @@ class NoteService : NotificationListenerService() {
         Notes.put(NoteItem(sbn.key, sbn.packageName, label, title, text, sbn.postTime, n.contentIntent))
     }
 
+    private val waDone = HashSet<String>()
+
+    /**
+     * The child's WhatsApp tune: WhatsApp keeps its own sound on its notification channels, so each channel's sound is set to the picked file
+     * (and back to the default notification sound for "stock"). The system may refuse a listener this (it is logged, "tones: ..."); then
+     * WhatsApp keeps its own sound.
+     */
+    fun applyWaTone() {
+        val c = this
+        val pick = io.github.durkimat.phoneguard.alarm.ToneStore.pick(c, "wa")
+        val uri = if (pick == "stock") android.provider.Settings.System.DEFAULT_NOTIFICATION_URI else io.github.durkimat.phoneguard.alarm.ToneStore.uriFor(c, "wa", pick) ?: return
+        for (pkg in WA) {
+            val chans = try { getNotificationChannels(pkg, android.os.Process.myUserHandle()) } catch (e: Exception) { continue }
+            for (ch in chans) {
+                if (ch.importance < android.app.NotificationManager.IMPORTANCE_DEFAULT || ch.sound == null) continue // silent channels stay silent
+                val tag = "$pkg/${ch.id}/$pick"
+                if (tag in waDone || ch.sound == uri) { waDone.add(tag); continue }
+                try {
+                    ch.setSound(uri, ch.audioAttributes)
+                    updateNotificationChannel(pkg, android.os.Process.myUserHandle(), ch)
+                    waDone.add(tag); Log.log(c, "tones: WhatsApp channel ${ch.id} set to $pick")
+                } catch (e: Exception) { waDone.add(tag); Log.log(c, "tones: WhatsApp channel ${ch.id} refused ${e.javaClass.simpleName}") }
+            }
+        }
+    }
+
     companion object {
+        private val WA = listOf("com.whatsapp", "com.whatsapp.w4b")
         /** Clear one notification from the phone (and so from our list). */
         @Volatile var instance: NoteService? = null
     }
