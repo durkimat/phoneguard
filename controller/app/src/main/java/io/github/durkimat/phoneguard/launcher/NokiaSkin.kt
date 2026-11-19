@@ -574,10 +574,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
             // the artist over the title; a radio shows the station over what is on now
             if (np.source == "radio") {
-                // the station, with the artist after it when "station - artist" fits on the line; the song title below. The station sends "Artist - Title" or just a title.
+                // the station, with the artist after it when "station - artist" fits on the line; the song title below. A station sends "SONG - ARTIST" (title first), or just a title.
                 val icy = np.artist.trim(); val cut = icy.indexOf(" - ")
-                val who = if (cut > 0) icy.substring(0, cut).trim() else ""
-                val song = if (cut > 0) icy.substring(cut + 3).trim() else icy
+                val song = if (cut > 0) icy.substring(0, cut).trim() else icy
+                val who = if (cut > 0) icy.substring(cut + 3).trim() else ""
                 val both = if (who.isNotEmpty()) "${np.title} - $who" else ""
                 nowLines(c, if (both.isNotEmpty() && measureLine(NowLine(both, NOW_SIZE, NOW_BOLD)) <= 392f) both else np.title, song, 64f, 392f, u)
             } else nowLines(c, np.artist, np.title, 64f, 392f, u)
