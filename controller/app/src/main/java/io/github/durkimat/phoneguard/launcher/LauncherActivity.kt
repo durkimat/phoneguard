@@ -45,7 +45,7 @@ class LauncherActivity : Activity() {
     private var contentSet = false
     /** The look settings a parent is holding from HA; the phone's own choice for these is kept but not shown. */
     private var lockedLook: Set<String> = emptySet()
-    private val model = LauncherModel().also { m -> m.whereRecentsLoader = { io.github.durkimat.phoneguard.where.RecentPlaces.load(this) } }
+    private val model = LauncherModel().also { m -> m.whereRecentsLoader = { io.github.durkimat.phoneguard.where.RecentPlaces.load(this) }; m.animationsOn = { try { android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f } catch (_: Exception) { true } } }
     private val ui = Handler(Looper.getMainLooper())
     private val calendar by lazy { io.github.durkimat.phoneguard.calendar.CompositeCalendar(this) }
     private val tick = object : Runnable { override fun run() { invalidate(D.INFO or (if (model.screen == Screen.RUNNING || model.screen == Screen.BATTERY) D.SCREEN else 0)); ui.postDelayed(this, 60_000) } }
@@ -298,7 +298,7 @@ class LauncherActivity : Activity() {
 
     /** What the home screen's Now playing line shows: the provider that is playing, else one that is paused; null when music is off in the mode or nothing is on. */
     private fun homeNowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo? = try {
-        if (!LauncherData.musicShown(this)) null else {
+        if (!LauncherData.musicShown(this) || !io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).nowStrip) null else {
             val (playing, status) = providerStates()
             val prov = playing ?: status.entries.firstOrNull { it.value == 1 }?.key
             prov?.let { nowPlaying(it) }?.takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank()) }
@@ -666,7 +666,7 @@ class LauncherActivity : Activity() {
             model.radioNames = r.radioNames; model.radioMode = r.radioMode
             model.playingProvider = r.playingProvider; model.provStatus = r.provStatus
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
-            model.badges = it.badges; model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
+            model.badges = it.badges; model.musicOn = it.musicOn; model.setNowPages(listOfNotNull("music".takeIf { _ -> it.nowPlaying != null }, "event".takeIf { _ -> it.nextUp.isNotBlank() })); model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
             model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data; model.batteryPct = it.batteryPct
             lastInfo = it; ui.removeCallbacks(homeTick); if (it.timerEndAt > 0) ui.post(homeTick)
         }

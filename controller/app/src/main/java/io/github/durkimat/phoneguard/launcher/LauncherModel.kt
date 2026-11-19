@@ -90,6 +90,10 @@ fun weatherCy(mac: Boolean) = if (mac) 174f else 130f
 fun clockY(mac: Boolean) = if (mac) 296f else 270f
 /** The slot for Now playing, the next event and the rain note: where the weather used to be, the same in every look. */
 fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
+/** The box of zone 5 (the strip), its highlight and its touch area, and how long the slide between its pages takes. */
+const val NOW_TOP = 366f
+const val NOW_BOTTOM = 450f
+const val NOW_SLIDE_MS = 300L
 const val GRID_COLS = 3
 /** Rows of tiles on screen at once; more rows scroll vertically. */
 const val GRID_ROWS = 3
@@ -509,7 +513,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { onPreviewStop(); screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); homeFocus = -1; positions.clear() }
+    fun goHome() { onPreviewStop(); screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); clearSel(); positions.clear() }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -1505,10 +1509,71 @@ class LauncherModel(
     // left label, right key = right label), like a real Nokia. D-pad Left and Right do the same.
     // ---- the symbols on the home screen, reached with the keypad (the same places a touch goes to)
     /** What can be chosen on the home screen without touch, top to bottom: the status symbols, the weather, the notification symbols. */
-    class HomeTarget(val kind: String, val l: Float, val t: Float, val r: Float, val b: Float, val badge: Badge? = null)
+    class HomeTarget(val kind: String, val l: Float, val t: Float, val r: Float, val b: Float, val badge: Badge? = null) {
+        /** Stays the same while other symbols come and go, so the highlight can stay on the same thing. */
+        val id: String get() = if (badge != null) "badge:${badge.kind}" else kind
+    }
+
+    /** One of the six numbered zones of the home screen (1 status, 2 data, 3 weather, 4 time, 5 now, 6 activity) with what can be chosen in it, left to right. */
+    class HomeZone(val n: Int, val items: List<HomeTarget>)
 
     /** Which of [homeTargets] has the highlight, or -1 when none (the normal home screen). */
-    var homeFocus = -1
+    val homeFocus: Int get() { val r = resolveSel() ?: return -1; return homeTargets().indexOfFirst { it.id == r.second.id } }
+
+    /** The pages of zone 5 (the strip under the date), in order: "music" (when something plays or is paused), then "event" (the next calendar event). */
+    var nowPages: List<String> = emptyList()
+        private set
+    var nowPage = 0
+        private set
+    /** Whether music is playing (not paused): the right key then goes straight to Now playing. */
+    var musicOn = false
+    /** Set by the app: whether the slide between pages is wanted (the phone's animation scale is not zero). */
+    var animationsOn: () -> Boolean = { true }
+    private var slideFrom: String? = null
+    private var slideDir = 1
+    private var slideAt = 0L
+
+    /** The page that is leaving, the direction (+1 the new page comes from the right) and how far the slide has got (0..1), or null when none is running. */
+    fun nowSlide(): Triple<String, Int, Float>? {
+        val from = slideFrom ?: return null
+        val t = (System.currentTimeMillis() - slideAt) / NOW_SLIDE_MS.toFloat()
+        if (t >= 1f) { slideFrom = null; return null }
+        return Triple(from, slideDir, t.coerceAtLeast(0f))
+    }
+
+    fun setNowPages(pages: List<String>) {
+        if (pages == nowPages) return
+        val cur = nowPages.getOrNull(nowPage)
+        nowPages = pages; nowPage = pages.indexOf(cur).takeIf { it >= 0 } ?: 0; slideFrom = null
+    }
+
+    private fun pageTo(i: Int, dir: Int) {
+        slideFrom = if (animationsOn()) nowPages.getOrNull(nowPage) else null; slideDir = dir; slideAt = System.currentTimeMillis()
+        nowPage = i
+    }
+
+    private fun zoneOf(t: HomeTarget) = when (t.kind) { "signal", "wifi", "bt", "battery" -> 1; "data" -> 2; "weather" -> 3; "clock" -> 4; "now" -> 5; else -> 6 }
+    fun homeZones(): List<HomeZone> = homeTargets().groupBy { zoneOf(it) }.toSortedMap().map { HomeZone(it.key, it.value) }
+
+    private var selZone = 0
+    private var selId = ""
+    private var selIdx = 0
+    private fun clearSel() { selZone = 0; selId = ""; selIdx = 0 }
+    private fun enterZone(z: HomeZone) {
+        selZone = z.n
+        if (z.n == 5) { selId = "now"; selIdx = 0 } else { selIdx = (z.items.size - 1) / 2; selId = z.items[selIdx].id } // the middle one (the left of two)
+    }
+
+    /** The zone and item that have the highlight. When what it was on has gone it moves to the nearest item of that zone (zone 5: its first page), or the nearest zone. */
+    private fun resolveSel(): Pair<HomeZone, HomeTarget>? {
+        if (selZone == 0) return null
+        val zones = homeZones()
+        val z = zones.firstOrNull { it.n == selZone } ?: zones.minByOrNull { Math.abs(it.n - selZone) }?.also { enterZone(it) } ?: run { clearSel(); return null }
+        val t = z.items.firstOrNull { it.id == selId } ?: z.items[if (z.n == 5) 0 else selIdx.coerceIn(0, z.items.size - 1)]
+        if (z.n == 5 && selId != t.id) nowPage = 0
+        selId = t.id; selIdx = z.items.indexOf(t)
+        return z to t
+    }
 
     fun homeTargets(): List<HomeTarget> = buildList {
         if (dataShown || wifiShown) add(HomeTarget("signal", 0f, 0f, 105f, 46f))
@@ -1518,22 +1583,37 @@ class LauncherModel(
         if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
         if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         add(clockTarget())
+        if (nowPages.isNotEmpty()) add(HomeTarget("now", 8f, NOW_TOP, 472f, NOW_BOTTOM))
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
     }
 
     /** The highlighted symbol, for the skin to outline. */
-    fun homeFocusTarget(): HomeTarget? = if (screen == Screen.HOME) homeTargets().getOrNull(homeFocus) else null
+    fun homeFocusTarget(): HomeTarget? = if (screen == Screen.HOME) resolveSel()?.second else null
+
+    /** Which symbol of the activity row (zone 6) has the highlight, or -1: the row scrolls to show it. */
+    fun homeBadgeIndex(): Int = homeFocusTarget()?.takeIf { it.badge != null }?.let { t -> badges.indexOfFirst { it === t.badge } } ?: -1
+
+    private fun openNow(): Action = when (nowPages.getOrNull(nowPage)) {
+        "music" -> { provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw }
+        "event" -> openCalendar()
+        else -> Action.Redraw
+    }
 
     private fun homeFocusKey(key: Key): Action? {
-        val list = homeTargets()
-        if (list.isEmpty()) { homeFocus = -1; return null }
+        val zones = homeZones()
+        val (z, t) = resolveSel() ?: return null
+        val zi = zones.indexOfFirst { it.n == z.n }
         return when (key) {
-            Key.UP, Key.LEFT -> { homeFocus = if (homeFocus < 0) (list.indexOfFirst { it.kind == "clock" }.takeIf { it >= 0 } ?: 0) else (homeFocus - 1).coerceAtLeast(0); Action.Redraw }
-            Key.DOWN, Key.RIGHT -> { homeFocus = if (homeFocus < 0) -1 else if (homeFocus + 1 >= list.size) -1 else homeFocus + 1; Action.Redraw }
-            Key.END, Key.SOFT_RIGHT -> { homeFocus = -1; Action.Redraw }
+            Key.UP, Key.DOWN -> { val to = zi + if (key == Key.UP) -1 else 1; if (to in zones.indices) enterZone(zones[to]) else clearSel(); Action.Redraw }
+            Key.LEFT, Key.RIGHT -> {
+                val d = if (key == Key.RIGHT) 1 else -1
+                if (z.n == 5) { val n = nowPages.size; if (n > 1) pageTo((nowPage + d + n) % n, d) }
+                else (selIdx + d).let { i -> if (i in z.items.indices) { selIdx = i; selId = z.items[i].id } }
+                Action.Redraw
+            }
+            Key.END, Key.SOFT_RIGHT -> { clearSel(); Action.Redraw }
             Key.OK, Key.SOFT_LEFT -> {
-                val t = list.getOrNull(homeFocus) ?: return null
-                homeFocus = -1
+                clearSel()
                 when (t.kind) {
                     "signal" -> { openConnection(Screen.CONNECTIONS); Action.Redraw }
                     "wifi" -> { openConnection(Screen.WIFI); Action.WifiLoad }
@@ -1542,21 +1622,26 @@ class LauncherModel(
                     "weather" -> openWeather()
                     "clock" -> openClock()
                     "data" -> { enter(Screen.DATA); Action.DataLoad }
+                    "now" -> openNow()
                     else -> t.badge?.let { openBadge(it) } ?: Action.Redraw
                 }
             }
-            else -> { homeFocus = -1; null } // any other key (digits, Call) leaves the highlight and does what it always did
+            else -> { clearSel(); null } // any other key (digits, Call) leaves the highlight and does what it always did
         }
     }
 
+    /** Up and Down move between zones, Left and Right inside the one that has the highlight. With nothing chosen the first Down enters the top zone and the first Up the bottom one; every other key does what it always did. */
     private fun home(key: Key, digit: Int): Action {
-        if (homeFocus >= 0 || key == Key.UP) homeFocusKey(key)?.let { return it }
+        if (selZone == 0) {
+            val zones = homeZones()
+            if (zones.isNotEmpty() && (key == Key.DOWN || key == Key.UP)) { enterZone(if (key == Key.DOWN) zones.first() else zones.last()); return Action.Redraw }
+        } else homeFocusKey(key)?.let { return it }
         return homeKey(key, digit)
     }
 
     private fun homeKey(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { if (badges.any { it.kind == BadgeKind.MUSIC }) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU); Action.Redraw } else openContacts(Screen.HOME)
+        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { if (musicOn) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU); Action.Redraw } else openContacts(Screen.HOME)
         Key.CALL -> openPhoneMenu()
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialler = true; enter(Screen.DIAL); Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; dialler = true; enter(Screen.DIAL); Action.Redraw }
@@ -1679,6 +1764,7 @@ class LauncherModel(
         if (screen == Screen.HOME) {
             if (weather != null && y in (weatherCy(Themes.byId(theme).skin == "mac") - 34f)..(weatherCy(Themes.byId(theme).skin == "mac") + 34f)) return openWeather()
             clockTarget().let { if (x in it.l..it.r && y in it.t..it.b) return openClock() }
+            if (nowPages.isNotEmpty() && y in NOW_TOP..NOW_BOTTOM) return openNow()
             if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
             return Action.None
         }
@@ -3169,6 +3255,8 @@ data class HomeInfo(
     val timerEndAt: Long = 0L,
     /** The next alarm's time ("07:00") for the home screen, under the clock; empty when no alarm is on. */
     val alarmText: String = "",
+    /** Music is playing (the right key goes straight to Now playing). It is not a count on the home screen any more: zone 5 shows it. */
+    val musicOn: Boolean = false,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

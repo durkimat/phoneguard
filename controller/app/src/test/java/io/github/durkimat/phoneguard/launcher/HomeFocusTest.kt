@@ -1,74 +1,74 @@
 package io.github.durkimat.phoneguard.launcher
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/** Home is six zones (1 status, 2 data, 3 weather, 4 time, 5 now, 6 activity): Up and Down move between them, Left and Right inside one. */
 class HomeFocusTest {
     private fun model(withSettings: Boolean = true) = LauncherModel(if (withSettings) listOf(MenuItem(SETTINGS_PKG, "Settings")) else listOf(MenuItem("pkg.a", "A")))
+    private fun kind(m: LauncherModel) = m.homeFocusTarget()?.id
 
-    /** The first Up lands on the clock; more Ups climb to the first symbol at the top. */
-    private fun top(m: LauncherModel) { m.onKey(Key.UP); while (m.homeFocus > 0) m.onKey(Key.UP) }
-
-    @Test fun upFromTheHomeScreenHighlightsASymbolAndOkOpensWhatIsBehindIt() {
+    @Test fun firstDownEntersTheTopZoneOnItsMiddleItemAndOkOpensIt() {
         val m = model()
         assertEquals(-1, m.homeFocus)
-        m.onKey(Key.UP)
-        assertEquals("clock", m.homeFocusTarget()?.kind)
-        top(m)
-        assertEquals(0, m.homeFocus)
-        assertEquals("signal", m.homeFocusTarget()?.kind)
-        m.onKey(Key.DOWN) // Wi-Fi
-        assertEquals("wifi", m.homeFocusTarget()?.kind)
+        m.onKey(Key.DOWN)
+        assertEquals("wifi", kind(m)) // signal, wifi, bluetooth, battery: the left of the two middle ones
         assertEquals(Action.WifiLoad, m.onKey(Key.OK))
-        assertEquals(Screen.WIFI, m.screen)
-        assertEquals(-1, m.homeFocus)
+        assertEquals(Screen.WIFI, m.screen); assertEquals(-1, m.homeFocus)
     }
 
-    @Test fun bluetoothBatteryAndSignalGoToTheirScreens() {
-        val m = model(); m.dataShown = true
-        top(m); m.onKey(Key.DOWN); m.onKey(Key.DOWN) // signal, Wi-Fi, Bluetooth
-        assertEquals("bt", m.homeFocusTarget()?.kind)
-        assertEquals(Action.BtLoad, m.onKey(Key.OK)); assertEquals(Screen.BT, m.screen)
-        val b = model(); top(b); b.onKey(Key.OK)
-        assertEquals(Screen.CONNECTIONS, b.screen)
-        val c = model(); top(c); repeat(3) { c.onKey(Key.DOWN) }
-        assertEquals("battery", c.homeFocusTarget()?.kind)
-        c.onKey(Key.OK); assertEquals(Screen.BATTERY, c.screen)
-    }
-
-    @Test fun downPastTheLastSymbolAndBackLeaveTheHighlight() {
+    @Test fun firstUpEntersTheLastZoneThatHasSomething() {
         val m = model()
-        m.onKey(Key.UP); repeat(5) { m.onKey(Key.DOWN) }
-        assertEquals(-1, m.homeFocus)
-        m.onKey(Key.UP); m.onKey(Key.SOFT_RIGHT)
-        assertEquals(-1, m.homeFocus); assertEquals(Screen.HOME, m.screen)
-        m.onKey(Key.UP); m.onKey(Key.END)
-        assertEquals(-1, m.homeFocus)
+        m.onKey(Key.UP); assertEquals("clock", kind(m)) // nothing below the clock yet
+        val b = model(); b.badges = listOf(Badge(BadgeKind.SMS, 2), Badge(BadgeKind.WHATSAPP, 1), Badge(BadgeKind.MISSED, 1))
+        b.onKey(Key.UP); assertEquals("badge:WHATSAPP", kind(b)) // the middle of three
+        assertEquals(Action.Redraw, b.onKey(Key.OK)); assertEquals(Screen.WHATSAPP, b.screen)
     }
 
-    @Test fun otherKeysStillDoWhatTheyDid() {
-        val m = model(); m.onKey(Key.UP)
-        m.onKey(Key.DIGIT, 5, 0)
-        assertEquals(Screen.DIAL, m.screen); assertEquals(-1, m.homeFocus)
-        val n = model(); assertEquals(Screen.MENU.also { n.onKey(Key.OK) }, n.screen) // OK without a highlight still opens the menu
+    @Test fun leftAndRightMoveInsideTheZoneAndStopAtTheEnds() {
+        val m = model(); m.onKey(Key.DOWN) // wifi
+        m.onKey(Key.LEFT); assertEquals("signal", kind(m))
+        m.onKey(Key.LEFT); assertEquals("signal", kind(m)) // no wrapping, and it never leaves the zone
+        repeat(5) { m.onKey(Key.RIGHT) }; assertEquals("battery", kind(m))
+        assertEquals(Screen.HOME, m.screen)
+    }
+
+    @Test fun upAndDownSkipEmptyZonesAndPastTheEndsClearTheHighlight() {
+        val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L)
+        m.badges = listOf(Badge(BadgeKind.SMS, 2))
+        m.onKey(Key.DOWN); m.onKey(Key.DOWN); assertEquals("weather", kind(m)) // no data zone
+        m.onKey(Key.DOWN); assertEquals("clock", kind(m))
+        m.onKey(Key.DOWN); assertEquals("badge:SMS", kind(m)) // no zone 5 without pages
+        m.onKey(Key.DOWN); assertEquals(-1, m.homeFocus)
+        m.onKey(Key.UP); assertEquals("badge:SMS", kind(m))
+        m.onKey(Key.UP); m.onKey(Key.UP); m.onKey(Key.UP); assertEquals("wifi", kind(m)) // clock, weather, then the status zone on its middle item
+        m.onKey(Key.UP); assertEquals(-1, m.homeFocus)
+    }
+
+    @Test fun keysWithNothingChosenAreAsBefore() {
+        val m = model(); m.onKey(Key.RIGHT); assertEquals(Screen.CONTACTS, m.screen); m.onKey(Key.END)
+        val n = model(); n.onKey(Key.LEFT); assertEquals(Screen.MENU, n.screen)
+        val o = model(); o.onKey(Key.DOWN); o.onKey(Key.DIGIT, 5, 0); assertEquals(Screen.DIAL, o.screen); assertEquals(-1, o.homeFocus)
+    }
+
+    @Test fun backAndEndLeaveTheHighlight() {
+        val m = model(); m.onKey(Key.DOWN); m.onKey(Key.SOFT_RIGHT); assertEquals(-1, m.homeFocus); assertEquals(Screen.HOME, m.screen)
+        m.onKey(Key.DOWN); m.onKey(Key.END); assertEquals(-1, m.homeFocus)
     }
 
     @Test fun symbolsTheModeHidesCannotBeChosen() {
         val m = model(withSettings = false); m.wifiShown = false; m.btShown = false
         assertEquals(listOf("clock"), m.homeTargets().map { it.kind }) // the clock is always there
-        m.onKey(Key.UP)
-        assertEquals("clock", m.homeFocusTarget()?.kind)
+        m.onKey(Key.DOWN); assertEquals("clock", kind(m))
     }
 
-    @Test fun weatherAndNotificationSymbolsAreReachable() {
-        val m = model(); m.badges = listOf(Badge(BadgeKind.SMS, 2))
-        val kinds = m.homeTargets().map { it.kind }
-        assertEquals(listOf("signal", "wifi", "bt", "battery", "clock", "badge"), kinds)
-        m.onKey(Key.UP); m.onKey(Key.DOWN)
-        assertEquals("badge", m.homeFocusTarget()?.kind)
-        m.onKey(Key.OK); assertEquals(Screen.INBOX, m.screen)
+    @Test fun theHighlightStaysOnTheSameSymbolWhenOthersComeAndGo() {
+        val m = model(); m.badges = listOf(Badge(BadgeKind.SMS, 2), Badge(BadgeKind.WHATSAPP, 1), Badge(BadgeKind.MISSED, 1))
+        m.onKey(Key.UP); m.onKey(Key.RIGHT); assertEquals("badge:MISSED", kind(m))
+        m.badges = listOf(Badge(BadgeKind.MISSED, 1)); assertEquals("badge:MISSED", kind(m)) // the ones before it went
+        m.badges = listOf(Badge(BadgeKind.SMS, 2), Badge(BadgeKind.WHATSAPP, 1)); assertEquals("badge:SMS", kind(m)) // it went: the item at the same place
+        m.badges = emptyList(); assertEquals("clock", kind(m)) // the whole zone went: the nearest zone
     }
 
     @Test fun theWeatherSitsAboveTheClockAndItsTapAndHighlightFollow() {
@@ -85,5 +85,45 @@ class HomeFocusTest {
         val t = m.homeTargets().first { it.kind == "weather" }
         assertEquals(140f, t.t, 0.01f) // cy 174 - 34
         assertEquals(174f, weatherCy(true), 0f); assertEquals(296f, clockY(true), 0f); assertEquals(392f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
+    }
+
+    // ---- zone 5: the strip under the date
+    @Test fun zoneFiveEntersOnTheShowingPageAndPagesWrapRound() {
+        val m = model(); m.animationsOn = { false }; m.setNowPages(listOf("music", "event"))
+        m.badges = listOf(Badge(BadgeKind.SMS, 1))
+        m.onKey(Key.UP); assertEquals("badge:SMS", kind(m))
+        m.onKey(Key.UP); assertEquals("now", kind(m)); assertEquals(0, m.nowPage)
+        m.onKey(Key.RIGHT); assertEquals(1, m.nowPage)
+        m.onKey(Key.RIGHT); assertEquals(0, m.nowPage) // wraps
+        m.onKey(Key.LEFT); assertEquals(1, m.nowPage)
+        assertEquals(null, m.nowSlide()) // animations are off
+        m.onKey(Key.DOWN); m.onKey(Key.UP); assertEquals(1, m.nowPage) // entering again lands on the page showing
+    }
+
+    @Test fun okOnZoneFiveOpensNowPlayingOrTheCalendar() {
+        val m = model(); m.setNowPages(listOf("music", "event")); m.playingProvider = Provider.RADIO
+        m.onKey(Key.UP) // nothing in zone 6, so the first Up lands on the strip
+        assertEquals("now", kind(m))
+        m.onKey(Key.OK); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.RADIO, m.provider)
+        val e = model(); e.animationsOn = { false }; e.setNowPages(listOf("music", "event")); e.onKey(Key.UP); e.onKey(Key.RIGHT); e.onKey(Key.OK)
+        assertEquals(Screen.CALENDAR, e.screen)
+    }
+
+    @Test fun leftAndRightWithNothingChosenStillOpenMenuAndMusicAndOnePageHasNoPaging() {
+        val m = model(); m.setNowPages(listOf("event")); m.onKey(Key.UP); assertEquals("now", kind(m))
+        m.onKey(Key.RIGHT); assertEquals(0, m.nowPage); assertEquals("now", kind(m))
+        val n = model(); n.setNowPages(listOf("music", "event")); n.onKey(Key.LEFT); assertEquals(Screen.MENU, n.screen)
+    }
+
+    @Test fun whenThePageGoesTheStripFallsBackToItsFirstPage() {
+        val m = model(); m.animationsOn = { false }; m.setNowPages(listOf("music", "event")); m.onKey(Key.UP); m.onKey(Key.RIGHT)
+        assertEquals("event", m.nowPages[m.nowPage])
+        m.setNowPages(listOf("event")); assertEquals("event", m.nowPages[m.nowPage]) // the same page stays
+        m.setNowPages(listOf("music")); assertEquals(0, m.nowPage); assertEquals("now", kind(m))
+        m.setNowPages(emptyList()); assertEquals("clock", kind(m)) // the strip went: the nearest zone
+    }
+
+    @Test fun tappingTheStripOpensItsPage() {
+        val m = model(); m.setNowPages(listOf("event")); assertTrue(m.tap(240f, 400f) is Action.CalLoad); assertEquals(Screen.CALENDAR, m.screen)
     }
 }

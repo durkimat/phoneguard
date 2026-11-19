@@ -375,10 +375,10 @@ class HomeBadgeTest {
         val m = musicModel()
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSICMENU, m.screen) // nothing playing: the Music menu
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
-        m.badges = listOf(Badge(BadgeKind.MUSIC, 1)); m.playingProvider = Provider.RADIO
+        m.musicOn = true; m.playingProvider = Provider.RADIO
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.RADIO, m.provider) // playing: straight into that provider's screen
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // and Back straight out
-        m.badges = emptyList(); m.provStatus = mapOf(Provider.SPOTIFY to 1); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.SPOTIFY, m.provider)
+        m.musicOn = false; m.provStatus = mapOf(Provider.SPOTIFY to 1); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2); assertEquals(Screen.MUSIC, m.screen); assertEquals(Provider.SPOTIFY, m.provider)
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // even through the Music menu, Back from Now playing is home
     }
 }

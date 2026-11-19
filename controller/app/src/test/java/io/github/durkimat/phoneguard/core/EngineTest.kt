@@ -159,7 +159,8 @@ class EngineTest {
         assertEquals(3L, c.version)
         assertEquals(true, c.modes["school"]!!.touch); assertEquals("default", c.modes["school"]!!.launcher)
         val k = Config.parse("""{"modes":{"s":{"launcher":"nokia","touch":false,"shade":false,"kiosk":true}}}""")
-        assertEquals(ModeDef("s", "s", false, emptySet(), false, "nokia", false, false, true), k.modes["s"])
+        assertEquals(ModeDef("s", "s", false, emptySet(), false, "nokia", false, false, true).copy(dataWidget = false, nowStrip = false), k.modes["s"]) // where the phone is locked to its apps the data line and the Now strip default to off
+        assertTrue(Config.parse("""{"modes":{"s":{"kiosk":true,"dataWidget":true,"nowStrip":true}}}""").modes["s"]!!.nowStrip)
         assertTrue(c.modes["school"]!!.gray)
         assertEquals(setOf("no_factory_reset"), c.restrictions)
         assertEquals("school", c.pattern!!.days[1]!![0].mode)

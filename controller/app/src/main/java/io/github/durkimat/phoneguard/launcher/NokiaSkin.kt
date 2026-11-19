@@ -303,7 +303,9 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             if (over > 0f) {
                 // too many symbols for the width: they drift gently left and back, pausing at each end, unless a finger has just moved them
                 val now = System.currentTimeMillis()
-                if (now - m.badgeDragAt > 5000L) {
+                val chosen = m.homeBadgeIndex()
+                if (chosen >= 0) m.badgeOffset = (85f + 130f * chosen - 240f).coerceIn(0f, over) // a symbol chosen with the keys is brought into view and held
+                else if (now - m.badgeDragAt > 5000L) {
                     val speed = 30f; val rest = 1500L; val travelMs = (over / speed * 1000).toLong()
                     val t = now % (2 * (travelMs + rest))
                     m.badgeOffset = when { t < rest -> 0f; t < rest + travelMs -> (t - rest) / 1000f * speed; t < 2 * rest + travelMs -> over; else -> over - (t - 2 * rest - travelMs) / 1000f * speed }.coerceIn(0f, over)
@@ -481,17 +483,42 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         }
 
         /**
-         * The weather (above the clock, or lower in the Mac look) and, in the slot where the weather used to be, one of: Now playing while music is on (a play
-         * or pause mark, one scrolling "Artist - Title" line and a progress bar), the next event, or the note about rain on its way.
+         * The weather (above the clock, or lower in the Mac look) and zone 5, the strip where the weather used to be: one page at a time, music (a play or pause
+         * mark, one scrolling "Artist - Title" line and a progress bar) and then the next event. More than one page shows dots under it, and a change of page
+         * slides the old one off and the new one on.
          */
         private fun homeLower(c: Canvas, m: LauncherModel, i: HomeInfo, u: Float) {
             val mac = Themes.byId(m.theme).skin == "mac"
             val slot = homeSlotY(mac)
             m.weather?.let { weatherStrip(c, it, weatherCy(mac), i.time, u) }
-            val np = i.nowPlaying
-            when {
-                np != null -> nowPlayingLine(c, np, slot, u)
-                i.nextUp.isNotBlank() -> text(c, fit(i.nextUp, 440f, 26f), 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER)
+            val pages = m.nowPages
+            if (pages.isEmpty()) return
+            val cur = pages[m.nowPage.coerceIn(0, pages.size - 1)]
+            val slide = m.nowSlide()
+            if (slide == null) nowPageBody(c, cur, i, slot, u)
+            else {
+                val (from, dir, t) = slide
+                val e = 1f - (1f - t) * (1f - t)
+                val w = 464f
+                c.save(); c.clipRect(8f * u, NOW_TOP * u, 472f * u, NOW_BOTTOM * u)
+                c.save(); c.translate(-dir * w * e * u, 0f); nowPageBody(c, from, i, slot, u); c.restore()
+                c.save(); c.translate(dir * w * (1f - e) * u, 0f); nowPageBody(c, cur, i, slot, u); c.restore()
+                c.restore(); postInvalidateDelayed(16)
+            }
+            if (pages.size > 1) { // one dot a page, the one showing filled
+                val x0 = 240f - (pages.size - 1) * 9f
+                stroke.strokeWidth = 2f * u; stroke.color = ink; fill.color = ink
+                pages.indices.forEach { k ->
+                    val cx = (x0 + k * 18f) * u; val cy = 444f * u
+                    if (k == m.nowPage) { fill.style = Paint.Style.FILL; c.drawCircle(cx, cy, 4.5f * u, fill) } else c.drawCircle(cx, cy, 3.5f * u, stroke)
+                }
+            }
+        }
+
+        private fun nowPageBody(c: Canvas, page: String, i: HomeInfo, slot: Float, u: Float) {
+            when (page) {
+                "music" -> i.nowPlaying?.let { nowPlayingLine(c, it, slot, u) }
+                "event" -> if (i.nextUp.isNotBlank()) text(c, fit(i.nextUp, 440f, 26f), 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER)
             }
         }
 

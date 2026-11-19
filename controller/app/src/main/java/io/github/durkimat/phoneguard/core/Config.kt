@@ -49,6 +49,8 @@ data class ModeDef(
     val radiosSleep: Boolean = true,
     /** Whether the mobile data left is shown on the home screen (when a plan is set on the phone). */
     val dataWidget: Boolean = true,
+    /** Whether the home screen's Now strip (zone 5: music, then the next event) shows in this mode. */
+    val nowStrip: Boolean = true,
     /** Whether alarms and the timer may ring in this mode (the parent page turns this off in School/work). Absent = on. */
     val alarms: Boolean = true,
 )
@@ -170,7 +172,8 @@ data class Config(
                     screenOffMin = m.optInt("screenOffMin", 5),
                     radio = m.optString("radio", "any"),
                     radiosSleep = m.optBoolean("radiosSleep", true),
-                    dataWidget = m.optBoolean("dataWidget", true),
+                    dataWidget = m.optBoolean("dataWidget", !m.optBoolean("kiosk", false)), // absent: off where the phone is locked to its apps (School/work), on elsewhere
+                    nowStrip = m.optBoolean("nowStrip", !m.optBoolean("kiosk", false)),
                     alarms = m.optBoolean("alarms", true),
                 )
             }
