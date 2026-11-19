@@ -82,6 +82,14 @@ class RingService : Service() {
     private var gainAt = 0L
     private var prefs = ClockPrefs()
     private var mode = 0 // 0 nothing yet, 1 sounding, 2 vibrating only
+    private var sawOn = false
+    /** The power key puts the screen off: that quiets the alarm (snooze), as on any phone. Only once the screen has been on, so waking the phone is not mistaken for it. */
+    private val screen = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) {
+            if (i.action == Intent.ACTION_SCREEN_ON) sawOn = true
+            else if (sawOn && info != null && Clock.now() - startedAt > 2000) { Log.log(c, "alarms: screen off, snoozed"); snooze() }
+        }
+    }
 
     override fun onBind(i: Intent?): IBinder? = null
 
@@ -93,6 +101,8 @@ class RingService : Service() {
         val ri = i?.let { RingInfo(it.getStringExtra("kind") ?: "alarm", it.getIntExtra("id", 0), it.getStringExtra("tone") ?: Tones.DEFAULT, it.getStringExtra("time") ?: "") } ?: return START_NOT_STICKY
         if (info != null) { stop(false) } // a second alarm at the same minute: one ring, the later one wins
         info = ri; mode = 0; startedAt = Clock.now(); prefs = AlarmStore.prefs(this)
+        sawOn = getSystemService(PowerManager::class.java).isInteractive
+        try { registerReceiver(screen, android.content.IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_SCREEN_OFF) }) } catch (_: Exception) { }
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "phoneguard:ring").also { it.acquire(6 * 60_000L) }
         RingState.sounding = true; RingState.set(ri)
         val nm = getSystemService(NotificationManager::class.java)
@@ -107,7 +117,7 @@ class RingService : Service() {
         val n = Notification.Builder(this, CH).setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(if (ri.kind == "timer") "Timer" else "Alarm " + ri.time)
             .setCategory(Notification.CATEGORY_ALARM).setOngoing(true).setContentIntent(show).setFullScreenIntent(show, true).build()
         startForeground(NOTE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        try { startActivity(Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { }
+        try { startActivity(Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { Log.log(this, "alarms: ring screen not opened (${e.javaClass.simpleName}); the notification shows it") }
         ui.post(step)
         return START_NOT_STICKY
     }
@@ -179,6 +189,7 @@ class RingService : Service() {
         savedAlarmVol = -1
         try { wake?.takeIf { it.isHeld }?.release() } catch (_: Exception) { }
         info = null; savedFilter = -1
+        try { unregisterReceiver(screen) } catch (_: Exception) { }
         RingState.sounding = false
         if (!end) return
         RingState.set(null)
@@ -210,12 +221,13 @@ class RingActivity : Activity() {
         super.onCreate(b)
         setShowWhenLocked(true); setTurnScreenOn(true)
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val look = io.github.durkimat.phoneguard.launcher.Look.current(this)
-        model.theme = look.theme; model.font = look.font; model.accent = look.accent
-        skin = if (look.skin == "mac") io.github.durkimat.phoneguard.launcher.MacSkin() else NokiaSkin()
+        // before the first unlock only device-protected storage can be read: the look then falls back to the defaults, but the alarm is still shown and stoppable
+        val look = try { io.github.durkimat.phoneguard.launcher.Look.current(this) } catch (e: Exception) { null }
+        if (look != null) { model.theme = look.theme; model.font = look.font; model.accent = look.accent }
+        skin = if (look?.skin == "mac") io.github.durkimat.phoneguard.launcher.MacSkin() else NokiaSkin()
         setContentView(skin.create(this))
         RingState.listen(listener)
-        io.github.durkimat.phoneguard.HardKeys.menuKeyOverlay(this, false)
+        try { io.github.durkimat.phoneguard.HardKeys.menuKeyOverlay(this, false) } catch (_: Exception) { }
         LeftKey.listener = { perform(model.onKey(io.github.durkimat.phoneguard.launcher.Key.SOFT_LEFT, -1)) }
         update()
     }
@@ -232,11 +244,17 @@ class RingActivity : Activity() {
         val i = RingState.info
         if (i == null) { finish(); return }
         model.setRing(i.kind, i.time, i.silentForCall)
-        skin.render(model, LauncherData.info(this))
+        val home = try { LauncherData.info(this) } catch (e: Exception) { Log.log(this, "alarms: ring screen without home info (${e.javaClass.simpleName})"); fallbackInfo(i) }
+        skin.render(model, home)
     }
 
+    private fun fallbackInfo(i: RingInfo) = io.github.durkimat.phoneguard.launcher.HomeInfo(
+        time = i.time, date = "", modeLine = "", badges = emptyList(), batteryPct = 100, charging = false, signalBars = 0, softLeft = "", softRight = "")
+
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
-        val k = KeyMap.of(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
+        // every other key (volume, camera, side keys) snoozes, as on any phone: an alarm must never be left ringing with no way to quiet it
+        val k = KeyMap.of(ev.keyCode) ?: return if (ev.keyCode == KeyEvent.KEYCODE_POWER) super.dispatchKeyEvent(ev) else {
+            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(Action.AlarmSnooze); true }
         if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) perform(model.onKey(k.first, k.second))
         return true // keys belong to the alarm: Back must not leave it ringing unseen
     }

@@ -751,6 +751,7 @@ class LauncherActivity : Activity() {
                 io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key)
                 model.goHome(); refresh()
             }
+            is Action.SmsRead -> { Thread { LauncherData.markSmsSeen(this, a.address); ui.post { invalidate(D.INFO or D.CONVOS or D.SCREEN); refresh() } }.start() }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }
             Action.ClearNotes -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearEverything(); refresh() }
             is Action.RadioLoad -> Thread {
@@ -978,7 +979,7 @@ class LauncherActivity : Activity() {
                 val i = io.github.durkimat.phoneguard.voice.NameMatch.best(all.map { it.name }, cmd.name)
                 ui.post { if (i == null) say("No contact called ${cmd.name}") else { model.startDial(all[i].numbers.first()); say("Call ${all[i].name}? Press the call key") } }
             }.start()
-            is io.github.durkimat.phoneguard.voice.VoiceCommand.Timer -> {
+            is io.github.durkimat.phoneguard.voice.VoiceCommand.Timer -> if (cmd.minutes == 0) { perform(model.openTimer()); refresh() } else {
                 // our own timer (the Clock app's), started now; it rings through the same ring screen
                 val t = io.github.durkimat.phoneguard.alarm.TimerState(length = cmd.minutes * 60).start(io.github.durkimat.phoneguard.Clock.now())
                 io.github.durkimat.phoneguard.alarm.AlarmStore.saveTimer(this, t); model.timer = t

@@ -29,7 +29,9 @@ assert.equal(quality({ text: "plain text, no detail" }), "ok"); ok("a clip is 'l
   assert.equal(cleanCommand({ intent: "play", args: { query: "Taylor Swift", kind: "weird" } }).args.kind, "any");
   const c = cleanCommand({ intent: "call", args: { name: "Granny" } }); assert.equal(c.confirm, true); assert.equal(c.say, "Call Granny?");
   assert.equal(cleanCommand({ intent: "timer", args: { minutes: 9.6 } }).args.minutes, 10);
-  U({ intent: "timer", args: { minutes: 0 } }); U({ intent: "timer", args: { minutes: 99999 } }); U({ intent: "timer", args: {} });
+  U({ intent: "timer", args: { minutes: 99999 } });
+  assert.equal(cleanCommand({ intent: "timer", args: { minutes: 0 } }).args.minutes, 0); // no length said: the phone opens its Timer screen
+  assert.equal(cleanCommand({ intent: "timer", args: {} }).args.minutes, 0);
   U({ intent: "navigate", args: {} }); U({ intent: "call", args: { name: "  " } });
   U({ intent: "set_mode", args: { mode: "day" } }); U({ intent: "unlock", args: {} }); U("not json"); U(null); U(42); U({ args: {} });
   assert.equal(cleanCommand({ intent: "navigate", args: { destination: "x".repeat(500) } }).args.destination.length, 120);

@@ -153,6 +153,7 @@
 
         <activity
             android:name=".alarm.RingActivity"
+            android:directBootAware="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:screenOrientation="portrait"
@@ -162,7 +163,7 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
         <receiver android:name=".alarm.AlarmFire" android:directBootAware="true" android:exported="false" />
-        <service android:name=".alarm.RingService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".alarm.RingService" android:directBootAware="true" android:exported="false" android:foregroundServiceType="mediaPlayback" />
 
         <service
             android:name=".incall.CallService"

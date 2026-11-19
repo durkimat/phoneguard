@@ -107,6 +107,7 @@ const val MUSIC_PKG = "pg:music"
 const val WHERE_PKG = "pg:where"
 const val NOTES_PKG = "pg:notes"
 const val CALENDAR_PKG = "pg:calendar"
+const val CLOCK_PKG = "pg:clock"
 const val MAIL_PKG = "pg:mail"
 const val RUNNING_PKG = "pg:running"
 val CAMERA_APPS = setOf("org.lineageos.aperture", "com.android.camera2", "org.lineageos.snap", "com.android.camera")
@@ -188,6 +189,8 @@ sealed class Action {
     object WaOpen : Action()
     /** A WhatsApp chat was opened: mark it read. */
     data class WaRead(val chat: String) : Action()
+    /** A text conversation was opened: its messages count as read (the phone's own read flag is not ours to write). */
+    data class SmsRead(val address: String) : Action()
     /** Send a WhatsApp message to a chat (a number, or "g" + a group id). */
     data class SendWa(val chat: String, val body: String) : Action()
     /** Start a call to this number. */
@@ -1030,7 +1033,7 @@ class LauncherModel(
     }
 
     private fun inbox(key: Key, digit: Int): Action = move(key, convos.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.Redraw } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; if (it.unread > 0) Action.SmsRead(it.address) else Action.Redraw } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> convos.getOrNull(selected)?.let { Action.Call(it.address) } ?: Action.CallKey
@@ -1295,6 +1298,7 @@ class LauncherModel(
         item.pkg == contactsApp -> openContacts(Screen.MENU)
         item.pkg == messagesApp -> openMessages()
         item.pkg == dialerApp -> openPhoneMenu()
+        item.pkg == CLOCK_PKG -> openClock()
         item.pkg == CALC_PKG -> { calc.allClear(); enter(Screen.CALC); Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
@@ -1617,6 +1621,7 @@ class LauncherModel(
         item.pkg == NOTES_PKG -> "notes"
         item.pkg == MAIL_PKG -> "mail"
         item.pkg == CALENDAR_PKG -> "calendar"
+        item.pkg == CLOCK_PKG -> "alarm"
         item.pkg == WEATHER_PKG -> "weather"
         item.pkg == CALLLOG_PKG || item.pkg == dialerApp -> "calls"
         item.pkg == messagesApp -> "messages"
@@ -2096,11 +2101,13 @@ class LauncherModel(
     /** Where the clock sits on the home screen, for the keypad highlight and a touch. */
     fun clockTarget(): HomeTarget { val y = clockY(Themes.byId(theme).skin == "mac"); return HomeTarget("clock", 50f, y - 100f, 430f, y + 12f) }
 
+    fun openTimer(): Action { enter(Screen.TIMER); return Action.Redraw }
+
     fun openClock(): Action { enter(Screen.CLOCK); return Action.Redraw }
 
     private val clockRows: List<String> get() = buildList {
         add("Alarms"); add("Timer"); add("Stopwatch")
-        if (timeSettable) add("Set time")
+        add(if (timeSettable) "Set time" else "Set time: from network")
         add("Alarm sound and volume")
     }
 
@@ -2111,7 +2118,7 @@ class LauncherModel(
                 "Alarms" -> { enter(Screen.ALARMS); if (!alarmsAllowed) notify("Alarms are off in this mode"); Action.Redraw }
                 "Timer" -> { enter(Screen.TIMER); Action.Redraw }
                 "Stopwatch" -> { enter(Screen.STOPWATCH); Action.Redraw }
-                "Set time" -> { pushForm(setTimeForm()); Action.Redraw }
+                "Set time", "Set time: from network" -> if (timeSettable) { pushForm(setTimeForm()); Action.Redraw } else { notify("Time is set from the network"); Action.Redraw }
                 "Alarm sound and volume" -> { pushForm(alarmSettingsForm()); Action.Redraw }
                 else -> Action.None
             }

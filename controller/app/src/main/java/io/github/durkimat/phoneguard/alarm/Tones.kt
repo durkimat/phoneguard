@@ -66,7 +66,7 @@ object Tones {
     fun lengthMs(t: Tone) = parse(t.rtttl).sumOf { it.ms }
 
     /** The tune as 16-bit mono PCM: a soft square wave with a short fade at each note's ends, and a short gap after each note. */
-    fun render(t: Tone, rate: Int = 16000): ShortArray {
+    fun render(t: Tone, rate: Int = 16000, amp: Double = 0.45): ShortArray {
         val notes = parse(t.rtttl)
         val total = notes.sumOf { it.ms.toLong() * rate / 1000 }.toInt()
         val pcm = ShortArray(total)
@@ -79,7 +79,7 @@ object Tones {
                 for (k in 0 until count - gap) {
                     val sq = if (sin(2 * PI * n.hz * k / rate) >= 0) 1.0 else -1.0
                     val env = minOf(1.0, k / fade.toDouble(), (count - gap - k) / fade.toDouble())
-                    pcm[at + k] = (sq * env * 0.45 * Short.MAX_VALUE).toInt().toShort()
+                    pcm[at + k] = (sq * env * amp * Short.MAX_VALUE).toInt().toShort()
                 }
             }
             at += count

@@ -31,13 +31,18 @@ class VolumeBar(private val svc: AccessibilityService) {
     private val hide = Runnable { view?.let { try { wm.removeView(it) } catch (_: Exception) { } }; view = null }
 
     /** What the keys change right now: the call, the music being played on this phone, or else the ringer. */
+    private fun ringing() = try { svc.getSystemService(android.telephony.TelephonyManager::class.java).callState == android.telephony.TelephonyManager.CALL_STATE_RINGING } catch (_: Exception) { false }
+
     fun stream(): Pair<Int, String> = when {
+        ringing() -> AudioManager.STREAM_RING to "RING" // an incoming call is ringing: the keys set the ringer (the first press also quiets it, as the system does)
         CallState.info != null || am.mode == AudioManager.MODE_IN_CALL || am.mode == AudioManager.MODE_IN_COMMUNICATION -> AudioManager.STREAM_VOICE_CALL to "CALL"
         am.isMusicActive -> AudioManager.STREAM_MUSIC to "MUSIC"
         else -> AudioManager.STREAM_RING to "RING"
     }
 
     fun press(up: Boolean) {
+        // an alarm or timer is ringing: any volume key snoozes it (a timer stops), whatever else the keys do
+        if (io.github.durkimat.phoneguard.alarm.RingState.sounding) { io.github.durkimat.phoneguard.alarm.RingService.snooze(svc); return }
         // the Music screen is open and the music is on another Spotify device (the Echo): the keys change that device
         io.github.durkimat.phoneguard.launcher.LauncherActivity.remoteVolume?.invoke(up)?.let { (pct, name) -> show(pct, 100, name, false); return }
         val (s, label) = stream()

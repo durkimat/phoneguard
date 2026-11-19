@@ -90,5 +90,7 @@ class NoteService : NotificationListenerService() {
     fun reapply() { refresh() }
 
     fun clearKey(key: String) { try { cancelNotification(key) } catch (_: Exception) { }; Notes.remove(key) }
+    /** The messaging app's own notifications are cleared when a conversation is opened here (our list hides them, but the phone's shade still shows them). */
+    fun clearMessaging() { try { activeNotifications.filter { it.packageName == "com.android.messaging" && it.isClearable }.forEach { cancelNotification(it.key) } } catch (_: Exception) { } }
     fun clearEverything() { try { cancelAllNotifications() } catch (_: Exception) { }; Notes.clear() }
 }

@@ -79,14 +79,14 @@ object LauncherData {
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (whereShown(c)) listOf(MenuItem(WHERE_PKG, "Navigate")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(MAIL_PKG, "Email")) else emptyList()) + listOf(MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"))
+            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (whereShown(c)) listOf(MenuItem(WHERE_PKG, "Navigate")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(MAIL_PKG, "Email")) else emptyList()) + listOf(MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(CLOCK_PKG, "Clock"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
     /** "Navigate" is offered when the phone is paired to the Worker (which does the place and journey lookups), the mode is not locked to one app and the mode allows it (`whereTo` in the synced config, absent = on). It sits after Classic Games so the digit keys of the other items stay where they were. */
     fun whereShown(c: Context): Boolean = musicShown(c) && io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.whereTo(Store.config(c), Clock.now())
 
-    private val builtIn = setOf(WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG)
+    private val builtIn = setOf(WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG, CLOCK_PKG)
 
     /**
      * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts and the apps a parent pinned (where they exist),
@@ -100,7 +100,7 @@ object LauncherData {
         val others = apps - core.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
         return core + pins + one(MAIL_PKG) + one(CALENDAR_PKG) + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
-            one(WEATHER_PKG) + one(GAMES_PKG) + one(WHERE_PKG) + one(CALC_PKG) + one(CALLLOG_PKG) + one(SETTINGS_PKG)
+            one(WEATHER_PKG) + one(GAMES_PKG) + one(WHERE_PKG) + one(CALC_PKG) + one(CALLLOG_PKG) + one(SETTINGS_PKG) + one(CLOCK_PKG)
     }
 
     /** The built-in entries that Settings lists as groups of their own, where the mode shows them. */
@@ -240,8 +240,33 @@ object LauncherData {
     } catch (_: Exception) { 0 }
 
     private fun newMessages(c: Context): Int = try {
-        c.contentResolver.query(Telephony.Sms.Inbox.CONTENT_URI, arrayOf("_id"), "read=0", null, null)?.use { it.count } ?: 0
+        c.contentResolver.query(Telephony.Sms.Inbox.CONTENT_URI, arrayOf("address", "date"), "read=0", null, null)?.use { cur ->
+            var n = 0
+            while (cur.moveToNext()) if (cur.getLong(1) > seenSms(c, cur.getString(0).orEmpty())) n++
+            n
+        } ?: 0
     } catch (_: Exception) { 0 }
+
+    /** The date of the newest text of this conversation that was opened here; texts up to then are read, whatever the phone's own flag says. */
+    private fun seenSms(c: Context, address: String): Long = prefs(c).getLong("sms_seen_" + key(address), 0L)
+
+    /** Opening a conversation marks it read. The phone's own flag is also set when the system allows it, and its notification is cleared. */
+    fun markSmsSeen(c: Context, address: String) {
+        val k = key(address)
+        var newest = 0L
+        try {
+            c.contentResolver.query(Telephony.Sms.Inbox.CONTENT_URI, arrayOf("address", "date"), null, null, "date DESC LIMIT 400")?.use { cur ->
+                while (cur.moveToNext()) if (key(cur.getString(0).orEmpty()) == k) newest = maxOf(newest, cur.getLong(1))
+            }
+        } catch (_: Exception) { }
+        newest = maxOf(newest, Clock.now())
+        prefs(c).edit().putLong("sms_seen_$k", newest).apply()
+        try {
+            val v = android.content.ContentValues().apply { put("read", 1); put("seen", 1) }
+            c.contentResolver.update(Telephony.Sms.Inbox.CONTENT_URI, v, "address=? AND read=0", arrayOf(address))
+        } catch (_: Exception) { } // write-protected without the default-app role: the local mark above is what counts
+        io.github.durkimat.phoneguard.notes.NoteService.instance?.clearMessaging()
+    }
 
     internal fun signal(c: Context): Int = try {
         val tm = c.getSystemService(TelephonyManager::class.java)
@@ -313,7 +338,7 @@ object LauncherData {
                 while (cur.moveToNext()) {
                     val addr = cur.getString(0) ?: continue
                     val type = cur.getInt(3)
-                    raws.add(Raw(addr, Msg(cur.getString(1).orEmpty(), cur.getLong(2), type != 1), type == 1 && cur.getInt(4) == 0))
+                    raws.add(Raw(addr, Msg(cur.getString(1).orEmpty(), cur.getLong(2), type != 1), type == 1 && cur.getInt(4) == 0 && cur.getLong(2) > seenSms(c, addr)))
                 }
             }
         } catch (_: Exception) { }

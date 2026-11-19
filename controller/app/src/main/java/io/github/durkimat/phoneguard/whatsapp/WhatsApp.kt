@@ -27,6 +27,8 @@ object WhatsApp {
     @Volatile var pairCode: String? = null
         private set
     private var bridge: Bridge? = null
+    @Volatile private var appCtx: Context? = null
+    private var lastTone = 0L
     private var store: WaStore? = null
     private val changed = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
@@ -38,7 +40,7 @@ object WhatsApp {
     @Volatile private var quiet = false
     private val idleOff = Runnable {
         if (bridge?.isPaired == false) return@Runnable
-        quiet = true; bridge?.disconnect(); android.util.Log.i("PhoneGuard", "whatsapp: idle, disconnected")
+        quiet = true; bridge?.disconnect(); appCtx?.let { Log.log(it, "whatsapp: disconnected (idle $IDLE_MS ms after the last look)") }
     }
 
     private fun prefs(c: Context) = c.applicationContext.createDeviceProtectedStorageContext().getSharedPreferences("launcher", Context.MODE_PRIVATE)
@@ -66,6 +68,7 @@ object WhatsApp {
     @Synchronized fun open(c: Context): Bridge? {
         bridge?.let { return it }
         val app = c.applicationContext
+        appCtx = app
         // the bridge is built for arm64 only: an x86 emulator cannot run it (its translation layer lacks instructions the Go runtime uses), so WhatsApp is simply absent there
         if (android.os.Build.SUPPORTED_ABIS.firstOrNull() != "arm64-v8a") { Log.log(app, "whatsapp: not available on ${android.os.Build.SUPPORTED_ABIS.firstOrNull()}"); return null }
         return try {
@@ -86,7 +89,12 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(m: Message) { st.add(m.chat, m.chatName, nameFor(app, m.senderID, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history) }
+                override fun onMessage(m: Message) {
+                    st.add(m.chat, m.chatName, nameFor(app, m.senderID, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history)
+                    // a new message gets the child's WhatsApp tune (not our own, not the backlog); the system's ringer mode and Do Not Disturb apply to it
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (!m.history && !m.fromMe && now - lastTone > 3_000L) { lastTone = now; io.github.durkimat.phoneguard.alarm.ToneStore.notify(app, io.github.durkimat.phoneguard.alarm.ToneStore.WA) }
+                }
                 // read on another device (the main phone): clear the stars for what arrived up to then
                 override fun onRead(chat: String, ts: Long) {
                     val changed = st.markReadUpTo(chat, ts)
@@ -231,6 +239,7 @@ object WhatsApp {
         main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
         if (isConnected()) return
         status = "connecting"; fire()
+        Log.log(c, "whatsapp: connecting (WhatsApp screen opened)")
         Thread { connect(c) }.start()
     }
 
@@ -285,9 +294,10 @@ object WhatsApp {
         try {
             io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000)
             val wasOn = isConnected()
+            Log.log(app, "whatsapp: check starting (${if (wasOn) "already connected" else "connecting"}, every $p min)")
             if (!wasOn) { connect(app); for (i in 1..40) { if (isConnected()) break; Thread.sleep(500) } }
             if (isConnected()) Thread.sleep(if (wasOn) 0 else SETTLE_MS) // queued messages arrive straight after connecting
-            if (!wasOn) { quiet = true; bridge?.disconnect() }
+            if (!wasOn) { quiet = true; bridge?.disconnect(); Log.log(app, "whatsapp: disconnected (check finished)") }
             val bat = app.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))
             val pct = bat?.let { it.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / it.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100) } ?: -1
             val plugged = (bat?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
@@ -337,6 +347,7 @@ object WhatsApp {
         return "error: Something went wrong. Try again"
     }
     fun connect(c: Context): String = try { open(c)?.connect(); "ok" } catch (e: Throwable) {
+        Log.log(c, "whatsapp: connect failed (${plain(e)})")
         if (staleDevice(e)) { setLinked(c, false); close() }
         "error: " + plain(e)
     }

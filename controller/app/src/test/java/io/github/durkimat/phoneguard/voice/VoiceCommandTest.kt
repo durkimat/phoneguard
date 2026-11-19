@@ -18,7 +18,8 @@ class VoiceCommandTest {
         assertEquals(Unknown(), VoiceCommand.parse("garbage"))
         assertEquals(Unknown("Sorry, I didn't catch that"), VoiceCommand.parse("""{"intent":"unknown","args":{},"say":"Sorry, I didn't catch that"}"""))
         assertEquals(Unknown(), VoiceCommand.parse("""{"intent":"set_mode","args":{"mode":"day"}}"""))
-        assertEquals(Unknown(), VoiceCommand.parse("""{"intent":"timer","args":{"minutes":0}}"""))
+        assertEquals(Timer(0), VoiceCommand.parse("""{"intent":"timer","args":{"minutes":0}}""")) // no length said: the Timer screen opens
+        assertEquals(Timer(0), VoiceCommand.parse("""{"intent":"timer","args":{}}"""))
         assertEquals(Unknown(), VoiceCommand.parse("""{"intent":"timer","args":{"minutes":601}}"""))
         assertEquals(Unknown(), VoiceCommand.parse("""{"intent":"call","args":{"name":"  "}}"""))
     }

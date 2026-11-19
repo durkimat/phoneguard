@@ -18,7 +18,9 @@ class ClockFlowTest {
         val m = phone()
         m.openClockApp()
         assertEquals(Screen.CLOCK, m.screen)
-        assertEquals(listOf("Alarms", "Timer", "Stopwatch", "Alarm sound and volume"), m.rows)
+        assertEquals(listOf("Alarms", "Timer", "Stopwatch", "Set time: from network", "Alarm sound and volume"), m.rows)
+        repeat(3) { m.key(Key.DOWN) }; m.key(Key.OK)
+        assertEquals("Time is set from the network", m.notice); assertEquals(Screen.CLOCK, m.screen)
         m.timeSettable = true
         assertEquals("Set time", m.rows[3])
         m.key(Key.SOFT_RIGHT)
@@ -94,7 +96,7 @@ class ClockFlowTest {
 
     @Test fun volumeAndGradualAreKept() {
         val m = phone(); var p = ClockPrefs(); m.onClockPrefs = { p = it }
-        m.openClockApp(); repeat(3) { m.key(Key.DOWN) }; m.key(Key.OK)
+        m.openClockApp(); repeat(4) { m.key(Key.DOWN) }; m.key(Key.OK)
         m.key(Key.RIGHT); m.key(Key.RIGHT); m.key(Key.RIGHT)
         assertEquals(7, p.volume)
         m.key(Key.DOWN); m.key(Key.OK)

@@ -61,9 +61,20 @@ class ScreenCover(private val svc: AccessibilityService) {
             val u = width / 480f
             val scale = if (font == "vt323") 1.3f else 1f
             p.textAlign = Paint.Align.CENTER; p.isFakeBoldText = true
-            val first = height / 2f - (lines.size - 1) * 24f * u
-            lines.forEachIndexed { i, line ->
-                p.textSize = (if (lines.size == 1 || i == 0) 32f else 28f) * u * scale
+            // long lines wrap at word breaks instead of running off the screen
+            p.textSize = (if (lines.size == 1) 32f else 28f) * u * scale
+            val shown = ArrayList<String>()
+            for (line in lines) {
+                var cur = ""
+                for (w in line.split(' ')) {
+                    val tryIt = if (cur.isEmpty()) w else "$cur $w"
+                    if (cur.isNotEmpty() && p.measureText(tryIt) > width - 24 * u) { shown.add(cur); cur = w } else cur = tryIt
+                }
+                if (cur.isNotEmpty()) shown.add(cur)
+            }
+            val first = height / 2f - (shown.size - 1) * 24f * u
+            shown.forEachIndexed { i, line ->
+                p.textSize = (if (shown.size == 1 || i == 0) 32f else 28f) * u * scale
                 var t = line; while (t.length > 1 && p.measureText(t) > width - 24 * u) t = t.dropLast(1)
                 cv.drawText(t, width / 2f, first + i * 48f * u, p)
             }

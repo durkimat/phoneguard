@@ -187,7 +187,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             c.save(); c.clipRect((bx + 5) * u, 15 * u, level, 31 * u)
             text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER, color = lcd); c.restore()
             // the time, where the percentage used to be (the home screen has its big clock)
-            if (clock) text(c, i.time, bx - 8, 33f, 24f, u, align = Paint.Align.RIGHT)
+            if (clock) text(c, i.time, bx - 8, 30f, 22f, u, align = Paint.Align.RIGHT) // the same middle line as the icons (the battery's centre is y 23)
             // Wi-Fi: a dot and three arcs, solid when connected, faint when on with no connection, faint with a slash when switched off (not drawn where the mode hides it)
             if (i.wifi >= 0) {
                 val faint = i.wifi != 1
@@ -1288,8 +1288,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         private fun notice(c: Canvas, s: String, u: Float) {
             if (chrome.notice(this, c, s, u)) return
-            c.drawRect(30 * u, 250 * u, 450 * u, 350 * u, fill)
-            text(c, s, 240f, 312f, 32f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
+            // a long notice wraps at word breaks (about 20 characters a line) instead of running off the screen
+            val lines = ArrayList<String>(); var cur = ""
+            for (w in s.split(' ')) { val t = if (cur.isEmpty()) w else "$cur $w"; if (cur.isNotEmpty() && t.length > 20) { lines.add(cur); cur = w } else cur = t }
+            if (cur.isNotEmpty()) lines.add(cur)
+            val h = 36f + 44f * lines.size
+            c.drawRect(30 * u, (300f - h / 2) * u, 450 * u, (300f + h / 2) * u, fill)
+            lines.forEachIndexed { k, l -> text(c, l, 240f, 300f - h / 2 + 42f + 44f * k, 32f, u, bold = true, align = Paint.Align.CENTER, color = lcd) }
         }
 
         private fun plural(n: Int, what: String) = "$n $what" + if (n == 1) "" else "s"

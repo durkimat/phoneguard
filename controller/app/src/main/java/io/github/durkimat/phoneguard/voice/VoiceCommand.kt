@@ -9,6 +9,7 @@ import org.json.JSONObject
 sealed class VoiceCommand {
     data class Call(val name: String) : VoiceCommand()
     data class Play(val query: String, val kind: String) : VoiceCommand()
+    /** [minutes] 0 = "timer" with no length: open the Timer screen. */
     data class Timer(val minutes: Int) : VoiceCommand()
     data class Navigate(val destination: String) : VoiceCommand()
     data class Unknown(val say: String = "Sorry, I didn't catch that") : VoiceCommand()
@@ -21,7 +22,7 @@ sealed class VoiceCommand {
             return when (j.optString("intent")) {
                 "call" -> text("name", 60).let { if (it.isEmpty()) Unknown() else Call(it) }
                 "play" -> text("query", 120).let { q -> if (q.isEmpty()) Unknown() else Play(q, text("kind", 10).takeIf { it in setOf("playlist", "artist", "song", "any") } ?: "any") }
-                "timer" -> a.optInt("minutes", 0).let { if (it in 1..600) Timer(it) else Unknown() }
+                "timer" -> a.optInt("minutes", 0).let { if (it in 1..600) Timer(it) else if (it == 0) Timer(0) else Unknown() } // no length said: the Timer screen opens
                 "navigate" -> text("destination", 120).let { if (it.isEmpty()) Unknown() else Navigate(it) }
                 else -> Unknown(j.optString("say").ifBlank { "Sorry, I didn't catch that" })
             }

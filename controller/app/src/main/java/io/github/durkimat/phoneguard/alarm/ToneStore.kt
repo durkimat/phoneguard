@@ -19,14 +19,16 @@ import java.io.ByteArrayOutputStream
  */
 object ToneStore {
     const val STOCK = "stock"
+    /** Levels of the saved files: the system plays them at the ring and notification volume, which was loud at full scale. */
+    const val RING_AMP = 0.22; const val MSG_AMP = 0.28
     const val RING = "ring"; const val SMS = "sms"; const val WA = "wa"
     private fun sp(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("tones", Context.MODE_PRIVATE)
 
     fun pick(c: Context, slot: String): String = (sp(c).getString("pick_$slot", STOCK) ?: STOCK).let { if (it == STOCK || Tones.all.any { t -> t.id == it }) it else STOCK }
 
     /** WAV bytes of a tune: 16 kHz mono 16-bit, with [tailMs] of silence so a looping ringtone breathes between rings. */
-    fun wav(t: Tones.Tone, tailMs: Int): ByteArray {
-        val pcm = Tones.render(t)
+    fun wav(t: Tones.Tone, tailMs: Int, amp: Double = 0.45): ByteArray {
+        val pcm = Tones.render(t, amp = amp)
         val n = pcm.size + 16 * tailMs
         val out = ByteArrayOutputStream(44 + n * 2)
         fun i32(v: Int) { out.write(v and 255); out.write(v shr 8 and 255); out.write(v shr 16 and 255); out.write(v shr 24 and 255) }
@@ -61,7 +63,7 @@ object ToneStore {
                 return true
             }
             if (sp.getString("stock_$slot", null) == null) sp.edit().putString("stock_$slot", RingtoneManager.getActualDefaultRingtoneUri(c, ty)?.toString() ?: "none").apply()
-            val uri = place(c, slot, wav(Tones.byId(id), if (slot == RING) 1200 else 0)) ?: return false
+            val uri = place(c, slot, wav(Tones.byId(id), if (slot == RING) 1200 else 0, if (slot == RING) RING_AMP else MSG_AMP)) ?: return false
             RingtoneManager.setActualDefaultRingtoneUri(c, ty, uri)
             return true
         } catch (e: Exception) { Log.log(c, "tones: $slot $id failed ${e.javaClass.simpleName}"); return false }
@@ -102,5 +104,20 @@ object ToneStore {
                 .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
             t.write(pcm, 0, pcm.size); t.setVolume(0.6f); t.play(); preview = t
         } catch (_: Exception) { }
+    }
+
+    /** A message tone from our own code (our WhatsApp client): the child's pick, or the phone's notification sound for "stock". The notification usage follows the ringer mode and Do Not Disturb. */
+    fun notify(c: Context, slot: String) {
+        try {
+            val id = pick(c, slot)
+            if (id == STOCK) { RingtoneManager.getRingtone(c, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)?.play(); return }
+            val pcm = Tones.render(Tones.byId(id)).let { if (it.size > 16000 * 4) it.copyOf(16000 * 4) else it }
+            val t = AudioTrack.Builder()
+                .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(16000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
+            t.write(pcm, 0, pcm.size); t.setVolume(0.5f); t.play()
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ try { t.stop(); t.release() } catch (_: Exception) { } }, pcm.size / 16L + 500)
+        } catch (e: Exception) { Log.log(c, "tones: message tone failed ${e.javaClass.simpleName}") }
     }
 }
