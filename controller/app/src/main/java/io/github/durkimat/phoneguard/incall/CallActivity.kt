@@ -84,6 +84,7 @@ class CallActivity : Activity() {
             Action.Redraw -> redraw()
             Action.Answer -> svc?.answer()
             Action.Reject -> svc?.reject()
+            Action.SilenceRing -> svc?.silence()
             Action.EndCall -> svc?.end()
             Action.ToggleSpeaker -> svc?.toggleSpeaker()
             Action.ToggleMute -> svc?.toggleMute()

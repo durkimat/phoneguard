@@ -1262,6 +1262,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     text(c, if (call.phase == CallPhase.RINGING) "Incoming call" else "Calling...", 240f, 150f, 30f, u, align = Paint.Align.CENTER)
                     text(c, who, 240f, 280f, fitted(who, 52f), u, bold = true, align = Paint.Align.CENTER)
                     if (call.name != null) text(c, call.number, 240f, 335f, 30f, u, align = Paint.Align.CENTER)
+                    if (call.phase == CallPhase.RINGING) text(c, "* silences the ring", 240f, 410f, 26f, u, align = Paint.Align.CENTER)
                 }
                 CallPhase.ACTIVE -> {
                     text(c, who, 240f, 130f, fitted(who, 34f), u, bold = true, align = Paint.Align.CENTER)

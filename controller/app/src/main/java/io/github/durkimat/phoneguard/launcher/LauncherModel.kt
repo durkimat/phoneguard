@@ -204,6 +204,7 @@ sealed class Action {
     data class Dtmf(val tone: Char) : Action()
     /** Call volume up (+1) or down (-1). */
     data class CallVolume(val delta: Int) : Action()
+    object SilenceRing : Action()
     /** The call screen is finished with. */
     object CloseCall : Action()
     /** The ring screen: snooze the alarm (nine minutes) or stop it. */
@@ -824,6 +825,7 @@ class LauncherModel(
             CallPhase.RINGING -> when (key) {
                 Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.CALL -> Action.Answer
                 Key.RIGHT, Key.SOFT_RIGHT, Key.END -> Action.Reject
+                Key.STAR -> Action.SilenceRing
                 else -> Action.None
             }
             CallPhase.DIALING -> when (key) {

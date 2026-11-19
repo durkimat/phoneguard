@@ -29,15 +29,18 @@ class CallService : InCallService() {
     private var muted = false
     private var speaker = false
 
+    private lateinit var ringer: CallRinger
+
     private val callback = object : Call.Callback() {
         override fun onStateChanged(call: Call, state: Int) {
+            if (state != Call.STATE_RINGING) ringer.stop()
             if (state == Call.STATE_ACTIVE && !answeredAt.containsKey(call)) answeredAt[call] = Clock.now()
             publish()
         }
     }
 
-    override fun onCreate() { super.onCreate(); instance = this }
-    override fun onDestroy() { instance = null; super.onDestroy() }
+    override fun onCreate() { super.onCreate(); instance = this; ringer = CallRinger(this) }
+    override fun onDestroy() { ringer.stop(); instance = null; super.onDestroy() }
 
     override fun onCallAdded(call: Call) {
         val ringing = call.state == Call.STATE_RINGING
@@ -51,10 +54,12 @@ class CallService : InCallService() {
         call.registerCallback(callback)
         if (call.state == Call.STATE_ACTIVE) answeredAt[call] = Clock.now()
         publish()
+        if (ringing) ringer.start()
         show(ringing)
     }
 
     override fun onCallRemoved(call: Call) {
+        ringer.stop()
         val start = answeredAt.remove(call)
         call.unregisterCallback(callback)
         val primary = calls.firstOrNull() === call
@@ -120,8 +125,9 @@ class CallService : InCallService() {
 
     // ---- what the call screen asks for
     private fun primary(): Call? = calls.firstOrNull()
-    fun answer() { cancelNotification(); primary()?.answer(VideoProfile.STATE_AUDIO_ONLY) }
-    fun reject() { cancelNotification(); primary()?.reject(false, null) }
+    fun answer() { ringer.stop(); cancelNotification(); primary()?.answer(VideoProfile.STATE_AUDIO_ONLY) }
+    fun silence() { ringer.stop() }
+    fun reject() { ringer.stop(); cancelNotification(); primary()?.reject(false, null) }
     fun end() { primary()?.disconnect() }
     fun toggleSpeaker() { setAudioRoute(if (speaker) CallAudioState.ROUTE_EARPIECE else CallAudioState.ROUTE_SPEAKER) }
     fun toggleMute() { setMuted(!muted) }

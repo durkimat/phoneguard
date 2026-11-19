@@ -103,7 +103,7 @@ object ToneStore {
     private var preview: AudioTrack? = null
 
     /** Plays a tune once, at a modest level, so a pick can be heard while choosing (a new preview cuts the last). */
-    fun preview(id: String) {
+    @Synchronized fun preview(id: String) {
         try {
             preview?.let { it.stop(); it.release() }; preview = null
             if (id == STOCK) return
@@ -136,7 +136,7 @@ object ToneStore {
     private var sampleTrack: AudioTrack? = null
 
     /** A short sample (the first second and a half of a tune) on the channel a volume bar sets: [usage] picks the stream, so the level heard is that stream's. */
-    fun sample(c: Context, usage: Int, id: String, gain: Double = 1.0) {
+    @Synchronized fun sample(c: Context, usage: Int, id: String, gain: Double = 1.0) {
         try {
             sampleTrack?.let { it.stop(); it.release() }; sampleTrack = null
             if (gain <= 0.0) return

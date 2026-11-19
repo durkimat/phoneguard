@@ -11,7 +11,7 @@ import android.content.Context
  * on (on this phone it sits at the top, and the track volume was not followed), so the level a person hears is exactly what [gain] says, 0..1.
  * Used by the ringing alarm and by the volume row's preview.
  */
-class LoopPlayer(private val c: Context, tune: ShortArray, private val gain: () -> Float, private val gapMs: Int = 700) {
+class LoopPlayer(private val c: Context, tune: ShortArray, private val gain: () -> Float, private val gapMs: Int = 700, private val usage: Int = AudioAttributes.USAGE_ALARM) {
     private val pcm: ShortArray = tune.copyOf(tune.size + Tones.RATE / 1000 * gapMs) // a breath of silence between repeats
     @Volatile private var run = false
     private var thread: Thread? = null
@@ -22,11 +22,11 @@ class LoopPlayer(private val c: Context, tune: ShortArray, private val gain: () 
         if (run) return
         run = true
         val am = c.getSystemService(AudioManager::class.java)
-        try { savedVol = am.getStreamVolume(AudioManager.STREAM_ALARM); am.setStreamVolume(AudioManager.STREAM_ALARM, am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) } catch (_: Exception) { }
+        if (usage == AudioAttributes.USAGE_ALARM) try { savedVol = am.getStreamVolume(AudioManager.STREAM_ALARM); am.setStreamVolume(AudioManager.STREAM_ALARM, am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) } catch (_: Exception) { }
         val rate = Tones.RATE
         val min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(4096)
         val t = AudioTrack.Builder()
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(usage).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
             .setBufferSizeInBytes(min * 2).setTransferMode(AudioTrack.MODE_STREAM).build()
         track = t; t.play()

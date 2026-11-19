@@ -402,6 +402,7 @@ class LauncherModelTest {
         for (k in listOf(Key.SOFT_RIGHT, Key.RIGHT, Key.END)) assertEquals(Action.Reject, inCall(CallPhase.RINGING).onKey(k))
         assertEquals("Answer" to "Reject", inCall(CallPhase.RINGING).softKeys)
         assertEquals(Action.None, inCall(CallPhase.RINGING).onKey(Key.DIGIT, 5)) // a stray key does not answer
+        assertEquals(Action.SilenceRing, inCall(CallPhase.RINGING).onKey(Key.STAR)) // * silences the ring and the call keeps ringing on screen
     }
 
     @Test fun callingScreenHasSpeakerAndEnd() {

@@ -49,8 +49,8 @@ class VolumeBar(private val svc: AccessibilityService) {
         // the ringer's own level (SoundLevels) is what the side keys step when the phone supplies the ringtone; the streams stay pinned at full
         val lv = io.github.durkimat.phoneguard.alarm.SoundLevels
         val tones = io.github.durkimat.phoneguard.alarm.ToneStore
-        if (s == AudioManager.STREAM_RING && am.ringerMode == AudioManager.RINGER_MODE_NORMAL && tones.pick(svc, tones.RING) != tones.STOCK) {
-            if (ringing()) try { am.adjustStreamVolume(s, AudioManager.ADJUST_LOWER, 0) } catch (_: Exception) { } // the system's own quieting of the ringing call
+        if (s == AudioManager.STREAM_RING && am.ringerMode == AudioManager.RINGER_MODE_NORMAL && (ringing() || tones.pick(svc, tones.RING) != tones.STOCK)) {
+            // while a call rings the keys change the level live (CallRinger follows it); they never quiet the ring
             val p = (lv.pos(svc, lv.RING) + if (up) 1 else -1).coerceIn(0, lv.MAX)
             lv.setPos(svc, lv.RING, p); lv.pin(svc)
             Thread { tones.levelChanged(svc, tones.RING) }.start()

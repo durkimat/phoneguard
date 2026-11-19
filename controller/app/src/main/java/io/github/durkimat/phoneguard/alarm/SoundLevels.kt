@@ -19,7 +19,9 @@ object SoundLevels {
 
     private fun sp(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("tones", Context.MODE_PRIVATE)
     fun pos(c: Context, slot: String): Int = sp(c).getInt("vol_$slot", DEFAULT).coerceIn(0, MAX)
-    fun setPos(c: Context, slot: String, p: Int) { sp(c).edit().putInt("vol_$slot", p.coerceIn(0, MAX)).apply() }
+    fun setPos(c: Context, slot: String, p: Int) { sp(c).edit().putInt("vol_$slot", p.coerceIn(0, MAX)).apply(); if (slot == RING) ringLive = p.coerceIn(0, MAX) }
+    /** The ringer step as last set, kept in memory so a ringing call can follow the keys live (-1 until first set). */
+    @Volatile var ringLive = -1
     fun gain(c: Context, slot: String): Double = GAIN[pos(c, slot)]
     fun gainAt(p: Int): Double = GAIN[p.coerceIn(0, MAX)]
     fun bars(p: Int): Int = BARS[p.coerceIn(0, MAX)]
