@@ -87,6 +87,7 @@ class RingService : Service() {
     private var gainAt = 0L
     private var mode = 0 // 0 nothing yet, 1 sounding, 2 vibrating only
     private var sawOn = false
+    private var lastShow = 0L
     /** The power key puts the screen off: that quiets the alarm (snooze), as on any phone. Only once the screen has been on, so waking the phone is not mistaken for it. */
     private val screen = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
@@ -104,7 +105,7 @@ class RingService : Service() {
         }
         val ri = i?.let { RingInfo(it.getStringExtra("kind") ?: "alarm", it.getIntExtra("id", 0), it.getStringExtra("tone") ?: Tones.DEFAULT, it.getStringExtra("time") ?: "", vol = it.getIntExtra("vol", 5), gradual = it.getBooleanExtra("gradual", false)) } ?: return START_NOT_STICKY
         if (info != null) { stop(false) } // a second alarm at the same minute: one ring, the later one wins
-        info = ri; mode = 0; startedAt = Clock.now()
+        info = ri; mode = 0; startedAt = Clock.now(); lastShow = startedAt
         sawOn = getSystemService(PowerManager::class.java).isInteractive
         try { registerReceiver(screen, android.content.IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_SCREEN_OFF) }) } catch (_: Exception) { }
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "phoneguard:ring").also { it.acquire(6 * 60_000L) }
@@ -119,7 +120,9 @@ class RingService : Service() {
         } catch (e: Exception) { Log.log(this, "alarms: filter ${e.javaClass.simpleName}") }
         val show = PendingIntent.getActivity(this, 1, Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = Notification.Builder(this, CH).setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(if (ri.kind == "timer") "Timer" else "Alarm " + ri.time)
-            .setCategory(Notification.CATEGORY_ALARM).setOngoing(true).setContentIntent(show).setFullScreenIntent(show, true).build()
+            .setCategory(Notification.CATEGORY_ALARM).setOngoing(true).setContentIntent(show).setFullScreenIntent(show, true)
+            .addAction(Notification.Action.Builder(null, "Stop", PendingIntent.getService(this, 2, Intent(this, RingService::class.java).setAction(ACT_STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)).build())
+            .apply { if (ri.kind != "timer") addAction(Notification.Action.Builder(null, "Snooze", PendingIntent.getService(this@RingService, 3, Intent(this@RingService, RingService::class.java).setAction(ACT_SNOOZE), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)).build()) }.build()
         startForeground(NOTE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         try { startActivity(Intent(this, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { Log.log(this, "alarms: ring screen not opened (${e.javaClass.simpleName}); the notification shows it") }
         ui.post(step)
@@ -134,6 +137,11 @@ class RingService : Service() {
             if (quiet && mode != 2) { silence(); mode = 2; vibrate(true) }
             else if (!quiet && mode != 1) { sound(ri); mode = 1 }
             if (quiet != ri.silentForCall) { info = ri.copy(silentForCall = quiet); RingState.set(info) }
+            // the ring screen went away (another window, Home) while it still sounds: bring it back, so there is always something to press
+            if (!RingActivity.visible && getSystemService(PowerManager::class.java).isInteractive && now - lastShow > 4_000L) {
+                lastShow = now; Log.log(this@RingService, "alarms: ring screen not in front, showing it again")
+                try { startActivity(Intent(this@RingService, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { }
+            }
             if (now - startedAt > RING_MS) { if (ri.kind == "timer") stop() else snooze(auto = true); return }
             ui.postDelayed(this, 1000)
         }
@@ -201,6 +209,9 @@ class RingService : Service() {
 
 /** The ring screen: the Nokia look over the lock screen. Left key (or OK) snoozes an alarm; the right key stops it. */
 class RingActivity : Activity() {
+    companion object { @Volatile var visible = false }
+    override fun onResume() { super.onResume(); visible = true }
+    override fun onPause() { visible = false; Log.log(this, "alarms: ring screen paused (ringing ${RingState.sounding})"); super.onPause() }
     private lateinit var skin: PaintedSkin
     private val model = LauncherModel()
     private val listener: () -> Unit = { update() }

@@ -263,6 +263,15 @@ class F2Service : AccessibilityService() {
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) pressPairingButton(ev.keyCode != KeyEvent.KEYCODE_BACK)
             return true
         }
+        // an alarm or timer is sounding: every key quiets it, whichever window has the focus (the ring screen may be hidden behind another)
+        if (io.github.durkimat.phoneguard.alarm.RingState.sounding && ev.keyCode != KeyEvent.KEYCODE_POWER) {
+            if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) {
+                val stop = io.github.durkimat.phoneguard.launcher.KeyMap.of(ev.keyCode)?.first.let { it == io.github.durkimat.phoneguard.launcher.Key.SOFT_RIGHT || it == io.github.durkimat.phoneguard.launcher.Key.END }
+                Log.log(this, "alarms: key ${ev.keyCode} while ringing: ${if (stop) "stop" else "snooze/stop"}")
+                if (stop) io.github.durkimat.phoneguard.alarm.RingService.stop(this) else io.github.durkimat.phoneguard.alarm.RingService.snooze(this)
+            }
+            return true
+        }
         if (ev.keyCode == KeyEvent.KEYCODE_CALL) return callKey(ev)
         if (ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP || ev.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             // the camera uses the volume keys as its shutter; everywhere else our own themed bar replaces Android's slider

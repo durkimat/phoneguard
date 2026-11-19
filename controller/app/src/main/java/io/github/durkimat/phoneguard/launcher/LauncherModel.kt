@@ -2282,9 +2282,8 @@ class LauncherModel(
     }
 
     private fun ringKey(key: Key): Action = when (key) {
-        Key.OK, Key.SOFT_LEFT -> if (ringKind == "timer") Action.AlarmStop else Action.AlarmSnooze
         Key.SOFT_RIGHT, Key.END -> Action.AlarmStop
-        else -> Action.None
+        else -> if (ringKind == "timer") Action.AlarmStop else Action.AlarmSnooze // any other key quiets it: the ringing must never be left with nothing to press
     }
 
     // ---- "Navigate": type or speak a place, pick it, see the ways to get there (the Worker's /api/geo calls; docs/where-to-protocol.md)
