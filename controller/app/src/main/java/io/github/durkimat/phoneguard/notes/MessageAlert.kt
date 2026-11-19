@@ -2,7 +2,6 @@ package io.github.durkimat.phoneguard.notes
 
 import android.app.NotificationManager
 import android.content.Context
-import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import io.github.durkimat.phoneguard.Log
@@ -33,11 +32,7 @@ object MessageAlert {
                 if (SoundLevels.buzzes(c)) try { c.getSystemService(Vibrator::class.java)?.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)) } catch (_: Exception) { }
                 Log.log(c, "message: during a call, one short buzz only"); return
             }
-            val pm = c.getSystemService(PowerManager::class.java)
-            if (!pm.isInteractive) {
-                @Suppress("DEPRECATION")
-                pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "phoneguard:message").acquire(2_000L) // wakes the screen; it then times out as usual
-            }
+            ScreenWake.wake(c) // lights the screen for about fifteen seconds unless someone touches the phone
             ToneStore.notify(c, slot) // the tone and the buzz, by the ringer choice and the Messages level
             Log.log(c, "message: alert ($slot, choice $eff)")
         } catch (e: Exception) { Log.log(c, "message: alert failed ${e.javaClass.simpleName}") }

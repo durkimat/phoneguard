@@ -258,6 +258,7 @@ class F2Service : AccessibilityService() {
     }
 
     override fun onKeyEvent(ev: KeyEvent): Boolean {
+        if (ev.action == KeyEvent.ACTION_DOWN) io.github.durkimat.phoneguard.notes.ScreenWake.touched(this)
         if (pin.shown && pin.onKey(ev)) return true   // the PIN panel: only Emergency is ours, every other key also reaches the real lock screen
         if (pairing && (ev.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || ev.keyCode == KeyEvent.KEYCODE_ENTER || ev.keyCode == KeyEvent.KEYCODE_MENU || ev.keyCode == KeyEvent.KEYCODE_BACK)) {
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) pressPairingButton(ev.keyCode != KeyEvent.KEYCODE_BACK)

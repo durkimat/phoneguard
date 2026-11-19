@@ -698,6 +698,11 @@ class LauncherActivity : Activity() {
 
     private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)
 
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.action == android.view.MotionEvent.ACTION_DOWN) io.github.durkimat.phoneguard.notes.ScreenWake.touched(this)
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
         // the side button of the J36 sends F2 (from the pmic key input, next to power): two quick presses open the camera, unless a call is on or the mode has no camera
         if (ev.keyCode == KeyEvent.KEYCODE_F2) {

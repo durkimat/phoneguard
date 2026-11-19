@@ -188,6 +188,7 @@ object Enforcer {
             val cur = Settings.Secure.getString(c.contentResolver, "enabled_notification_listeners").orEmpty()
             if (me !in cur.split(':')) Settings.Secure.putString(c.contentResolver, "enabled_notification_listeners", if (cur.isEmpty()) me else "$cur:$me")
             io.github.durkimat.phoneguard.notes.NoteService.ensureBound(c)
+            if (!io.github.durkimat.phoneguard.alarm.RingState.sounding) io.github.durkimat.phoneguard.notes.ScreenWake.restoreIfStale(c)
         } catch (e: Exception) { Log.log(c, "notification listener: ${e.javaClass.simpleName}") }
     }
 
