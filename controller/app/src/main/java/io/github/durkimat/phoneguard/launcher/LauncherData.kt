@@ -97,25 +97,30 @@ object LauncherData {
     /** "Navigate" is offered when the phone is paired to the Worker (which does the place and journey lookups), the mode is not locked to one app and the mode allows it (`whereTo` in the synced config, absent = on). It sits after Classic Games so the digit keys of the other items stay where they were. */
     fun whereShown(c: Context): Boolean = musicShown(c) && io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.whereTo(Store.config(c), Clock.now())
 
-    private val builtIn = setOf(WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG, CLOCK_PKG)
+    private val builtIn = setOf(EXTRAS_PKG, WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG, CLOCK_PKG)
 
     /**
-     * The main menu, in the order the numbers 1 to 9 and 0 are meant to reach: Phone, Messages, Contacts and the apps a parent pinned (where they exist),
-     * then Email, Calendar, Music, Camera, Android Apps (every other app, the real WhatsApp included, only where the mode allows touch), Weather, Classic
-     * Games, Calculator, Call log and Settings. Notifications and Running Apps are inside Settings.
+     * The main menu (a 3 x 3 grid, nine at most), in the order the numbers 1 to 9 reach: Phone, Messages, Contacts (where the mode allows those apps), Calendar,
+     * Clock, Extras, Settings, then Camera and Music, the two a mode can hide, last. Everything else is inside Extras, Messages, Music or Settings (see [extrasMenu]).
      */
     fun menu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
         val apps = all.filter { it.pkg !in builtIn }
         val core = preferred.mapNotNull { p -> apps.firstOrNull { it.pkg == p } }
-        val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
-        val others = apps - core.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
-        return core + pins + one(MAIL_PKG) + one(CALENDAR_PKG) + one(MUSIC_PKG) + one(CAMERA_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps"))) +
-            one(WEATHER_PKG) + one(GAMES_PKG) + one(WHERE_PKG) + one(CALC_PKG) + one(CALLLOG_PKG) + one(SETTINGS_PKG) + one(CLOCK_PKG)
+        return core + one(CALENDAR_PKG) + one(CLOCK_PKG) + listOf(MenuItem(EXTRAS_PKG, "Extras")) + one(SETTINGS_PKG) + one(CAMERA_PKG) + one(MUSIC_PKG)
     }
 
-    /** The built-in entries that Settings lists as groups of their own, where the mode shows them. */
-    fun settingsExtras(all: List<MenuItem>): List<MenuItem> = listOf(NOTES_PKG, RUNNING_PKG).mapNotNull { p -> all.firstOrNull { it.pkg == p } }
+    /** What the Extras screen lists: Weather, Classic Games, Calculator, Navigate, the apps a parent pinned, then Android Apps (only where touch works and there are apps left). */
+    fun extrasMenu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
+        val apps = all.filter { it.pkg !in builtIn }
+        val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
+        val others = apps - preferred.mapNotNull { p -> apps.firstOrNull { it.pkg == p } }.toSet() - pins.toSet()
+        fun one(pkg: String) = all.filter { it.pkg == pkg }
+        return one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + one(WHERE_PKG) + pins + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps")))
+    }
+
+    /** The built-in entries that live inside other screens (Messages: Notices and Email; Settings: Running Apps; the Phone screen: Call log), where the mode shows them. */
+    fun settingsExtras(all: List<MenuItem>): List<MenuItem> = listOf(NOTES_PKG, RUNNING_PKG, MAIL_PKG, CALLLOG_PKG).mapNotNull { p -> all.firstOrNull { it.pkg == p } }
 
     /** The allowed apps that are not in the main menu, for the "Android Apps" list. */
     fun otherApps(all: List<MenuItem>, pinned: List<String>): List<MenuItem> {

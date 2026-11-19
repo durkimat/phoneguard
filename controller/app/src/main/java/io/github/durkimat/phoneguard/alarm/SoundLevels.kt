@@ -37,7 +37,11 @@ object SoundLevels {
         return when (mode) { AudioManager.RINGER_MODE_VIBRATE -> 2; AudioManager.RINGER_MODE_SILENT -> 3; else -> choice(c).takeIf { it in 0..1 } ?: 0 }
     }
     fun sounds(c: Context) = effective(c) <= 1
-    fun buzzes(c: Context) = effective(c).let { it == 0 || it == 2 }
+    /** Whether the phone buzzes for this kind (RING calls, MSG texts and WhatsApp): the Ringer mode must allow it (ring and vibrate, or vibrate only) AND the kind's own Vibrate setting is on. */
+    fun buzzes(c: Context, slot: String = RING) = effective(c).let { it == 0 || it == 2 } && vibrates(c, slot)
+    /** The Vibrate setting of Sound > Calls (RING) and Sound > Messages (MSG): on unless switched off. */
+    fun vibrates(c: Context, slot: String): Boolean = sp(c).getBoolean("vib_$slot", true)
+    fun setVibrates(c: Context, slot: String, on: Boolean) { sp(c).edit().putBoolean("vib_$slot", on).apply() }
 
     /** Holds the ring and notification streams at full while the ringer is normal, so only our gain sets the loudness. */
     fun pin(c: Context) {

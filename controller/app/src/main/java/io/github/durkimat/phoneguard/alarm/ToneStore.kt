@@ -126,7 +126,7 @@ object ToneStore {
     /** A message tone from our own code (our WhatsApp client): the child's pick, or the phone's notification sound for "stock". The notification usage follows the ringer mode and Do Not Disturb. */
     fun notify(c: Context, slot: String) {
         try {
-            if (SoundLevels.buzzes(c)) try { c.getSystemService(android.os.Vibrator::class.java)?.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 250, 150, 250), -1)) } catch (_: Exception) { }
+            if (SoundLevels.buzzes(c, if (slot == SoundLevels.RING) SoundLevels.RING else SoundLevels.MSG)) try { c.getSystemService(android.os.Vibrator::class.java)?.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 250, 150, 250), -1)) } catch (_: Exception) { }
             if (!SoundLevels.sounds(c)) return
             val id = pick(c, slot)
             if (id == STOCK) { RingtoneManager.getRingtone(c, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)?.play(); return }

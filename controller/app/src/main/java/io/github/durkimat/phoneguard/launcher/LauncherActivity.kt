@@ -468,7 +468,7 @@ class LauncherActivity : Activity() {
             val lv = io.github.durkimat.phoneguard.alarm.SoundLevels
             if (i < 2) { val p = lv.pos(this, if (i == 0) lv.RING else lv.MSG); LauncherModel.Vol(p, lv.MAX, lv.bars(p), 7) }
             else { val max = am.getStreamMaxVolume(st).coerceAtLeast(1); val cells = minOf(max, 7); val p = Math.round(am.getStreamVolume(st) * cells / max.toFloat()); LauncherModel.Vol(p, cells, p, cells) }
-        })
+        }, listOf(io.github.durkimat.phoneguard.alarm.SoundLevels.vibrates(this, io.github.durkimat.phoneguard.alarm.SoundLevels.RING), io.github.durkimat.phoneguard.alarm.SoundLevels.vibrates(this, io.github.durkimat.phoneguard.alarm.SoundLevels.MSG)))
     }
 
     private fun setRinger(i: Int) {
@@ -551,6 +551,8 @@ class LauncherActivity : Activity() {
         }.start() }
         model.soundInfo = { soundInfo() }
         model.onRinger = { setRinger(it) }
+        model.onVibrate = { kind, on -> io.github.durkimat.phoneguard.alarm.SoundLevels.setVibrates(this, if (kind == 0) io.github.durkimat.phoneguard.alarm.SoundLevels.RING else io.github.durkimat.phoneguard.alarm.SoundLevels.MSG, on); refresh() }
+        model.onDo = { a -> perform(a) }
         model.onVolume = { which, v -> setVolume(which, v) }
         model.onPreview = { io.github.durkimat.phoneguard.alarm.ToneStore.preview(it) }
         model.onTonePick = { slot, id -> Thread {
@@ -675,6 +677,7 @@ class LauncherActivity : Activity() {
         r.all?.let { all ->
             model.apps = LauncherData.otherApps(all, r.pinned)
             model.extraItems = LauncherData.settingsExtras(all)
+            model.extrasMenu = LauncherData.extrasMenu(all, r.pinned, androidApps = model.androidSettings)
             model.setItems(LauncherData.menu(all, r.pinned, androidApps = model.androidSettings))
         }
         r.contacts?.let { model.contacts = it }
@@ -735,6 +738,14 @@ class LauncherActivity : Activity() {
             else if (ev.action == KeyEvent.ACTION_UP && presetDown) { presetDown = false; ui.removeCallbacks(storePreset); if (!presetStored) perform(model.onKey(k.first, k.second)); presetStored = false }
             return true
         }
+        // Home with nothing chosen: the right soft key is Contacts on a short press (acted on when the key comes up) and Music on a long one
+        if (k.first == Key.SOFT_RIGHT && model.screen == Screen.HOME && model.homeFocus < 0) {
+            when (ev.action) {
+                KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) { homeRightFired = false; ui.removeCallbacks(homeRightHold); ui.postDelayed(homeRightHold, android.view.ViewConfiguration.getLongPressTimeout().toLong()) }
+                KeyEvent.ACTION_UP -> { ui.removeCallbacks(homeRightHold); if (!homeRightFired) perform(model.onKey(k.first, k.second)); homeRightFired = false }
+            }
+            return true
+        }
         if (k.first == Key.SOFT_RIGHT || k.first == Key.RIGHT) {
             if (ev.action == KeyEvent.ACTION_UP) ui.removeCallbacks(holdDelete)
             else if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0 && k.first == Key.SOFT_RIGHT) { ui.removeCallbacks(holdDelete); ui.postDelayed(holdDelete, android.view.ViewConfiguration.getLongPressTimeout().toLong()) }
@@ -751,6 +762,12 @@ class LauncherActivity : Activity() {
         }
         else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
         return true // consume the key up as well so Back never leaves the launcher
+    }
+
+    private var homeRightFired = false
+    private val homeRightHold = Runnable {
+        homeRightFired = true
+        perform(model.openMusicFromHome())
     }
 
     /** Lists where a press of Up or Down only moves the highlight, so no data needs reloading. */

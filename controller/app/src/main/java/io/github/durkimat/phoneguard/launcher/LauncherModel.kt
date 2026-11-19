@@ -24,7 +24,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -138,6 +138,7 @@ const val WEATHER_PKG = "pg:weather"
 const val LIST_VISIBLE = 7
 const val GAMES_PKG = "pg:games"
 const val APPS_PKG = "pg:apps"
+const val EXTRAS_PKG = "pg:extras"
 const val CALC_PKG = "pg:calculator"
 const val CALLLOG_PKG = "pg:calllog"
 
@@ -385,10 +386,10 @@ class LauncherModel(
     /** The Settings groups and what is in each, every one numbered 1.. in the order shown (rows come and go with the mode and the edition). */
     private fun groupRows(on: Screen): List<String> = when (on) {
         Screen.LOOK -> listOf("Theme", "Font", "Menu style", "Appearance")
-        Screen.SOUNDSET -> listOf("Ringer mode", "Volumes", "Predictive text", "Speakerphone", "Ringtone and message tones", "Sound test")
-        Screen.THISPHONE -> listOf("Screen lock", "Time zone", "Language") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
-            (if (waEnabled || waSetupAvail || waSetupActive) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList())
-        else -> listOf("Look", "Sound and typing", "Connections", "This phone") + extraItems.filter { it.pkg == NOTES_PKG }.map { "Notifications" } + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
+        Screen.SOUNDSET -> listOf("Ringer mode", "Calls", "Messages", "Media volume", "Call volume", "Sound test")
+        Screen.THISPHONE -> listOf("Battery", "Screen lock", "Time zone", "Language", "Typing") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
+            (if (androidSettings) listOf("Android settings") else emptyList())
+        else -> listOf("Sound", "Look", "Connections", "This phone") + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
     }
 
     // ---- Messages state
@@ -478,8 +479,12 @@ class LauncherModel(
     val shownMsg: Msg? get() = convo?.msgs?.getOrNull(selected)
     /** The text of the message being read (for tests and the skin). */
     fun convoText(): String = shownMsg?.body ?: ""
-    private val messagesRows: List<String> get() =
-        if (waEnabled) listOf("Inbox", "Write message", "WhatsApp" + if (waLinked && waUnread > 0) " ($waUnread)" else "") else listOf("Inbox", "Write message")
+    /** The Messages entries in order; the ones a mode can hide (WhatsApp, Notices, Email) come last so hiding them leaves no gap. */
+    private val messageIds: List<String> get() = listOf("texts", "write") + (if (waEnabled || waSetupAvail || waSetupActive) listOf("wa") else emptyList()) +
+        (if (extraItems.any { it.pkg == NOTES_PKG }) listOf("notes") else emptyList()) + (if (extraItems.any { it.pkg == MAIL_PKG }) listOf("mail") else emptyList())
+    private val messagesRows: List<String> get() = messageIds.map { when (it) {
+        "texts" -> "Texts"; "write" -> "Write message"; "wa" -> "WhatsApp" + if (waLinked && waUnread > 0) " ($waUnread)" else ""
+        "notes" -> "Notices"; else -> "Email" } }
 
     var writeTo = ""
         private set
@@ -582,7 +587,7 @@ class LauncherModel(
         Screen.OPENOPTS -> "Phone options"
         Screen.RADIORES -> radioResTitle
         Screen.LOOK -> "Look"
-        Screen.SOUNDSET -> "Sound and typing"
+        Screen.SOUNDSET -> "Sound"
         Screen.THISPHONE -> "This phone"
         Screen.RUNNING -> "Running Apps"
         Screen.WIFI -> "Wi-Fi"
@@ -603,6 +608,8 @@ class LauncherModel(
         Screen.STOPWATCH -> "Stopwatch"
         Screen.RING -> if (ringKind == "timer") "Timer" else "Alarm"
         Screen.POWERMENU -> "Phone"
+        Screen.EXTRAS -> "Extras"
+        Screen.PHONEMENU -> "Phone"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -626,7 +633,7 @@ class LauncherModel(
 
     /** The two labels under the screen, which the two keys beneath it and D-pad Left/Right carry out. */
     val softKeys: Pair<String, String> get() = when (screen) {
-        Screen.HOME -> if (homeFocus >= 0) "Select" to "Back" else "Menu" to (if (items.any { it.pkg == MUSIC_PKG }) "Music" else "Contacts")
+        Screen.HOME -> if (homeFocus >= 0) "Select" to "Back" else "Menu" to "Contacts"
         Screen.CALC -> "Equals" to "Clear"
         Screen.CALLLOG -> (if (dialler) "Contacts" else "Call") to "Back"
         Screen.CONTACTS -> (if (dialler && !picking) "Dial" else "Select") to "Back"
@@ -660,7 +667,7 @@ class LauncherModel(
         Screen.MUSIC -> "Menu" to "Back"
         Screen.NOTES -> "Open" to "Back"
         Screen.NOTE -> "Open" to "Back"
-        Screen.DIAL -> "Calls" to (if (dialNumber.isEmpty()) "Back" else "Clear")
+        Screen.DIAL -> "Options" to (if (dialNumber.isEmpty()) "Back" else "Clear")
         Screen.CALLMENU -> "Select" to "Back"
         Screen.CALL -> when (call?.phase) {
             CallPhase.RINGING -> "Answer" to "Reject"
@@ -718,6 +725,8 @@ class LauncherModel(
         Screen.ALARMS -> alarmRows
         Screen.TIMER, Screen.STOPWATCH, Screen.RING -> emptyList()
         Screen.POWERMENU -> listOf("Power off", "Restart")
+        Screen.EXTRAS -> extrasMenu.map { it.label }
+        Screen.PHONEMENU -> listOf("Call log", "Contacts")
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -740,7 +749,7 @@ class LauncherModel(
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "", "Forget learned words")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
-        Screen.WHATSAPP -> waLead() + if (!waLinked) listOf("Link account") else waConvos.map { (if (it.unread > 0) "* " else "") + it.name }
+        Screen.WHATSAPP -> waLead() + (if (!waLinked) listOf("Link account") else waConvos.map { (if (it.unread > 0) "* " else "") + it.name }) + "WhatsApp options"
         // the messages of the open chat, newest first, behind a "Reply" entry; each is a one-line preview
         Screen.CHAT -> listOf("Reply") + (convo?.msgs ?: emptyList()).asReversed().map {
             val who = if (!it.mine && it.sender.isNotBlank()) NameStyle.short(it.sender, waNameStyle) + ": " else ""
@@ -764,7 +773,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU)
+    private val numbered = setOf(Screen.EXTRAS, Screen.PHONEMENU, Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU, Screen.EXTRAS, Screen.PHONEMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -846,6 +855,8 @@ class LauncherModel(
         Screen.STOPWATCH -> stopwatchKey(key, nowMs)
         Screen.RING -> ringKey(key)
         Screen.POWERMENU -> powerMenuKey(key, digit)
+        Screen.EXTRAS -> extrasKey(key)
+        Screen.PHONEMENU -> phoneMenuKey(key)
         Screen.MAILBOX -> mailBoxKey(key)
         Screen.MAILLIST -> mailListKey(key)
         Screen.MAILMSG -> mailMsgKey(key)
@@ -894,7 +905,7 @@ class LauncherModel(
             Key.POUND -> if (dialNumber.length < 24) dialNumber += "#"
             Key.OK -> return if (dialNumber.isEmpty()) Action.None else Action.PlaceCall(dialNumber)
             Key.CALL -> return if (dialNumber.isEmpty()) openCallLog(Screen.DIAL) else Action.PlaceCall(dialNumber) // the dial key twice: straight to the calls
-            Key.LEFT, Key.SOFT_LEFT -> return openCallLog(Screen.DIAL) // left cycles: dial pad, calls, contacts, dial pad
+            Key.LEFT, Key.SOFT_LEFT -> { enter(Screen.PHONEMENU); return Action.Redraw } // the options of the Phone screen: Call log, Contacts
             Key.RIGHT, Key.SOFT_RIGHT -> return if (dialNumber.isEmpty()) exitDialler() else { dialNumber = dialNumber.dropLast(1); Action.Redraw }
             Key.END -> { dialNumber = ""; goHome() }
             else -> return Action.None
@@ -969,10 +980,13 @@ class LauncherModel(
     }
 
     /** Row 0 is the SMS inbox; with WhatsApp linked row 1 is WhatsApp and the last row writes a text. */
-    private fun messageEntry(row: Int): Action = when {
-        row == 0 -> { enter(Screen.INBOX); Action.Redraw }
-        waEnabled && row == 2 -> { enter(Screen.WHATSAPP); threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
-        else -> { threadWa = false; startWrite("", Screen.MESSAGES, wa = false) }
+    private fun messageEntry(row: Int): Action = when (messageIds.getOrNull(row)) {
+        "texts" -> { enter(Screen.INBOX); Action.Redraw }
+        "wa" -> { enter(Screen.WHATSAPP); threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
+        "notes" -> open(extraItems.firstOrNull { it.pkg == NOTES_PKG })
+        "mail" -> open(extraItems.firstOrNull { it.pkg == MAIL_PKG })
+        "write" -> { threadWa = false; startWrite("", Screen.MESSAGES, wa = false) }
+        else -> Action.None
     }
 
     private fun startPair(): Action { waPairNumber = ""; waCode = null; enter(Screen.WAPAIR); return Action.Redraw }
@@ -1059,8 +1073,8 @@ class LauncherModel(
     /** A "Set up WhatsApp" row leads the WhatsApp list while the companion allows the SIM-method setup (or it is running). */
     private fun waLead(): List<String> = if (waSetupAvail || waSetupActive) listOf("Set up WhatsApp") else emptyList()
 
-    private fun whatsapp(key: Key, digit: Int): Action = move(key, waLead().size + if (waLinked) waConvos.size else 1) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (waLead().isNotEmpty() && selected == 0) { enter(Screen.WASETUP); Action.Redraw } else if (!waLinked) startPair() else waConvos.getOrNull(selected - waLead().size)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
+    private fun whatsapp(key: Key, digit: Int): Action = move(key, waLead().size + (if (waLinked) waConvos.size else 1) + 1) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == waLead().size + (if (waLinked) waConvos.size else 1)) { enter(Screen.WASET); Action.Redraw } else if (waLead().isNotEmpty() && selected == 0) { enter(Screen.WASETUP); Action.Redraw } else if (!waLinked) startPair() else waConvos.getOrNull(selected - waLead().size)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { threadWa = false; leave(); Action.Redraw }
         Key.END -> { threadWa = false; goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -1346,6 +1360,7 @@ class LauncherModel(
         item.pkg == WEATHER_PKG -> { enter(Screen.WEATHER); Action.Redraw }
         item.pkg == GAMES_PKG -> { enter(Screen.GAMES); Action.Redraw }
         item.pkg == APPS_PKG -> { enter(Screen.APPS); Action.Redraw }
+        item.pkg == EXTRAS_PKG -> { enter(Screen.EXTRAS); Action.Redraw }
         else -> Action.Launch(item.pkg)
     }
 
@@ -1443,19 +1458,20 @@ class LauncherModel(
             var out: Action = Action.Redraw
             when (groupRows(screen).getOrNull(selected)) {
                 "Look" -> enter(Screen.LOOK)
-                "Sound and typing" -> enter(Screen.SOUNDSET)
+                "Sound" -> enter(Screen.SOUNDSET)
+                "Battery" -> { enter(Screen.BATTERY); out = Action.Redraw }
+                "Typing" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
+                "Calls" -> { pushForm(callsForm()); out = Action.Redraw }
+                "Messages" -> { pushForm(messagesForm()); out = Action.Redraw }
+                "Media volume" -> { pushForm(singleVolumeForm("Media volume", 2)); out = Action.Redraw }
+                "Call volume" -> { pushForm(singleVolumeForm("Call volume", 3)); out = Action.Redraw }
                 "This phone" -> enter(Screen.THISPHONE)
-                "Notifications" -> out = open(extraItems.firstOrNull { it.pkg == NOTES_PKG })
                 "Running Apps" -> out = open(extraItems.firstOrNull { it.pkg == RUNNING_PKG })
                 "Theme" -> enter(Screen.THEME, Themes.all.indexOfFirst { it.id == theme }.coerceAtLeast(0))
                 "Font" -> enter(Screen.FONT, Fonts.all.indexOfFirst { it.id == font }.coerceAtLeast(0))
                 "Menu style" -> enter(Screen.MENUSTYLE, MenuStyles.all.indexOfFirst { it.id == menuStyle }.coerceAtLeast(0))
                 "Appearance" -> enter(Screen.APPEARANCE)
-                "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
-                "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
                 "Ringer mode" -> { pushForm(ringerForm()); out = Action.Redraw }
-                "Volumes" -> { pushForm(volumesForm()); out = Action.Redraw }
-                "Ringtone and message tones" -> { pushForm(tonesForm()); out = Action.Redraw }
                 "Sound test" -> enter(Screen.SOUNDTEST)
                 "WhatsApp" -> enter(Screen.WASET)
                 "Android settings" -> out = Action.Launch("com.android.settings")
@@ -1665,9 +1681,16 @@ class LauncherModel(
         return homeKey(key, digit)
     }
 
+    /** A long press of the right soft key on Home: Now playing when music plays, else the Music menu; nothing where the mode has no music. */
+    fun openMusicFromHome(): Action {
+        if (screen != Screen.HOME || items.none { it.pkg == MUSIC_PKG }) return Action.None
+        if (musicOn) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU)
+        return Action.Redraw
+    }
+
     private fun homeKey(key: Key, digit: Int): Action = when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
-        Key.RIGHT, Key.SOFT_RIGHT -> if (items.any { it.pkg == MUSIC_PKG }) { if (musicOn) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU); Action.Redraw } else openContacts(Screen.HOME)
+        Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME) // Contacts in every mode; Music is a long press of the right soft key (see [openMusicFromHome])
         Key.CALL -> openPhoneMenu()
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialler = true; enter(Screen.DIAL); Action.Redraw } else Action.None
         Key.STAR -> { dialNumber = "*"; dialler = true; enter(Screen.DIAL); Action.Redraw }
@@ -1732,7 +1755,7 @@ class LauncherModel(
     fun iconFor(item: MenuItem): String = when {
         item.pkg == MUSIC_PKG -> "music"
         item.pkg == CAMERA_PKG || item.pkg in CAMERA_APPS -> "camera"
-        item.pkg == APPS_PKG || item.pkg == RUNNING_PKG -> "apps"
+        item.pkg == APPS_PKG || item.pkg == RUNNING_PKG || item.pkg == EXTRAS_PKG -> "apps"
         item.pkg == GAMES_PKG -> "games"
         item.pkg == CALC_PKG -> "calculator"
         item.pkg == SETTINGS_PKG -> "settings"
@@ -2091,15 +2114,13 @@ class LauncherModel(
     private val connectionRows: List<String> get() = listOf(
         "Wi-Fi: " + (if (connWifi == 2) "Off" else "On"), "Bluetooth: " + (if (connBt == 2) "Off" else "On"),
         "Mobile data" + (dataView?.let { ": " + io.github.durkimat.phoneguard.core.DataView.amount(it.left) } ?: ""),
-        "Battery" + (if (batteryPct >= 0) ": $batteryPct%" else ""),
     )
 
     private fun connectionsKey(key: Key): Action = move(key, connectionRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
             0 -> { screen = Screen.WIFI; selected = 0; Action.WifiLoad }
             1 -> { screen = Screen.BT; selected = 0; Action.BtLoad }
-            2 -> { enter(Screen.DATA); Action.DataLoad }
-            else -> { enter(Screen.BATTERY); Action.Redraw }
+            else -> { enter(Screen.DATA); Action.DataLoad }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
@@ -2320,11 +2341,15 @@ class LauncherModel(
     var onToneStyle: (String) -> Unit = {}
 
     /** What the Sound screens show: the ringer (0 normal, 1 vibrate, 2 silent), why it cannot be changed (the mode's words, or null), and the four volumes as current and maximum step. */
-    class SoundInfo(val ringer: Int, val lockedBy: String?, val vols: List<Vol>)
+    class SoundInfo(val ringer: Int, val lockedBy: String?, val vols: List<Vol>, val vibrate: List<Boolean> = listOf(true, true))
     /** One volume bar: the step it is on (0..[steps]) and how many of its [cells] are filled; one key press is one step. */
     class Vol(val pos: Int, val steps: Int, val bars: Int, val cells: Int)
     var soundInfo: () -> SoundInfo = { SoundInfo(0, null, List(4) { Vol(3, 7, 3, 7) }) }
     var onRinger: (Int) -> Unit = {}
+    /** Sound > Calls (0) and Sound > Messages (1): the Vibrate setting. */
+    var onVibrate: (Int, Boolean) -> Unit = { _, _ -> }
+    /** Lets a form row ask the activity to carry out an action (saving a setting). */
+    var onDo: (Action) -> Unit = {}
     /** Sets volume [which] (0 ringtone, 1 messages, 2 media, 3 phone call) to a step and plays a sample on that channel. */
     var onVolume: (Int, Int) -> Unit = { _, _ -> }
 
@@ -2339,28 +2364,37 @@ class LauncherModel(
     }
     private fun pick(i: Int) { val si = soundInfo(); if (si.lockedBy != null) notify(si.lockedBy) else onRinger(i) }
 
-    private fun volumesForm(): Form {
-        val names = listOf("Ringtone", "Messages", "Media", "Phone call")
-        return Form("Volumes", "Done", {
-            names.mapIndexed { i, n ->
-                FormRow(n, { val v = soundInfo().vols[i]; "#".repeat(v.bars) + "-".repeat((v.cells - v.bars).coerceAtLeast(0)) },
-                    onStep = { d, _ -> val v = soundInfo().vols[i]; onVolume(i, (v.pos + Integer.signum(d)).coerceIn(0, v.steps)) })
-            }
-        }) { leave(); Action.Redraw }
-    }
+    private val volumeBars: (Int) -> String = { i -> val v = soundInfo().vols[i]; "#".repeat(v.bars) + "-".repeat((v.cells - v.bars).coerceAtLeast(0)) }
+    private fun volumeRow(label: String, i: Int) = FormRow(label, { volumeBars(i) },
+        onStep = { d, _ -> val v = soundInfo().vols[i]; onVolume(i, (v.pos + Integer.signum(d)).coerceIn(0, v.steps)) })
 
-    private fun tonesForm(): Form {
+    /** One volume on a screen of its own (Media volume, Call volume). */
+    private fun singleVolumeForm(title: String, i: Int): Form = Form(title, "Done", { listOf(volumeRow("Volume", i)) }) { leave(); Action.Redraw }
+
+    private fun toneRow(label: String, slot: String): FormRow {
         val opts = listOf("stock") + Tones.all.map { it.id }
-        fun row(label: String, slot: String) = FormRow(label, { tonePicks[slot]?.takeIf { it != "stock" }?.let { Tones.byId(it).name } ?: "Phone's own" }, onStep = { d, _ ->
+        return FormRow(label, { tonePicks[slot]?.takeIf { it != "stock" }?.let { Tones.byId(it).name } ?: "Phone's own" }, onStep = { d, _ ->
             val i = opts.indexOf(tonePicks[slot] ?: "stock").coerceAtLeast(0)
             val n = opts[((i + d) % opts.size + opts.size) % opts.size]
             tonePicks = tonePicks + (slot to n); onTonePick(slot, n); onPreview(n)
         })
+    }
+    private fun vibrateRow(kind: Int) = FormRow("Vibrate", { if (soundInfo().vibrate.getOrElse(kind) { true }) "On" else "Off" },
+        onStep = { _, _ -> onVibrate(kind, !soundInfo().vibrate.getOrElse(kind) { true }) }, okStep = true)
+
+    /** Sound > Calls: the ringtone, its volume, whether it vibrates, the Speakerphone button in the call menu, and the style the tunes are played in. */
+    private fun callsForm(): Form {
         val style = FormRow("Tune style", { Tones.Style.of(toneStyle).label }, onStep = { _, _ ->
             toneStyle = if (toneStyle == Tones.Style.SOFT.id) Tones.Style.CLASSIC.id else Tones.Style.SOFT.id; onToneStyle(toneStyle)
         }, okStep = true)
-        return Form("Tones", "Done", { listOf(row("Calls", "ring"), row("Text messages", "sms"), row("WhatsApp", "wa"), style) }) { leave(); Action.Redraw }
+        val speaker = FormRow("Speakerphone button", { if (speakerShown) "Show" else "Hide" },
+            onStep = { _, _ -> speakerShown = !speakerShown; onDo(Action.SaveSpeaker(speakerShown)) }, okStep = true)
+        return Form("Calls", "Done", { listOf(toneRow("Ringtone", "ring"), volumeRow("Volume", 0), vibrateRow(0), speaker, style) }) { leave(); Action.Redraw }
     }
+
+    /** Sound > Messages: the text and WhatsApp tones, the volume and whether they vibrate. */
+    private fun messagesForm(): Form =
+        Form("Messages", "Done", { listOf(toneRow("Text tone", "sms"), toneRow("WhatsApp tone", "wa"), volumeRow("Volume", 1), vibrateRow(1)) }) { leave(); Action.Redraw }
 
     private fun setTimeForm(): Form {
         var at = java.time.ZonedDateTime.now(zone).withSecond(0).withNano(0)
@@ -2782,6 +2816,26 @@ class LauncherModel(
         Screen.SHOOTER -> if (shooter.state == Shooter.State.RUNNING) shooter.tickMs else null
         Screen.SEEDS -> if (seeds.phoneToMove) 800L else null
         else -> null
+    }
+
+    /** The Extras screen: Weather, Classic Games, Calculator, Navigate, pinned apps and Android Apps, as far as the mode shows them (the ones a mode can hide come last). */
+    var extrasMenu: List<MenuItem> = emptyList()
+
+    private fun extrasKey(key: Key): Action = move(key, extrasMenu.size) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> open(extrasMenu.getOrNull(selected))
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
+    }
+
+    /** The options of the Phone screen (the left soft key on the dial pad): the Call log and Contacts, both opened as steps inside the dialler. */
+    private fun phoneMenuKey(key: Key): Action = move(key, 2) ?: when (key) {
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { leave(); if (selected == 0) openCallLog(Screen.DIAL) else openContacts(Screen.DIAL) }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
+        Key.END -> { goHome(); Action.Redraw }
+        Key.CALL -> Action.CallKey
+        else -> Action.None
     }
 
     private fun appList(key: Key): Action = move(key, apps.size) ?: when (key) {

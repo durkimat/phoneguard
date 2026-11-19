@@ -29,7 +29,7 @@ object MessageAlert {
             val eff = SoundLevels.effective(c)
             if (dnd || eff == 3) { Log.log(c, "message: kept quiet (${if (dnd) "do not disturb" else "silent"})"); return }
             if (io.github.durkimat.phoneguard.incall.CallState.info != null) {
-                if (SoundLevels.buzzes(c)) try { c.getSystemService(Vibrator::class.java)?.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)) } catch (_: Exception) { }
+                if (SoundLevels.buzzes(c, SoundLevels.MSG)) try { c.getSystemService(Vibrator::class.java)?.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)) } catch (_: Exception) { }
                 Log.log(c, "message: during a call, one short buzz only"); return
             }
             ScreenWake.wake(c) // lights the screen for about fifteen seconds unless someone touches the phone
