@@ -92,7 +92,20 @@ fun clockY(mac: Boolean) = if (mac) 296f else 274f
 fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
 /** The box of zone 5 (the strip), its highlight and its touch area, and how long the slide between its pages takes. */
 const val NOW_TOP = 366f
-const val NOW_BOTTOM = 450f
+const val NOW_BOTTOM = 478f
+/** Zone 5's two text lines (baselines), a lone line's baseline, the progress bar's top and the dots' centre. */
+const val NOW_LINE1 = 402f
+const val NOW_LINE2 = 436f
+const val NOW_LONE = 420f
+const val NOW_BAR_TOP = 446f
+const val NOW_DOTS_Y = 468f
+/** How long lines in the strip behave: true = each long line scrolls on its own; false = only the second line (title) scrolls and a long first line is cut with "...". */
+const val NOW_BOTH_SCROLL = true
+/** Zone 6 (the counts): its highlight box and its touch band. The symbols themselves are drawn where they always were (centre y 512). */
+const val ACT_BOX_TOP = 484f
+const val ACT_BOX_BOTTOM = 544f
+const val ACT_TAP_TOP = 480f
+const val ACT_TAP_BOTTOM = 556f
 const val NOW_SLIDE_MS = 300L
 const val GRID_COLS = 3
 /** Rows of tiles on screen at once; more rows scroll vertically. */
@@ -1584,7 +1597,7 @@ class LauncherModel(
         if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         add(clockTarget())
         if (nowPages.isNotEmpty()) add(HomeTarget("now", 8f, NOW_TOP, 472f, NOW_BOTTOM))
-        badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), 455f, (cx + 62f).coerceAtMost(478f), 565f, b)) }
+        badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), ACT_BOX_TOP, (cx + 62f).coerceAtMost(478f), ACT_BOX_BOTTOM, b)) }
     }
 
     /** The highlighted symbol, for the skin to outline. */
@@ -1765,7 +1778,7 @@ class LauncherModel(
             if (weather != null && y in (weatherCy(Themes.byId(theme).skin == "mac") - 34f)..(weatherCy(Themes.byId(theme).skin == "mac") + 34f)) return openWeather()
             clockTarget().let { if (x in it.l..it.r && y in it.t..it.b) return openClock() }
             if (nowPages.isNotEmpty() && y in NOW_TOP..NOW_BOTTOM) return openNow()
-            if (y in 455f..565f && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
+            if (y in ACT_TAP_TOP..ACT_TAP_BOTTOM && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
             return Action.None
         }
         if (layout == Layout.GRID) { // a tile is chosen by touching it
@@ -3239,6 +3252,9 @@ data class HomeInfo(
     val softRight: String,
     /** The next event today or tomorrow ("15:00 Dentist"), or empty. */
     val nextUp: String = "",
+    /** The same event split in two for the strip's two lines: "Today 15:00" and "Dentist". */
+    val nextWhen: String = "",
+    val nextTitle: String = "",
     /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
     val wifi: Int = -1,
     /** Bluetooth: -1 not shown, 0 on but nothing connected (drawn faint), 1 a device is connected, 2 switched off (faint with a slash). */

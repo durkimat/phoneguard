@@ -57,20 +57,23 @@ object LauncherData {
     fun voiceCommandsAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).second
     fun voiceTypingAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).first
 
-    @Volatile private var nextCache: Pair<Long, String> = 0L to ""
+    @Volatile private var nextCache: Pair<Long, Pair<String, String>> = 0L to ("" to "")
     /** A calendar change was seen: the next lookup reads the calendar again instead of using the minute's answer. */
-    fun invalidateNext() { nextCache = 0L to "" }
-    /** "15:00 Dentist": the next timed event today, or the first event tomorrow ("Tmrw 09:00 Football"); empty when there is none. Looked up at most once a minute. */
-    private fun nextUp(c: Context, now: Long): String {
+    fun invalidateNext() { nextCache = 0L to ("" to "") }
+    /** The next timed event today or tomorrow as (when, title): ("Today 15:00", "Dentist") or ("Tomorrow 09:00", "Football"); both empty when there is none. Looked up at most once a minute. */
+    private fun nextUp(c: Context, now: Long): Pair<String, String> {
         if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
         val text = try {
             run {
                 val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
                 val ev = io.github.durkimat.phoneguard.calendar.CompositeCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(2), z))
                 val next = io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, 2, z).firstOrNull { !it.event.allDay && it.event.end > now }
-                if (next == null) "" else io.github.durkimat.phoneguard.calendar.Cal.agendaRow(next, today, z).let { r -> if (next.day == today) r.removePrefix("Today ") else r }
+                if (next == null) "" to "" else {
+                    val day = io.github.durkimat.phoneguard.calendar.Cal.dayLabel(next.day, today)
+                    (day + (if (next.event.allDay) ", all day" else " " + io.github.durkimat.phoneguard.calendar.Cal.clock(next.event.start, z))) to next.event.title.ifBlank { "(no title)" }
+                }
             }
-        } catch (_: Exception) { "" }
+        } catch (_: Exception) { "" to "" }
         nextCache = now to text
         return text
     }
@@ -190,7 +193,9 @@ object LauncherData {
             signalBars = signal(c),
             softLeft = "Menu",
             softRight = "Contacts",
-            nextUp = if (eff.nowStrip) nextUp(c, now) else "",
+            nextUp = if (eff.nowStrip) nextUp(c, now).let { if (it.second.isEmpty()) "" else it.first + " " + it.second } else "",
+            nextWhen = if (eff.nowStrip) nextUp(c, now).first else "",
+            nextTitle = if (eff.nowStrip) nextUp(c, now).second else "",
             musicOn = musicShown(c) && musicPlaying(c),
             wifi = wifiState(c),
             bt = bluetoothState(c),

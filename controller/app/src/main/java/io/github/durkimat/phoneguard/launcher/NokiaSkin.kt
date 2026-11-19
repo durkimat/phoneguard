@@ -75,7 +75,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     android.view.MotionEvent.ACTION_MOVE -> {
                         val y = ev.y / k
                         val x = ev.x / k
-                        val inBadgeRow = model?.screen == Screen.HOME && downY in 455f..570f && (model?.badgeOverflow() ?: 0f) > 0f
+                        val inBadgeRow = model?.screen == Screen.HOME && downY in ACT_TAP_TOP..ACT_TAP_BOTTOM && (model?.badgeOverflow() ?: 0f) > 0f
                         if (inBadgeRow) {
                             // the symbol row is wider than the screen: a finger slides it left and right
                             if (Math.abs(x - downX) > 14f) dragged = true
@@ -509,7 +509,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val x0 = 240f - (pages.size - 1) * 9f
                 stroke.strokeWidth = 2f * u; stroke.color = ink; fill.color = ink
                 pages.indices.forEach { k ->
-                    val cx = (x0 + k * 18f) * u; val cy = 444f * u
+                    val cx = (x0 + k * 18f) * u; val cy = NOW_DOTS_Y * u
                     if (k == m.nowPage) { fill.style = Paint.Style.FILL; c.drawCircle(cx, cy, 4.5f * u, fill) } else c.drawCircle(cx, cy, 3.5f * u, stroke)
                 }
             }
@@ -518,13 +518,20 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun nowPageBody(c: Canvas, page: String, i: HomeInfo, slot: Float, u: Float) {
             when (page) {
                 "music" -> i.nowPlaying?.let { nowPlayingLine(c, it, slot, u) }
-                "event" -> if (i.nextUp.isNotBlank()) {
-                    // the calendar mark and the text are one group: centred when it fits (margins 24, gap 12), else the mark stays at the left and the text scrolls beside it
-                    val w = measureBold(i.nextUp, 26f)
-                    if (48f + w <= 432f) { val left = 240f - (48f + w) / 2; calendarIcon(c, left, 387f, u); text(c, i.nextUp, left + 48f, slot + 4f, 26f, u) }
-                    else { calendarIcon(c, 24f, 387f, u); marquee(c, i.nextUp, 72f, slot + 4f, 26f, 384f, u) }
+                "event" -> if (i.nextTitle.isNotBlank()) {
+                    // the calendar mark at the left, centred on the two lines; the day and time over the title
+                    calendarIcon(c, 24f, 411f, u)
+                    nowLines(c, i.nextWhen, i.nextTitle, 72f, 384f, 30f, u)
                 }
             }
+        }
+
+        /** One or two lines in the strip (line 1 regular, line 2 bold); a lone line sits halfway between them. Long lines scroll as [NOW_BOTH_SCROLL] says. */
+        private fun nowLines(c: Canvas, first: String, second: String, x: Float, room: Float, titleSize: Float, u: Float) {
+            if (first.isNotBlank() && second.isNotBlank()) {
+                if (NOW_BOTH_SCROLL) marquee(c, first, x, NOW_LINE1, 28f, room, u) else text(c, ellipsize(first, room, 28f), x, NOW_LINE1, 28f, u)
+                marquee(c, second, x, NOW_LINE2, titleSize, room, u, bold = true)
+            } else (if (first.isNotBlank()) first else second).takeIf { it.isNotBlank() }?.let { marquee(c, it, x, NOW_LONE, titleSize, room, u, bold = true) }
         }
 
         private fun nowPlayingLine(c: Canvas, np: io.github.durkimat.phoneguard.music.MusicInfo, top: Float, u: Float) {
@@ -533,25 +540,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val tri = android.graphics.Path().apply { moveTo(24f * u, (top - 14f) * u); lineTo(48f * u, top * u); lineTo(24f * u, (top + 14f) * u); close() }
                 c.drawPath(tri, fill)
             } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
-            val line = if (np.source == "radio") listOf(np.title, np.artist).filter { it.isNotBlank() }.joinToString(" - ") else listOf(np.artist, np.title).filter { it.isNotBlank() }.joinToString(" - ")
-            marquee(c, line, 64f, top + 10f, 32f, 392f, u)
-            quaverIcon(c, 24f, top + 34f, u) // the music mark sits under the line at the left, centred on the progress bar's row (y 426)
+            // the artist over the title; a radio shows the station over what is on now
+            if (np.source == "radio") nowLines(c, np.title, np.artist, 64f, 392f, 32f, u) else nowLines(c, np.artist, np.title, 64f, 392f, 32f, u)
             if (np.durationMs > 0) {
                 stroke.strokeWidth = 2f * u; stroke.color = ink
-                c.drawRect(72f * u, (top + 30f) * u, 456f * u, (top + 38f) * u, stroke)
-                c.drawRect(72f * u, (top + 30f) * u, (72f + 384f * (np.positionMs.toFloat() / np.durationMs).coerceIn(0f, 1f)) * u, (top + 38f) * u, fill)
+                c.drawRect(24f * u, NOW_BAR_TOP * u, 456f * u, (NOW_BAR_TOP + 8f) * u, stroke)
+                c.drawRect(24f * u, NOW_BAR_TOP * u, (24f + 432f * (np.positionMs.toFloat() / np.durationMs).coerceIn(0f, 1f)) * u, (NOW_BAR_TOP + 8f) * u, fill)
             }
-        }
-
-        /** Beamed quavers in a 36 x 32 box whose left edge is [x0] and whose vertical centre is [cy]. */
-        private fun quaverIcon(c: Canvas, x0: Float, cy: Float, u: Float) {
-            val y0 = cy - 16f
-            fill.color = ink; fill.style = Paint.Style.FILL
-            c.drawOval(RectF((x0 + 5f) * u, (y0 + 21f) * u, (x0 + 15f) * u, (y0 + 29f) * u), fill)
-            c.drawOval(RectF((x0 + 23f) * u, (y0 + 18f) * u, (x0 + 33f) * u, (y0 + 26f) * u), fill)
-            c.drawRect((x0 + 12.5f) * u, (y0 + 6f) * u, (x0 + 15.5f) * u, (y0 + 25f) * u, fill)
-            c.drawRect((x0 + 30.5f) * u, (y0 + 3f) * u, (x0 + 33.5f) * u, (y0 + 22f) * u, fill)
-            c.drawPath(android.graphics.Path().apply { moveTo((x0 + 12.5f) * u, (y0 + 6f) * u); lineTo((x0 + 33.5f) * u, (y0 + 3f) * u); lineTo((x0 + 33.5f) * u, (y0 + 7f) * u); lineTo((x0 + 12.5f) * u, (y0 + 10f) * u); close() }, fill)
         }
 
         /** A calendar page in a 36 x 32 box (left edge [x0], vertical centre [cy]): outline, filled header, two binder ticks and a day grid whose last square is empty. */

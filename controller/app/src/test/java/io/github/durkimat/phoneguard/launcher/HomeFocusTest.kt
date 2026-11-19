@@ -131,4 +131,14 @@ class HomeFocusTest {
     @Test fun tappingTheStripOpensItsPage() {
         val m = model(); m.setNowPages(listOf("event")); assertTrue(m.tap(240f, 400f) is Action.CalLoad); assertEquals(Screen.CALENDAR, m.screen)
     }
+
+    @Test fun theStripAndTheCountsKeepTheirOwnBoxes() {
+        val m = model(); m.setNowPages(listOf("event")); m.badges = listOf(Badge(BadgeKind.SMS, 2))
+        val now = m.homeTargets().first { it.kind == "now" }; val badge = m.homeTargets().first { it.kind == "badge" }
+        assertEquals(366f, now.t, 0f); assertEquals(478f, now.b, 0f)
+        assertEquals(484f, badge.t, 0f); assertEquals(544f, badge.b, 0f)
+        assertTrue(m.tap(240f, 470f) is Action.CalLoad) // the strip's lower part (the dots) opens the page
+        val n = model(); n.badges = listOf(Badge(BadgeKind.SMS, 2))
+        assertEquals(Action.None, n.tap(240f, 470f)); assertEquals(Action.Redraw, n.tap(240f, 500f)); assertEquals(Screen.INBOX, n.screen) // the band is y 480 to 556
+    }
 }
