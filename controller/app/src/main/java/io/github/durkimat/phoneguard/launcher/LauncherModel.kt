@@ -729,7 +729,7 @@ class LauncherModel(
         Screen.POWERMENU -> listOf("Power off", "Restart")
         Screen.EXTRAS -> extrasMenu.map { it.label }
         Screen.PHONEMENU -> listOf("Call log", "Contacts")
-        Screen.SPMARKS -> listOf("↓  downloaded for offline", "…  downloading now", "*  pinned to the top", "#  download or remove", "*  pin or unpin")
+        Screen.SPMARKS -> listOf("↓ Downloaded", "… Downloading", "* Pinned", "# Download/remove", "* Pin/unpin")
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -1971,7 +1971,7 @@ class LauncherModel(
 
     /** What each provider's menu offers (the sleep timer and the bar are in each, as in the Music menu). */
     private val radioMenuRows: List<String> get() = listOf("Presets") + (if (radioMode == "any") listOf("Find station", "Browse stations") else emptyList()) + "Change source" + (if ((provStatus[Provider.RADIO] ?: 0) != 0) listOf("Stop music") else emptyList())
-    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("What do the marks mean?", "Sign out of Spotify") else emptyList()) + (if ((provStatus[Provider.SPOTIFY] ?: 0) != 0) listOf("Stop music") else emptyList()) + listOfNotNull(menuPlaylistRow())
+    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("What the marks mean", "Sign out of Spotify") else emptyList()) + (if ((provStatus[Provider.SPOTIFY] ?: 0) != 0) listOf("Stop music") else emptyList()) + listOfNotNull(menuPlaylistRow())
 
     private fun radioMenuKey(key: Key): Action = move(key, radioMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = radioMenuRows.getOrNull(selected)) {
@@ -2019,7 +2019,7 @@ class LauncherModel(
             "Sign in to Spotify" -> Action.SpSignIn
             "Change source" -> openSourcePicker()
             "Stop music" -> stopMusic(Provider.SPOTIFY)
-            "What do the marks mean?" -> { enter(Screen.SPMARKS); Action.Redraw }
+            "What the marks mean" -> { enter(Screen.SPMARKS); Action.Redraw }
             "Download playlist", "Remove download" -> menuPlaylist?.let { offlineAction(it) } ?: Action.None
             else -> Action.None
         }

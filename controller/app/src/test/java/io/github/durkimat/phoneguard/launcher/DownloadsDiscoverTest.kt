@@ -34,9 +34,9 @@ class DownloadsDiscoverTest {
     @Test fun theMenuOpenedFromNowPlayingHasNoPlaylistRowAndTheMarksHelpExplainsTheMarks() {
         val m = playlists(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT) // list menu, Now playing
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
-        assertEquals(false, m.rows.contains("Download playlist")); assertEquals(true, m.rows.contains("What do the marks mean?"))
-        m.onKey(Key.DIGIT, m.rows.indexOf("What do the marks mean?") + 1)
-        assertEquals(Screen.SPMARKS, m.screen); assertEquals("↓  downloaded for offline", m.rows[0])
+        assertEquals(false, m.rows.contains("Download playlist")); assertEquals(true, m.rows.contains("What the marks mean"))
+        m.onKey(Key.DIGIT, m.rows.indexOf("What the marks mean") + 1)
+        assertEquals(Screen.SPMARKS, m.screen); assertEquals("↓ Downloaded", m.rows[0])
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.SPOTIFYMENU, m.screen)
     }
 }

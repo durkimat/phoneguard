@@ -310,7 +310,7 @@ class HomeBadgeTest {
         assertEquals(Action.SpShuffle, m.onKey(Key.STAR)); assertEquals(Action.SpRepeat, m.onKey(Key.DIGIT, 1))
         // the left key opens the menu: Spotify's own functions and Change source (sleep and the bar are in the Music menu only)
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
-        assertEquals(listOf("Playlists", "Search", "Play on...", "Change source", "What do the marks mean?", "Sign out of Spotify"), m.rows)
+        assertEquals(listOf("Playlists", "Search", "Play on...", "Change source", "What the marks mean", "Sign out of Spotify"), m.rows)
         m.onKey(Key.DIGIT, 4); assertEquals(Screen.MUSICMENU, m.screen) // Change source opens the Music menu
         assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 2)); m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.SPOTIFYMENU, m.screen)
         assertEquals(Action.SpLoad("playlists"), m.onKey(Key.DIGIT, 1)); assertEquals(Screen.PLAYLISTS, m.screen)
