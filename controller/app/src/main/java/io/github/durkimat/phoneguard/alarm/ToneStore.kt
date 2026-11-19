@@ -24,16 +24,23 @@ object ToneStore {
     const val RING = "ring"; const val SMS = "sms"; const val WA = "wa"
     private fun sp(c: Context) = c.createDeviceProtectedStorageContext().getSharedPreferences("tones", Context.MODE_PRIVATE)
 
+    /** The voice of every tune: "classic" (band-limited square) or "soft" (25% pulse, rounder). One choice for all tunes. */
+    fun style(c: Context): Tones.Style = Tones.Style.of(sp(c).getString("style", "classic")).also { current = it }
+    @Volatile var current: Tones.Style = Tones.Style.CLASSIC
+    /** Saves the voice and rewrites the saved ringtone and text tone in it. */
+    fun setStyle(c: Context, id: String) { sp(c).edit().putString("style", id).apply(); current = Tones.Style.of(id); reapplyAll(c) }
+
     fun pick(c: Context, slot: String): String = (sp(c).getString("pick_$slot", STOCK) ?: STOCK).let { if (it == STOCK || Tones.all.any { t -> t.id == it }) it else STOCK }
 
-    /** WAV bytes of a tune: 16 kHz mono 16-bit, with [tailMs] of silence so a looping ringtone breathes between rings. */
-    fun wav(t: Tones.Tone, tailMs: Int, amp: Double = 0.45): ByteArray {
-        val pcm = Tones.render(t, amp = amp)
-        val n = pcm.size + 16 * tailMs
+    /** WAV bytes of a tune: 44.1 kHz mono 16-bit, with [tailMs] of silence so a looping ringtone breathes between rings. */
+    fun wav(t: Tones.Tone, tailMs: Int, amp: Double = 0.45, style: Tones.Style = Tones.Style.CLASSIC): ByteArray {
+        val pcm = Tones.render(t, amp = amp, style = style)
+        val rate = Tones.RATE
+        val n = pcm.size + rate / 1000 * tailMs
         val out = ByteArrayOutputStream(44 + n * 2)
         fun i32(v: Int) { out.write(v and 255); out.write(v shr 8 and 255); out.write(v shr 16 and 255); out.write(v shr 24 and 255) }
         fun i16(v: Int) { out.write(v and 255); out.write(v shr 8 and 255) }
-        out.write("RIFF".toByteArray()); i32(36 + n * 2); out.write("WAVEfmt ".toByteArray()); i32(16); i16(1); i16(1); i32(16000); i32(32000); i16(2); i16(16)
+        out.write("RIFF".toByteArray()); i32(36 + n * 2); out.write("WAVEfmt ".toByteArray()); i32(16); i16(1); i16(1); i32(rate); i32(rate * 2); i16(2); i16(16)
         out.write("data".toByteArray()); i32(n * 2)
         for (k in 0 until n) i16(if (k < pcm.size) pcm[k].toInt() else 0)
         return out.toByteArray()
@@ -49,7 +56,7 @@ object ToneStore {
     fun reapplyAll(c: Context) { for (s in listOf(RING, SMS)) if (pick(c, s) != STOCK) apply(c, s, pick(c, s)) }
 
     /** The saved file for [slot] holding tune [id], for a channel sound (WhatsApp); null when the system will not take it. */
-    fun uriFor(c: Context, slot: String, id: String): Uri? = try { place(c, slot, wav(Tones.byId(id), 0)) } catch (e: Exception) { Log.log(c, "tones: file for $slot failed ${e.javaClass.simpleName}"); null }
+    fun uriFor(c: Context, slot: String, id: String): Uri? = try { place(c, slot, wav(Tones.byId(id), 0, MSG_AMP, style(c))) } catch (e: Exception) { Log.log(c, "tones: file for $slot failed ${e.javaClass.simpleName}"); null }
 
     private fun type(slot: String) = if (slot == RING) RingtoneManager.TYPE_RINGTONE else RingtoneManager.TYPE_NOTIFICATION
 
@@ -63,7 +70,7 @@ object ToneStore {
                 return true
             }
             if (sp.getString("stock_$slot", null) == null) sp.edit().putString("stock_$slot", RingtoneManager.getActualDefaultRingtoneUri(c, ty)?.toString() ?: "none").apply()
-            val uri = place(c, slot, wav(Tones.byId(id), if (slot == RING) 1200 else 0, if (slot == RING) RING_AMP else MSG_AMP)) ?: return false
+            val uri = place(c, slot, wav(Tones.byId(id), if (slot == RING) 1200 else 0, if (slot == RING) RING_AMP else MSG_AMP, style(c))) ?: return false
             RingtoneManager.setActualDefaultRingtoneUri(c, ty, uri)
             return true
         } catch (e: Exception) { Log.log(c, "tones: $slot $id failed ${e.javaClass.simpleName}"); return false }
@@ -97,10 +104,10 @@ object ToneStore {
         try {
             preview?.let { it.stop(); it.release() }; preview = null
             if (id == STOCK) return
-            val pcm = Tones.render(Tones.byId(id)).let { if (it.size > 16000 * 6) it.copyOf(16000 * 6) else it }
+            val pcm = Tones.render(Tones.byId(id), style = current).let { if (it.size > Tones.RATE * 6) it.copyOf(Tones.RATE * 6) else it }
             val t = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(16000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Tones.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                 .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
             t.write(pcm, 0, pcm.size); t.setVolume(0.6f); t.play(); preview = t
         } catch (_: Exception) { }
@@ -111,13 +118,28 @@ object ToneStore {
         try {
             val id = pick(c, slot)
             if (id == STOCK) { RingtoneManager.getRingtone(c, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)?.play(); return }
-            val pcm = Tones.render(Tones.byId(id)).let { if (it.size > 16000 * 4) it.copyOf(16000 * 4) else it }
+            val pcm = Tones.render(Tones.byId(id), amp = MSG_AMP * 1.6, style = style(c)).let { if (it.size > Tones.RATE * 4) it.copyOf(Tones.RATE * 4) else it }
             val t = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(16000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Tones.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                 .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
             t.write(pcm, 0, pcm.size); t.setVolume(0.5f); t.play()
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ try { t.stop(); t.release() } catch (_: Exception) { } }, pcm.size / 16L + 500)
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ try { t.stop(); t.release() } catch (_: Exception) { } }, pcm.size * 1000L / Tones.RATE + 500)
         } catch (e: Exception) { Log.log(c, "tones: message tone failed ${e.javaClass.simpleName}") }
+    }
+
+    private var sampleTrack: AudioTrack? = null
+
+    /** A short sample (the first second and a half of a tune) on the channel a volume bar sets: [usage] picks the stream, so the level heard is that stream's. */
+    fun sample(c: Context, usage: Int, id: String) {
+        try {
+            sampleTrack?.let { it.stop(); it.release() }; sampleTrack = null
+            val pcm = Tones.render(Tones.byId(id), amp = 0.6, style = style(c)).let { if (it.size > Tones.RATE * 3 / 2) it.copyOf(Tones.RATE * 3 / 2) else it }
+            val t = AudioTrack.Builder()
+                .setAudioAttributes(AudioAttributes.Builder().setUsage(usage).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Tones.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+                .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
+            t.write(pcm, 0, pcm.size); t.play(); sampleTrack = t
+        } catch (_: Exception) { }
     }
 }

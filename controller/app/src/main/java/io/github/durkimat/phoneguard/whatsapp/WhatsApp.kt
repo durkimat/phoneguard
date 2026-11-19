@@ -275,12 +275,27 @@ object WhatsApp {
     private fun pending(c: Context) = android.app.PendingIntent.getBroadcast(
         c, 21, android.content.Intent(c, WaAlarmReceiver::class.java), android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
 
-    private fun schedule(c: Context, minutes: Int) {
+    /**
+     * Arms the next background check. The due time is KEPT while the interval is unchanged: the controller re-evaluates often (every sync, call, update), and
+     * pushing the alarm to "now + interval" each time meant a check never came due. [fresh] = a check just ran, so a new interval starts now.
+     * A due time that passed while the phone was off or asleep means the check is late: it runs in a few seconds.
+     */
+    private fun schedule(c: Context, minutes: Int, fresh: Boolean = false) {
+        val now = System.currentTimeMillis()
+        val p = prefs(c)
+        val every = minutes * 60_000L
+        var due = p.getLong("wa_due", 0L)
+        val keep = !fresh && due > 0 && p.getInt("wa_every", 0) == minutes && due - now <= every
+        if (!keep) { due = now + every; p.edit().putLong("wa_due", due).putInt("wa_every", minutes).apply(); Log.log(c, "whatsapp: next check scheduled for ${hhmm(due)} (every $minutes min)") }
+        else if (due <= now) { due = now + 10_000L; Log.log(c, "whatsapp: check was due, running now") }
         val am = c.getSystemService(android.app.AlarmManager::class.java)
-        am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + minutes * 60_000L, pending(c))
+        try { am.setExactAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, due, pending(c)) }
+        catch (e: SecurityException) { am.setAndAllowWhileIdle(android.app.AlarmManager.RTC_WAKEUP, due, pending(c)) }
     }
 
-    private fun cancelAlarm(c: Context) { c.getSystemService(android.app.AlarmManager::class.java).cancel(pending(c)) }
+    private fun hhmm(ms: Long) = java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date(ms))
+
+    private fun cancelAlarm(c: Context) { c.getSystemService(android.app.AlarmManager::class.java).cancel(pending(c)); prefs(c).edit().remove("wa_due").remove("wa_every").apply() }
 
     private val polling = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -294,7 +309,7 @@ object WhatsApp {
         try {
             io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000)
             val wasOn = isConnected()
-            Log.log(app, "whatsapp: check starting (${if (wasOn) "already connected" else "connecting"}, every $p min)")
+            Log.log(app, "whatsapp: check due (scheduled ${hhmm(prefs(app).getLong("wa_due", 0L))}), starting (${if (wasOn) "already connected" else "connecting"}, every $p min)")
             if (!wasOn) { connect(app); for (i in 1..40) { if (isConnected()) break; Thread.sleep(500) } }
             if (isConnected()) Thread.sleep(if (wasOn) 0 else SETTLE_MS) // queued messages arrive straight after connecting
             if (!wasOn) { quiet = true; bridge?.disconnect(); Log.log(app, "whatsapp: disconnected (check finished)") }
@@ -305,7 +320,7 @@ object WhatsApp {
         } finally {
             io.github.durkimat.phoneguard.net.RadioManager.end(app, "whatsapp check")
             polling.set(false)
-            schedule(app, if (p == "60") 60 else 30)
+            schedule(app, if (p == "60") 60 else 30, fresh = true)
         }
     }
 

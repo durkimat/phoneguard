@@ -234,16 +234,20 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 c.drawLine(225 * u, 14 * u, 220 * u, 9 * u, stroke); c.drawLine(240 * u, 12 * u, 240 * u, 5 * u, stroke); c.drawLine(255 * u, 14 * u, 260 * u, 9 * u, stroke) // the light
             }
             // a small bell while an alarm is switched on or the timer is running
-            if (i.alarmSet) {
-                val cx = 298f
-                val bell = android.graphics.Path().apply {
-                    moveTo((cx - 10) * u, 30 * u); lineTo((cx - 7) * u, 27 * u); lineTo((cx - 7) * u, 19 * u); quadTo((cx - 7) * u, 12 * u, cx * u, 12 * u)
-                    quadTo((cx + 7) * u, 12 * u, (cx + 7) * u, 19 * u); lineTo((cx + 7) * u, 27 * u); lineTo((cx + 10) * u, 30 * u); close()
-                }
-                c.drawPath(bell, fill); c.drawCircle(cx * u, 11 * u, 2f * u, fill); c.drawCircle(cx * u, 34 * u, 2.6f * u, fill)
-            }
+            if (i.alarmSet) bellIcon(c, 298f, 22.5f, 1f, u)
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
+        }
+
+        /** A small bell centred on ([cx], [cy]); [k] scales it (1 = 25 px tall). */
+        private fun bellIcon(c: Canvas, cx: Float, cy: Float, k: Float, u: Float) {
+            fun px(x: Float) = (cx + x * k) * u
+            fun py(y: Float) = (cy + (y - 22.5f) * k) * u
+            val bell = android.graphics.Path().apply {
+                moveTo(px(-10f), py(30f)); lineTo(px(-7f), py(27f)); lineTo(px(-7f), py(19f)); quadTo(px(-7f), py(12f), px(0f), py(12f))
+                quadTo(px(7f), py(12f), px(7f), py(19f)); lineTo(px(7f), py(27f)); lineTo(px(10f), py(30f)); close()
+            }
+            c.drawPath(bell, fill); c.drawCircle(px(0f), py(11f), 2f * k * u, fill); c.drawCircle(px(0f), py(34f), 2.6f * k * u, fill)
         }
 
         /** The diagonal that marks a switched-off radio, in the same faint tone (and transparency) as the symbol it crosses. */
@@ -723,7 +727,16 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, clockY(Themes.byId(model?.theme).skin == "mac"), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
-            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
+            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if (i.alarmText.isNotEmpty() && Themes.byId(model?.theme).skin == "mac") 352f else 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
+            if (i.alarmText.isNotEmpty()) { // the next alarm, just under the clock: a bell and the time, nothing else
+                val mac = Themes.byId(model?.theme).skin == "mac"
+                p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 24f * scaleOf(TEXT) * u
+                val tw = p.measureText(i.alarmText) / u; val bw = 20f; val gap = 8f
+                val left = 240f + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))) - (bw + gap + tw) / 2
+                val y = clockY(mac) + if (mac) 24f else 28f
+                bellIcon(c, left + bw / 2, y - 8f, 0.8f, u)
+                text(c, i.alarmText, left + bw + gap, y, 24f, u)
+            }
             badges(c, i, u)
             softKeys(c, if ((model?.homeFocus ?: -1) >= 0) "Select" else i.softLeft, model?.softKeys?.second ?: i.softRight, u) // the model knows whether the right key is Music or Contacts
         }

@@ -147,7 +147,7 @@ class RingService : Service() {
     private fun sound(ri: RingInfo) {
         silence()
         try {
-            val p = LoopPlayer(this, Tones.render(Tones.byId(ri.tone), amp = 0.85), { gain() })
+            val p = LoopPlayer(this, Tones.render(Tones.byId(ri.tone), amp = 0.85, style = ToneStore.style(this)), { gain() })
             p.start(); player = p
         } catch (e: Exception) { Log.log(this, "alarms: sound ${e.javaClass.simpleName}") }
         vibrate(true)

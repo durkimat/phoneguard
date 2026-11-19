@@ -440,6 +440,47 @@ class LauncherActivity : Activity() {
         override fun run() { if (inFront && (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH)) { redraw(); ui.postDelayed(this, if (model.screen == Screen.STOPWATCH) 100 else 500) } }
     }
 
+    private val soundStreams = intArrayOf(android.media.AudioManager.STREAM_RING, android.media.AudioManager.STREAM_NOTIFICATION, android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.STREAM_VOICE_CALL)
+
+    /** The Sound screens' view of the phone: the ringer, whether the mode in force fixes it, and the four volume steps. */
+    private fun soundInfo(): LauncherModel.SoundInfo {
+        val am = getSystemService(android.media.AudioManager::class.java)
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        val total = try { nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE } catch (_: Exception) { false }
+        val ringer = if (total) 2 else when (am.ringerMode) { android.media.AudioManager.RINGER_MODE_NORMAL -> 0; android.media.AudioManager.RINGER_MODE_VIBRATE -> 1; else -> 2 }
+        val cfg = io.github.durkimat.phoneguard.Store.config(this)
+        val eff = io.github.durkimat.phoneguard.core.Engine.effective(cfg, io.github.durkimat.phoneguard.Store.boost(this), io.github.durkimat.phoneguard.Clock.now())
+        val locked = if (eff.sound == "normal") null else io.github.durkimat.phoneguard.core.Engine.modeDef(cfg, eff.modeId).name + " mode keeps the phone " + (if (eff.sound == "silent") "silent" else "on vibrate") + ". Alarms can still ring."
+        return LauncherModel.SoundInfo(ringer, locked, soundStreams.map { am.getStreamVolume(it) to am.getStreamMaxVolume(it) })
+    }
+
+    private fun setRinger(i: Int) {
+        val am = getSystemService(android.media.AudioManager::class.java)
+        val nm = getSystemService(android.app.NotificationManager::class.java)
+        try {
+            val access = nm.isNotificationPolicyAccessGranted
+            if (access && nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_ALL)
+            am.ringerMode = when (i) { 0 -> android.media.AudioManager.RINGER_MODE_NORMAL; 1 -> android.media.AudioManager.RINGER_MODE_VIBRATE; else -> if (access) android.media.AudioManager.RINGER_MODE_SILENT else android.media.AudioManager.RINGER_MODE_VIBRATE }
+            if (i == 2 && !access) model.notify("Silent needs Do Not Disturb access: vibrate set")
+            Log.log(this, "sound: ringer set to ${listOf("normal", "vibrate", "silent")[i]} on the phone")
+        } catch (e: Exception) { Log.log(this, "sound: ringer ${e.javaClass.simpleName}"); model.notify("This phone would not change that") }
+        refresh()
+    }
+
+    private fun setVolume(which: Int, v: Int) {
+        val am = getSystemService(android.media.AudioManager::class.java)
+        try {
+            val s = soundStreams[which]
+            am.setStreamVolume(s, v.coerceAtLeast(if (which == 3) 1 else 0), 0)
+            val usage = intArrayOf(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, android.media.AudioAttributes.USAGE_NOTIFICATION, android.media.AudioAttributes.USAGE_MEDIA, android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)[which]
+            val tones = io.github.durkimat.phoneguard.alarm.ToneStore
+            val slot = if (which == 0) "ring" else if (which == 1) "sms" else ""
+            val id = tones.pick(this, slot).takeIf { it != "stock" } ?: if (which == 1) "pair" else "chime"
+            Thread { tones.sample(this, usage, id) }.start()
+        } catch (e: Exception) { Log.log(this, "sound: volume ${e.javaClass.simpleName}"); model.notify("This phone would not change that") }
+        refresh()
+    }
+
     private var loop: io.github.durkimat.phoneguard.alarm.LoopPlayer? = null
     private var loopVol = 5
     private val loopOff = Runnable { previewStop() }
@@ -452,7 +493,7 @@ class LauncherActivity : Activity() {
         if (loop != null && loopTone == tone) { ui.removeCallbacks(loopOff); ui.postDelayed(loopOff, 8_000); return } // same tune: only the level changes
         previewStop(); loopTone = tone
         try {
-            val p = io.github.durkimat.phoneguard.alarm.LoopPlayer(this, io.github.durkimat.phoneguard.alarm.Tones.render(io.github.durkimat.phoneguard.alarm.Tones.byId(tone), amp = 0.85), { io.github.durkimat.phoneguard.alarm.AlarmGain.level(loopVol) })
+            val p = io.github.durkimat.phoneguard.alarm.LoopPlayer(this, io.github.durkimat.phoneguard.alarm.Tones.render(io.github.durkimat.phoneguard.alarm.Tones.byId(tone), amp = 0.85, style = io.github.durkimat.phoneguard.alarm.ToneStore.style(this)), { io.github.durkimat.phoneguard.alarm.AlarmGain.level(loopVol) })
             p.start(); loop = p
             ui.postDelayed(loopOff, 8_000)
         } catch (_: Exception) { }
@@ -468,6 +509,14 @@ class LauncherActivity : Activity() {
         val auto = android.provider.Settings.Global.getInt(contentResolver, android.provider.Settings.Global.AUTO_TIME, 1) == 1
         model.timeSettable = cfg?.timeLocal == true || !auto
         model.tonePicks = mapOf("ring" to io.github.durkimat.phoneguard.alarm.ToneStore.pick(this, "ring"), "sms" to io.github.durkimat.phoneguard.alarm.ToneStore.pick(this, "sms"), "wa" to io.github.durkimat.phoneguard.alarm.ToneStore.pick(this, "wa"))
+        model.toneStyle = io.github.durkimat.phoneguard.alarm.ToneStore.style(this).id
+        model.onToneStyle = { id -> Thread {
+            io.github.durkimat.phoneguard.alarm.ToneStore.setStyle(this, id)
+            io.github.durkimat.phoneguard.alarm.ToneStore.preview("chime")
+        }.start() }
+        model.soundInfo = { soundInfo() }
+        model.onRinger = { setRinger(it) }
+        model.onVolume = { which, v -> setVolume(which, v) }
         model.onPreview = { io.github.durkimat.phoneguard.alarm.ToneStore.preview(it) }
         model.onTonePick = { slot, id -> Thread {
             val ok = io.github.durkimat.phoneguard.alarm.ToneStore.set(this, slot, id)

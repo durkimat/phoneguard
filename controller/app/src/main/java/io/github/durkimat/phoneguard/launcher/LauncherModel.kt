@@ -355,7 +355,7 @@ class LauncherModel(
     /** The Settings groups and what is in each, every one numbered 1.. in the order shown (rows come and go with the mode and the edition). */
     private fun groupRows(on: Screen): List<String> = when (on) {
         Screen.LOOK -> listOf("Theme", "Font", "Menu style", "Appearance")
-        Screen.SOUNDSET -> listOf("Predictive text", "Speakerphone", "Ringtone and message tones", "Sound test")
+        Screen.SOUNDSET -> listOf("Ringer mode", "Volumes", "Predictive text", "Speakerphone", "Ringtone and message tones", "Sound test")
         Screen.THISPHONE -> listOf("Screen lock", "Time zone", "Language") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
             (if (waEnabled || waSetupAvail || waSetupActive) listOf("WhatsApp") else emptyList()) + (if (androidSettings) listOf("Android settings") else emptyList())
         else -> listOf("Look", "Sound and typing", "Connections", "This phone") + extraItems.filter { it.pkg == NOTES_PKG }.map { "Notifications" } + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
@@ -1418,6 +1418,8 @@ class LauncherModel(
                 "Appearance" -> enter(Screen.APPEARANCE)
                 "Predictive text" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
                 "Speakerphone" -> enter(Screen.SPEAKER, if (speakerShown) 0 else 1)
+                "Ringer mode" -> { pushForm(ringerForm()); out = Action.Redraw }
+                "Volumes" -> { pushForm(volumesForm()); out = Action.Redraw }
                 "Ringtone and message tones" -> { pushForm(tonesForm()); out = Action.Redraw }
                 "Sound test" -> enter(Screen.SOUNDTEST)
                 "WhatsApp" -> enter(Screen.WASET)
@@ -2185,6 +2187,38 @@ class LauncherModel(
         return Form(if (isNew) "New alarm" else "Alarm", "Save", rows) { saveAlarm(a.copy(on = a.on || isNew), true); leave(); Action.Redraw }
     }
 
+    /** The voice of the phone's own tunes ("classic" or "soft"); the activity saves it, rewrites the saved ringtone and text tone and plays a sample. */
+    var toneStyle = "classic"
+    var onToneStyle: (String) -> Unit = {}
+
+    /** What the Sound screens show: the ringer (0 normal, 1 vibrate, 2 silent), why it cannot be changed (the mode's words, or null), and the four volumes as current and maximum step. */
+    class SoundInfo(val ringer: Int, val lockedBy: String?, val vols: List<Pair<Int, Int>>)
+    var soundInfo: () -> SoundInfo = { SoundInfo(0, null, List(4) { 3 to 7 }) }
+    var onRinger: (Int) -> Unit = {}
+    /** Sets volume [which] (0 ringtone, 1 messages, 2 media, 3 phone call) to a step and plays a sample on that channel. */
+    var onVolume: (Int, Int) -> Unit = { _, _ -> }
+
+    private fun ringerForm(): Form {
+        val names = listOf("Normal", "Vibrate", "Silent")
+        return Form("Ringer mode", "Done", {
+            val si = soundInfo()
+            names.mapIndexed { i, n ->
+                FormRow(n, { if (si.ringer == i) "(x)" else "( )" }, onStep = { _, _ -> pick(i) }, okStep = true)
+            } + FormRow(si.lockedBy ?: "Alarms still ring in Silent.", run = { Action.Redraw })
+        }) { leave(); Action.Redraw }
+    }
+    private fun pick(i: Int) { val si = soundInfo(); if (si.lockedBy != null) notify(si.lockedBy) else onRinger(i) }
+
+    private fun volumesForm(): Form {
+        val names = listOf("Ringtone", "Messages", "Media", "Phone call")
+        return Form("Volumes", "Done", {
+            names.mapIndexed { i, n ->
+                FormRow(n, { val (cur, max) = soundInfo().vols[i]; "#".repeat(Math.round(cur * 7f / max.coerceAtLeast(1))) + "-".repeat(7 - Math.round(cur * 7f / max.coerceAtLeast(1))) },
+                    onStep = { d, _ -> val (cur, max) = soundInfo().vols[i]; onVolume(i, (cur + d).coerceIn(0, max)) })
+            }
+        }) { leave(); Action.Redraw }
+    }
+
     private fun tonesForm(): Form {
         val opts = listOf("stock") + Tones.all.map { it.id }
         fun row(label: String, slot: String) = FormRow(label, { tonePicks[slot]?.takeIf { it != "stock" }?.let { Tones.byId(it).name } ?: "Phone's own" }, onStep = { d, _ ->
@@ -2192,7 +2226,10 @@ class LauncherModel(
             val n = opts[((i + d) % opts.size + opts.size) % opts.size]
             tonePicks = tonePicks + (slot to n); onTonePick(slot, n); onPreview(n)
         })
-        return Form("Tones", "Done", { listOf(row("Calls", "ring"), row("Text messages", "sms"), row("WhatsApp", "wa")) }) { leave(); Action.Redraw }
+        val style = FormRow("Tune style", { Tones.Style.of(toneStyle).label }, onStep = { _, _ ->
+            toneStyle = if (toneStyle == Tones.Style.SOFT.id) Tones.Style.CLASSIC.id else Tones.Style.SOFT.id; onToneStyle(toneStyle)
+        }, okStep = true)
+        return Form("Tones", "Done", { listOf(row("Calls", "ring"), row("Text messages", "sms"), row("WhatsApp", "wa"), style) }) { leave(); Action.Redraw }
     }
 
     private fun setTimeForm(): Form {
@@ -3122,6 +3159,8 @@ data class HomeInfo(
     val nowPlaying: io.github.durkimat.phoneguard.music.MusicInfo? = null,
     /** An alarm is switched on or the timer is running: a small bell shows in the top bar. */
     val alarmSet: Boolean = false,
+    /** The next alarm's time ("07:00") for the home screen, under the clock; empty when no alarm is on. */
+    val alarmText: String = "",
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

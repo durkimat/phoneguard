@@ -41,9 +41,9 @@ class NavigationBackTest {
         "appearance" to "OK DOWN*9 OK D1 D4",
         "appearanceChoice" to "OK DOWN*9 OK D1 D4 OK",
         "soundAndTyping" to "OK DOWN*9 OK D2",
-        "typing" to "OK DOWN*9 OK D2 D1",
-        "speaker" to "OK DOWN*9 OK D2 D2",
-        "soundTest" to "OK DOWN*9 OK D2 D4",
+        "typing" to "OK DOWN*9 OK D2 D3",
+        "speaker" to "OK DOWN*9 OK D2 D4",
+        "soundTest" to "OK DOWN*9 OK D2 D6",
         "connections" to "OK DOWN*9 OK D3",
         "mobileData" to "OK DOWN*9 OK D3 D3",
         "battery" to "OK DOWN*9 OK D3 D4",
@@ -113,9 +113,9 @@ menuStyle: MENUSTYLE -SOFT_RIGHT-> LOOK/2
 appearance: APPEARANCE -SOFT_RIGHT-> LOOK/3
 appearanceChoice: CHOICE -SOFT_RIGHT-> APPEARANCE/0
 soundAndTyping: SOUNDSET -SOFT_RIGHT-> SETTINGS/1
-typing: TYPING -SOFT_RIGHT-> SOUNDSET/0
-speaker: SPEAKER -SOFT_RIGHT-> SOUNDSET/1
-soundTest: SOUNDTEST -SOFT_RIGHT-> SOUNDSET/3
+typing: TYPING -SOFT_RIGHT-> SOUNDSET/2
+speaker: SPEAKER -SOFT_RIGHT-> SOUNDSET/3
+soundTest: SOUNDTEST -SOFT_RIGHT-> SOUNDSET/5
 connections: CONNECTIONS -SOFT_RIGHT-> SETTINGS/2
 mobileData: DATA -SOFT_RIGHT-> CONNECTIONS/2
 battery: BATTERY -SOFT_RIGHT-> CONNECTIONS/3

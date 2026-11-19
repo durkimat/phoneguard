@@ -127,9 +127,9 @@ class TonesFlowTest {
         val m = phone(); val picks = mutableListOf<Pair<String, String>>(); val heard = mutableListOf<String>()
         m.onTonePick = { s, id -> picks += s to id }; m.onPreview = { heard += it }
         m.key(Key.OK); m.key(Key.OK)                 // Menu, Settings
-        m.key(Key.DIGIT, 2); m.key(Key.DIGIT, 3)     // Sound and typing, Ringtone and message tones
+        m.key(Key.DIGIT, 2); m.key(Key.DIGIT, 5)     // Sound and typing, Ringtone and message tones
         assertEquals(Screen.FORM, m.screen); assertEquals("Tones", m.title)
-        assertEquals(listOf("Calls: Phone's own", "Text messages: Phone's own", "WhatsApp: Phone's own"), m.rows)
+        assertEquals(listOf("Calls: Phone's own", "Text messages: Phone's own", "WhatsApp: Phone's own", "Tune style: Classic beep"), m.rows)
         m.key(Key.RIGHT)                             // calls: the first tune
         m.key(Key.DOWN); m.key(Key.RIGHT); m.key(Key.RIGHT)
         m.key(Key.DOWN); m.key(Key.LEFT)             // WhatsApp: back round to the last tune

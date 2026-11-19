@@ -459,7 +459,7 @@ class LauncherModelTest {
 
     @Test fun hidingTheSpeakerRemovesItFromCallsAndSettingsSavesIt() {
         val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK)
-        s.onKey(Key.DIGIT, 2); assertEquals(Action.Redraw, s.onKey(Key.DIGIT, 2)); assertEquals(Screen.SPEAKER, s.screen)
+        s.onKey(Key.DIGIT, 2); assertEquals(Action.Redraw, s.onKey(Key.DIGIT, 4)); assertEquals(Screen.SPEAKER, s.screen)
         assertEquals(listOf("Show *", "Hide"), s.rows)
         assertEquals(Action.SaveSpeaker(false), s.onKey(Key.DIGIT, 2)); assertEquals(false, s.speakerShown); assertEquals(Screen.SOUNDSET, s.screen)
 

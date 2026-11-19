@@ -76,8 +76,11 @@ class AlarmTest {
             val n = Tones.parse(t.rtttl)
             assertTrue(t.id, n.size >= 3)
             val pcm = Tones.render(t)
-            assertEquals(t.id, Tones.lengthMs(t) * 16.0, pcm.size.toDouble(), 16.0 * n.size) // within a rounding of every note
+            assertEquals(t.id, Tones.lengthMs(t) * 44.1, pcm.size.toDouble(), 44.1 * n.size) // within a rounding of every note
             assertTrue(t.id, pcm.any { it.toInt() != 0 })
+            val soft = Tones.render(t, style = Tones.Style.SOFT)
+            assertEquals(pcm.size, soft.size); assertTrue(t.id, soft.any { it.toInt() != 0 } && !soft.contentEquals(pcm))
+            assertTrue(t.id, pcm.maxOf { Math.abs(it.toInt()) } < 32000 / 2) // no clipping at the default level
             assertTrue(t.id, Tones.lengthMs(t) in 300..12_000)
         }
         assertEquals(12, Tones.all.size)
@@ -93,5 +96,39 @@ class AlarmTest {
         assertEquals(1318.5, n[2].hz, 0.1); assertEquals(1500, n[2].ms)
         assertEquals(554.4, n[3].hz, 0.1)
         assertNotNull(Tones.byId("elise"))
+    }
+
+    /** Writes before/after WAVs for listening when PG_WAV_DIR is set (not an assertion): the old 16 kHz naive square, the band-limited Classic and the Soft voice. */
+    @Test fun writeAuditionWavsWhenAsked() {
+        val dir = System.getenv("PG_WAV_DIR") ?: return
+        java.io.File(dir).mkdirs()
+        fun write(name: String, pcm: ShortArray, rate: Int) {
+            val o = java.io.ByteArrayOutputStream()
+            fun i32(v: Int) { o.write(v and 255); o.write(v shr 8 and 255); o.write(v shr 16 and 255); o.write(v shr 24 and 255) }
+            fun i16(v: Int) { o.write(v and 255); o.write(v shr 8 and 255) }
+            o.write("RIFF".toByteArray()); i32(36 + pcm.size * 2); o.write("WAVEfmt ".toByteArray()); i32(16); i16(1); i16(1); i32(rate); i32(rate * 2); i16(2); i16(16)
+            o.write("data".toByteArray()); i32(pcm.size * 2); pcm.forEach { i16(it.toInt()) }
+            java.io.File(dir, name).writeBytes(o.toByteArray())
+        }
+        for (id in listOf("waltz", "chime", "ring", "sms", "elise")) {
+            val t = Tones.byId(id)
+            // before (0.4.61): naive square at 16 kHz, 5 ms fades, no filter
+            val notes = Tones.parse(t.rtttl); val rate = 16000
+            val old = ShortArray(notes.sumOf { it.ms.toLong() * rate / 1000 }.toInt()); var at = 0
+            for (n in notes) {
+                val count = (n.ms.toLong() * rate / 1000).toInt()
+                if (n.hz > 0) {
+                    val fade = (rate / 200).coerceAtMost(count / 2).coerceAtLeast(1); val gap = if (count > rate / 20) rate / 100 else 0
+                    for (k in 0 until count - gap) {
+                        val sq = if (Math.sin(2 * Math.PI * n.hz * k / rate) >= 0) 1.0 else -1.0
+                        old[at + k] = (sq * minOf(1.0, k / fade.toDouble(), (count - gap - k) / fade.toDouble()) * 0.45 * Short.MAX_VALUE).toInt().toShort()
+                    }
+                }
+                at += count
+            }
+            write("$id-before-0.4.61.wav", old, rate)
+            write("$id-after-classic.wav", Tones.render(t, amp = 0.45), Tones.RATE)
+            write("$id-after-soft.wav", Tones.render(t, amp = 0.45, style = Tones.Style.SOFT), Tones.RATE)
+        }
     }
 }

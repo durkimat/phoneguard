@@ -198,6 +198,11 @@ object LauncherData {
                 val st = io.github.durkimat.phoneguard.alarm.AlarmStore
                 (Engine.alarms(cfg, now) && (st.alarms(c).any { it.on } || st.snoozeAt(c) > now)) || st.timer(c).running
             } catch (_: Exception) { false },
+            alarmText = try {
+                val st = io.github.durkimat.phoneguard.alarm.AlarmStore
+                val next = if (Engine.alarms(cfg, now)) listOfNotNull(io.github.durkimat.phoneguard.alarm.AlarmMath.nextFrom(st.alarms(c), now, java.time.ZoneId.systemDefault()), st.snoozeAt(c).takeIf { it > now }).minOrNull() else null
+                if (next == null) "" else java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date(next))
+            } catch (_: Exception) { "" },
         )
     }
 

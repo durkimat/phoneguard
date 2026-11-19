@@ -12,7 +12,7 @@ import android.content.Context
  * Used by the ringing alarm and by the volume row's preview.
  */
 class LoopPlayer(private val c: Context, tune: ShortArray, private val gain: () -> Float, private val gapMs: Int = 700) {
-    private val pcm: ShortArray = tune.copyOf(tune.size + 16 * gapMs) // a breath of silence between repeats
+    private val pcm: ShortArray = tune.copyOf(tune.size + Tones.RATE / 1000 * gapMs) // a breath of silence between repeats
     @Volatile private var run = false
     private var thread: Thread? = null
     private var track: AudioTrack? = null
@@ -23,7 +23,7 @@ class LoopPlayer(private val c: Context, tune: ShortArray, private val gain: () 
         run = true
         val am = c.getSystemService(AudioManager::class.java)
         try { savedVol = am.getStreamVolume(AudioManager.STREAM_ALARM); am.setStreamVolume(AudioManager.STREAM_ALARM, am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) } catch (_: Exception) { }
-        val rate = 16000
+        val rate = Tones.RATE
         val min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(4096)
         val t = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())

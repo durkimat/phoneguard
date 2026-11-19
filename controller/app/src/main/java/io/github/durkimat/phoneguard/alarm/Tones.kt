@@ -1,6 +1,8 @@
 package io.github.durkimat.phoneguard.alarm
 
 import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.pow
 import kotlin.math.sin
 
@@ -65,25 +67,53 @@ object Tones {
 
     fun lengthMs(t: Tone) = parse(t.rtttl).sumOf { it.ms }
 
-    /** The tune as 16-bit mono PCM: a soft square wave with a short fade at each note's ends, and a short gap after each note. */
-    fun render(t: Tone, rate: Int = 16000, amp: Double = 0.45): ShortArray {
+    /** Sample rate of everything we play and save: 44.1 kHz, so a bright square wave has room for its harmonics without folding back as harsh aliasing. */
+    const val RATE = 44100
+
+    /** The two voices: CLASSIC is a band-limited square (the plain beepy sound), SOFT a 25% pulse through a gentle low-pass (rounder). */
+    enum class Style(val id: String, val label: String, val attackMs: Int, val releaseMs: Int, val lowpassHz: Double, val duty: Double) {
+        CLASSIC("classic", "Classic beep", 5, 40, 3500.0, 0.5),
+        SOFT("soft", "Soft beep", 6, 50, 1500.0, 0.25);
+        companion object { fun of(id: String?) = values().firstOrNull { it.id == id } ?: CLASSIC }
+    }
+
+    /**
+     * The tune as 16-bit mono PCM at [rate]: each note is a BAND-LIMITED wave (harmonics added up to 8 kHz only, never past what the rate can hold), shaped by a
+     * short attack and release so notes do not click, with a short gap between notes, and the whole tune low-passed (two one-pole stages) so the small speaker
+     * is not hit by the top harmonics.
+     */
+    fun render(t: Tone, rate: Int = RATE, amp: Double = 0.45, style: Style = Style.CLASSIC): ShortArray {
         val notes = parse(t.rtttl)
         val total = notes.sumOf { it.ms.toLong() * rate / 1000 }.toInt()
-        val pcm = ShortArray(total)
+        val x = DoubleArray(total)
         var at = 0
+        val top = minOf(8000.0, rate * 0.45)
         for (n in notes) {
             val count = (n.ms.toLong() * rate / 1000).toInt()
             if (n.hz > 0) {
-                val fade = (rate / 200).coerceAtMost(count / 2).coerceAtLeast(1)
                 val gap = if (count > rate / 20) rate / 100 else 0 // a breath between repeated notes
-                for (k in 0 until count - gap) {
-                    val sq = if (sin(2 * PI * n.hz * k / rate) >= 0) 1.0 else -1.0
-                    val env = minOf(1.0, k / fade.toDouble(), (count - gap - k) / fade.toDouble())
-                    pcm[at + k] = (sq * env * amp * Short.MAX_VALUE).toInt().toShort()
+                val len = count - gap
+                val atk = (rate * style.attackMs / 1000).coerceAtMost(len / 2).coerceAtLeast(1)
+                val rel = (rate * style.releaseMs / 1000).coerceAtMost(len / 2).coerceAtLeast(1)
+                val maxK = (top / n.hz).toInt().coerceAtLeast(1)
+                val w = 2 * PI * n.hz / rate
+                for (k in 0 until len) {
+                    val th = w * k
+                    var v = 0.0
+                    if (style.duty == 0.5) { var h = 1; while (h <= maxK) { v += sin(h * th) / h; h += 2 }; v *= 4 / PI * 0.85 }
+                    else { for (h in 1..maxK) v += 2.0 / (h * PI) * sin(h * PI * style.duty) * cos(h * (th - PI * style.duty)); v *= 1.3 }
+                    val env = minOf(1.0, k / atk.toDouble(), (len - k) / rel.toDouble())
+                    x[at + k] = v * env
                 }
             }
             at += count
         }
-        return pcm
+        val a = 1 - exp(-2 * PI * style.lowpassHz / rate)
+        var y1 = 0.0; var y2 = 0.0
+        val y = DoubleArray(total)
+        for (i in 0 until total) { y1 += a * (x[i] - y1); y2 += a * (y1 - y2); y[i] = y2 }
+        // every tune and both voices peak at the same level, so the filter does not make the high tunes quieter than the low ones
+        val peak = (y.maxOfOrNull { Math.abs(it) } ?: 0.0).coerceAtLeast(1e-9)
+        return ShortArray(total) { (y[it] / peak * 0.8 * amp * Short.MAX_VALUE).toInt().coerceIn(-32768, 32767).toShort() }
     }
 }
