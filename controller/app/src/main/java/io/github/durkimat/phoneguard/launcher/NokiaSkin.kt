@@ -235,8 +235,24 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
             // a small bell while an alarm is switched on or the timer is running
             if (i.alarmSet) bellIcon(c, 298f, 22.5f, 1f, u)
+            if (timerLeft(i) > 0) timerIcon(c, if (i.alarmSet) 326f else 298f, 22.5f, 1f, u) // beside the bell while a timer runs
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
+        }
+
+        /** Seconds left on the running timer (0 when none, or it is up). */
+        private fun timerLeft(i: HomeInfo): Int = if (i.timerEndAt <= 0) 0 else ((i.timerEndAt - io.github.durkimat.phoneguard.Clock.now() + 999) / 1000).toInt().coerceAtLeast(0)
+
+        /** "mm:ss" under an hour, "h:mm" over. */
+        private fun timerText(s: Int) = if (s >= 3600) "%d:%02d".format(s / 3600, s / 60 % 60) else "%02d:%02d".format(s / 60, s % 60)
+
+        /** A small stopwatch face centred on ([cx], [cy]): a ring, a hand and a button on top; [k] scales it like the bell. */
+        private fun timerIcon(c: Canvas, cx: Float, cy: Float, k: Float, u: Float) {
+            stroke.strokeWidth = 2.4f * k * u
+            c.drawCircle(cx * u, (cy + 2f * k) * u, 8.5f * k * u, stroke)
+            c.drawLine(cx * u, (cy + 2f * k) * u, cx * u, (cy - 3.5f * k) * u, stroke)
+            c.drawLine(cx * u, (cy + 2f * k) * u, (cx + 4f * k) * u, (cy + 2f * k) * u, stroke)
+            c.drawRect((cx - 2.5f * k) * u, (cy - 9.5f * k) * u, (cx + 2.5f * k) * u, (cy - 7.5f * k) * u, fill)
         }
 
         /** A small bell centred on ([cx], [cy]); [k] scales it (1 = 25 px tall). */
@@ -727,15 +743,28 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, clockY(Themes.byId(model?.theme).skin == "mac"), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
-            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if (i.alarmText.isNotEmpty() && Themes.byId(model?.theme).skin == "mac") 352f else 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
-            if (i.alarmText.isNotEmpty()) { // the next alarm, just under the clock: a bell and the time, nothing else
+            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if ((i.alarmText.isNotEmpty() || timerLeft(i) > 0) && Themes.byId(model?.theme).skin == "mac") 352f else 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
+            // just under the clock: a bell and the next alarm's time, and a stopwatch face and the timer's time left, nothing else.
+            // Both go on one line when they fit (the long-digit fonts may not), otherwise one under the other.
+            val left = timerLeft(i)
+            if (i.alarmText.isNotEmpty() || left > 0) {
                 val mac = Themes.byId(model?.theme).skin == "mac"
                 p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 24f * scaleOf(TEXT) * u
-                val tw = p.measureText(i.alarmText) / u; val bw = 20f; val gap = 8f
-                val left = 240f + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))) - (bw + gap + tw) / 2
+                val items = listOfNotNull(i.alarmText.takeIf { it.isNotEmpty() }?.let { true to it }, if (left > 0) false to timerText(left) else null)
+                // one line: if the long-digit fonts make it wider than the screen allows, everything on it shrinks together (stacking would hit the date)
+                val full = items.sumOf { (20.0 + 8.0 + p.measureText(it.second) / u) } + 30.0 * (items.size - 1)
+                val f = (420.0 / full).coerceAtMost(1.0).toFloat()
+                val bw = 20f * f; val gap = 8f * f; val between = 30f * f; val size = 24f * f
+                p.textSize = size * scaleOf(TEXT) * u
+                val widths = items.map { bw + gap + p.measureText(it.second) / u }
+                val axis = 240f + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u)))
                 val y = clockY(mac) + if (mac) 24f else 28f
-                bellIcon(c, left + bw / 2, y - 8f, 0.8f, u)
-                text(c, i.alarmText, left + bw + gap, y, 24f, u)
+                var x = axis - (widths.sum() + between * (items.size - 1)) / 2
+                items.forEachIndexed { n, it ->
+                    if (it.first) bellIcon(c, x + bw / 2, y - 8f * f, 0.8f * f, u) else timerIcon(c, x + bw / 2, y - 8f * f, 0.8f * f, u)
+                    text(c, it.second, x + bw + gap, y, size, u)
+                    x += widths[n] + between
+                }
             }
             badges(c, i, u)
             softKeys(c, if ((model?.homeFocus ?: -1) >= 0) "Select" else i.softLeft, model?.softKeys?.second ?: i.softRight, u) // the model knows whether the right key is Music or Contacts

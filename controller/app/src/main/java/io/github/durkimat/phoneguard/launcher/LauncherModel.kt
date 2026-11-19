@@ -3163,8 +3163,10 @@ data class HomeInfo(
     val dataView: io.github.durkimat.phoneguard.core.DataView? = null,
     /** What is playing (or paused), for the home screen's one-line Now playing; null when nothing is, or the mode has no music. */
     val nowPlaying: io.github.durkimat.phoneguard.music.MusicInfo? = null,
-    /** An alarm is switched on or the timer is running: a small bell shows in the top bar. */
+    /** An alarm is switched on: a small bell shows in the top bar. */
     val alarmSet: Boolean = false,
+    /** When the running timer ends (epoch ms), 0 when none runs: a timer mark in the top bar and the time left under the clock. */
+    val timerEndAt: Long = 0L,
     /** The next alarm's time ("07:00") for the home screen, under the clock; empty when no alarm is on. */
     val alarmText: String = "",
 )

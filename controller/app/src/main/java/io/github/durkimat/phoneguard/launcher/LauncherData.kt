@@ -196,8 +196,9 @@ object LauncherData {
             dataView = if (eff.dataWidget) try { io.github.durkimat.phoneguard.net.DataUsage.view(c, now) } catch (_: Exception) { null } else null,
             alarmSet = try {
                 val st = io.github.durkimat.phoneguard.alarm.AlarmStore
-                (Engine.alarms(cfg, now) && (st.alarms(c).any { it.on } || st.snoozeAt(c) > now)) || st.timer(c).running
+                Engine.alarms(cfg, now) && (st.alarms(c).any { it.on } || st.snoozeAt(c) > now)
             } catch (_: Exception) { false },
+            timerEndAt = try { io.github.durkimat.phoneguard.alarm.AlarmStore.timer(c).let { if (it.running) it.endAt else 0L } } catch (_: Exception) { 0L },
             alarmText = try {
                 val st = io.github.durkimat.phoneguard.alarm.AlarmStore
                 val next = if (Engine.alarms(cfg, now)) listOfNotNull(io.github.durkimat.phoneguard.alarm.AlarmMath.nextFrom(st.alarms(c), now, java.time.ZoneId.systemDefault()), st.snoozeAt(c).takeIf { it > now }).minOrNull() else null

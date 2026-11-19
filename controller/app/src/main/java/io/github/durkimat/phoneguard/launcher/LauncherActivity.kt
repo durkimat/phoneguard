@@ -117,6 +117,7 @@ class LauncherActivity : Activity() {
     override fun onResume() {
         super.onResume()
         inFront = true; current = this
+        ui.removeCallbacks(homeTick); ui.post(homeTick)
         if (model.lockSet && !model.lockParentReady) lockPush() // back from confirming the PIN: the token may be active now
         try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
@@ -436,6 +437,16 @@ class LauncherActivity : Activity() {
         if (t.isNotEmpty()) io.github.durkimat.phoneguard.where.TileMap.want(this, t) { ui.post { if (model.screen == Screen.WHEREMAP) { invalidate(D.SCREEN); redraw() } } }
     }
 
+    /** A running timer's time left under the clock on Home: redrawn once a second while Home is showing and the screen is on, otherwise nothing runs. */
+    private val homeTick = object : Runnable {
+        override fun run() {
+            val end = lastInfo?.timerEndAt ?: 0L
+            if (inFront && model.screen == Screen.HOME && end > io.github.durkimat.phoneguard.Clock.now() && getSystemService(android.os.PowerManager::class.java).isInteractive) {
+                redraw(); ui.postDelayed(this, 1000L - io.github.durkimat.phoneguard.Clock.now() % 1000L + 20L)
+            }
+        }
+    }
+
     private val clockTick = object : Runnable {
         override fun run() { if (inFront && (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH)) { redraw(); ui.postDelayed(this, if (model.screen == Screen.STOPWATCH) 100 else 500) } }
     }
@@ -559,6 +570,7 @@ class LauncherActivity : Activity() {
         trackWhere()
         redraw()
         if (model.screen != loadedScreen) dirty.getAndUpdate { it or D.SCREEN }
+        if (model.screen == Screen.HOME) { ui.removeCallbacks(homeTick); ui.post(homeTick) }
         if (model.screen == Screen.MUSIC) { ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000) }
         if (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH) { ui.removeCallbacks(clockTick); ui.postDelayed(clockTick, 200) }
         load()
@@ -656,7 +668,7 @@ class LauncherActivity : Activity() {
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
             model.badges = it.badges; model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
             model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data; model.batteryPct = it.batteryPct
-            lastInfo = it
+            lastInfo = it; ui.removeCallbacks(homeTick); if (it.timerEndAt > 0) ui.post(homeTick)
         }
         r.all?.let { all ->
             model.apps = LauncherData.otherApps(all, r.pinned)
