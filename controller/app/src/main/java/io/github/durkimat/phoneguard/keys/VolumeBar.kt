@@ -31,7 +31,7 @@ class VolumeBar(private val svc: AccessibilityService) {
     private val hide = Runnable { view?.let { try { wm.removeView(it) } catch (_: Exception) { } }; view = null }
 
     /** What the keys change right now: the call, the music being played on this phone, or else the ringer. */
-    private fun ringing() = try { svc.getSystemService(android.telephony.TelephonyManager::class.java).callState == android.telephony.TelephonyManager.CALL_STATE_RINGING } catch (_: Exception) { false }
+    private fun ringing() = io.github.durkimat.phoneguard.incall.CallState.info?.phase == io.github.durkimat.phoneguard.launcher.CallPhase.RINGING || try { svc.getSystemService(android.telephony.TelephonyManager::class.java).callState == android.telephony.TelephonyManager.CALL_STATE_RINGING } catch (_: Exception) { false }
 
     fun stream(): Pair<Int, String> = when {
         ringing() -> AudioManager.STREAM_RING to "RING" // an incoming call is ringing: the keys set the ringer (the first press also quiets it, as the system does)
@@ -51,6 +51,7 @@ class VolumeBar(private val svc: AccessibilityService) {
         val tones = io.github.durkimat.phoneguard.alarm.ToneStore
         if (s == AudioManager.STREAM_RING && am.ringerMode == AudioManager.RINGER_MODE_NORMAL && (ringing() || tones.pick(svc, tones.RING) != tones.STOCK)) {
             // while a call rings the keys change the level live (CallRinger follows it); they never quiet the ring
+            Log.log(svc, "volume: ring level key ${if (up) "up" else "down"} (ringing ${ringing()}, now ${lv.pos(svc, lv.RING)})")
             val p = (lv.pos(svc, lv.RING) + if (up) 1 else -1).coerceIn(0, lv.MAX)
             lv.setPos(svc, lv.RING, p); lv.pin(svc)
             Thread { tones.levelChanged(svc, tones.RING) }.start()

@@ -2203,7 +2203,7 @@ class LauncherModel(
     var onVolume: (Int, Int) -> Unit = { _, _ -> }
 
     private fun ringerForm(): Form {
-        val names = listOf("Normal", "Vibrate", "Silent")
+        val names = listOf("Ring and vibrate", "Ring only", "Vibrate only", "Silent")
         return Form("Ringer mode", "Done", {
             val si = soundInfo()
             names.mapIndexed { i, n ->

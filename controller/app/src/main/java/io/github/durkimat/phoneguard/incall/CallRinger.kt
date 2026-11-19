@@ -27,10 +27,10 @@ class CallRinger(private val c: Context) {
         if (ringing) return
         val am = c.getSystemService(AudioManager::class.java)
         val nm = c.getSystemService(NotificationManager::class.java)
-        val mode = am.ringerMode
+        val eff = SoundLevels.effective(c)
         val dnd = try { nm.currentInterruptionFilter.let { it == NotificationManager.INTERRUPTION_FILTER_NONE || it == NotificationManager.INTERRUPTION_FILTER_ALARMS } } catch (_: Exception) { false }
-        if (dnd || mode == AudioManager.RINGER_MODE_SILENT) { Log.log(c, "incall: ring kept quiet (ringer ${if (dnd) "dnd" else "silent"})"); return }
-        if (mode == AudioManager.RINGER_MODE_NORMAL) {
+        if (dnd || eff == 3) { Log.log(c, "incall: ring kept quiet (ringer ${if (dnd) "dnd" else "silent"})"); return }
+        if (SoundLevels.sounds(c)) {
             try {
                 SoundLevels.pin(c)
                 val pick = ToneStore.pick(c, ToneStore.RING).let { if (it == ToneStore.STOCK) Tones.DEFAULT else it }
@@ -40,13 +40,12 @@ class CallRinger(private val c: Context) {
                 player = LoopPlayer(c, pcm, { SoundLevels.gainAt(SoundLevels.ringLive).toFloat() }, 1200, AudioAttributes.USAGE_NOTIFICATION_RINGTONE).also { it.start() }
             } catch (e: Exception) { Log.log(c, "incall: ring tune failed ${e.javaClass.simpleName}"); player = null }
         }
-        val buzz = mode == AudioManager.RINGER_MODE_VIBRATE || try { android.provider.Settings.System.getInt(c.contentResolver, "vibrate_when_ringing", 0) == 1 } catch (_: Exception) { false }
-        if (buzz) try {
+        if (SoundLevels.buzzes(c)) try {
             val v = c.getSystemService(Vibrator::class.java)
             v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 800, 1200), 0), AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             vibrator = v
         } catch (e: Exception) { Log.log(c, "incall: vibrate failed ${e.javaClass.simpleName}") }
-        Log.log(c, "incall: ringing (ringer $mode, tune ${player != null}, buzz ${vibrator != null})")
+        Log.log(c, "incall: ringing (choice $eff, tune ${player != null}, buzz ${vibrator != null}, level ${SoundLevels.ringLive})")
     }
 
     fun stop() {

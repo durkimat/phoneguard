@@ -26,6 +26,19 @@ object SoundLevels {
     fun gainAt(p: Int): Double = GAIN[p.coerceIn(0, MAX)]
     fun bars(p: Int): Int = BARS[p.coerceIn(0, MAX)]
 
+    /**
+     * The ringer choice, ours alone (the phone's own "vibrate when ringing" is never read): 0 ring and vibrate, 1 ring only, 2 vibrate only, 3 silent.
+     * The phone's ringer mode follows it (normal for 0 and 1), and when something else moved the ringer mode (a school mode, say) that wins.
+     */
+    fun choice(c: Context): Int = sp(c).getInt("ringer", -1)
+    fun setChoice(c: Context, i: Int) { sp(c).edit().putInt("ringer", i.coerceIn(0, 3)).apply() }
+    fun effective(c: Context): Int {
+        val mode = try { c.getSystemService(AudioManager::class.java).ringerMode } catch (_: Exception) { AudioManager.RINGER_MODE_NORMAL }
+        return when (mode) { AudioManager.RINGER_MODE_VIBRATE -> 2; AudioManager.RINGER_MODE_SILENT -> 3; else -> choice(c).takeIf { it in 0..1 } ?: 0 }
+    }
+    fun sounds(c: Context) = effective(c) <= 1
+    fun buzzes(c: Context) = effective(c).let { it == 0 || it == 2 }
+
     /** Holds the ring and notification streams at full while the ringer is normal, so only our gain sets the loudness. */
     fun pin(c: Context) {
         try {

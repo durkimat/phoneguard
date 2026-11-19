@@ -156,4 +156,15 @@ class TonesFlowTest {
         m.key(Key.DOWN); m.key(Key.RIGHT)
         assertEquals(2 to 4, seen.last())                               // media: one press, one step
     }
+
+    @Test fun ringerScreenOffersRingAndVibrateChoices() {
+        val m = phone(); var got = -1
+        m.soundInfo = { LauncherModel.SoundInfo(0, null, List(4) { LauncherModel.Vol(3, 7, 3, 7) }) }
+        m.onRinger = { got = it }
+        m.key(Key.OK); m.key(Key.UP); m.key(Key.OK); m.key(Key.DOWN); m.key(Key.OK)   // Sound and typing
+        m.key(Key.OK)                                                                   // Ringer mode
+        assertEquals(listOf("Ring and vibrate", "Ring only", "Vibrate only", "Silent"), m.rows.take(4).map { it.substringBefore(":").trim().removeSuffix("(x)").removeSuffix("( )").trim() })
+        assertTrue(m.rows[0].contains("(x)"))
+        repeat(2) { m.key(Key.DOWN) }; m.key(Key.OK); assertEquals(2, got)
+    }
 }

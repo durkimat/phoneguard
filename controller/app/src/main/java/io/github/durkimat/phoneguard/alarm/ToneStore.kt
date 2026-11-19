@@ -77,7 +77,14 @@ object ToneStore {
     }
 
     /** A level changed: rewrites the saved file for [slot] at the new gain (one at a time, so quick presses cannot interleave). */
-    @Synchronized fun levelChanged(c: Context, slot: String) { val id = pick(c, slot); if (id != STOCK) apply(c, slot, id) }
+    @Volatile private var levelSeq = 0
+    fun levelChanged(c: Context, slot: String) {
+        val mine = ++levelSeq
+        synchronized(this) { if (mine != levelSeq) return; val id = pick(c, slot); if (id != STOCK) apply(c, slot, id) } // quick presses: only the last one is written
+    }
+
+    /** Cuts any volume sample that is playing, at once. */
+    @Synchronized fun stopSample() { try { sampleTrack?.let { it.stop(); it.release() } } catch (_: Exception) { }; sampleTrack = null }
 
     /** One file per slot, rewritten in place when the pick changes. */
     private fun place(c: Context, slot: String, bytes: ByteArray): Uri? {
@@ -119,6 +126,8 @@ object ToneStore {
     /** A message tone from our own code (our WhatsApp client): the child's pick, or the phone's notification sound for "stock". The notification usage follows the ringer mode and Do Not Disturb. */
     fun notify(c: Context, slot: String) {
         try {
+            if (SoundLevels.buzzes(c)) try { c.getSystemService(android.os.Vibrator::class.java)?.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 250, 150, 250), -1)) } catch (_: Exception) { }
+            if (!SoundLevels.sounds(c)) return
             val id = pick(c, slot)
             if (id == STOCK) { RingtoneManager.getRingtone(c, android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)?.play(); return }
             val pcm = Tones.render(Tones.byId(id), amp = MSG_AMP * 1.6, style = style(c)).let { if (it.size > Tones.RATE * 4) it.copyOf(Tones.RATE * 4) else it }

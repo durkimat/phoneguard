@@ -447,7 +447,7 @@ class LauncherActivity : Activity() {
         val am = getSystemService(android.media.AudioManager::class.java)
         val nm = getSystemService(android.app.NotificationManager::class.java)
         val total = try { nm.currentInterruptionFilter == android.app.NotificationManager.INTERRUPTION_FILTER_NONE } catch (_: Exception) { false }
-        val ringer = if (total) 2 else when (am.ringerMode) { android.media.AudioManager.RINGER_MODE_NORMAL -> 0; android.media.AudioManager.RINGER_MODE_VIBRATE -> 1; else -> 2 }
+        val ringer = if (total) 3 else io.github.durkimat.phoneguard.alarm.SoundLevels.effective(this)
         val cfg = io.github.durkimat.phoneguard.Store.config(this)
         val eff = io.github.durkimat.phoneguard.core.Engine.effective(cfg, io.github.durkimat.phoneguard.Store.boost(this), io.github.durkimat.phoneguard.Clock.now())
         val locked = if (eff.sound == "normal") null else io.github.durkimat.phoneguard.core.Engine.modeDef(cfg, eff.modeId).name + " mode keeps the phone " + (if (eff.sound == "silent") "silent" else "on vibrate") + ". Alarms can still ring."
@@ -464,15 +464,18 @@ class LauncherActivity : Activity() {
         try {
             val access = nm.isNotificationPolicyAccessGranted
             if (access && nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_ALL)
-            am.ringerMode = when (i) { 0 -> android.media.AudioManager.RINGER_MODE_NORMAL; 1 -> android.media.AudioManager.RINGER_MODE_VIBRATE; else -> if (access) android.media.AudioManager.RINGER_MODE_SILENT else android.media.AudioManager.RINGER_MODE_VIBRATE }
-            if (i == 2 && !access) model.notify("Silent needs Do Not Disturb access: vibrate set")
-            if (i == 0) io.github.durkimat.phoneguard.alarm.SoundLevels.pin(this)
-            Log.log(this, "sound: ringer set to ${listOf("normal", "vibrate", "silent")[i]} on the phone")
+            io.github.durkimat.phoneguard.alarm.SoundLevels.setChoice(this, i)
+            am.ringerMode = when (i) { 0, 1 -> android.media.AudioManager.RINGER_MODE_NORMAL; 2 -> android.media.AudioManager.RINGER_MODE_VIBRATE; else -> if (access) android.media.AudioManager.RINGER_MODE_SILENT else android.media.AudioManager.RINGER_MODE_VIBRATE }
+            if (i == 3 && !access) model.notify("Silent needs Do Not Disturb access: vibrate set")
+            if (i <= 1) io.github.durkimat.phoneguard.alarm.SoundLevels.pin(this)
+            Log.log(this, "sound: ringer set to ${listOf("ring and vibrate", "ring only", "vibrate only", "silent")[i]} on the phone")
         } catch (e: Exception) { Log.log(this, "sound: ringer ${e.javaClass.simpleName}"); model.notify("This phone would not change that") }
         refresh()
     }
 
     /** Ringtone and Messages (0, 1) are our own levels (see SoundLevels); Media and Phone call (2, 3) set their system stream, one bar a step. */
+    private var sampleRun = Runnable { }
+
     private fun setVolume(which: Int, v: Int) {
         val am = getSystemService(android.media.AudioManager::class.java)
         try {
@@ -492,7 +495,10 @@ class LauncherActivity : Activity() {
             }
             val id = if (slot == "") "chime" else tones.pick(this, slot).takeIf { it != "stock" } ?: if (which == 1) "pair" else "chime"
             val g = if (which < 2) gain * (if (which == 0) io.github.durkimat.phoneguard.alarm.ToneStore.RING_AMP else io.github.durkimat.phoneguard.alarm.ToneStore.MSG_AMP) / 0.6 else 1.0
-            Thread { tones.sample(this, usage, id, g) }.start()
+            // quick presses: the running sample is cut at once and only the last level is played, after a short pause with no further press
+            tones.stopSample(); ui.removeCallbacks(sampleRun)
+            sampleRun = Runnable { Thread { tones.sample(this, usage, id, g) }.start() }
+            ui.postDelayed(sampleRun, 120)
         } catch (e: Exception) { Log.log(this, "sound: volume ${e.javaClass.simpleName}"); model.notify("This phone would not change that") }
         refresh()
     }
