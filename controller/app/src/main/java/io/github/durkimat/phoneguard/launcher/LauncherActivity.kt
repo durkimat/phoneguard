@@ -841,9 +841,11 @@ class LauncherActivity : Activity() {
             is Action.SaveTheme -> { prefs().edit().putString("theme", a.id).apply(); applyLook(); heldNote("theme"); val shown = model.theme; Thread { LockWallpaper.apply(this, shown) }.start(); refresh() }
             is Action.OpenNote -> {
                 val n = io.github.durkimat.phoneguard.notes.Notes.all().firstOrNull { it.key == a.key }
-                try { n?.intent?.send() } catch (e: Exception) { Log.log(this, "open note: ${e.javaClass.simpleName}") }
+                val text = n?.pkg == LauncherData.MESSAGES
+                if (!text) try { n?.intent?.send() } catch (e: Exception) { Log.log(this, "open note: ${e.javaClass.simpleName}") }
                 io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key)
-                model.goHome(); refresh()
+                if (text) model.openInbox() else model.goHome()
+                refresh()
             }
             is Action.SmsRead -> { Thread { LauncherData.markSmsSeen(this, a.address); ui.post { invalidate(D.INFO or D.CONVOS or D.SCREEN); refresh() } }.start() }
             is Action.ClearNote -> { io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key); refresh() }

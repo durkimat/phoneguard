@@ -305,6 +305,9 @@ class LauncherModel(
     /** How many screens sit behind this one (a stacked-window skin draws a close box when there is something to close back to). */
     val depth: Int get() = trail.size
     /** Opens [to] (on row [row]) on top of the current screen, remembering where we are so Back comes back to the same row. */
+    /** From a text-message notification: our own Inbox, never the phone's Messages app. */
+    fun openInbox() { goHome(); enter(Screen.INBOX) }
+
     private fun enter(to: Screen, row: Int = 0) {
         remember()
         trail.addLast(Frame(screen, selected)); screen = to; selected = row

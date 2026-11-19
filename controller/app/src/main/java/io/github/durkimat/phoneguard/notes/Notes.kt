@@ -10,9 +10,9 @@ data class NoteItem(val key: String, val pkg: String, val app: String, val title
  * Notifications list). Which apps are hidden altogether is decided by [hidden]: a built-in list of noise plus what HA says.
  */
 object Notes {
-    /** Noise by default: Android's own housekeeping, the permission note, and apps whose messages the Nokia screens already show. */
+    /** Noise by default: Android's own housekeeping, the permission note, and apps with nothing to say here. Text messages are listed (the phone's own shade is off, so this is where an unread text shows); opening one goes to our Messages. */
     val DEFAULT_HIDDEN = setOf(
-        "com.android.permissioncontroller", "android", "com.android.systemui", "com.android.messaging", "com.android.dialer",
+        "com.android.permissioncontroller", "android", "com.android.systemui", "com.android.dialer",
         "com.android.server.telecom", "com.android.phone", "io.github.durkimat.phoneguard", "com.android.vending",
     )
 

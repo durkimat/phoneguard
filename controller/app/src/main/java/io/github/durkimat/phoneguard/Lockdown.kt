@@ -31,11 +31,12 @@ object LockdownEnforcer {
         RotationLock.set(c, locked = ld.launcher == "nokia")
         LockScreenNotes.set(c, hidden = ld.launcher == "nokia")
         // heads-up banners are NoPopups.baseline's job (always off); nothing here may switch them back on
-        Enforcer.setStatusBar(c, disabled = !ld.shade || ld.kiosk)
+        // the phone's own status bar, shade and quick settings are off in every mode: our own top bar and Notifications screen replace them (the mode's "shade" setting no longer matters)
+        Enforcer.setStatusBar(c, disabled = true)
         TouchBlocker.set(c, block = !ld.touch)
         // while the call screen is up the left key stays remapped for it, whatever the mode says (a periodic re-check must not undo that)
         // the Nokia screens use the left key as their own soft key in every mode, so it is only left to DumberOS where another home screen is in use
-        HardKeys.menuKeyOverlay(c, allowed = ld.launcher != "nokia" && ld.shade && !ld.kiosk && io.github.durkimat.phoneguard.incall.CallState.info == null)
+        HardKeys.menuKeyOverlay(c, allowed = false)
         // the kiosk allows what the launcher menu shows, nothing else (Settings is visible but must stay out of reach)
         Kiosk.apply(c, ld.kiosk, LauncherData.items(c).map { it.pkg }.toSet())
     }
