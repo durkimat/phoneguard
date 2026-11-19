@@ -276,6 +276,7 @@ class F2Service : AccessibilityService() {
         if (ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP || ev.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             // the camera uses the volume keys as its shutter; everywhere else our own themed bar replaces Android's slider
             if (CameraActivity.isFront()) return false
+            if (io.github.durkimat.phoneguard.incall.CallState.info?.phase == io.github.durkimat.phoneguard.launcher.CallPhase.RINGING) Log.log(this, "volume: key ${ev.keyCode} action ${ev.action} reached the key filter while a call rings")
             if (ev.action == KeyEvent.ACTION_DOWN) volume.press(ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP)
             return true
         }

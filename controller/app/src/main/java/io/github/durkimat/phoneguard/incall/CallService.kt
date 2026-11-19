@@ -73,6 +73,12 @@ class CallService : InCallService() {
         lastInfo = null
     }
 
+    /** Telecom calls this when it silences the ring itself: it does so on a volume key while a call rings (the key never reaches our key filter then). Logged to confirm that. */
+    override fun onSilenceRinger() {
+        Log.log(this, "incall: onSilenceRinger (Telecom saw a volume key while ringing; ring ${if (ringer.ringing) "still playing" else "not playing"}, level ${io.github.durkimat.phoneguard.alarm.SoundLevels.ringLive})")
+        super.onSilenceRinger()
+    }
+
     override fun onCallAudioStateChanged(audioState: CallAudioState) {
         muted = audioState.isMuted
         speaker = audioState.route == CallAudioState.ROUTE_SPEAKER
