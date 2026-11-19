@@ -134,6 +134,18 @@ object Radio {
         send(c.applicationContext, RadioService.STOP, "", "")
     }
 
+    /** The radio's volume follows a ramp while a call rings or an alarm sounds (see [MusicHold]): down to [level] over [ms], and back up with [unduck]. */
+    fun duck(level: Float = 0.2f, ms: Long = 400) { RadioService.instance?.rampTo(level, ms) }
+    fun unduck(ms: Long = 800) { RadioService.instance?.rampTo(1f, ms) }
+    /** Fades the stream out and lets it go (the station stays chosen, so [resumeFaded] brings it back). */
+    fun fadeStop(c: Context, ms: Long = 500) {
+        val svc = RadioService.instance
+        if (svc == null) { stop(c); return }
+        svc.rampTo(0f, ms) { stop(c) }
+    }
+    /** Plays the chosen station again from live, fading in once it is playing. */
+    fun resumeFaded(c: Context) { RadioService.fadeInNext = true; toggle(c) }
+
     fun next(c: Context) = step(c, 1)
     fun previous(c: Context) = step(c, -1)
     private fun step(c: Context, by: Int) {
@@ -151,12 +163,37 @@ object Radio {
 
 /** Plays the stream with ExoPlayer in the background, with a media session so headset buttons and the lock screen can control it. */
 class RadioService : Service() {
-    companion object { const val PLAY = "radio.play"; const val STOP = "radio.stop"; private const val CHANNEL = "radio"; private const val ID = 71 }
+    companion object {
+        const val PLAY = "radio.play"; const val STOP = "radio.stop"; private const val CHANNEL = "radio"; private const val ID = 71
+        @Volatile var instance: RadioService? = null
+        /** The next stream starts silent and fades in as soon as it plays (after a call or an alarm held it). */
+        @Volatile var fadeInNext = false
+    }
+
+    private var ramp: Runnable? = null
+
+    /** Moves the player's volume to [target] over [ms] in small steps, then runs [after]. */
+    fun rampTo(target: Float, ms: Long, after: (() -> Unit)? = null) {
+        main.post {
+            ramp?.let { main.removeCallbacks(it) }
+            val p = player
+            if (p == null) { after?.invoke(); return@post }
+            val from = p.volume; val steps = (ms / 30).toInt().coerceAtLeast(1); var n = 0
+            val r = object : Runnable { override fun run() {
+                n++; val v = from + (target - from) * n / steps
+                try { p.volume = v.coerceIn(0f, 1f) } catch (_: Exception) { }
+                if (n < steps) main.postDelayed(this, 30) else { ramp = null; after?.invoke() }
+            } }
+            ramp = r; main.post(r)
+        }
+    }
 
     private var player: ExoPlayer? = null
     private var session: MediaSession? = null
     private var retried = false
     private val main = Handler(Looper.getMainLooper())
+
+    override fun onCreate() { super.onCreate(); instance = this }
 
     override fun onBind(i: Intent?): IBinder? = null
 
@@ -174,7 +211,7 @@ class RadioService : Service() {
         return START_NOT_STICKY
     }
 
-    override fun onDestroy() { release(); super.onDestroy() }
+    override fun onDestroy() { release(); if (instance === this) instance = null; super.onDestroy() }
 
     private fun begin(url: String) {
         player?.release()
@@ -223,6 +260,7 @@ class RadioService : Service() {
         p.prepare()
         p.playWhenReady = true
         player = p
+        if (fadeInNext) p.volume = 0f // silent until it plays, then rises (see sync)
         Spectrum.radioPcm = true
         followBbc(url)
         if (session == null) session = MediaSession(this, "PhoneGuardRadio").apply {
@@ -300,6 +338,7 @@ class RadioService : Service() {
         val buffering = p.playbackState == Player.STATE_BUFFERING || (p.playWhenReady && p.playbackState == Player.STATE_IDLE)
         val playing = p.isPlaying
         if (playing) retried = false
+        if (playing && fadeInNext) { fadeInNext = false; rampTo(1f, 800) }
         Radio.set(Radio.state.copy(playing = playing, buffering = buffering && !playing, error = if (playing || buffering) "" else Radio.state.error))
         updateSession()
     }

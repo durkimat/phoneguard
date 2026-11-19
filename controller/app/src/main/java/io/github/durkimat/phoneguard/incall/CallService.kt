@@ -51,6 +51,7 @@ class CallService : InCallService() {
         }
         if (ringing && calls.isNotEmpty()) { call.reject(false, null); Log.log(this, "incall: second incoming call rejected (busy)"); return }
         calls.add(call)
+        io.github.durkimat.phoneguard.music.MusicHold.hold(this, io.github.durkimat.phoneguard.music.MusicHold.CALL) // music steps aside for any call, ringing or dialled
         call.registerCallback(callback)
         if (call.state == Call.STATE_ACTIVE) answeredAt[call] = Clock.now()
         publish()
@@ -64,6 +65,7 @@ class CallService : InCallService() {
         call.unregisterCallback(callback)
         val primary = calls.firstOrNull() === call
         calls.remove(call)
+        if (calls.isEmpty()) io.github.durkimat.phoneguard.music.MusicHold.release(this, io.github.durkimat.phoneguard.music.MusicHold.CALL)
         cancelNotification()
         if (primary || calls.isEmpty()) {
             val info = lastInfo

@@ -110,6 +110,7 @@ class RingService : Service() {
         try { registerReceiver(screen, android.content.IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_SCREEN_OFF) }) } catch (_: Exception) { }
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "phoneguard:ring").also { it.acquire(6 * 60_000L) }
         RingState.sounding = true; RingState.set(ri)
+        io.github.durkimat.phoneguard.music.MusicHold.hold(this, io.github.durkimat.phoneguard.music.MusicHold.ALARM) // the radio ducks, an app's music pauses; the alarm's own volume is untouched
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CH, "Alarms", NotificationManager.IMPORTANCE_HIGH).apply { setSound(null, null); enableVibration(false) })
         try {
@@ -188,6 +189,7 @@ class RingService : Service() {
         try { unregisterReceiver(screen) } catch (_: Exception) { }
         RingState.sounding = false
         if (!end) return
+        io.github.durkimat.phoneguard.music.MusicHold.release(this, io.github.durkimat.phoneguard.music.MusicHold.ALARM)
         RingState.set(null)
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf()
         SoundEnforcer.reassert(this) // total silence goes back on if the mode wants it

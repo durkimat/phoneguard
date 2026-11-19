@@ -72,6 +72,9 @@ object MusicController {
     }
 
     fun playPause(c: Context) { controller(c)?.let { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) it.transportControls.pause() else it.transportControls.play() } }
+    /** Pause or play only if it is not already so (a call or an alarm holds the music through these, and puts back only what it paused). */
+    fun pause(c: Context) { controller(c)?.takeIf { it.playbackState?.state == PlaybackState.STATE_PLAYING }?.transportControls?.pause() }
+    fun play(c: Context) { controller(c)?.takeIf { it.playbackState?.state != PlaybackState.STATE_PLAYING }?.transportControls?.play() }
     fun seekTo(c: Context, ms: Long) { controller(c)?.transportControls?.seekTo(ms.coerceAtLeast(0)) }
     fun next(c: Context) { controller(c)?.transportControls?.skipToNext() }
     fun previous(c: Context) { controller(c)?.transportControls?.skipToPrevious() }
