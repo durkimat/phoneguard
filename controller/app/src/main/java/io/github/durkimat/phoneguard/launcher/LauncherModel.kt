@@ -24,7 +24,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -557,7 +557,6 @@ class LauncherModel(
         Screen.THREAD, Screen.CHAT -> convo?.name ?: "Messages"
         Screen.WRITE -> "Write message"
         Screen.TYPING -> "Predictive text"
-        Screen.SPEAKER -> "Speakerphone"
         Screen.WAPAIR -> "Link WhatsApp"
         Screen.WASET -> "WhatsApp"
         Screen.WASETUP -> "WhatsApp setup"
@@ -745,7 +744,6 @@ class LauncherModel(
         Screen.WASETUP -> waSetupRows()
         Screen.WAREMOVE -> waRemoveRows()
         Screen.WANAMES -> NameStyle.all.map { it.second + if (it.first == waNameStyle) " *" else "" }
-        Screen.SPEAKER -> listOf("Show" + if (speakerShown) " *" else "", "Hide" + if (!speakerShown) " *" else "")
         Screen.TYPING -> listOf("On" + if (predictiveOn) " *" else "", "Off" + if (!predictiveOn) " *" else "", "Forget learned words")
         Screen.MESSAGES -> messagesRows
         Screen.INBOX -> convos.map { (if (it.unread > 0) "* " else "") + it.name }
@@ -773,7 +771,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.EXTRAS, Screen.PHONEMENU, Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU, Screen.EXTRAS, Screen.PHONEMENU)
+    private val numbered = setOf(Screen.EXTRAS, Screen.PHONEMENU, Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU, Screen.EXTRAS, Screen.PHONEMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -837,7 +835,6 @@ class LauncherModel(
         Screen.CHAT -> chat(key, digit)
         Screen.WRITE -> write(key, digit, nowMs)
         Screen.TYPING -> typing(key, digit)
-        Screen.SPEAKER -> speakerSetting(key, digit)
         Screen.CALC -> calculator(key, digit)
         Screen.CALLLOG -> callLog(key, digit)
         Screen.DIAL -> dial(key, digit)
@@ -948,14 +945,6 @@ class LauncherModel(
             else -> return Action.None
         }
         return Action.Redraw
-    }
-
-    private fun speakerSetting(key: Key, digit: Int): Action = move(key, 2) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { speakerShown = selected == 0; leave(); Action.SaveSpeaker(speakerShown) }
-        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
-        Key.END -> { goHome(); Action.Redraw }
-        Key.CALL -> Action.CallKey
-        else -> Action.None
     }
 
     private fun typing(key: Key, digit: Int): Action = move(key, 3) ?: when (key) {
@@ -1713,7 +1702,7 @@ class LauncherModel(
 
     /** Screens that are a plain list of rows, where a tap on a row chooses it. */
     private val rowScreens = setOf(Screen.CLOCK, Screen.ALARMS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.MENU, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.INBOX, Screen.CHAT,
-        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.TYPING, Screen.SPEAKER, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
+        Screen.APPS, Screen.GAMES, Screen.NOTES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.TYPING, Screen.MESSAGES, Screen.WHATSAPP, Screen.CALLMENU, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
@@ -2263,7 +2252,7 @@ class LauncherModel(
 
     private val clockRows: List<String> get() = buildList {
         add("Alarms"); add("Timer"); add("Stopwatch")
-        add(if (timeSettable) "Set time" else "Set time: from network")
+        if (timeSettable) add("Set time") // hidden, not greyed, where the clock comes from the network
     }
 
     private fun clockKey(key: Key): Action {
@@ -2831,7 +2820,7 @@ class LauncherModel(
 
     /** The options of the Phone screen (the left soft key on the dial pad): the Call log and Contacts, both opened as steps inside the dialler. */
     private fun phoneMenuKey(key: Key): Action = move(key, 2) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { leave(); if (selected == 0) openCallLog(Screen.DIAL) else openContacts(Screen.DIAL) }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { val row = selected; leave(); if (row == 0) openCallLog(Screen.DIAL) else openContacts(Screen.DIAL) }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey

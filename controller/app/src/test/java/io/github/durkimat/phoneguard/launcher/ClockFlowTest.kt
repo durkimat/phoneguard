@@ -18,9 +18,7 @@ class ClockFlowTest {
         val m = phone()
         m.openClockApp()
         assertEquals(Screen.CLOCK, m.screen)
-        assertEquals(listOf("Alarms", "Timer", "Stopwatch", "Set time: from network"), m.rows)
-        repeat(3) { m.key(Key.DOWN) }; m.key(Key.OK)
-        assertEquals("Time is set from the network", m.notice); assertEquals(Screen.CLOCK, m.screen)
+        assertEquals(listOf("Alarms", "Timer", "Stopwatch"), m.rows) // "Set time" is hidden (not greyed) where the clock comes from the network
         m.timeSettable = true
         assertEquals("Set time", m.rows[3])
         m.key(Key.SOFT_RIGHT)
@@ -127,15 +125,17 @@ class TonesFlowTest {
         val m = phone(); val picks = mutableListOf<Pair<String, String>>(); val heard = mutableListOf<String>()
         m.onTonePick = { s, id -> picks += s to id }; m.onPreview = { heard += it }
         m.key(Key.OK); m.key(Key.OK)                 // Menu, Settings
-        m.key(Key.DIGIT, 2); m.key(Key.DIGIT, 5)     // Sound and typing, Ringtone and message tones
-        assertEquals(Screen.FORM, m.screen); assertEquals("Tones", m.title)
-        assertEquals(listOf("Calls: Phone's own", "Text messages: Phone's own", "WhatsApp: Phone's own", "Tune style: Classic beep"), m.rows)
-        m.key(Key.RIGHT)                             // calls: the first tune
-        m.key(Key.DOWN); m.key(Key.RIGHT); m.key(Key.RIGHT)
-        m.key(Key.DOWN); m.key(Key.LEFT)             // WhatsApp: back round to the last tune
+        m.key(Key.DIGIT, 1); m.key(Key.DIGIT, 2)     // Sound, Calls
+        assertEquals(Screen.FORM, m.screen); assertEquals("Calls", m.title)
+        assertEquals(listOf("Ringtone: Phone's own", "Volume: ###----", "Vibrate: On", "Speakerphone button: Show", "Tune style: Classic beep"), m.rows)
+        m.key(Key.RIGHT)                             // ringtone: the first tune
+        m.key(Key.SOFT_RIGHT); m.key(Key.DIGIT, 3)   // back to Sound, then Messages
+        assertEquals("Messages", m.title); assertEquals(listOf("Text tone: Phone's own", "WhatsApp tone: Phone's own", "Volume: ###----", "Vibrate: On"), m.rows)
+        m.key(Key.RIGHT); m.key(Key.RIGHT)           // text tone: two steps on
+        m.key(Key.DOWN); m.key(Key.LEFT)             // WhatsApp tone: back round to the last tune
         assertEquals(listOf("ring" to "waltz", "sms" to "waltz", "sms" to "elise", "wa" to "double"), picks)
         assertEquals(listOf("waltz", "waltz", "elise", "double"), heard)
-        assertEquals("Calls: Classic waltz", m.rows[0])
+        assertEquals("Text tone: Fur Elise", m.rows[0])
     }
 
     @Test fun oneVolumePressIsOneStepAndEachBarIsItsOwn() {
@@ -144,24 +144,25 @@ class TonesFlowTest {
         var pos = listOf(1, 0, 3, 2)
         m.soundInfo = { LauncherModel.SoundInfo(0, null, pos.mapIndexed { i, p -> if (i < 2) LauncherModel.Vol(p, 10, io.github.durkimat.phoneguard.alarm.SoundLevels.bars(p), 7) else LauncherModel.Vol(p, 5, p, 5) }) }
         m.onVolume = { w, v -> seen.add(w to v); pos = pos.toMutableList().also { it[w] = v } }
-        m.key(Key.OK); m.key(Key.UP); m.key(Key.OK)            // Settings > Sound and typing
-        m.key(Key.DOWN); m.key(Key.OK)                                  // Sound and typing
-        m.key(Key.DOWN); m.key(Key.OK)                                  // Volumes
-        assertEquals("Volumes", m.title)
-        assertEquals("#------", m.rows[0].substringAfter(" ").trim().takeLast(7))
+        m.key(Key.OK); m.key(Key.UP); m.key(Key.OK)            // Settings
+        m.key(Key.DIGIT, 1); m.key(Key.DIGIT, 2)                        // Sound > Calls
+        assertEquals("Calls", m.title)
+        m.key(Key.DOWN)                                                 // Volume (the ringtone is the first row)
+        assertEquals("#------", m.rows[1].substringAfter(" ").trim().takeLast(7))
         m.key(Key.RIGHT); assertEquals(listOf(0 to 2), seen)            // hidden sub-step: the bar does not change
-        assertTrue(m.rows[0].endsWith("#------"))
-        m.key(Key.DOWN); m.key(Key.LEFT); assertEquals(listOf(0 to 2, 1 to 0), seen)   // zero on messages
+        assertTrue(m.rows[1].endsWith("#------"))
+        m.key(Key.SOFT_RIGHT); m.key(Key.DIGIT, 3); m.key(Key.DOWN); m.key(Key.DOWN) // Sound > Messages > Volume
+        m.key(Key.LEFT); assertEquals(listOf(0 to 2, 1 to 0), seen)     // zero on messages
         assertEquals(2, pos[0])                                         // ringtone untouched
-        m.key(Key.DOWN); m.key(Key.RIGHT)
-        assertEquals(2 to 4, seen.last())                               // media: one press, one step
+        m.key(Key.SOFT_RIGHT); m.key(Key.DIGIT, 4); m.key(Key.RIGHT)    // Sound > Media volume: a screen of its own
+        assertEquals("Media volume", m.title); assertEquals(2 to 4, seen.last()) // media: one press, one step
     }
 
     @Test fun ringerScreenOffersRingAndVibrateChoices() {
         val m = phone(); var got = -1
         m.soundInfo = { LauncherModel.SoundInfo(0, null, List(4) { LauncherModel.Vol(3, 7, 3, 7) }) }
         m.onRinger = { got = it }
-        m.key(Key.OK); m.key(Key.UP); m.key(Key.OK); m.key(Key.DOWN); m.key(Key.OK)   // Sound and typing
+        m.key(Key.OK); m.key(Key.UP); m.key(Key.OK); m.key(Key.OK)                    // Settings > Sound
         m.key(Key.OK)                                                                   // Ringer mode
         assertEquals(listOf("Ring and vibrate", "Ring only", "Vibrate only", "Silent"), m.rows.take(4).map { it.substringBefore(":").trim().removeSuffix("(x)").removeSuffix("( )").trim() })
         assertTrue(m.rows[0].contains("(x)"))

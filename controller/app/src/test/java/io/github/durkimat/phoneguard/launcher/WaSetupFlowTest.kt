@@ -6,11 +6,11 @@ import org.junit.Test
 
 /** The WhatsApp setup screens (SIM method), walked by key. */
 class WaSetupFlowTest {
-    private fun phone() = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d")
+    private fun phone() = LauncherModel(listOf(MenuItem("m", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d")
     private fun LauncherModel.key(k: Key, d: Int = -1) = onKey(k, d, 0L)
 
     private fun LauncherModel.pick(label: String) { var n = 0; while (rows.getOrNull(selected) != label) { key(Key.DOWN); assertTrue("no row $label in $rows", ++n <= rows.size) }; key(Key.OK) }
-    private fun LauncherModel.toWhatsAppSettings() { key(Key.OK); key(Key.OK); pick("This phone"); pick("WhatsApp"); assertEquals(Screen.WASET, screen) }
+    private fun LauncherModel.toWhatsAppSettings() { key(Key.OK); pick("Messages"); pick("WhatsApp"); pick("WhatsApp options"); assertEquals(Screen.WASET, screen) } // Menu > Messages > WhatsApp > WhatsApp options
 
     @Test fun setupIsOnlyOfferedWhenAllowedThenStartsLinksAndEnds() {
         val m = phone(); m.edition = "family"; m.waEnabled = true; m.toWhatsAppSettings()
@@ -43,6 +43,6 @@ class WaSetupFlowTest {
     @Test fun setUpRowLeadsTheMessagesWhatsAppList() {
         val m = LauncherModel(listOf(MenuItem("m", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), contactsApp = "c", messagesApp = "m", dialerApp = "d"); m.waEnabled = true; m.waSetupAvail = true
         m.key(Key.OK); m.pick("Messages"); m.pick("WhatsApp"); assertEquals(Screen.WHATSAPP, m.screen)
-        assertEquals(listOf("Set up WhatsApp", "Link account"), m.rows); m.key(Key.OK); assertEquals(Screen.WASETUP, m.screen)
+        assertEquals(listOf("Set up WhatsApp", "Link account", "WhatsApp options"), m.rows); m.key(Key.OK); assertEquals(Screen.WASETUP, m.screen)
     }
 }

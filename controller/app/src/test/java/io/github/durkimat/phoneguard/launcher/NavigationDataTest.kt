@@ -5,15 +5,16 @@ import org.junit.Test
 
 /** Like [NavigationBackTest], for the screens that need data or a setting first: messages, WhatsApp, its settings and the Settings groups. */
 class NavigationDataTest {
-    private val items = listOf(
+    private val all = listOf(
         MenuItem("com.android.dialer", "Phone"), MenuItem("com.android.messaging", "Messages"), MenuItem("com.android.contacts", "Contacts"),
-        MenuItem(MUSIC_PKG, "Music"), MenuItem(APPS_PKG, "Apps"), MenuItem(WEATHER_PKG, "Weather"), MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"),
-        MenuItem(CALLLOG_PKG, "Calls"), MenuItem(SETTINGS_PKG, "Settings"),
+        MenuItem(MUSIC_PKG, "Music"), MenuItem(WEATHER_PKG, "Weather"), MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"),
+        MenuItem(CALLLOG_PKG, "Calls"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(NOTES_PKG, "Notes"), MenuItem(RUNNING_PKG, "Running"), MenuItem(MAIL_PKG, "Email"),
     )
+    private val items = LauncherData.menu(all, emptyList()) // Phone, Messages, Contacts, Extras, Settings, Music
 
     private fun model(linked: Boolean = false): LauncherModel = LauncherModel(items, contactsApp = "com.android.contacts", messagesApp = "com.android.messaging", dialerApp = "com.android.dialer").also {
         it.waEnabled = true; it.waLinked = linked
-        it.extraItems = listOf(MenuItem(NOTES_PKG, "Notes"), MenuItem(RUNNING_PKG, "Running"))
+        it.extraItems = LauncherData.settingsExtras(all); it.extrasMenu = LauncherData.extrasMenu(all, emptyList())
     }
 
     private fun run(m: LauncherModel, path: String) {
@@ -28,18 +29,18 @@ class NavigationDataTest {
     private class Case(val name: String, val linked: Boolean = false, val setup: ((LauncherModel) -> Unit)? = null, val path: String = "")
 
     private val cases = listOf(
-        Case("inbox", path = "OK DOWN OK OK"),
+        Case("inbox", path = "OK D2 D1"),
         Case("inboxFromBadge", setup = badge(BadgeKind.SMS)),
-        Case("whatsapp", path = "OK DOWN OK DOWN*2 OK"),
+        Case("whatsapp", path = "OK D2 D3"),
         Case("whatsappFromBadge", setup = badge(BadgeKind.WHATSAPP)),
-        Case("pairFromWhatsapp", path = "OK DOWN OK DOWN*2 OK OK"),
-        Case("waSettings", path = "OK DOWN*9 OK D4 D4"),
-        Case("pairFromWaSettings", path = "OK DOWN*9 OK D4 D4 OK"),
-        Case("waNames", linked = true, path = "OK DOWN*9 OK D4 D4 DOWN OK"),
-        Case("running", path = "OK DOWN*9 OK D6"),
-        Case("sentMessage", path = "OK DOWN OK DOWN OK D5 DOWN D2 OK"),
-        Case("writeBack", path = "OK DOWN OK DOWN OK"),
-        Case("sentFromChat", setup = { it.convos = listOf(Convo("0700", "Mum", listOf(Msg("hi", 1, false)), 0)) }, path = "OK DOWN OK OK OK OK OK D5 OK"),
+        Case("pairFromWhatsapp", path = "OK D2 D3 OK"),
+        Case("waSettings", path = "OK D2 D3 D2"),
+        Case("pairFromWaSettings", path = "OK D2 D3 D2 OK"),
+        Case("waNames", linked = true, path = "OK D2 D3 D1 D2"),
+        Case("running", path = "OK D5 D5"),
+        Case("sentMessage", path = "OK D2 D2 D5 DOWN D2 OK"),
+        Case("writeBack", path = "OK D2 D2"),
+        Case("sentFromChat", setup = { it.convos = listOf(Convo("0700", "Mum", listOf(Msg("hi", 1, false)), 0)) }, path = "OK D2 D1 OK OK OK D5 OK"),
     )
 
     private fun line(c: Case, back: Key): String {
@@ -65,10 +66,10 @@ inboxFromBadge: INBOX -SOFT_RIGHT-> HOME/0
 whatsapp: WHATSAPP -SOFT_RIGHT-> MESSAGES/2
 whatsappFromBadge: WHATSAPP -SOFT_RIGHT-> HOME/0
 pairFromWhatsapp: WAPAIR -SOFT_RIGHT-> WHATSAPP/0
-waSettings: WASET -SOFT_RIGHT-> THISPHONE/3
+waSettings: WASET -SOFT_RIGHT-> WHATSAPP/1
 pairFromWaSettings: WAPAIR -SOFT_RIGHT-> WASET/0
 waNames: WANAMES -SOFT_RIGHT-> WASET/1
-running: RUNNING -SOFT_RIGHT-> SETTINGS/5
+running: RUNNING -SOFT_RIGHT-> SETTINGS/4
 sentMessage: MESSAGES -SOFT_RIGHT-> MENU/1
 writeBack: WRITE -SOFT_RIGHT-> MESSAGES/1
 sentFromChat: MESSAGES -SOFT_RIGHT-> MENU/1

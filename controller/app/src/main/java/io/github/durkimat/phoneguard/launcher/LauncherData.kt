@@ -110,13 +110,13 @@ object LauncherData {
         return core + one(CALENDAR_PKG) + one(CLOCK_PKG) + listOf(MenuItem(EXTRAS_PKG, "Extras")) + one(SETTINGS_PKG) + one(CAMERA_PKG) + one(MUSIC_PKG)
     }
 
-    /** What the Extras screen lists: Weather, Classic Games, Calculator, Navigate, the apps a parent pinned, then Android Apps (only where touch works and there are apps left). */
+    /** What the Extras screen lists: Weather, Classic Games, Calculator, the apps a parent pinned, Navigate, then Android Apps (only where touch works and there are apps left). */
     fun extrasMenu(all: List<MenuItem>, pinned: List<String>, androidApps: Boolean = true): List<MenuItem> {
         val apps = all.filter { it.pkg !in builtIn }
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
         val others = apps - preferred.mapNotNull { p -> apps.firstOrNull { it.pkg == p } }.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
-        return one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + one(WHERE_PKG) + pins + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps")))
+        return one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + pins + one(WHERE_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps")))
     }
 
     /** The built-in entries that live inside other screens (Messages: Notices and Email; Settings: Running Apps; the Phone screen: Call log), where the mode shows them. */

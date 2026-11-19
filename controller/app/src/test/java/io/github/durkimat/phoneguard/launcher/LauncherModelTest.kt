@@ -38,7 +38,7 @@ class LauncherModelTest {
         m.onKey(Key.END); assertEquals(Screen.HOME, m.screen)
         m.onKey(Key.STAR); assertEquals("*", m.dialNumber); m.onKey(Key.END)
         m.onKey(Key.POUND); assertEquals("#", m.dialNumber); m.onKey(Key.END)
-        m.onKey(Key.CALL); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber); assertEquals("Calls" to "Back", m.softKeys)
+        m.onKey(Key.CALL); assertEquals(Screen.DIAL, m.screen); assertEquals("", m.dialNumber); assertEquals("Options" to "Back", m.softKeys)
         m.onKey(Key.CALL); assertEquals(Screen.CALLLOG, m.screen)
     }
 
@@ -87,13 +87,13 @@ class LauncherModelTest {
         val m = withSettings(); m.onKey(Key.OK)
         m.onKey(Key.UP) // wraps to the last entry, Settings
         assertEquals(Action.Redraw, m.onKey(Key.OK))
-        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Look", "Sound and typing", "Connections", "This phone"), m.rows)
+        assertEquals(Screen.SETTINGS, m.screen); assertEquals("Settings", m.title); assertEquals(listOf("Sound", "Look", "Connections", "This phone"), m.rows)
         assertEquals(Action.Redraw, m.onKey(Key.SOFT_RIGHT)) // Back returns to the menu, on the Settings entry
         assertEquals(Screen.MENU, m.screen); assertEquals(3, m.selected)
     }
 
     @Test fun choosingAThemeSavesItAndMarksIt() {
-        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK); m.onKey(Key.OK)
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DOWN); m.onKey(Key.OK); m.onKey(Key.OK)
         assertEquals(Screen.THEME, m.screen)
         assertEquals(listOf("Green *", "Grey", "Amber", "Orange", "Classic Mac", "Classic Mac dark"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.DOWN)
@@ -102,7 +102,7 @@ class LauncherModelTest {
     }
 
     @Test fun themeBackLeavesTheThemeAlone() {
-        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.OK)
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DOWN); m.onKey(Key.OK)
         m.onKey(Key.DOWN)
         assertEquals(Action.Redraw, m.onKey(Key.RIGHT))
         assertEquals("green", m.theme); assertEquals(Screen.SETTINGS, m.screen)
@@ -112,8 +112,8 @@ class LauncherModelTest {
 
     @Test fun fontIsChosenFromSettingsLikeTheTheme() {
         val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Look", "Sound and typing", "Connections", "This phone"), m.rows)
-        m.onKey(Key.OK); assertEquals(listOf("Theme", "Font", "Menu style", "Appearance"), m.rows)
+        assertEquals(listOf("Sound", "Look", "Connections", "This phone"), m.rows)
+        m.onKey(Key.DOWN); m.onKey(Key.OK); assertEquals(listOf("Theme", "Font", "Menu style", "Appearance"), m.rows)
         m.onKey(Key.DOWN); m.onKey(Key.OK)
         assertEquals(Screen.FONT, m.screen); assertEquals(listOf("Monospace *") + Fonts.all.drop(1).map { it.name }, m.rows)
         m.onKey(Key.DOWN)
@@ -169,7 +169,7 @@ class LauncherModelTest {
 
     @Test fun messagesEntryOpensOurOwnMessagesScreen() {
         val m = msgs(); open(m)
-        assertEquals(Screen.MESSAGES, m.screen); assertEquals(listOf("Inbox", "Write message"), m.rows)
+        assertEquals(Screen.MESSAGES, m.screen); assertEquals(listOf("Texts", "Write message"), m.rows)
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.MENU, m.screen)
     }
 
@@ -346,14 +346,15 @@ class LauncherModelTest {
 
     @Test fun theDiallerCyclesWithLeftAndBackAlwaysLeaves() {
         val m = withTools(); m.onKey(Key.CALL)
-        assertEquals(Screen.DIAL, m.screen); assertEquals("Calls" to "Back", m.softKeys)
-        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CALLLOG, m.screen); assertEquals("Contacts" to "Back", m.softKeys)
+        assertEquals(Screen.DIAL, m.screen); assertEquals("Options" to "Back", m.softKeys)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.PHONEMENU, m.screen); assertEquals(listOf("Call log", "Contacts"), m.rows)
+        m.onKey(Key.DIGIT, 1); assertEquals(Screen.CALLLOG, m.screen); assertEquals("Contacts" to "Back", m.softKeys)
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CONTACTS, m.screen); assertEquals("Dial" to "Back", m.softKeys)
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.DIAL, m.screen)
-        m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber); assertEquals("Calls" to "Clear", m.softKeys)
+        m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber); assertEquals("Options" to "Clear", m.softKeys)
         m.onKey(Key.SOFT_RIGHT); assertEquals("", m.dialNumber); assertEquals(Screen.DIAL, m.screen)
         for (tab in 0..2) { // Back leaves from the pad, the calls and the contacts alike
-            m.goHome(); m.onKey(Key.CALL); repeat(tab) { m.onKey(Key.SOFT_LEFT) }
+            m.goHome(); m.onKey(Key.CALL); if (tab >= 1) { m.onKey(Key.SOFT_LEFT); m.onKey(Key.DIGIT, 1) }; if (tab == 2) m.onKey(Key.SOFT_LEFT)
             m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
         }
     }
@@ -450,19 +451,20 @@ class LauncherModelTest {
         assertEquals(Action.ToggleMute, c.onKey(Key.DIGIT, 2)); assertEquals(Screen.CALL, c.screen)
         c.onKey(Key.SOFT_LEFT); assertEquals(Action.ToggleSpeaker, c.onKey(Key.DIGIT, 1))
         // theme: 3 picks the third theme and saves it
-        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 1)
+        val m = withSettings(); m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK); m.onKey(Key.DIGIT, 2); m.onKey(Key.DIGIT, 1)
         assertEquals(Screen.THEME, m.screen); assertEquals(Action.SaveTheme("amber"), m.onKey(Key.DIGIT, 3))
         // a number with no entry does nothing
-        val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK); s.onKey(Key.DIGIT, 1); s.onKey(Key.DIGIT, 1); assertEquals(Action.None, s.onKey(Key.DIGIT, 9)) // the theme list has six entries
+        val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK); s.onKey(Key.DIGIT, 2); s.onKey(Key.DIGIT, 1); assertEquals(Action.None, s.onKey(Key.DIGIT, 9)) // the theme list has six entries
         // the call log: 2 rings (opens the dial screen with) the second entry
         val l = withTools(); l.onKey(Key.CALL); l.onKey(Key.CALL); assertEquals(Action.Call("0111"), l.onKey(Key.DIGIT, 2))
     }
 
-    @Test fun hidingTheSpeakerRemovesItFromCallsAndSettingsSavesIt() {
+    @Test fun hidingTheSpeakerRemovesItFromCallsAndSoundCallsSavesIt() {
         val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK)
-        s.onKey(Key.DIGIT, 2); assertEquals(Action.Redraw, s.onKey(Key.DIGIT, 4)); assertEquals(Screen.SPEAKER, s.screen)
-        assertEquals(listOf("Show *", "Hide"), s.rows)
-        assertEquals(Action.SaveSpeaker(false), s.onKey(Key.DIGIT, 2)); assertEquals(false, s.speakerShown); assertEquals(Screen.SOUNDSET, s.screen)
+        var done: Action? = null; s.onDo = { done = it }
+        s.onKey(Key.DIGIT, 1); s.onKey(Key.DIGIT, 2); assertEquals(Screen.FORM, s.screen); assertEquals("Calls", s.title) // Settings > Sound > Calls
+        repeat(3) { s.onKey(Key.DOWN) }; assertTrue(s.rows[s.selected].startsWith("Speakerphone button: Show"))
+        s.onKey(Key.OK); assertEquals(false, s.speakerShown); assertEquals(Action.SaveSpeaker(false), done)
 
         val c = LauncherModel(emptyList()); c.speakerShown = false
         c.setCall(CallInfo("0222", "Mum", CallPhase.DIALING)); assertEquals("" to "End", c.softKeys); assertEquals(Action.None, c.onKey(Key.SOFT_LEFT))
@@ -484,14 +486,14 @@ class LauncherModelTest {
 
     @Test fun whatsAppAppearsInTheMessagesMenuWithItsUnreadCount() {
         val m = wa(); open(m)
-        assertEquals(listOf("Inbox", "Write message", "WhatsApp (2)"), m.rows)
-        val plain = msgs(); open(plain); assertEquals(listOf("Inbox", "Write message"), plain.rows) // not linked: nothing changes
+        assertEquals(listOf("Texts", "Write message", "WhatsApp (2)"), m.rows)
+        val plain = msgs(); open(plain); assertEquals(listOf("Texts", "Write message"), plain.rows) // not linked: nothing changes
     }
 
     @Test fun openingWhatsAppListsChatsAndReadingMarksThemRead() {
         val m = wa(); open(m)
         assertEquals(Action.WaOpen, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WHATSAPP, m.screen)
-        assertEquals(listOf("* Mum", "Family"), m.rows)
+        assertEquals(listOf("* Mum", "Family", "WhatsApp options"), m.rows)
         assertEquals(Action.WaRead("447700900111"), m.onKey(Key.OK))
         assertEquals(Screen.CHAT, m.screen); assertEquals("Mum", m.title); assertEquals("Reply", m.rows[0]); assertEquals("< [photo] pasta", m.rows[1])
         m.onKey(Key.OK); assertEquals(Screen.THREAD, m.screen); assertEquals(2, m.selected)
@@ -531,8 +533,8 @@ class LauncherModelTest {
 
     @Test fun notLinkedOffersToLinkAndTheCodeScreenWalksThroughIt() {
         val m = msgs(); m.waEnabled = true; m.waLinked = false; open(m)
-        assertEquals(listOf("Inbox", "Write message", "WhatsApp"), m.rows)
-        assertEquals(Action.Redraw, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WHATSAPP, m.screen); assertEquals(listOf("Link account"), m.rows)
+        assertEquals(listOf("Texts", "Write message", "WhatsApp"), m.rows)
+        assertEquals(Action.Redraw, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WHATSAPP, m.screen); assertEquals(listOf("Link account", "WhatsApp options"), m.rows)
         assertEquals("Link" to "Back", m.softKeys)
         m.onKey(Key.OK); assertEquals(Screen.WAPAIR, m.screen)
         assertEquals(Action.None, m.onKey(Key.OK)) // too short to send
@@ -547,20 +549,19 @@ class LauncherModelTest {
         m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.WHATSAPP, m.screen)
     }
 
-    @Test fun settingsOffersWhatsAppUnlinkingWhenLinked() {
+    @Test fun whatsAppOptionsLiveInsideWhatsAppAndOfferUnlinkingWhenLinked() {
         val m = LauncherModel(listOf(MenuItem("com.android.messaging", "Messages"), MenuItem(SETTINGS_PKG, "Settings")), "com.android.contacts", "com.android.messaging")
         m.waEnabled = true; m.waLinked = true
-        m.onKey(Key.OK); m.onKey(Key.UP); m.onKey(Key.OK)
-        assertEquals(listOf("Look", "Sound and typing", "Connections", "This phone"), m.rows)
-        m.onKey(Key.DIGIT, 4); assertEquals(listOf("Screen lock", "Time zone", "Language", "WhatsApp"), m.rows)
-        m.onKey(Key.DIGIT, 4); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
+        m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3) // menu, Messages, WhatsApp
+        assertEquals(Screen.WHATSAPP, m.screen); assertEquals(listOf("WhatsApp options"), m.rows)
+        m.onKey(Key.DIGIT, 1); assertEquals(Screen.WASET, m.screen); assertEquals(listOf("Re-sync names and messages", "Names in lists", "Unlink account"), m.rows)
         assertEquals(Action.ResyncWa, m.onKey(Key.DIGIT, 1)); assertEquals(Screen.WASET, m.screen); assertEquals("Re-syncing...", m.notice) // stays here, says what it is doing
-        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.THISPHONE, m.screen)
+        assertEquals(Action.UnlinkWa, m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WHATSAPP, m.screen)
     }
 
     @Test fun whatsAppSwitchedOffByTheModeIsNotOfferedAtAll() {
         val m = msgs(); m.waEnabled = false; open(m)
-        assertEquals(listOf("Inbox", "Write message"), m.rows)
+        assertEquals(listOf("Texts", "Write message"), m.rows)
     }
 
     @Test fun aLongListKeepsItsSelectionWhenTheLauncherRedraws() {
@@ -586,10 +587,10 @@ class LauncherModelTest {
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3); m.onKey(Key.OK) // menu, Messages, WhatsApp, the Family chat
         assertEquals(Screen.CHAT, m.screen)
         assertEquals(listOf("Reply", "< JS: who is up", "> ok", "< KD: see you at six"), m.rows)
-        // choose another style: Settings > WhatsApp > Names in lists
+        // choose another style: Messages > WhatsApp > WhatsApp options > Names in lists
         m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT) // back to the menu
-        m.onKey(Key.UP); m.onKey(Key.OK) // Settings
-        m.onKey(Key.DIGIT, 4); m.onKey(Key.DIGIT, 4); assertEquals(Screen.WASET, m.screen)
+        m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3); m.onKey(Key.DIGIT, 2) // Messages, WhatsApp, WhatsApp options (the last row)
+        assertEquals(Screen.WASET, m.screen)
         m.onKey(Key.DIGIT, 2); assertEquals(Screen.WANAMES, m.screen)
         assertEquals(listOf("First+last initials *", "All initials", "First name, 5 letters", "Full name"), m.rows)
         assertEquals(Action.SaveNameStyle("first5"), m.onKey(Key.DIGIT, 3)); assertEquals(Screen.WASET, m.screen)
@@ -619,24 +620,27 @@ class LauncherModelTest {
 
     @Test fun pinnedAppsJoinTheMainMenuAndTheRestGoUnderOtherApps() {
         val menu = LauncherData.menu(all, listOf("a.music"))
-        assertEquals(listOf("Phone", "Messages", "Contacts", "Music", "Android Apps", "Calculator", "Call log", "Settings"), menu.map { it.label })
+        assertEquals(listOf("Phone", "Messages", "Contacts", "Extras", "Settings"), menu.map { it.label })
+        assertEquals(listOf("Calculator", "Music", "Android Apps"), LauncherData.extrasMenu(all, listOf("a.music")).map { it.label }) // the pinned app joins Extras, Android Apps is last
         assertEquals(listOf("Maps", "Reader"), LauncherData.otherApps(all, listOf("a.music")).map { it.label })
     }
 
     @Test fun noOtherAppsMeansNoOtherAppsEntry() {
         val few = all.filter { it.pkg != "a.maps" && it.pkg != "a.reader" }
-        assertTrue(LauncherData.menu(few, listOf("a.music")).none { it.pkg == APPS_PKG })
-        assertTrue(LauncherData.menu(few.filter { it.pkg != "a.music" }, emptyList()).none { it.pkg == APPS_PKG })
+        assertTrue(LauncherData.extrasMenu(few, listOf("a.music")).none { it.pkg == APPS_PKG })
+        assertTrue(LauncherData.extrasMenu(few.filter { it.pkg != "a.music" }, emptyList()).none { it.pkg == APPS_PKG })
     }
 
     @Test fun otherAppsListLaunchesAnAppAndBackReturnsToTheMenu() {
         val m = LauncherModel(LauncherData.menu(all, emptyList()), contactsApp = "com.android.contacts")
-        m.apps = LauncherData.otherApps(all, emptyList())
+        m.apps = LauncherData.otherApps(all, emptyList()); m.extrasMenu = LauncherData.extrasMenu(all, emptyList())
         m.onKey(Key.OK)
-        m.onKey(Key.DIGIT, 4) // Android Apps
+        m.onKey(Key.DIGIT, 4) // Extras
+        assertEquals(Screen.EXTRAS, m.screen); assertEquals(listOf("Calculator", "Android Apps"), m.rows)
+        m.onKey(Key.DIGIT, 2) // Android Apps, the last entry
         assertEquals(Screen.APPS, m.screen); assertEquals(listOf("Maps", "Music", "Reader"), m.rows)
         assertEquals(Action.Launch("a.music"), m.onKey(Key.DIGIT, 2))
         m.onKey(Key.SOFT_RIGHT)
-        assertEquals(Screen.MENU, m.screen); assertEquals("Android Apps", m.rows[m.selected])
+        assertEquals(Screen.EXTRAS, m.screen); assertEquals("Android Apps", m.rows[m.selected])
     }
 }

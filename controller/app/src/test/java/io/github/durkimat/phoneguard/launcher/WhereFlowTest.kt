@@ -99,7 +99,8 @@ class WhereFlowTest {
 
     @Test fun theMenuListsWhereToAfterGamesSoOtherDigitsStayPut() {
         val all = listOf(MenuItem(GAMES_PKG, "Games"), MenuItem(CALC_PKG, "Calculator"), MenuItem(WHERE_PKG, "Navigate"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(WEATHER_PKG, "Weather"))
-        assertEquals(listOf("Weather", "Games", "Navigate", "Calculator", "Settings"), LauncherData.menu(all, emptyList()).map { it.label })
+        assertEquals(listOf("Extras", "Settings"), LauncherData.menu(all, emptyList()).map { it.label })
+        assertEquals(listOf("Weather", "Games", "Calculator", "Navigate"), LauncherData.extrasMenu(all, emptyList()).map { it.label }) // Navigate follows the pinned apps and comes before Android Apps
     }
 
     @Test fun theDemoJourneyShowsOnTheMapAndTheDotCanBeOffRoute() {

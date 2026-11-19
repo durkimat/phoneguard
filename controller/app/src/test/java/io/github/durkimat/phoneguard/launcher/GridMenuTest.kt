@@ -70,7 +70,7 @@ class GridMenuTest {
 
     @Test fun theMenuStyleIsChosenInSettings() {
         val m = LauncherModel(listOf(MenuItem("p.1", "One"), MenuItem(SETTINGS_PKG, "Settings")))
-        for (k in listOf(Key.OK, Key.DOWN, Key.OK, Key.OK)) m.onKey(k) // Menu > Settings > Look
+        for (k in listOf(Key.OK, Key.DOWN, Key.OK, Key.DOWN, Key.OK)) m.onKey(k) // Menu > Settings > Look
         repeat(2) { m.onKey(Key.DOWN) } // Theme, Font, Menu style
         m.onKey(Key.OK); assertEquals(Screen.MENUSTYLE, m.screen); assertEquals(listOf("List *", "Grid", "List, no icons"), m.rows)
         m.onKey(Key.DOWN)

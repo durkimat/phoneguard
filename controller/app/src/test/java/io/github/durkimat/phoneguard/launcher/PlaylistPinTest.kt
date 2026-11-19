@@ -8,7 +8,7 @@ class PlaylistPinTest {
     private fun model(): LauncherModel {
         val m = LauncherModel(listOf(MenuItem(MUSIC_PKG, "Music")))
         m.spSignedIn = true
-        m.onKey(Key.SOFT_RIGHT); m.onKey(Key.DIGIT, 2)              // Music menu, Spotify: the Playlists screen
+        m.openMusicFromHome(); m.onKey(Key.DIGIT, 2)                // Music menu, Spotify: the Playlists screen
         assertEquals(Screen.PLAYLISTS, m.screen)
         m.setPlaylists(listOf("a", "b", "c").map { n -> SpItem("spotify:playlist:$n", n, "") })
         return m

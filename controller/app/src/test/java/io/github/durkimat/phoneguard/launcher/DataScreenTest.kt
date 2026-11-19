@@ -25,7 +25,7 @@ class DataScreenTest {
     @Test fun theDataPageListsUsedLeftAllowanceAndRenewal() {
         val m = model(); m.dataView = DataView(5_200_000_000L, 10_000_000_000L, 10); m.dataRenews = "12 Dec"; m.dataPlan = DataPlan(allowance = 10_000_000_000L)
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3) // Menu > Settings > Connections
-        assertEquals(listOf("Wi-Fi: On", "Bluetooth: On", "Mobile data: 4.8 GB", "Battery"), m.rows)
+        assertEquals(listOf("Wi-Fi: On", "Bluetooth: On", "Mobile data: 4.8 GB"), m.rows)
         assertEquals(Action.DataLoad, m.onKey(Key.DIGIT, 3))
         assertEquals(listOf("Used: 5.2 GB (52%)", "Left: 4.8 GB", "Allowance: 10 GB", "Renews: 12 Dec", "By app", "Change plan"), m.rows)
         repeat(5) { m.onKey(Key.DOWN) }; m.onKey(Key.OK)

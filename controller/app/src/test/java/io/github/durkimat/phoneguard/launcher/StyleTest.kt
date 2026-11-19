@@ -10,7 +10,7 @@ import java.io.File
 
 class StyleTest {
     private fun phone(theme: String = "mac") = LauncherModel(listOf(MenuItem(SETTINGS_PKG, "Settings"))).also { it.theme = theme }
-    private fun appearance(m: LauncherModel) { m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 4) } // Menu, Settings, Look, Appearance
+    private fun appearance(m: LauncherModel) { m.onKey(Key.OK); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 2); m.onKey(Key.DIGIT, 4) } // Menu, Settings, Look, Appearance
 
     @Test fun everyPresetUsesOnlyChoicesThatExist() {
         for (p in Presets.all) {
