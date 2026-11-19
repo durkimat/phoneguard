@@ -145,11 +145,15 @@ object ToneStore {
     private var sampleTrack: AudioTrack? = null
 
     /** A short sample (the first second and a half of a tune) on the channel a volume bar sets: [usage] picks the stream, so the level heard is that stream's. */
-    @Synchronized fun sample(c: Context, usage: Int, id: String, gain: Double = 1.0) {
+    /** One plain 100 ms beep (A6, Classic voice): the feedback of the side volume keys. */
+    private val BLIP = Tones.Tone("blip", "Blip", "blip:d=16,o=6,b=150:a")
+
+    /** [blip]: the single short beep instead of the tune [id]. */
+    @Synchronized fun sample(c: Context, usage: Int, id: String, gain: Double = 1.0, blip: Boolean = false) {
         try {
             sampleTrack?.let { it.stop(); it.release() }; sampleTrack = null
             if (gain <= 0.0) return
-            val pcm = Tones.render(Tones.byId(id), amp = 0.6, style = style(c)).let { if (it.size > Tones.RATE * 3 / 2) it.copyOf(Tones.RATE * 3 / 2) else it }
+            val pcm = (if (blip) Tones.render(BLIP, amp = 0.6, style = Tones.Style.CLASSIC) else Tones.render(Tones.byId(id), amp = 0.6, style = style(c))).let { if (it.size > Tones.RATE * 3 / 2) it.copyOf(Tones.RATE * 3 / 2) else it }
             val t = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(usage).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Tones.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())

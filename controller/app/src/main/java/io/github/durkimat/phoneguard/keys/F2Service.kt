@@ -275,9 +275,14 @@ class F2Service : AccessibilityService() {
         if (ev.keyCode == KeyEvent.KEYCODE_CALL) return callKey(ev)
         if (ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP || ev.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             // the camera uses the volume keys as its shutter; everywhere else our own themed bar replaces Android's slider
-            if (CameraActivity.isFront()) return false
+            if (CameraActivity.isFront()) { if (ev.action == KeyEvent.ACTION_DOWN) Log.log(this, "volume: key passed to the system (camera in front)"); return false }
             if (io.github.durkimat.phoneguard.incall.CallState.info?.phase == io.github.durkimat.phoneguard.launcher.CallPhase.RINGING) Log.log(this, "volume: key ${ev.keyCode} action ${ev.action} reached the key filter while a call rings")
-            if (ev.action == KeyEvent.ACTION_DOWN) volume.press(ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+            if (ev.action == KeyEvent.ACTION_DOWN) {
+                val t0 = System.nanoTime()
+                volume.press(ev.keyCode == KeyEvent.KEYCODE_VOLUME_UP)
+                val ms = (System.nanoTime() - t0) / 1_000_000
+                if (ms > 100) Log.log(this, "volume: key took $ms ms on the main thread, the system may have shown its own slider")
+            }
             return true
         }
         if (ev.keyCode != KeyEvent.KEYCODE_F2) return false

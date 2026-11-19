@@ -40,11 +40,26 @@ class VolumeBar(private val svc: AccessibilityService) {
         else -> AudioManager.STREAM_RING to "RING"
     }
 
+    private val worker = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "volume-keys") }
+
+    /**
+     * Called on the main thread from the key filter, which the system only waits ~500 ms for (if it is late the key goes on to the system and
+     * its own volume slider shows). So this returns at once: the audio work runs on one worker thread, in order, and only the drawing is posted back.
+     */
     fun press(up: Boolean) {
         // an alarm or timer is ringing: any volume key snoozes it (a timer stops), whatever else the keys do
         if (io.github.durkimat.phoneguard.alarm.RingState.sounding) { io.github.durkimat.phoneguard.alarm.RingService.snooze(svc); return }
         // the Music screen is open and the music is on another Spotify device (the Echo): the keys change that device
         io.github.durkimat.phoneguard.launcher.LauncherActivity.remoteVolume?.invoke(up)?.let { (pct, name) -> show(pct, 100, name, false); return }
+        val queued = System.nanoTime()
+        worker.execute {
+            try { work(up) } catch (e: Exception) { Log.log(svc, "volume: ${e.javaClass.simpleName}") }
+            val ms = (System.nanoTime() - queued) / 1_000_000
+            if (ms > 100) Log.log(svc, "volume: a key took $ms ms to handle (queued and worked)")
+        }
+    }
+
+    private fun work(up: Boolean) {
         val (s, label) = stream()
         // the ringer's own level (SoundLevels) is what the side keys step when the phone supplies the ringtone; the streams stay pinned at full
         val lv = io.github.durkimat.phoneguard.alarm.SoundLevels
@@ -56,7 +71,7 @@ class VolumeBar(private val svc: AccessibilityService) {
             lv.setPos(svc, lv.RING, p); lv.pin(svc)
             Thread { tones.levelChanged(svc, tones.RING) }.start()
             show(p, lv.MAX, label, false) // eleven steps, ten blocks: one press moves the bar by exactly one block (or into the empty one at zero)
-            if (!ringing()) beep(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, tones.pick(svc, tones.RING).takeIf { it != tones.STOCK } ?: io.github.durkimat.phoneguard.alarm.Tones.DEFAULT, lv.gainAt(p) * tones.RING_AMP / 0.6)
+            if (!ringing()) beep(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, lv.gainAt(p) * tones.RING_AMP / 0.6)
             return
         }
         // one press is one visible block: at most ten steps, each a whole number of the stream's own indexes
@@ -70,16 +85,16 @@ class VolumeBar(private val svc: AccessibilityService) {
         } catch (e: Exception) { Log.log(svc, "volume: ${e.javaClass.simpleName}") }
         show(s, label)
         // a short beep at the new level tells the person where it is left; with music playing the music says it
-        if (s == AudioManager.STREAM_VOICE_CALL) beep(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION, io.github.durkimat.phoneguard.alarm.Tones.DEFAULT, 1.0)
-        else if (s == AudioManager.STREAM_RING && am.ringerMode == AudioManager.RINGER_MODE_NORMAL && !ringing()) beep(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, io.github.durkimat.phoneguard.alarm.Tones.DEFAULT, 1.0)
+        if (s == AudioManager.STREAM_VOICE_CALL) beep(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION, 1.0)
+        else if (s == AudioManager.STREAM_RING && am.ringerMode == AudioManager.RINGER_MODE_NORMAL && !ringing()) beep(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, 1.0)
     }
 
     private var beepRun = Runnable { }
     /** Quick presses: the sample in progress is cut at once and only the last level plays, after a short pause with no further press. */
-    private fun beep(usage: Int, id: String, gain: Double) {
+    private fun beep(usage: Int, gain: Double) {
         val tones = io.github.durkimat.phoneguard.alarm.ToneStore
         tones.stopSample(); ui.removeCallbacks(beepRun)
-        beepRun = Runnable { Thread { tones.sample(svc, usage, id, gain) }.start() }
+        beepRun = Runnable { Thread { tones.sample(svc, usage, "", gain, blip = true) }.start() }
         ui.postDelayed(beepRun, 120)
     }
 
@@ -89,7 +104,9 @@ class VolumeBar(private val svc: AccessibilityService) {
         show(Math.round(cur * cells / max.toFloat()), cells, label, stream == AudioManager.STREAM_RING && am.ringerMode != AudioManager.RINGER_MODE_NORMAL)
     }
 
-    private fun show(cur: Int, max: Int, label: String, silent: Boolean) {
+    private fun show(cur: Int, max: Int, label: String, silent: Boolean) { ui.post { showNow(cur, max, label, silent) } }
+
+    private fun showNow(cur: Int, max: Int, label: String, silent: Boolean) {
         val v = view ?: Bar(svc).also { b ->
             val scale = svc.resources.displayMetrics.widthPixels / 480f
             val lp = WindowManager.LayoutParams((330 * scale).roundToInt(), (64 * scale).roundToInt(), WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
