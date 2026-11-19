@@ -11,7 +11,43 @@ import io.github.durkimat.phoneguard.Log
  */
 class NoteService : NotificationListenerService() {
     override fun onListenerConnected() { refresh(); applyWaTone() }
-    override fun onNotificationPosted(sbn: StatusBarNotification) { detect(sbn); if (sbn.packageName in WA) applyWaTone(); handle(sbn) }
+    override fun onNotificationPosted(sbn: StatusBarNotification) { detect(sbn); if (sbn.packageName in WA) applyWaTone(); if (sbn.packageName == io.github.durkimat.phoneguard.launcher.LauncherData.MESSAGES) textArrived(sbn); handle(sbn) }
+
+    private val textSeen = HashMap<String, String>()
+    private val smsChannelsDone = HashSet<String>()
+
+    /**
+     * A text from the phone's own Messages app: its own alert is switched off (its channels made silent, so there is no double alert) and ours
+     * plays instead (see [MessageAlert]). An update of the same notification does not alert twice.
+     */
+    private fun textArrived(sbn: StatusBarNotification) {
+        try {
+            val n = sbn.notification
+            if (n.flags and (Notification.FLAG_GROUP_SUMMARY or Notification.FLAG_ONGOING_EVENT) != 0) return
+            hushMessagingChannels(sbn.packageName)
+            val ex = n.extras
+            val sig = (ex.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()) + "|" + (ex.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()) + "|" + n.`when`
+            if (textSeen[sbn.key] == sig) return
+            textSeen[sbn.key] = sig
+            if (textSeen.size > 50) textSeen.clear()
+            io.github.durkimat.phoneguard.notes.MessageAlert.fire(this, io.github.durkimat.phoneguard.alarm.ToneStore.SMS)
+        } catch (e: Exception) { Log.log(this, "message: ${e.javaClass.simpleName}") }
+    }
+
+    private fun hushMessagingChannels(pkg: String) {
+        val chans = try { getNotificationChannels(pkg, android.os.Process.myUserHandle()) } catch (e: Exception) { return }
+        for (ch in chans) {
+            if (ch.sound == null && !ch.shouldVibrate()) continue
+            val tag = "$pkg/${ch.id}"
+            if (tag in smsChannelsDone) continue
+            smsChannelsDone.add(tag)
+            try {
+                ch.setSound(null, null); ch.enableVibration(false)
+                updateNotificationChannel(pkg, android.os.Process.myUserHandle(), ch)
+                Log.log(this, "message: stock channel ${ch.id} made silent")
+            } catch (e: Exception) { Log.log(this, "message: stock channel ${ch.id} refused ${e.javaClass.simpleName} (the stock alert may double ours)") }
+        }
+    }
 
     /**
      * The pop-up detector: every notification that is posted is logged (who, which channel, how loud: no message text), so a notice that

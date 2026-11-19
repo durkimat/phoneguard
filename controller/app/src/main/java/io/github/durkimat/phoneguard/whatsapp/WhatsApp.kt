@@ -93,7 +93,7 @@ object WhatsApp {
                     st.add(m.chat, m.chatName, nameFor(app, m.senderID, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history)
                     // a new message gets the child's WhatsApp tune (not our own, not the backlog); the system's ringer mode and Do Not Disturb apply to it
                     val now = android.os.SystemClock.elapsedRealtime()
-                    if (!m.history && !m.fromMe && now - lastTone > 3_000L) { lastTone = now; io.github.durkimat.phoneguard.alarm.ToneStore.notify(app, io.github.durkimat.phoneguard.alarm.ToneStore.WA) }
+                    if (!m.history && !m.fromMe && now - lastTone > 3_000L) { lastTone = now; io.github.durkimat.phoneguard.notes.MessageAlert.fire(app, io.github.durkimat.phoneguard.alarm.ToneStore.WA) }
                 }
                 // read on another device (the main phone): clear the stars for what arrived up to then
                 override fun onRead(chat: String, ts: Long) {
