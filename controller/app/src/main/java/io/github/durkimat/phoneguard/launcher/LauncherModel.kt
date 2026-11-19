@@ -95,6 +95,9 @@ const val NOW_TOP = 366f
 const val NOW_BOTTOM = 478f
 /** Zone 5's two text lines (baselines), a lone line's baseline, the progress bar's top and the dots' centre. */
 const val NOW_LINE1 = 402f
+/** Every line in the strip (music, radio and calendar) has this one size and weight. */
+const val NOW_SIZE = 28f
+const val NOW_BOLD = true
 const val NOW_LINE2 = 436f
 const val NOW_LONE = 420f
 const val NOW_BAR_TOP = 446f
@@ -3252,11 +3255,8 @@ data class HomeInfo(
     val signalBars: Int,
     val softLeft: String,
     val softRight: String,
-    /** The next event today or tomorrow ("15:00 Dentist"), or empty. */
-    val nextUp: String = "",
-    /** The same event split in two for the strip's two lines: "Today 15:00" and "Dentist". */
-    val nextWhen: String = "",
-    val nextTitle: String = "",
+    /** The next two timed events, one line each ("15:00 Dentist", "20/11 09:00 Football"), or fewer; empty when there are none. */
+    val nextEvents: List<String> = emptyList(),
     /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
     val wifi: Int = -1,
     /** Bluetooth: -1 not shown, 0 on but nothing connected (drawn faint), 1 a device is connected, 2 switched off (faint with a slash). */

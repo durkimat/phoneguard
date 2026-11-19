@@ -57,25 +57,31 @@ object LauncherData {
     fun voiceCommandsAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).second
     fun voiceTypingAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).first
 
-    @Volatile private var nextCache: Pair<Long, Pair<String, String>> = 0L to ("" to "")
+    @Volatile private var nextCache: Pair<Long, List<String>> = 0L to emptyList()
     /** A calendar change was seen: the next lookup reads the calendar again instead of using the minute's answer. */
-    fun invalidateNext() { nextCache = 0L to ("" to "") }
-    /** The next timed event today or tomorrow as (when, title): ("Today 15:00", "Dentist") or ("Tomorrow 09:00", "Football"); both empty when there is none. Looked up at most once a minute. */
-    private fun nextUp(c: Context, now: Long): Pair<String, String> {
+    fun invalidateNext() { nextCache = 0L to emptyList() }
+    /** How many days ahead the strip looks for its two events (today included). */
+    private const val NEXT_DAYS = 7
+    /**
+     * The next two timed events that have not ended, looked for today and the following days: "15:00 Dentist" for today, "20/11 09:00 Football" for a later
+     * day. All-day events are left out. Looked up at most once a minute (a calendar change clears it).
+     */
+    private fun nextUp(c: Context, now: Long): List<String> {
         if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
         val text = try {
-            run {
-                val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
-                val ev = io.github.durkimat.phoneguard.calendar.CompositeCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(2), z))
-                val next = io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, 2, z).firstOrNull { !it.event.allDay && it.event.end > now }
-                if (next == null) "" to "" else {
-                    val day = io.github.durkimat.phoneguard.calendar.Cal.dayLabel(next.day, today)
-                    (day + (if (next.event.allDay) ", all day" else " " + io.github.durkimat.phoneguard.calendar.Cal.clock(next.event.start, z))) to next.event.title.ifBlank { "(no title)" }
-                }
-            }
-        } catch (_: Exception) { "" to "" }
+            val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
+            val ev = io.github.durkimat.phoneguard.calendar.CompositeCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(NEXT_DAYS.toLong()), z))
+            io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, NEXT_DAYS, z).filter { !it.event.allDay && it.event.end > now }
+                .distinctBy { it.event.start to it.event.title }.take(2).map { it.line(today, z) }
+        } catch (_: Exception) { emptyList() }
         nextCache = now to text
         return text
+    }
+
+    private fun io.github.durkimat.phoneguard.calendar.AgendaItem.line(today: java.time.LocalDate, z: java.time.ZoneId): String {
+        val time = io.github.durkimat.phoneguard.calendar.Cal.clock(event.start, z)
+        val date = if (day == today) "" else "%02d/%02d ".format(day.dayOfMonth, day.monthValue)
+        return date + time + " " + event.title.ifBlank { "(no title)" }
     }
 
     fun items(c: Context): List<MenuItem> {
@@ -193,9 +199,7 @@ object LauncherData {
             signalBars = signal(c),
             softLeft = "Menu",
             softRight = "Contacts",
-            nextUp = if (eff.nowStrip) nextUp(c, now).let { if (it.second.isEmpty()) "" else it.first + " " + it.second } else "",
-            nextWhen = if (eff.nowStrip) nextUp(c, now).first else "",
-            nextTitle = if (eff.nowStrip) nextUp(c, now).second else "",
+            nextEvents = if (eff.nowStrip) nextUp(c, now) else emptyList(),
             musicOn = musicShown(c) && musicPlaying(c),
             wifi = wifiState(c),
             bt = bluetoothState(c),

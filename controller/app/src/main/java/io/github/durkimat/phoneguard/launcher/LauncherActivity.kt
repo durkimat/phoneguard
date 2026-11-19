@@ -668,7 +668,7 @@ class LauncherActivity : Activity() {
             model.radioNames = r.radioNames; model.radioMode = r.radioMode
             model.playingProvider = r.playingProvider; model.provStatus = r.provStatus
             model.waCode = if (model.screen == Screen.WAPAIR && r.waLinked) null else r.waCode
-            model.badges = it.badges; model.musicOn = it.musicOn; model.setNowPages(listOfNotNull("music".takeIf { _ -> it.nowPlaying != null }, "event".takeIf { _ -> it.nextUp.isNotBlank() })); model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
+            model.badges = it.badges; model.musicOn = it.musicOn; model.setNowPages(listOfNotNull("music".takeIf { _ -> it.nowPlaying != null }, "event".takeIf { _ -> it.nextEvents.isNotEmpty() })); model.dataView = it.dataView; model.wifiShown = it.wifi >= 0; model.btShown = it.bt >= 0; model.dataShown = it.data >= 0
             model.connWifi = it.wifi; model.connBt = it.bt; model.connData = it.data; model.batteryPct = it.batteryPct
             lastInfo = it; ui.removeCallbacks(homeTick); if (it.timerEndAt > 0) ui.post(homeTick)
         }
