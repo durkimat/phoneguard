@@ -209,9 +209,25 @@ class RingService : Service() {
 
 /** The ring screen: the Nokia look over the lock screen. Left key (or OK) snoozes an alarm; the right key stops it. */
 class RingActivity : Activity() {
-    companion object { @Volatile var visible = false }
-    override fun onResume() { super.onResume(); visible = true }
-    override fun onPause() { visible = false; Log.log(this, "alarms: ring screen paused (ringing ${RingState.sounding})"); super.onPause() }
+    companion object {
+        @Volatile var visible = false
+        private var lastBack = 0L
+    }
+    override fun onResume() { super.onResume(); visible = true; Log.log(this, "alarms: ring screen in front") }
+    override fun onStop() { Log.log(this, "alarms: ring screen stopped"); super.onStop() }
+    override fun onPause() {
+        visible = false; Log.log(this, "alarms: ring screen paused (ringing ${RingState.sounding})")
+        super.onPause()
+        // something covered it while it still sounds: bring it back within about half a second (the service's own 4 s check stays as the backstop). Not during a call: the call screen wins then.
+        val app = applicationContext
+        if (RingState.sounding && io.github.durkimat.phoneguard.incall.CallState.info == null) android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (RingState.sounding && !visible && io.github.durkimat.phoneguard.incall.CallState.info == null && app.getSystemService(PowerManager::class.java).isInteractive && now - lastBack > 1_000L) {
+                lastBack = now; Log.log(app, "alarms: ring screen covered, bringing it back")
+                try { app.startActivity(Intent(app, RingActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { }
+            }
+        }, 400L)
+    }
     private lateinit var skin: PaintedSkin
     private val model = LauncherModel()
     private val listener: () -> Unit = { update() }

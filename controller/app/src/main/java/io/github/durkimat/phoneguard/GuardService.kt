@@ -58,7 +58,8 @@ class GuardService : Service() {
             io.github.durkimat.phoneguard.net.RadioManager.onUnlock(c) // the child is here: radios go back to how they chose them
             try {
                 val eff = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(c), Store.boost(c), Clock.now())
-                if (eff.lockdown.launcher == "nokia" && io.github.durkimat.phoneguard.incall.CallState.info == null)
+                if (io.github.durkimat.phoneguard.alarm.RingState.sounding) Log.log(c, "home after unlock skipped (an alarm or timer is ringing)") // Home must not cover the ring screen
+                else if (eff.lockdown.launcher == "nokia" && io.github.durkimat.phoneguard.incall.CallState.info == null)
                     c.startActivity(Intent(c, io.github.durkimat.phoneguard.launcher.LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
             } catch (e: Exception) { Log.log(c, "home after unlock failed: ${e.javaClass.simpleName}") }
         }
