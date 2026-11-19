@@ -518,7 +518,12 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun nowPageBody(c: Canvas, page: String, i: HomeInfo, slot: Float, u: Float) {
             when (page) {
                 "music" -> i.nowPlaying?.let { nowPlayingLine(c, it, slot, u) }
-                "event" -> if (i.nextUp.isNotBlank()) text(c, fit(i.nextUp, 440f, 26f), 240f, slot + 4f, 26f, u, align = Paint.Align.CENTER)
+                "event" -> if (i.nextUp.isNotBlank()) {
+                    // the calendar mark and the text are one group: centred when it fits (margins 24, gap 12), else the mark stays at the left and the text scrolls beside it
+                    val w = measureBold(i.nextUp, 26f)
+                    if (48f + w <= 432f) { val left = 240f - (48f + w) / 2; calendarIcon(c, left, 387f, u); text(c, i.nextUp, left + 48f, slot + 4f, 26f, u) }
+                    else { calendarIcon(c, 24f, 387f, u); marquee(c, i.nextUp, 72f, slot + 4f, 26f, 384f, u) }
+                }
             }
         }
 
@@ -530,11 +535,34 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
             val line = if (np.source == "radio") listOf(np.title, np.artist).filter { it.isNotBlank() }.joinToString(" - ") else listOf(np.artist, np.title).filter { it.isNotBlank() }.joinToString(" - ")
             marquee(c, line, 64f, top + 10f, 32f, 392f, u)
+            quaverIcon(c, 24f, top + 34f, u) // the music mark sits under the line at the left, centred on the progress bar's row (y 426)
             if (np.durationMs > 0) {
                 stroke.strokeWidth = 2f * u; stroke.color = ink
-                c.drawRect(24f * u, (top + 30f) * u, 456f * u, (top + 38f) * u, stroke)
-                c.drawRect(24f * u, (top + 30f) * u, (24f + 432f * (np.positionMs.toFloat() / np.durationMs).coerceIn(0f, 1f)) * u, (top + 38f) * u, fill)
+                c.drawRect(72f * u, (top + 30f) * u, 456f * u, (top + 38f) * u, stroke)
+                c.drawRect(72f * u, (top + 30f) * u, (72f + 384f * (np.positionMs.toFloat() / np.durationMs).coerceIn(0f, 1f)) * u, (top + 38f) * u, fill)
             }
+        }
+
+        /** Beamed quavers in a 36 x 32 box whose left edge is [x0] and whose vertical centre is [cy]. */
+        private fun quaverIcon(c: Canvas, x0: Float, cy: Float, u: Float) {
+            val y0 = cy - 16f
+            fill.color = ink; fill.style = Paint.Style.FILL
+            c.drawOval(RectF((x0 + 5f) * u, (y0 + 21f) * u, (x0 + 15f) * u, (y0 + 29f) * u), fill)
+            c.drawOval(RectF((x0 + 23f) * u, (y0 + 18f) * u, (x0 + 33f) * u, (y0 + 26f) * u), fill)
+            c.drawRect((x0 + 12.5f) * u, (y0 + 6f) * u, (x0 + 15.5f) * u, (y0 + 25f) * u, fill)
+            c.drawRect((x0 + 30.5f) * u, (y0 + 3f) * u, (x0 + 33.5f) * u, (y0 + 22f) * u, fill)
+            c.drawPath(android.graphics.Path().apply { moveTo((x0 + 12.5f) * u, (y0 + 6f) * u); lineTo((x0 + 33.5f) * u, (y0 + 3f) * u); lineTo((x0 + 33.5f) * u, (y0 + 7f) * u); lineTo((x0 + 12.5f) * u, (y0 + 10f) * u); close() }, fill)
+        }
+
+        /** A calendar page in a 36 x 32 box (left edge [x0], vertical centre [cy]): outline, filled header, two binder ticks and a day grid whose last square is empty. */
+        private fun calendarIcon(c: Canvas, x0: Float, cy: Float, u: Float) {
+            val y0 = cy - 16f
+            fill.color = ink; fill.style = Paint.Style.FILL; stroke.color = ink; stroke.strokeWidth = 2.5f * u
+            c.drawRoundRect(RectF((x0 + 2f) * u, (y0 + 5f) * u, (x0 + 34f) * u, (y0 + 30f) * u), 3f * u, 3f * u, stroke)
+            c.drawRect((x0 + 2f) * u, (y0 + 5f) * u, (x0 + 34f) * u, (y0 + 11f) * u, fill)
+            c.drawRect((x0 + 9f) * u, (y0 + 1f) * u, (x0 + 12f) * u, (y0 + 9f) * u, fill)
+            c.drawRect((x0 + 25f) * u, (y0 + 1f) * u, (x0 + 28f) * u, (y0 + 9f) * u, fill)
+            for ((gx, gy) in listOf(8f to 16f, 16f to 16f, 24f to 16f, 8f to 23f, 16f to 23f)) c.drawRect((x0 + gx) * u, (y0 + gy) * u, (x0 + gx + 5f) * u, (y0 + gy + 4f) * u, fill)
         }
 
         private fun musicScreen(c: Canvas, m: LauncherModel, u: Float) {
@@ -770,7 +798,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, clockY(Themes.byId(model?.theme).skin == "mac"), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
-            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if ((i.alarmText.isNotEmpty() || timerLeft(i) > 0) && Themes.byId(model?.theme).skin == "mac") 352f else 332f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
+            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if ((i.alarmText.isNotEmpty() || timerLeft(i) > 0) && Themes.byId(model?.theme).skin == "mac") 352f else if (Themes.byId(model?.theme).skin == "mac") 332f else 336f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
             // just under the clock: a bell and the next alarm's time, and a stopwatch face and the timer's time left, nothing else.
             // Both go on one line when they fit (the long-digit fonts may not), otherwise one under the other.
             val left = timerLeft(i)

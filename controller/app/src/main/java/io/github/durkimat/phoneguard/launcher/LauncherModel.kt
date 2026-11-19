@@ -85,9 +85,9 @@ const val DATA_MAC_SHIFT = 46f
 /** Where the data strip's rows start: [DATA_MAC_SHIFT] lower in the Mac look; the other looks sit 5 px lower so it is centred between the status line and the weather band. */
 fun dataY(mac: Boolean) = if (mac) DATA_MAC_SHIFT else 5f
 /** The home screen's weather group: its centre line (design pixels), above the clock in every look (the Mac look's clock sits 26 px lower to make room). */
-fun weatherCy(mac: Boolean) = if (mac) 174f else 130f
+fun weatherCy(mac: Boolean) = if (mac) 174f else 134f
 /** The clock's baseline. */
-fun clockY(mac: Boolean) = if (mac) 296f else 270f
+fun clockY(mac: Boolean) = if (mac) 296f else 274f
 /** The slot for Now playing, the next event and the rain note: where the weather used to be, the same in every look. */
 fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
 /** The box of zone 5 (the strip), its highlight and its touch area, and how long the slide between its pages takes. */
@@ -1580,7 +1580,7 @@ class LauncherModel(
         if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 404f, 4f, 474f, 42f)) // the battery page lives under Settings: hidden where the mode hides Settings
-        if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
+        if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, if (Themes.byId(theme).skin == "mac") 52f + y else 58f, 472f, if (Themes.byId(theme).skin == "mac") 88f + y else 97f)) }
         if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         add(clockTarget())
         if (nowPages.isNotEmpty()) add(HomeTarget("now", 8f, NOW_TOP, 472f, NOW_BOTTOM))

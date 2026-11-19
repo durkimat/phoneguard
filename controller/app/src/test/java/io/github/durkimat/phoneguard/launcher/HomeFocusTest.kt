@@ -79,8 +79,8 @@ class HomeFocusTest {
     @Test fun theWeatherSitsAboveTheClockAndItsTapAndHighlightFollow() {
         val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L)
         val t = m.homeTargets().first { it.kind == "weather" }
-        assertEquals(96f, t.t, 0.01f); assertEquals(164f, t.b, 0.01f) // centre line 130
-        assertEquals(Action.Redraw, m.tap(240f, 130f)); assertEquals(Screen.WEATHER, m.screen)
+        assertEquals(100f, t.t, 0.01f); assertEquals(168f, t.b, 0.01f) // centre line 134
+        assertEquals(Action.Redraw, m.tap(240f, 134f)); assertEquals(Screen.WEATHER, m.screen)
         val old = model(); old.weather = m.weather
         assertEquals(Action.None, old.tap(240f, 392f)) // the old place no longer opens the forecast
     }
@@ -89,7 +89,7 @@ class HomeFocusTest {
         val m = model(); m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L); m.theme = "mac"
         val t = m.homeTargets().first { it.kind == "weather" }
         assertEquals(140f, t.t, 0.01f) // cy 174 - 34
-        assertEquals(174f, weatherCy(true), 0f); assertEquals(296f, clockY(true), 0f); assertEquals(392f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
+        assertEquals(174f, weatherCy(true), 0f); assertEquals(296f, clockY(true), 0f); assertEquals(134f, weatherCy(false), 0f); assertEquals(274f, clockY(false), 0f); assertEquals(392f, homeSlotY(true), 0f); assertEquals(392f, homeSlotY(false), 0f)
     }
 
     // ---- zone 5: the strip under the date
