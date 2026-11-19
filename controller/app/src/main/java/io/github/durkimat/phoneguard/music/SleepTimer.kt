@@ -17,6 +17,9 @@ object SleepTimer {
 
     fun label(now: Long = System.currentTimeMillis()): String = leftMin(now).let { if (it > 0) "$it min" else "" }
 
+    /** Switches the timer off (a Stop does it). */
+    fun cancel() { fire?.let { ui.removeCallbacks(it) }; fire = null; minutes = 0; endsAt = 0 }
+
     /** The next setting after the current one (off, 15, 30, 60, off...). */
     fun step(c: Context) {
         minutes = steps[(steps.indexOf(minutes).coerceAtLeast(0) + 1) % steps.size]

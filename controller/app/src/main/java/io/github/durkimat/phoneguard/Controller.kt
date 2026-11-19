@@ -60,6 +60,13 @@ object Controller {
         if (boost != null && now >= boost.until) { Store.setBoost(app, null); boost = null }
 
         val eff = Engine.effective(cfg, boost, now)
+        // a mode that no longer allows music stops what is playing (the radio, the app's music, Spotify elsewhere); where music stays allowed nothing stops
+        try {
+            val sp = app.createDeviceProtectedStorageContext().getSharedPreferences("music", Context.MODE_PRIVATE)
+            val allowed = !eff.lockdown.kiosk
+            if (sp.getBoolean("allowed", true) && !allowed) io.github.durkimat.phoneguard.music.MusicStop.all(app, "mode")
+            if (sp.getBoolean("allowed", true) != allowed) sp.edit().putBoolean("allowed", allowed).apply()
+        } catch (_: Exception) { }
         val res = Enforcer.applyApps(app, cfg, eff.allowed, hideStockHome = false) // not hidden: Android binds its recents and gesture service inside the stock launcher at every start, and hiding it made that crash at boot
         lap("apps")
         Enforcer.applyRestrictions(app, cfg); lap("restrict")

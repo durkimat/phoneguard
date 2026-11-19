@@ -106,7 +106,7 @@ object IdleReaper {
     } catch (e: Exception) { Log.log(c, "running apps: ${e.javaClass.simpleName}"); emptyList() }
 
     /** The periodic check: stop apps nobody has used for the mode's idle time. */
-    fun run(c: Context) = reap(c, "idle")
+    fun run(c: Context) { io.github.durkimat.phoneguard.music.MusicWatch.tick(c); reap(c, "idle") }
 
     /** The screen has been off for the mode's time: stop everything that is not protected, kept, playing or busy. */
     fun sweep(c: Context) = reap(c, "screen off")

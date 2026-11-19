@@ -234,6 +234,8 @@ sealed class Action {
     object AlarmSnooze : Action()
     object AlarmStop : Action()
     /** The power menu (long press of the power key): switch the phone off, restart it, or close the menu. */
+    /** A real Stop of the music provider shown (long press of OK on Now playing, or the "Stop music" row). */
+    data class MusicStop(val provider: Provider) : Action()
     object PowerOff : Action()
     object PowerRestart : Action()
     object PowerClose : Action()
@@ -1965,8 +1967,8 @@ class LauncherModel(
     private fun commonMusicRow(row: String?): Action = when { row == null -> Action.None; row.startsWith("Sleep timer") -> Action.SleepStep; row.startsWith("Bar shows") -> Action.SpectrumToggle; else -> Action.None }
 
     /** What each provider's menu offers (the sleep timer and the bar are in each, as in the Music menu). */
-    private val radioMenuRows: List<String> get() = listOf("Presets") + (if (radioMode == "any") listOf("Find station", "Browse stations") else emptyList()) + "Change source"
-    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("Sign out of Spotify") else emptyList())
+    private val radioMenuRows: List<String> get() = listOf("Presets") + (if (radioMode == "any") listOf("Find station", "Browse stations") else emptyList()) + "Change source" + (if ((provStatus[Provider.RADIO] ?: 0) != 0) listOf("Stop music") else emptyList())
+    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("Sign out of Spotify") else emptyList()) + (if ((provStatus[Provider.SPOTIFY] ?: 0) != 0) listOf("Stop music") else emptyList())
 
     private fun radioMenuKey(key: Key): Action = move(key, radioMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = radioMenuRows.getOrNull(selected)) {
@@ -1974,12 +1976,16 @@ class LauncherModel(
             "Find station" -> { startWrite("", Screen.RADIOMENU); writeField = 1; writeSearch = true; writeRadio = true; Action.Redraw }
             "Browse stations" -> { browseLevel = 0; screen = Screen.RADIOBROWSE; selected = 0; Action.Redraw }
             "Change source" -> openSourcePicker()
+            "Stop music" -> stopMusic(Provider.RADIO)
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
+
+    /** Stop (not pause) the provider, then Home with a notice: the strip and Now playing no longer show it. */
+    fun stopMusic(p: Provider): Action { goHome(); notice = "Stopped"; return Action.MusicStop(p) }
 
     private fun spotifyMenuKey(key: Key): Action = move(key, spotifyMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = spotifyMenuRows.getOrNull(selected)) {
@@ -1989,6 +1995,7 @@ class LauncherModel(
             "Sign out of Spotify" -> Action.SpSignOut
             "Sign in to Spotify" -> Action.SpSignIn
             "Change source" -> openSourcePicker()
+            "Stop music" -> stopMusic(Provider.SPOTIFY)
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }

@@ -301,8 +301,10 @@ class LauncherActivity : Activity() {
     private fun homeNowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo? = try {
         if (!LauncherData.musicShown(this) || !io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).nowStrip) null else {
             val (playing, status) = providerStates()
+            if (status[Provider.SPOTIFY] == 2) io.github.durkimat.phoneguard.music.MusicStop.spotifyDismissed = false
             // the one playing first, then paused ones; Spotify only when it is on THIS phone (on another device it is for the Now playing screen alone)
             (listOfNotNull(playing) + status.entries.filter { it.value == 1 }.map { it.key }).distinct()
+                .filter { prov -> prov != Provider.SPOTIFY || !io.github.durkimat.phoneguard.music.MusicStop.spotifyDismissed || status[Provider.SPOTIFY] == 2 } // a stopped Spotify stays off Home until it plays again
                 .firstNotNullOfOrNull { prov -> nowPlaying(prov).takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank() || it.station.isNotBlank()) && (it.source == "radio" || it.thisPhone) } }
         }
     } catch (_: Exception) { null }
@@ -727,6 +729,14 @@ class LauncherActivity : Activity() {
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
         if (model.screen == Screen.WRITE && (model.writeField == 2 || model.voiceState != 0) && voiceKey(k.first, ev)) return true
+        // Now playing: a long press of OK is a real Stop (the music is stopped and dropped, the app closed); a short press is play/pause when the key comes up
+        if (model.screen == Screen.MUSIC && model.music.active && k.first == Key.OK) {
+            when (ev.action) {
+                KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) { musicStopFired = false; ui.removeCallbacks(musicStopHold); ui.postDelayed(musicStopHold, 800) }
+                KeyEvent.ACTION_UP -> { ui.removeCallbacks(musicStopHold); if (!musicStopFired) perform(model.onKey(k.first, k.second)); musicStopFired = false }
+            }
+            return true
+        }
         // Now playing: a tap on left or right (or 4 and 6) skips the track when the key comes up; holding it winds back or forward instead
         if (model.screen == Screen.MUSIC && model.music.active && model.provider != Provider.RADIO && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
             val dir = if (k.first == Key.RIGHT || k.second == 6) 1 else -1
@@ -765,6 +775,9 @@ class LauncherActivity : Activity() {
         else if (ev.action == KeyEvent.ACTION_UP) perform(model.onRelease(k.first, k.second))
         return true // consume the key up as well so Back never leaves the launcher
     }
+
+    private var musicStopFired = false
+    private val musicStopHold = Runnable { musicStopFired = true; perform(model.stopMusic(model.provider)) }
 
     private var homeRightFired = false
     private val homeRightHold = Runnable {
@@ -913,6 +926,10 @@ class LauncherActivity : Activity() {
                 }
             }
             is Action.RadioPlay -> { model.provider = Provider.RADIO; io.github.durkimat.phoneguard.music.Radio.play(this, a.index); model.music = model.music.copy(active = true, source = "radio", playing = true, buffering = true); invalidate(D.SCREEN); refresh() }
+            is Action.MusicStop -> {
+                if (a.provider == Provider.RADIO) io.github.durkimat.phoneguard.music.MusicStop.radio(this) else io.github.durkimat.phoneguard.music.MusicStop.spotify(this, "by hand")
+                invalidate(D.INFO); refresh()
+            }
             Action.MusicPlayPause -> if (model.provider == Provider.RADIO) { val on = io.github.durkimat.phoneguard.music.Radio.playing; model.music = model.music.copy(playing = !on, buffering = false); redraw(); io.github.durkimat.phoneguard.music.Radio.toggle(this) } else {
                 val was = model.music.playing
                 playHold = !was to System.currentTimeMillis() + 5000

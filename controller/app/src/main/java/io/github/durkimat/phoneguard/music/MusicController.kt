@@ -72,6 +72,9 @@ object MusicController {
     }
 
     fun playPause(c: Context) { controller(c)?.let { if (it.playbackState?.state == PlaybackState.STATE_PLAYING) it.transportControls.pause() else it.transportControls.play() } }
+    /** A transport stop for the session (many apps treat it as a pause); returns the app's package, or null when there is none. */
+    fun stop(c: Context): String? { val mc = controller(c) ?: return null; try { mc.transportControls.stop() } catch (_: Exception) { }; return mc.packageName }
+
     /** Pause or play only if it is not already so (a call or an alarm holds the music through these, and puts back only what it paused). */
     fun pause(c: Context) { controller(c)?.takeIf { it.playbackState?.state == PlaybackState.STATE_PLAYING }?.transportControls?.pause() }
     fun play(c: Context) { controller(c)?.takeIf { it.playbackState?.state != PlaybackState.STATE_PLAYING }?.transportControls?.play() }

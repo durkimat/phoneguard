@@ -646,10 +646,12 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 if (radio) {
                     text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 514f, 24f, u, align = Paint.Align.CENTER)
                     text(c, "* bars  0 sleep  # source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "Hold OK: stop", 240f, 570f, 22f, u, align = Paint.Align.CENTER)
                     if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 } else {
                     if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   1 repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 514f, 24f, u, align = Paint.Align.CENTER)
                     text(c, "7 bars  0 sleep  # source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "Hold OK: stop", 240f, 570f, 22f, u, align = Paint.Align.CENTER)
                     if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 }
             }
