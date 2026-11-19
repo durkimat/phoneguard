@@ -313,7 +313,7 @@ class LauncherActivity : Activity() {
         val st = io.github.durkimat.phoneguard.music.Radio.state
         val connecting = st.buffering && !st.playing
         return io.github.durkimat.phoneguard.music.MusicInfo(true, "Internet Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
-            if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting)
+            if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting, radioSong = if (connecting || st.error.isNotEmpty()) "" else st.song, radioArtist = if (connecting || st.error.isNotEmpty()) "" else st.songArtist)
     }
 
     /** What is playing, and each provider's state for the Music menu (0 idle, 1 paused, 2 playing), from what is already known (nothing is polled here). */

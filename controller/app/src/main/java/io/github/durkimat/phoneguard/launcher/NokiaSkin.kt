@@ -574,12 +574,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
             // the artist over the title; a radio shows the station over what is on now
             if (np.source == "radio") {
-                // the station, with the artist after it when "station - artist" fits on the line; the song title below. A station sends "SONG - ARTIST" (title first), or just a title.
-                val icy = np.artist.trim(); val cut = icy.indexOf(" - ")
-                val song = if (cut > 0) icy.substring(0, cut).trim() else icy
-                val who = if (cut > 0) icy.substring(cut + 3).trim() else ""
-                val both = if (who.isNotEmpty()) "${np.title} - $who" else ""
-                nowLines(c, if (both.isNotEmpty() && measureLine(NowLine(both, NOW_SIZE, NOW_BOLD)) <= 392f) both else np.title, song, 64f, 392f, u)
+                // the station, with the artist after it when "station - artist" fits on the line; the song below. The song and artist come as separate fields when the station
+                // gives them (Planet Radio); otherwise the order inside the stream's one text is not reliable, so it is shown whole on line 2 and never split.
+                val both = if (np.radioSong.isNotEmpty() && np.radioArtist.isNotEmpty()) "${np.title} - ${np.radioArtist}" else ""
+                val line1 = if (both.isNotEmpty() && measureLine(NowLine(both, NOW_SIZE, NOW_BOLD)) <= 392f) both else np.title
+                nowLines(c, line1, np.radioSong.ifEmpty { np.artist }, 64f, 392f, u)
             } else nowLines(c, np.artist, np.title, 64f, 392f, u)
             if (np.durationMs > 0) {
                 stroke.strokeWidth = 2f * u; stroke.color = ink

@@ -40,6 +40,8 @@ object Radio {
         val playing: Boolean = false, val buffering: Boolean = false,
         /** What the station says is on now ("Artist - Title"), when it sends that. */
         val nowPlaying: String = "", val error: String = "", val startedAt: Long = 0,
+        /** The song and artist as separate fields, when the station's stream points at a service that gives them (Planet Radio); empty otherwise. */
+        val song: String = "", val songArtist: String = "",
     )
 
     @Volatile var state = State()
@@ -202,7 +204,12 @@ class RadioService : Service() {
                     val e = m[k]
                     // the raw stream text, as the station sent it, so what a station really sends can be read in the log
                     Log.log(this@RadioService, "radio: metadata ${e.javaClass.simpleName} ${(e as? IcyInfo)?.let { "title='${it.title}' url='${it.url}'" } ?: e.toString()}")
-                    (e as? IcyInfo)?.title?.trim()?.takeIf { it.isNotEmpty() }?.let { t -> Radio.set(Radio.state.copy(nowPlaying = t)); session?.let { updateSession() } }
+                    (e as? IcyInfo)?.let { icy ->
+                        icy.title?.trim()?.takeIf { it.isNotEmpty() }?.let { t ->
+                            Radio.set(Radio.state.copy(nowPlaying = t, song = "", songArtist = "")); session?.let { updateSession() }
+                            songDetails(t, icy.url)
+                        }
+                    }
                 }
             }
             override fun onPlayerError(e: PlaybackException) {
@@ -217,6 +224,7 @@ class RadioService : Service() {
         p.playWhenReady = true
         player = p
         Spectrum.radioPcm = true
+        followBbc(url)
         if (session == null) session = MediaSession(this, "PhoneGuardRadio").apply {
             setCallback(object : MediaSession.Callback() {
                 override fun onPlay() { Radio.toggle(this@RadioService) }
@@ -228,6 +236,63 @@ class RadioService : Service() {
             isActive = true
         }
         updateSession()
+    }
+
+    @Volatile private var bbcToken = 0
+    private val bbcService = Regex("^https://(?:[a-z0-9.-]+\\.akamaized\\.net|stream\\.live\\.vc\\.bbcmedia\\.co\\.uk)/.*?(bbc_[a-z0-9_]+)")
+
+    /**
+     * BBC streams carry no track text, but the BBC's own now-playing page (the BBC Sounds backend, undocumented, so it may change) lists the music segments.
+     * For a BBC station it is asked for every 45 seconds while the station plays (one short request each, errors ignored): the segment marked now playing gives
+     * the artist (titles.primary) and the song (titles.secondary). Speech stations have no music segments, so they simply show the station.
+     */
+    private fun followBbc(url: String) {
+        val id = bbcService.find(url)?.groupValues?.get(1) ?: return
+        val mine = ++bbcToken
+        Thread {
+            while (bbcToken == mine) {
+                try {
+                    val conn = java.net.URL("https://rms.api.bbc.co.uk/v2/services/$id/segments/latest?experience=domestic&offset=0&limit=2").openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 4000; conn.readTimeout = 4000; conn.setRequestProperty("User-Agent", "PhoneGuard")
+                    val data = try { org.json.JSONObject(conn.inputStream.bufferedReader().use { it.readText() }).optJSONArray("data") } finally { conn.disconnect() }
+                    var song = ""; var artist = ""
+                    for (k in 0 until (data?.length() ?: 0)) {
+                        val d = data!!.optJSONObject(k) ?: continue
+                        if (d.optString("segment_type") == "music" && d.optJSONObject("offset")?.optBoolean("now_playing") == true) {
+                            artist = d.optJSONObject("titles")?.optString("primary").orEmpty().trim(); song = d.optJSONObject("titles")?.optString("secondary").orEmpty().trim(); break
+                        }
+                    }
+                    if (bbcToken == mine && (Radio.state.song != song || Radio.state.songArtist != artist)) {
+                        Radio.set(Radio.state.copy(song = song, songArtist = artist))
+                        Log.log(this@RadioService, "radio: bbc now playing artist='$artist' song='$song'")
+                    }
+                } catch (e: Exception) { Log.log(this@RadioService, "radio: bbc now playing failed ${e.javaClass.simpleName}") }
+                try { Thread.sleep(45_000) } catch (_: InterruptedException) { return@Thread }
+            }
+        }.start()
+    }
+
+    private val planetEvent = Regex("^https://listenapi\\.planetradio\\.co\\.uk/api[0-9.]+/eventdata/(-?[0-9]+)$")
+
+    /**
+     * Planet Radio stations (Magic and others) send "Song - Artist" or "Artist - Song" in no fixed order, but their stream also points at a small JSON page with the
+     * song and artist as separate fields. It is asked for ONCE per song (never polled, short timeouts, any failure is ignored and the plain text stays).
+     */
+    private fun songDetails(title: String, url: String?) {
+        val id = url?.let { planetEvent.matchEntire(it)?.groupValues?.get(1) } ?: return
+        if (id.startsWith("-")) return // between songs
+        Thread {
+            try {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 4000; conn.readTimeout = 4000; conn.setRequestProperty("User-Agent", "PhoneGuard")
+                val j = try { org.json.JSONObject(conn.inputStream.bufferedReader().use { it.readText() }) } finally { conn.disconnect() }
+                val song = j.optString("eventSongTitle").trim(); val artist = j.optString("eventSongArtist").trim()
+                if (j.optString("eventType") == "Song" && song.isNotEmpty() && Radio.state.nowPlaying == title) {
+                    Radio.set(Radio.state.copy(song = song, songArtist = artist))
+                    Log.log(this@RadioService, "radio: song details artist='$artist' title='$song'")
+                }
+            } catch (e: Exception) { Log.log(this@RadioService, "radio: song details failed ${e.javaClass.simpleName}") }
+        }.start()
     }
 
     private fun sync(p: ExoPlayer) {
@@ -251,6 +316,7 @@ class RadioService : Service() {
     }
 
     private fun release() {
+        bbcToken++
         Spectrum.radioPcm = false
         player?.release(); player = null
         session?.release(); session = null
