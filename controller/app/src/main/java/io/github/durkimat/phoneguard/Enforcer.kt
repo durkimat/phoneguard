@@ -187,6 +187,7 @@ object Enforcer {
             val me = "${c.packageName}/${c.packageName}.notes.NoteService"
             val cur = Settings.Secure.getString(c.contentResolver, "enabled_notification_listeners").orEmpty()
             if (me !in cur.split(':')) Settings.Secure.putString(c.contentResolver, "enabled_notification_listeners", if (cur.isEmpty()) me else "$cur:$me")
+            io.github.durkimat.phoneguard.notes.NoteService.ensureBound(c)
         } catch (e: Exception) { Log.log(c, "notification listener: ${e.javaClass.simpleName}") }
     }
 

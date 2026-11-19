@@ -10,7 +10,8 @@ import io.github.durkimat.phoneguard.Log
  * app. It reads the title and text only to show them on the phone's own screen; nothing is sent anywhere.
  */
 class NoteService : NotificationListenerService() {
-    override fun onListenerConnected() { refresh(); applyWaTone() }
+    override fun onListenerConnected() { connected = true; Log.log(this, "notes: listener connected"); refresh(); applyWaTone() }
+    override fun onListenerDisconnected() { connected = false; Log.log(this, "notes: listener disconnected"); super.onListenerDisconnected() }
     override fun onNotificationPosted(sbn: StatusBarNotification) { detect(sbn); if (sbn.packageName in WA) applyWaTone(); if (sbn.packageName == io.github.durkimat.phoneguard.launcher.LauncherData.MESSAGES) textArrived(sbn); handle(sbn) }
 
     private val textSeen = HashMap<String, String>()
@@ -117,6 +118,19 @@ class NoteService : NotificationListenerService() {
         private val WA = listOf("com.whatsapp", "com.whatsapp.w4b")
         /** Clear one notification from the phone (and so from our list). */
         @Volatile var instance: NoteService? = null
+        /** True while the system has us bound as a notification listener (an app update can leave it unbound although the setting still names us). */
+        @Volatile var connected = false
+        private var lastRebind = 0L
+
+        /** Asks the system to bind the listener again when it is not connected; at most once a minute. Called from every evaluation, so boot and an update both heal it. */
+        fun ensureBound(c: android.content.Context) {
+            if (connected) return
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (lastRebind != 0L && now - lastRebind < 60_000L) return
+            lastRebind = now
+            Log.log(c, "notes: listener not connected, requested rebind")
+            try { requestRebind(android.content.ComponentName(c, NoteService::class.java)) } catch (e: Exception) { Log.log(c, "notes: rebind ${e.javaClass.simpleName}") }
+        }
     }
 
     override fun onCreate() { super.onCreate(); instance = this }
