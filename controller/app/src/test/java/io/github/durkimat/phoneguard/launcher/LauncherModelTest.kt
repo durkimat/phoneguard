@@ -463,7 +463,7 @@ class LauncherModelTest {
         val s = withSettings(); s.onKey(Key.OK); s.onKey(Key.UP); s.onKey(Key.OK)
         var done: Action? = null; s.onDo = { done = it }
         s.onKey(Key.DIGIT, 1); s.onKey(Key.DIGIT, 2); assertEquals(Screen.FORM, s.screen); assertEquals("Calls", s.title) // Settings > Sound > Calls
-        repeat(3) { s.onKey(Key.DOWN) }; assertTrue(s.rows[s.selected].startsWith("Speakerphone button: Show"))
+        repeat(3) { s.onKey(Key.DOWN) }; assertTrue(s.rows[s.selected].startsWith("Speaker button: Show"))
         s.onKey(Key.OK); assertEquals(false, s.speakerShown); assertEquals(Action.SaveSpeaker(false), done)
 
         val c = LauncherModel(emptyList()); c.speakerShown = false

@@ -127,15 +127,15 @@ class TonesFlowTest {
         m.key(Key.OK); m.key(Key.OK)                 // Menu, Settings
         m.key(Key.DIGIT, 1); m.key(Key.DIGIT, 2)     // Sound, Calls
         assertEquals(Screen.FORM, m.screen); assertEquals("Calls", m.title)
-        assertEquals(listOf("Ringtone: Phone's own", "Volume: ###----", "Vibrate: On", "Speakerphone button: Show", "Tune style: Classic beep"), m.rows)
+        assertEquals(listOf("Tune: Phone's own", "Volume: ###----", "Vibrate: On", "Speaker button: Show", "Style: Classic beep"), m.rows)
         m.key(Key.RIGHT)                             // ringtone: the first tune
         m.key(Key.SOFT_RIGHT); m.key(Key.DIGIT, 3)   // back to Sound, then Messages
-        assertEquals("Messages", m.title); assertEquals(listOf("Text tone: Phone's own", "WhatsApp tone: Phone's own", "Volume: ###----", "Vibrate: On"), m.rows)
+        assertEquals("Messages", m.title); assertEquals(listOf("Text: Phone's own", "Chat: Phone's own", "Volume: ###----", "Vibrate: On"), m.rows)
         m.key(Key.RIGHT); m.key(Key.RIGHT)           // text tone: two steps on
         m.key(Key.DOWN); m.key(Key.LEFT)             // WhatsApp tone: back round to the last tune
         assertEquals(listOf("ring" to "waltz", "sms" to "waltz", "sms" to "elise", "wa" to "double"), picks)
         assertEquals(listOf("waltz", "waltz", "elise", "double"), heard)
-        assertEquals("Text tone: Fur Elise", m.rows[0])
+        assertEquals("Text: Fur Elise", m.rows[0])
     }
 
     @Test fun oneVolumePressIsOneStepAndEachBarIsItsOwn() {

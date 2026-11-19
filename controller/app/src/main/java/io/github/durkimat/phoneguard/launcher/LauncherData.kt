@@ -63,25 +63,36 @@ object LauncherData {
     /** How many days ahead the strip looks for its two events (today included). */
     private const val NEXT_DAYS = 7
     /**
-     * The next two timed events that have not ended, looked for today and the following days: "15:00 Dentist" for today, "20/11 09:00 Football" for a later
-     * day. All-day events are left out. Looked up at most once a minute (a calendar change clears it).
+     * The strip's calendar page (two lines at most), from the next [NEXT_DAYS] days: timed events that have not ended come first, by time. One timed event plus an
+     * all-day event TODAY gives the timed one then the all-day one; one timed event plus an all-day event on a later day shows only the timed one; with no timed
+     * events the all-day ones fill the lines, today's first. A multi-day all-day event is listed once. Looked up at most once a minute (a calendar change clears it).
      */
     private fun nextUp(c: Context, now: Long): List<NextEvent> {
         if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
         val text = try {
             val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
             val ev = io.github.durkimat.phoneguard.calendar.CompositeCalendar(c).events(now, io.github.durkimat.phoneguard.calendar.Cal.dayStart(today.plusDays(NEXT_DAYS.toLong()), z))
-            io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, NEXT_DAYS, z).filter { !it.event.allDay && it.event.end > now }
-                .distinctBy { it.event.start to it.event.title }.take(2).map { it.line(today, z) }
+            pickNext(io.github.durkimat.phoneguard.calendar.Cal.agenda(ev, today, NEXT_DAYS, z), today, now, z)
         } catch (_: Exception) { emptyList() }
         nextCache = now to text
         return text
     }
 
+    fun pickNext(items: List<io.github.durkimat.phoneguard.calendar.AgendaItem>, today: java.time.LocalDate, now: Long, z: java.time.ZoneId): List<NextEvent> {
+        val timed = items.filter { !it.event.allDay && it.event.end > now }.distinctBy { it.event.start to it.event.title }
+        val allDay = items.filter { it.event.allDay && it.event.end > now }.distinctBy { it.event.start to it.event.title }.sortedBy { it.day }
+        val chosen = when {
+            timed.size >= 2 -> timed.take(2)
+            timed.size == 1 -> timed + listOfNotNull(allDay.firstOrNull { it.day == today })
+            else -> allDay.take(2)
+        }
+        return chosen.map { it.line(today, z) }
+    }
+
     private fun io.github.durkimat.phoneguard.calendar.AgendaItem.line(today: java.time.LocalDate, z: java.time.ZoneId): NextEvent {
-        val time = io.github.durkimat.phoneguard.calendar.Cal.clock(event.start, z)
         val date = if (day == today) "" else "%02d/%02d ".format(day.dayOfMonth, day.monthValue)
-        return NextEvent(date + time + " ", event.title.ifBlank { "(no title)" })
+        val prefix = if (event.allDay) (if (day == today) "All day " else date) else date + io.github.durkimat.phoneguard.calendar.Cal.clock(event.start, z) + " "
+        return NextEvent(prefix, event.title.ifBlank { "(no title)" })
     }
 
     fun items(c: Context): List<MenuItem> {

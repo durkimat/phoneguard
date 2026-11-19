@@ -19,8 +19,8 @@ data class MusicInfo(
     val from: String = "",
     /** "radio" for an internet radio station (live: no length, previous and next move between presets); empty for music. */
     val source: String = "", val buffering: Boolean = false,
-    /** A radio's song and artist as separate fields, when the station gives them (otherwise empty and only the one text line is known). */
-    val radioSong: String = "", val radioArtist: String = "",
+    /** The radio station's name ("Magic"); empty for Spotify and the phone's own player. For a radio, `title` is the song (or the stream's one text line when the station gives no separate fields) and `artist` the artist when known. */
+    val station: String = "",
 ) {
     companion object {
         val NONE = MusicInfo(false, "", "", "", "", false, 0, 0, 0)

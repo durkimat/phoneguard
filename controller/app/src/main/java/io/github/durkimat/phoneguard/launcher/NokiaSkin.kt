@@ -106,10 +106,15 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             if (s != lastTrace) { lastTrace = s; android.util.Log.d("PGState", s) }
         }
 
+        /** The longest overflow among the scrolling lines of the frame being drawn, and of the last frame: every scrolling line in a frame moves on the one shared clock (see [ScrollClock]). */
+        private var frameTravel = 0f
+        private var syncTravel = 0f
+
         override fun onDraw(c: Canvas) {
             val m = model ?: return
             val i = info ?: return
             val u = width / 480f
+            frameTravel = 0f
             trace(m)
             val t = Themes.byId(m.theme)
             lcd = t.lcd; ink = t.ink; accent = m.accent ?: t.accent; fill.color = ink; stroke.color = ink
@@ -154,6 +159,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
             m.notice?.let { notice(c, it, u) }
             chrome.endContent(this, c, m, u)
+            syncTravel = frameTravel
         }
 
         override fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, u: Float, bold: Boolean, align: Paint.Align, color: Int, role: Int) {
@@ -549,12 +555,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val fw = lines.map { if (it.fixed.isEmpty()) 0f else measureText(it.fixed, it.size, it.bold) }
             val shown = lines.mapIndexed { n, l -> if (measureText(l.s, l.size, l.bold) > (room - fw[n]) * 3) NowLine(ellipsize(l.s, (room - fw[n]) * 3, l.size), l.size, l.bold, l.fixed) else l } // never longer than three screens
             val over = shown.mapIndexed { n, l -> (measureText(l.s, l.size, l.bold) - (room - fw[n])).coerceAtLeast(0f) }
-            val travel = over.max()
-            val off = if (travel <= 0f) 0f else {
-                val speed = 90f; val rest = 1500L; val moveMs = (travel / speed * 1000).toLong()
-                val t = System.currentTimeMillis() % (2 * (rest + moveMs))
-                when { t < rest -> 0f; t < rest + moveMs -> (t - rest) / 1000f * speed; t < 2 * rest + moveMs -> travel; else -> travel - (t - 2 * rest - moveMs) / 1000f * speed }.coerceIn(0f, travel)
-            }
+            val own = over.max()
+            frameTravel = maxOf(frameTravel, own)
+            val travel = maxOf(syncTravel, own)
+            val off = ScrollClock.offset(travel, System.currentTimeMillis())
             shown.forEachIndexed { n, l ->
                 val y = ys[n]
                 if (l.fixed.isNotEmpty()) text(c, l.fixed, x, y, l.size, u, bold = l.bold)
@@ -563,7 +567,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 val o = if (NOW_SHORT_STAYS) minOf(off, over[n]) else off
                 c.save(); c.clipRect(tx * u, (y - l.size * 1.1f) * u, (x + room) * u, (y + l.size * 0.4f) * u); text(c, l.s, tx - o, y, l.size, u, bold = l.bold); c.restore()
             }
-            if (travel > 0f) postInvalidateDelayed(60)
+            if (own > 0f) postInvalidateDelayed(60)
         }
 
         private fun nowPlayingLine(c: Canvas, np: io.github.durkimat.phoneguard.music.MusicInfo, top: Float, u: Float) {
@@ -574,11 +578,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
             // the artist over the title; a radio shows the station over what is on now
             if (np.source == "radio") {
-                // the station, with the artist after it when "station - artist" fits on the line; the song below. The song and artist come as separate fields when the station
-                // gives them (Planet Radio); otherwise the order inside the stream's one text is not reliable, so it is shown whole on line 2 and never split.
-                val both = if (np.radioSong.isNotEmpty() && np.radioArtist.isNotEmpty()) "${np.title} - ${np.radioArtist}" else ""
-                val line1 = if (both.isNotEmpty() && measureLine(NowLine(both, NOW_SIZE, NOW_BOLD)) <= 392f) both else np.title
-                nowLines(c, line1, np.radioSong.ifEmpty { np.artist }, 64f, 392f, u)
+                // the station, with the artist after it when "station - artist" fits on the line; the song below (title = song, artist = artist, the same fields as the Now playing screen)
+                val both = if (np.artist.isNotEmpty()) "${np.station} - ${np.artist}" else ""
+                val line1 = if (both.isNotEmpty() && measureLine(NowLine(both, NOW_SIZE, NOW_BOLD)) <= 392f) both else np.station
+                nowLines(c, line1, np.title, 64f, 392f, u)
             } else nowLines(c, np.artist, np.title, 64f, 392f, u)
             if (np.durationMs > 0) {
                 stroke.strokeWidth = 2f * u; stroke.color = ink
@@ -612,9 +615,9 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             } else if (chrome.nowPlaying(this, c, m, u)) {
                 // the chrome drew the whole player
             } else {
-                if (radio) text(c, "Internet Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else ""), 20f, 134f, 24f, u)
+                if (radio) text(c, fit(mu.station.ifEmpty { "Internet Radio" } + (if (m.radioIndex >= 0) "  " + (m.radioIndex + 1) else ""), if (m.sleepLabel.isNotEmpty()) 330f else 440f, 24f), 20f, 134f, 24f, u)
                 else if (mu.device.isNotEmpty()) text(c, if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 440f, 24f), 20f, 134f, 24f, u)
-                marquee(c, mu.title.ifEmpty { "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)
+                marquee(c, mu.title.ifEmpty { if (radio && mu.station.isNotEmpty()) mu.station else "(no title)" }, 20f, 190f, 40f, 440f, u, bold = true)
                 marquee(c, mu.artist, 20f, 240f, 32f, 440f, u)
                 // where it is playing from (a playlist), else the album unless that only repeats the song or artist
                 val sub = if (mu.from.isNotEmpty()) mu.from else if (mu.album.isNotEmpty() && !mu.album.equals(mu.title, true) && !mu.album.equals(mu.artist, true)) mu.album else ""
@@ -682,17 +685,10 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             if (measureBold(s, size, role) > room * 3) s = ellipsize(s, room * 3, size) // never longer than three screens
             val w = measureBold(s, size, role)
             if (w <= room) { if (center) text(c, s, x + room / 2, y, size, u, bold = bold, align = Paint.Align.CENTER, color = color, role = role) else text(c, s, x, y, size, u, bold = bold, color = color, role = role); return }
-            val travel = w - room
-            val speed = 90f // pixels a second
-            val rest = 1500L
-            val moveMs = (travel / speed * 1000).toLong()
-            val t = System.currentTimeMillis() % (2 * (rest + moveMs))
-            val off = when {
-                t < rest -> 0f
-                t < rest + moveMs -> (t - rest) / 1000f * speed
-                t < 2 * rest + moveMs -> travel
-                else -> travel - (t - 2 * rest - moveMs) / 1000f * speed
-            }.coerceIn(0f, travel)
+            // a line scrolls only when it must, and every scrolling line in the frame moves together: one clock, the longest overflow
+            val over = w - room
+            frameTravel = maxOf(frameTravel, over)
+            val off = ScrollClock.offset(maxOf(syncTravel, over), System.currentTimeMillis()).let { if (NOW_SHORT_STAYS) minOf(it, over) else it }
             c.save(); c.clipRect(x * u, (y - size * 1.1f) * u, (x + room) * u, (y + size * 0.4f) * u)
             text(c, s, x - off, y, size, u, bold = bold, color = color, role = role)
             c.restore()

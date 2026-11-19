@@ -12,7 +12,11 @@
 - Clock: "Set time: from network" is hidden (not greyed) when the time cannot be set.
 - Home right soft key is always "Contacts". A long press (about 500 ms) opens Music where music is allowed, nothing otherwise; a short press acts when the key comes up. D-pad Right with nothing selected is Contacts too.
 
-## Stage 2 (0.4.79): shared scroll clock, Now playing screen, all-day events (not started)
+## Stage 2 (0.4.79): shared scroll clock, Now playing screen, all-day events
+- One scroll clock for every scrolling text in the launcher (`ScrollClock`, in `PaintedSkin.marquee` and the Home strip): a line scrolls only if it needs to; when more than one scrolls they move together (same offset, timing and direction, travel = the longest overflow). Applies to Now playing, the Mac player, title bar plus highlighted row, the menu grid label, the Navigate caption and the strip.
+- Now playing: header = station (radio, with the preset number) / "Playing here" / device; main line = song; second line = artist; third line unchanged. One MusicInfo mapping for every screen (radio title = song or the stream's one text line, artist when known, new `station`).
+- Home strip calendar page: all-day events (rule B): timed events first; one timed plus an all-day event today = timed then all-day; one timed plus a later all-day = timed only; no timed = all-day events, today's first; multi-day shown once. Prefix "All day " or "DD/MM ".
+- Sound > Calls / Messages labels shortened to fit the row (Tune, Speaker button, Style, Text, Chat).
 ## Stage 3 (0.4.80): music behaviour, Spotify downloads discoverability (not started)
 
 ## Earlier in this cycle (already released)

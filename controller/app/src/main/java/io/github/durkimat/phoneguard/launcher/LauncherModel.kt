@@ -2348,7 +2348,7 @@ class LauncherModel(
             val si = soundInfo()
             names.mapIndexed { i, n ->
                 FormRow(n, { if (si.ringer == i) "(x)" else "( )" }, onStep = { _, _ -> pick(i) }, okStep = true)
-            } + FormRow(si.lockedBy ?: "Alarms still ring in Silent.", run = { Action.Redraw })
+            } + FormRow(if (si.lockedBy != null) "Set by the mode" else "Alarms ring in Silent.", run = { if (si.lockedBy != null) notify(si.lockedBy) ; Action.Redraw })
         }) { leave(); Action.Redraw }
     }
     private fun pick(i: Int) { val si = soundInfo(); if (si.lockedBy != null) notify(si.lockedBy) else onRinger(i) }
@@ -2371,19 +2371,19 @@ class LauncherModel(
     private fun vibrateRow(kind: Int) = FormRow("Vibrate", { if (soundInfo().vibrate.getOrElse(kind) { true }) "On" else "Off" },
         onStep = { _, _ -> onVibrate(kind, !soundInfo().vibrate.getOrElse(kind) { true }) }, okStep = true)
 
-    /** Sound > Calls: the ringtone, its volume, whether it vibrates, the Speakerphone button in the call menu, and the style the tunes are played in. */
+    /** Sound > Calls: the tune, its volume, whether it vibrates, the Speaker button in the call menu, and the style the tunes are played in. (Labels are short: a row is about 22 characters wide.) */
     private fun callsForm(): Form {
-        val style = FormRow("Tune style", { Tones.Style.of(toneStyle).label }, onStep = { _, _ ->
+        val style = FormRow("Style", { Tones.Style.of(toneStyle).label }, onStep = { _, _ ->
             toneStyle = if (toneStyle == Tones.Style.SOFT.id) Tones.Style.CLASSIC.id else Tones.Style.SOFT.id; onToneStyle(toneStyle)
         }, okStep = true)
-        val speaker = FormRow("Speakerphone button", { if (speakerShown) "Show" else "Hide" },
+        val speaker = FormRow("Speaker button", { if (speakerShown) "Show" else "Hide" },
             onStep = { _, _ -> speakerShown = !speakerShown; onDo(Action.SaveSpeaker(speakerShown)) }, okStep = true)
-        return Form("Calls", "Done", { listOf(toneRow("Ringtone", "ring"), volumeRow("Volume", 0), vibrateRow(0), speaker, style) }) { leave(); Action.Redraw }
+        return Form("Calls", "Done", { listOf(toneRow("Tune", "ring"), volumeRow("Volume", 0), vibrateRow(0), speaker, style) }) { leave(); Action.Redraw }
     }
 
     /** Sound > Messages: the text and WhatsApp tones, the volume and whether they vibrate. */
     private fun messagesForm(): Form =
-        Form("Messages", "Done", { listOf(toneRow("Text tone", "sms"), toneRow("WhatsApp tone", "wa"), volumeRow("Volume", 1), vibrateRow(1)) }) { leave(); Action.Redraw }
+        Form("Messages", "Done", { listOf(toneRow("Text", "sms"), toneRow("Chat", "wa"), volumeRow("Volume", 1), vibrateRow(1)) }) { leave(); Action.Redraw }
 
     private fun setTimeForm(): Form {
         var at = java.time.ZonedDateTime.now(zone).withSecond(0).withNano(0)

@@ -303,7 +303,7 @@ class LauncherActivity : Activity() {
             val (playing, status) = providerStates()
             // the one playing first, then paused ones; Spotify only when it is on THIS phone (on another device it is for the Now playing screen alone)
             (listOfNotNull(playing) + status.entries.filter { it.value == 1 }.map { it.key }).distinct()
-                .firstNotNullOfOrNull { prov -> nowPlaying(prov).takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank()) && (it.source == "radio" || it.thisPhone) } }
+                .firstNotNullOfOrNull { prov -> nowPlaying(prov).takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank() || it.station.isNotBlank()) && (it.source == "radio" || it.thisPhone) } }
         }
     } catch (_: Exception) { null }
 
@@ -312,8 +312,10 @@ class LauncherActivity : Activity() {
         if (!io.github.durkimat.phoneguard.music.Radio.active) return null
         val st = io.github.durkimat.phoneguard.music.Radio.state
         val connecting = st.buffering && !st.playing
-        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Internet Radio", st.station, if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else st.nowPlaying, "", st.playing || connecting,
-            if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting, radioSong = if (connecting || st.error.isNotEmpty()) "" else st.song, radioArtist = if (connecting || st.error.isNotEmpty()) "" else st.songArtist)
+        val status = if (st.error.isNotEmpty()) st.error else if (connecting) "Connecting..." else ""
+        // one mapping for every screen: the song is the title and the artist the artist (separate fields where the station gives them, else the stream's one text line unsplit as the title)
+        return io.github.durkimat.phoneguard.music.MusicInfo(true, "Internet Radio", status.ifEmpty { st.song.ifEmpty { st.nowPlaying } }, if (status.isEmpty()) st.songArtist else "", "", st.playing || connecting,
+            if (st.playing) System.currentTimeMillis() - st.startedAt else 0L, 0L, io.github.durkimat.phoneguard.music.MusicController.volumePct(this), source = "radio", buffering = connecting, station = st.station)
     }
 
     /** What is playing, and each provider's state for the Music menu (0 idle, 1 paused, 2 playing), from what is already known (nothing is polled here). */

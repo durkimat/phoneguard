@@ -144,11 +144,11 @@ class MacChrome : Chrome {
         stroke.strokeWidth = 2 * u
         c.drawRect(22 * u, 104 * u, 458 * u, 256 * u, stroke)
         c.drawRect(26 * u, 108 * u, 454 * u, 252 * u, stroke)
-        val where = if (radio) "Internet Radio" + (if (m.radioIndex >= 0) " " + (m.radioIndex + 1) else "")
+        val where = if (radio) ellipsize(mu.station.ifEmpty { "Internet Radio" } + (if (m.radioIndex >= 0) "  " + (m.radioIndex + 1) else ""), 250f, 22f)
             else if (mu.device.isNotEmpty()) (if (mu.thisPhone) "Playing here" else ellipsize("on " + mu.device, 250f, 22f)) else ""
         text(c, where, 38f, 134f, 22f, u)
         if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 442f, 134f, 22f, u, align = Paint.Align.RIGHT)
-        marquee(c, mu.title.ifEmpty { "(no title)" }, 38f, 180f, 34f, 404f, u, bold = true)
+        marquee(c, mu.title.ifEmpty { if (radio && mu.station.isNotEmpty()) mu.station else "(no title)" }, 38f, 180f, 34f, 404f, u, bold = true)
         marquee(c, mu.artist, 38f, 214f, 28f, 404f, u)
         val sub = if (mu.from.isNotEmpty()) mu.from else if (mu.album.isNotEmpty() && !mu.album.equals(mu.title, true) && !mu.album.equals(mu.artist, true)) mu.album else ""
         if (sub.isNotEmpty()) marquee(c, sub, 38f, 242f, 22f, 404f, u)
