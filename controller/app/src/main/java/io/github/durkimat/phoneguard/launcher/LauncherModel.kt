@@ -24,7 +24,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU, SPMARKS }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -611,6 +611,7 @@ class LauncherModel(
         Screen.POWERMENU -> "Phone"
         Screen.EXTRAS -> "Extras"
         Screen.PHONEMENU -> "Phone"
+        Screen.SPMARKS -> "Marks"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -728,6 +729,7 @@ class LauncherModel(
         Screen.POWERMENU -> listOf("Power off", "Restart")
         Screen.EXTRAS -> extrasMenu.map { it.label }
         Screen.PHONEMENU -> listOf("Call log", "Contacts")
+        Screen.SPMARKS -> listOf("↓  downloaded for offline", "…  downloading now", "*  pinned to the top", "#  download or remove", "*  pin or unpin")
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -773,7 +775,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.EXTRAS, Screen.PHONEMENU, Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU, Screen.EXTRAS, Screen.PHONEMENU)
+    private val numbered = setOf(Screen.EXTRAS, Screen.PHONEMENU, Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU, Screen.EXTRAS, Screen.PHONEMENU, Screen.SPMARKS)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -856,6 +858,7 @@ class LauncherModel(
         Screen.POWERMENU -> powerMenuKey(key, digit)
         Screen.EXTRAS -> extrasKey(key)
         Screen.PHONEMENU -> phoneMenuKey(key)
+        Screen.SPMARKS -> move(key, 5) ?: when (key) { Key.END -> { goHome(); Action.Redraw }; Key.OK, Key.LEFT, Key.SOFT_LEFT, Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }; else -> Action.None }
         Screen.MAILBOX -> mailBoxKey(key)
         Screen.MAILLIST -> mailListKey(key)
         Screen.MAILMSG -> mailMsgKey(key)
@@ -1941,7 +1944,7 @@ class LauncherModel(
         val radio = provider == Provider.RADIO
         if (radio && d in 1..9) return if (d <= radioNames.size) Action.RadioPlay(d - 1) else Action.None
         return when {
-            key == Key.SOFT_LEFT -> { screen = if (radio) Screen.RADIOMENU else Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
+            key == Key.SOFT_LEFT -> { menuPlaylist = null; screen = if (radio) Screen.RADIOMENU else Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
             key == Key.OK || (d == 5 && !radio) -> when {
                 music.active -> Action.MusicPlayPause
                 radio -> if (radioNames.isNotEmpty()) { screen = Screen.RADIO; selected = 0; Action.Redraw } else Action.None
@@ -1968,7 +1971,7 @@ class LauncherModel(
 
     /** What each provider's menu offers (the sleep timer and the bar are in each, as in the Music menu). */
     private val radioMenuRows: List<String> get() = listOf("Presets") + (if (radioMode == "any") listOf("Find station", "Browse stations") else emptyList()) + "Change source" + (if ((provStatus[Provider.RADIO] ?: 0) != 0) listOf("Stop music") else emptyList())
-    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("Sign out of Spotify") else emptyList()) + (if ((provStatus[Provider.SPOTIFY] ?: 0) != 0) listOf("Stop music") else emptyList())
+    private val spotifyMenuRows: List<String> get() = (if (spSignedIn) listOf("Playlists", "Search", "Play on...") else if (spConfigured) listOf("Sign in to Spotify") else listOf("Spotify: set up in HA")) + "Change source" + (if (spSignedIn) listOf("What do the marks mean?", "Sign out of Spotify") else emptyList()) + (if ((provStatus[Provider.SPOTIFY] ?: 0) != 0) listOf("Stop music") else emptyList()) + listOfNotNull(menuPlaylistRow())
 
     private fun radioMenuKey(key: Key): Action = move(key, radioMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = radioMenuRows.getOrNull(selected)) {
@@ -1984,6 +1987,26 @@ class LauncherModel(
         else -> Action.None
     }
 
+    /** The playlist that was highlighted when the Spotify menu was opened from the Playlists screen: its Download / Remove download row comes last in the menu. */
+    private var menuPlaylist: io.github.durkimat.phoneguard.music.SpItem? = null
+    private fun menuPlaylistRow(): String? = menuPlaylist?.takeIf { io.github.durkimat.phoneguard.music.PlaylistOffline.idOf(it.uri) != null }?.let { if (it.uri in spOffline) "Remove download" else "Download playlist" }
+
+    /** What `#` does on a playlist (also the menu row): download it for offline listening, or remove the download. */
+    private fun offlineAction(sel: io.github.durkimat.phoneguard.music.SpItem): Action {
+        val rec = spOffline[sel.uri]
+        return when {
+            sel.uri in spBusy -> { notice = "Already downloading"; Action.Redraw }
+            io.github.durkimat.phoneguard.music.PlaylistOffline.idOf(sel.uri) == null -> Action.None
+            else -> Action.SpOffline(sel.uri, rec?.name ?: spRaw.firstOrNull { it.uri == sel.uri }?.label ?: sel.label, rec != null)
+        }
+    }
+
+    /** The hint under the Playlists list, for the highlighted playlist: what `#` and `*` will do. */
+    fun playlistHint(): String {
+        val sel = spPlaylists.getOrNull(selected) ?: return ""
+        return when { sel.uri in spBusy -> "Downloading..."; sel.uri in spOffline -> "# remove download"; else -> "# download   * pin" }
+    }
+
     /** Stop (not pause) the provider, then Home with a notice: the strip and Now playing no longer show it. */
     fun stopMusic(p: Provider): Action { goHome(); notice = "Stopped"; return Action.MusicStop(p) }
 
@@ -1996,6 +2019,8 @@ class LauncherModel(
             "Sign in to Spotify" -> Action.SpSignIn
             "Change source" -> openSourcePicker()
             "Stop music" -> stopMusic(Provider.SPOTIFY)
+            "What do the marks mean?" -> { enter(Screen.SPMARKS); Action.Redraw }
+            "Download playlist", "Remove download" -> menuPlaylist?.let { offlineAction(it) } ?: Action.None
             else -> Action.None
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
@@ -2628,7 +2653,7 @@ class LauncherModel(
                 Screen.SEARCHRES -> spResults.getOrNull(selected)?.let { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.SpPlay(it.uri) } ?: Action.None
                 else -> spDevices.getOrNull(selected)?.let { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.SpTransfer(it.id, it.name) } ?: Action.None
             }
-            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { menuPlaylist = if (screen == Screen.PLAYLISTS) spPlaylists.getOrNull(selected) else null; screen = Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
             Key.STAR -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { sel ->
                 if (sel.uri in spOffline) { notice = "Remove the download to unpin"; Action.Redraw }
                 else when (val t = io.github.durkimat.phoneguard.music.PlaylistOrder.toggle(spPins, sel.uri)) {
@@ -2636,14 +2661,7 @@ class LauncherModel(
                     else -> { spPins = t.first; setPlaylists(spRaw); notice = if (t.second) "Pinned" else "Unpinned"; Action.SpPin(sel.uri, t.second) }
                 }
             } ?: Action.None
-            Key.POUND -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { sel ->
-                val rec = spOffline[sel.uri]
-                when {
-                    sel.uri in spBusy -> { notice = "Already downloading"; Action.Redraw }
-                    io.github.durkimat.phoneguard.music.PlaylistOffline.idOf(sel.uri) == null -> Action.None
-                    else -> Action.SpOffline(sel.uri, rec?.name ?: spRaw.firstOrNull { it.uri == sel.uri }?.label ?: sel.label, rec != null)
-                }
-            } ?: Action.None
+            Key.POUND -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { offlineAction(it) } ?: Action.None
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }

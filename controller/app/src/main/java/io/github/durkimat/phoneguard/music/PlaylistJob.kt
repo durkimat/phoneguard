@@ -29,7 +29,7 @@ object PlaylistJob {
         if (running.get()) return "Another job is running"
         if (io.github.durkimat.phoneguard.StoreInstall.running.get()) return "The phone is busy with the app store"
         if (!MusicController.spotifyInstalled(c)) return "Spotify is not installed"
-        if (!F2Service.running()) return "Phone Guard keys are off"
+        if (!F2Service.running()) return "Turn on Phone Guard keys in Settings, then try again"
         if (c.getSystemService(KeyguardManager::class.java).isDeviceLocked) return "Unlock the phone first"
         if (CallState.info != null) return "Not during a call"
         if (!removing && !onWifi(c)) return "Connect to Wi-Fi first"

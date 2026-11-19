@@ -644,14 +644,14 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 if (radio) { text(c, "< prev", 20f, 464f, 26f, u); text(c, "next >", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
                 else { text(c, "4 prev", 20f, 464f, 26f, u); text(c, "6 next", 460f, 464f, 26f, u, align = Paint.Align.RIGHT) }
                 if (radio) {
-                    text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 514f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "* bars  0 sleep  # source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "Hold OK: stop", 240f, 570f, 22f, u, align = Paint.Align.CENTER)
+                    text(c, if (m.radioMode == "any") "1-9 presets, hold to set" else "1-9 presets", 240f, 506f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "* bars  0 sleep  # source", 240f, 536f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "Hold OK: stop", 240f, 564f, 22f, u, align = Paint.Align.CENTER)
                     if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 } else {
-                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   1 repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 514f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "7 bars  0 sleep  # source", 240f, 548f, 24f, u, align = Paint.Align.CENTER)
-                    text(c, "Hold OK: stop", 240f, 570f, 22f, u, align = Paint.Align.CENTER)
+                    if (m.spSignedIn) text(c, "* shuffle " + (if (mu.shuffle) "on" else "off") + "   1 repeat " + (when (mu.repeat) { "context" -> "all"; "track" -> "one"; else -> "off" }), 240f, 506f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "7 bars  0 sleep  # source", 240f, 536f, 24f, u, align = Paint.Align.CENTER)
+                    text(c, "Hold OK: stop", 240f, 564f, 22f, u, align = Paint.Align.CENTER)
                     if (m.sleepLabel.isNotEmpty()) text(c, "sleep " + m.sleepLabel, 460f, 134f, 24f, u, align = Paint.Align.RIGHT)
                 }
             }
@@ -901,7 +901,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             if (m.rows.size > visible) chrome.scrollBar(this, c, first, m.rows.size, visible, u)
             m.wherePlaceNote.let { if (it.isNotEmpty()) text(c, it, 240f, 566f, 22f, u, align = Paint.Align.CENTER) }
             if (m.rows.isEmpty()) text(c, if (m.screen == Screen.WHATSAPP) "No chats yet" else if (m.screen == Screen.PLAYLISTS || m.screen == Screen.DEVICES || m.screen == Screen.SEARCHRES) m.spStatus.ifEmpty { "Empty" } else if (m.screen == Screen.WHEREPLACES || m.screen == Screen.WHEREJOURNEYS) m.whereStatus.ifEmpty { "Empty" } else if (m.screen == Screen.DATAAPPS) m.dataAppsStatus.ifEmpty { "Empty" } else if (m.screen == Screen.NOTES && !io.github.durkimat.phoneguard.notes.NoteService.connected) "Notifications are not connected" else "Empty", 240f, 300f, 30f, u, align = Paint.Align.CENTER)
-            if (m.screen == Screen.PLAYLISTS && m.rows.isNotEmpty() && m.rows.size <= visible - 1) text(c, "* pin  # offline", 240f, 556f, 24f, u, align = Paint.Align.CENTER) // the keys that pin the highlighted playlist and download it
+            if (m.screen == Screen.PLAYLISTS && m.rows.isNotEmpty()) text(c, m.playlistHint(), 240f, 560f, 24f, u, align = Paint.Align.CENTER) // the keys that pin the highlighted playlist and download it
             if (m.screen == Screen.WHATSAPP && m.waNote.isNotEmpty()) text(c, m.waNote, 240f, 556f, 26f, u, align = Paint.Align.CENTER)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }

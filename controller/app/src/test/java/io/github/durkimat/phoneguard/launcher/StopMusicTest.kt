@@ -22,8 +22,8 @@ class StopMusicTest {
         m.onKey(Key.DIGIT, 2); m.onKey(Key.SOFT_RIGHT) // Spotify Now playing screen's menu is reached with the right key from the list; use the soft left on Now playing
         m.goHome(); m.openMusicFromHome(); m.onKey(Key.DIGIT, 2); assertEquals(Screen.MUSIC, m.screen)
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
-        assertEquals(listOf("Playlists", "Search", "Play on...", "Change source", "Sign out of Spotify", "Stop music"), m.rows)
-        assertEquals(Action.MusicStop(Provider.SPOTIFY), m.onKey(Key.DIGIT, 6))
+        assertEquals(listOf("Playlists", "Search", "Play on...", "Change source", "What do the marks mean?", "Sign out of Spotify", "Stop music"), m.rows)
+        assertEquals(Action.MusicStop(Provider.SPOTIFY), m.onKey(Key.DIGIT, 7))
     }
 
     @Test fun pausedLongerThanTwoHoursExpires() {
