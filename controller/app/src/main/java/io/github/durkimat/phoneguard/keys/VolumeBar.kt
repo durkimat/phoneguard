@@ -55,18 +55,38 @@ class VolumeBar(private val svc: AccessibilityService) {
             val p = (lv.pos(svc, lv.RING) + if (up) 1 else -1).coerceIn(0, lv.MAX)
             lv.setPos(svc, lv.RING, p); lv.pin(svc)
             Thread { tones.levelChanged(svc, tones.RING) }.start()
-            show(lv.bars(p) * 10 / 7, 10, label, false)
+            show(p, lv.MAX, label, false) // eleven steps, ten blocks: one press moves the bar by exactly one block (or into the empty one at zero)
+            if (!ringing()) beep(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, tones.pick(svc, tones.RING).takeIf { it != tones.STOCK } ?: io.github.durkimat.phoneguard.alarm.Tones.DEFAULT, lv.gainAt(p) * tones.RING_AMP / 0.6)
             return
         }
+        // one press is one visible block: at most ten steps, each a whole number of the stream's own indexes
         try {
-            am.adjustStreamVolume(s, if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_ALLOW_RINGER_MODES)
+            if (s == AudioManager.STREAM_RING) am.adjustStreamVolume(s, if (up) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, AudioManager.FLAG_ALLOW_RINGER_MODES)
+            else {
+                val max = am.getStreamMaxVolume(s).coerceAtLeast(1); val cells = minOf(max, 10)
+                val pos = Math.round(am.getStreamVolume(s) * cells / max.toFloat()) + if (up) 1 else -1
+                am.setStreamVolume(s, Math.round(pos.coerceIn(0, cells) * max / cells.toFloat()).coerceAtLeast(if (s == AudioManager.STREAM_VOICE_CALL) 1 else 0), 0)
+            }
         } catch (e: Exception) { Log.log(svc, "volume: ${e.javaClass.simpleName}") }
         show(s, label)
+        // a short beep at the new level tells the person where it is left; with music playing the music says it
+        if (s == AudioManager.STREAM_VOICE_CALL) beep(android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION, io.github.durkimat.phoneguard.alarm.Tones.DEFAULT, 1.0)
+        else if (s == AudioManager.STREAM_RING && am.ringerMode == AudioManager.RINGER_MODE_NORMAL && !ringing()) beep(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, io.github.durkimat.phoneguard.alarm.Tones.DEFAULT, 1.0)
+    }
+
+    private var beepRun = Runnable { }
+    /** Quick presses: the sample in progress is cut at once and only the last level plays, after a short pause with no further press. */
+    private fun beep(usage: Int, id: String, gain: Double) {
+        val tones = io.github.durkimat.phoneguard.alarm.ToneStore
+        tones.stopSample(); ui.removeCallbacks(beepRun)
+        beepRun = Runnable { Thread { tones.sample(svc, usage, id, gain) }.start() }
+        ui.postDelayed(beepRun, 120)
     }
 
     private fun show(stream: Int, label: String) {
         val cur = am.getStreamVolume(stream); val max = am.getStreamMaxVolume(stream).coerceAtLeast(1)
-        show(cur, max, label, stream == AudioManager.STREAM_RING && am.ringerMode != AudioManager.RINGER_MODE_NORMAL)
+        val cells = minOf(max, 10)
+        show(Math.round(cur * cells / max.toFloat()), cells, label, stream == AudioManager.STREAM_RING && am.ringerMode != AudioManager.RINGER_MODE_NORMAL)
     }
 
     private fun show(cur: Int, max: Int, label: String, silent: Boolean) {
@@ -105,8 +125,8 @@ class VolumeBar(private val svc: AccessibilityService) {
             val muted = silent || cur == 0
             if (muted) { p.strokeWidth = 3 * u; cv.drawLine(sx + 26 * u, cy - 9 * u, sx + 40 * u, cy + 9 * u, p); cv.drawLine(sx + 26 * u, cy + 9 * u, sx + 40 * u, cy - 9 * u, p) }
             // ten blocks, filled up to the level
-            val n = 10; val filled = io.github.durkimat.phoneguard.core.VolumeLevel.blocks(cur, max, n, muted)
-            val x0 = 66 * u; val bw = 12 * u; val gap = 3 * u; val bh = 26 * u
+            val n = if (max in 1..10) max else 10; val filled = io.github.durkimat.phoneguard.core.VolumeLevel.blocks(cur, max, n, muted)
+            val x0 = 66 * u; val gap = 3 * u; val bw = (150 * u - gap * (n - 1)) / n; val bh = 26 * u
             for (i in 0 until n) {
                 val l = x0 + i * (bw + gap); val top = cy - bh / 2
                 if (i < filled) cv.drawRect(l, top, l + bw, top + bh, p)
