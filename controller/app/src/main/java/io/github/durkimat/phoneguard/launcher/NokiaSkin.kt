@@ -526,12 +526,31 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
         }
 
-        /** One or two lines in the strip (line 1 regular, line 2 bold); a lone line sits halfway between them. Long lines scroll as [NOW_BOTH_SCROLL] says. */
+        /**
+         * One or two lines in the strip (line 1 regular, line 2 bold); a lone line sits halfway between them. When a line is too long the lines scroll
+         * together as [NOW_SYNC_SCROLL] and [NOW_SHORT_STAYS] say: rest, travel (the longer line's overflow), rest, back.
+         */
         private fun nowLines(c: Canvas, first: String, second: String, x: Float, room: Float, titleSize: Float, u: Float) {
-            if (first.isNotBlank() && second.isNotBlank()) {
-                if (NOW_BOTH_SCROLL) marquee(c, first, x, NOW_LINE1, 28f, room, u) else text(c, ellipsize(first, room, 28f), x, NOW_LINE1, 28f, u)
-                marquee(c, second, x, NOW_LINE2, titleSize, room, u, bold = true)
-            } else (if (first.isNotBlank()) first else second).takeIf { it.isNotBlank() }?.let { marquee(c, it, x, NOW_LONE, titleSize, room, u, bold = true) }
+            val two = first.isNotBlank() && second.isNotBlank()
+            if (two && !NOW_SYNC_SCROLL) { text(c, ellipsize(first, room, 28f), x, NOW_LINE1, 28f, u); marquee(c, second, x, NOW_LINE2, titleSize, room, u, bold = true); return }
+            data class L(val s: String, val size: Float, val y: Float, val bold: Boolean)
+            val lines = if (two) listOf(L(first, 28f, NOW_LINE1, false), L(second, titleSize, NOW_LINE2, true))
+                else listOfNotNull((if (first.isNotBlank()) first else second).takeIf { it.isNotBlank() }?.let { L(it, titleSize, NOW_LONE, true) })
+            if (lines.isEmpty()) return
+            val shown = lines.map { l -> if (measureBold(l.s, l.size) > room * 3) l.copy(s = ellipsize(l.s, room * 3, l.size)) else l } // never longer than three screens
+            val over = shown.map { (measureBold(it.s, it.size) - room).coerceAtLeast(0f) }
+            val travel = over.max()
+            val off = if (travel <= 0f) 0f else {
+                val speed = 90f; val rest = 1500L; val moveMs = (travel / speed * 1000).toLong()
+                val t = System.currentTimeMillis() % (2 * (rest + moveMs))
+                when { t < rest -> 0f; t < rest + moveMs -> (t - rest) / 1000f * speed; t < 2 * rest + moveMs -> travel; else -> travel - (t - 2 * rest - moveMs) / 1000f * speed }.coerceIn(0f, travel)
+            }
+            shown.forEachIndexed { n, l ->
+                val o = if (NOW_SHORT_STAYS) minOf(off, over[n]) else off
+                if (travel <= 0f) text(c, l.s, x, l.y, l.size, u, bold = l.bold)
+                else { c.save(); c.clipRect(x * u, (l.y - l.size * 1.1f) * u, (x + room) * u, (l.y + l.size * 0.4f) * u); text(c, l.s, x - o, l.y, l.size, u, bold = l.bold); c.restore() }
+            }
+            if (travel > 0f) postInvalidateDelayed(60)
         }
 
         private fun nowPlayingLine(c: Canvas, np: io.github.durkimat.phoneguard.music.MusicInfo, top: Float, u: Float) {
@@ -541,7 +560,14 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 c.drawPath(tri, fill)
             } else { c.drawRect(26f * u, (top - 12f) * u, 33f * u, (top + 12f) * u, fill); c.drawRect(40f * u, (top - 12f) * u, 47f * u, (top + 12f) * u, fill) }
             // the artist over the title; a radio shows the station over what is on now
-            if (np.source == "radio") nowLines(c, np.title, np.artist, 64f, 392f, 32f, u) else nowLines(c, np.artist, np.title, 64f, 392f, 32f, u)
+            if (np.source == "radio") {
+                // the station, with the artist after it when "station - artist" fits on the line; the song title below. The station sends "Artist - Title" or just a title.
+                val icy = np.artist.trim(); val cut = icy.indexOf(" - ")
+                val who = if (cut > 0) icy.substring(0, cut).trim() else ""
+                val song = if (cut > 0) icy.substring(cut + 3).trim() else icy
+                val both = if (who.isNotEmpty()) "${np.title} - $who" else ""
+                nowLines(c, if (both.isNotEmpty() && measureBold(both, 28f) <= 392f) both else np.title, song, 64f, 392f, 32f, u)
+            } else nowLines(c, np.artist, np.title, 64f, 392f, 32f, u)
             if (np.durationMs > 0) {
                 stroke.strokeWidth = 2f * u; stroke.color = ink
                 c.drawRect(24f * u, NOW_BAR_TOP * u, 456f * u, (NOW_BAR_TOP + 8f) * u, stroke)

@@ -99,8 +99,10 @@ const val NOW_LINE2 = 436f
 const val NOW_LONE = 420f
 const val NOW_BAR_TOP = 446f
 const val NOW_DOTS_Y = 468f
-/** How long lines in the strip behave: true = each long line scrolls on its own; false = only the second line (title) scrolls and a long first line is cut with "...". */
-const val NOW_BOTH_SCROLL = true
+/** Long lines in the strip: true = when either line needs to scroll, both scroll TOGETHER (same offset and timing, one shared travel equal to the longer overflow); false = only the title (line 2) scrolls and a long first line is cut with "...". */
+const val NOW_SYNC_SCROLL = true
+/** With [NOW_SYNC_SCROLL]: false = the shorter line travels the full shared distance too (it may slide partly off the side); true = it stops once its own end has been shown. */
+const val NOW_SHORT_STAYS = false
 /** Zone 6 (the counts): its highlight box and its touch band. The symbols themselves are drawn where they always were (centre y 512). */
 const val ACT_BOX_TOP = 484f
 const val ACT_BOX_BOTTOM = 544f
