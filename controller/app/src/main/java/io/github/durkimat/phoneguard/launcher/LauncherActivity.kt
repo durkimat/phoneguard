@@ -451,7 +451,11 @@ class LauncherActivity : Activity() {
         val cfg = io.github.durkimat.phoneguard.Store.config(this)
         val eff = io.github.durkimat.phoneguard.core.Engine.effective(cfg, io.github.durkimat.phoneguard.Store.boost(this), io.github.durkimat.phoneguard.Clock.now())
         val locked = if (eff.sound == "normal") null else io.github.durkimat.phoneguard.core.Engine.modeDef(cfg, eff.modeId).name + " mode keeps the phone " + (if (eff.sound == "silent") "silent" else "on vibrate") + ". Alarms can still ring."
-        return LauncherModel.SoundInfo(ringer, locked, soundStreams.map { am.getStreamVolume(it) to am.getStreamMaxVolume(it) })
+        return LauncherModel.SoundInfo(ringer, locked, soundStreams.mapIndexed { i, st ->
+            val lv = io.github.durkimat.phoneguard.alarm.SoundLevels
+            if (i < 2) { val p = lv.pos(this, if (i == 0) lv.RING else lv.MSG); LauncherModel.Vol(p, lv.MAX, lv.bars(p), 7) }
+            else { val max = am.getStreamMaxVolume(st).coerceAtLeast(1); val cells = minOf(max, 7); val p = Math.round(am.getStreamVolume(st) * cells / max.toFloat()); LauncherModel.Vol(p, cells, p, cells) }
+        })
     }
 
     private fun setRinger(i: Int) {
@@ -462,21 +466,33 @@ class LauncherActivity : Activity() {
             if (access && nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) nm.setInterruptionFilter(android.app.NotificationManager.INTERRUPTION_FILTER_ALL)
             am.ringerMode = when (i) { 0 -> android.media.AudioManager.RINGER_MODE_NORMAL; 1 -> android.media.AudioManager.RINGER_MODE_VIBRATE; else -> if (access) android.media.AudioManager.RINGER_MODE_SILENT else android.media.AudioManager.RINGER_MODE_VIBRATE }
             if (i == 2 && !access) model.notify("Silent needs Do Not Disturb access: vibrate set")
+            if (i == 0) io.github.durkimat.phoneguard.alarm.SoundLevels.pin(this)
             Log.log(this, "sound: ringer set to ${listOf("normal", "vibrate", "silent")[i]} on the phone")
         } catch (e: Exception) { Log.log(this, "sound: ringer ${e.javaClass.simpleName}"); model.notify("This phone would not change that") }
         refresh()
     }
 
+    /** Ringtone and Messages (0, 1) are our own levels (see SoundLevels); Media and Phone call (2, 3) set their system stream, one bar a step. */
     private fun setVolume(which: Int, v: Int) {
         val am = getSystemService(android.media.AudioManager::class.java)
         try {
-            val s = soundStreams[which]
-            am.setStreamVolume(s, v.coerceAtLeast(if (which == 3) 1 else 0), 0)
-            val usage = intArrayOf(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, android.media.AudioAttributes.USAGE_NOTIFICATION, android.media.AudioAttributes.USAGE_MEDIA, android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)[which]
+            val lv = io.github.durkimat.phoneguard.alarm.SoundLevels
             val tones = io.github.durkimat.phoneguard.alarm.ToneStore
+            val usage = intArrayOf(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE, android.media.AudioAttributes.USAGE_NOTIFICATION, android.media.AudioAttributes.USAGE_MEDIA, android.media.AudioAttributes.USAGE_VOICE_COMMUNICATION)[which]
             val slot = if (which == 0) "ring" else if (which == 1) "sms" else ""
-            val id = tones.pick(this, slot).takeIf { it != "stock" } ?: if (which == 1) "pair" else "chime"
-            Thread { tones.sample(this, usage, id) }.start()
+            var gain = 1.0
+            if (which < 2) {
+                // a level can only be applied to a tune we supply: the phone's own sound is replaced by a default one the first time
+                if (tones.pick(this, slot) == "stock") { val d = if (which == 1) "pair" else "chime"; tones.set(this, slot, d); model.notify("${if (which == 0) "Ringtone" else "Message tone"} is now ${io.github.durkimat.phoneguard.alarm.Tones.byId(d).name}, so its volume can be set") }
+                lv.setPos(this, slot, v); gain = lv.gainAt(v)
+                lv.pin(this); Thread { tones.levelChanged(this, slot) }.start()
+            } else {
+                val s = soundStreams[which]; val max = am.getStreamMaxVolume(s).coerceAtLeast(1); val cells = minOf(max, 7)
+                am.setStreamVolume(s, Math.round(v * max / cells.toFloat()).coerceAtLeast(if (which == 3) 1 else 0), 0)
+            }
+            val id = if (slot == "") "chime" else tones.pick(this, slot).takeIf { it != "stock" } ?: if (which == 1) "pair" else "chime"
+            val g = if (which < 2) gain * (if (which == 0) io.github.durkimat.phoneguard.alarm.ToneStore.RING_AMP else io.github.durkimat.phoneguard.alarm.ToneStore.MSG_AMP) / 0.6 else 1.0
+            Thread { tones.sample(this, usage, id, g) }.start()
         } catch (e: Exception) { Log.log(this, "sound: volume ${e.javaClass.simpleName}"); model.notify("This phone would not change that") }
         refresh()
     }

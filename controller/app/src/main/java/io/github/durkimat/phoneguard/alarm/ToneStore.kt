@@ -56,7 +56,7 @@ object ToneStore {
     fun reapplyAll(c: Context) { for (s in listOf(RING, SMS)) if (pick(c, s) != STOCK) apply(c, s, pick(c, s)) }
 
     /** The saved file for [slot] holding tune [id], for a channel sound (WhatsApp); null when the system will not take it. */
-    fun uriFor(c: Context, slot: String, id: String): Uri? = try { place(c, slot, wav(Tones.byId(id), 0, MSG_AMP, style(c))) } catch (e: Exception) { Log.log(c, "tones: file for $slot failed ${e.javaClass.simpleName}"); null }
+    fun uriFor(c: Context, slot: String, id: String): Uri? = try { place(c, slot, wav(Tones.byId(id), 0, MSG_AMP * SoundLevels.gain(c, SoundLevels.MSG), style(c))) } catch (e: Exception) { Log.log(c, "tones: file for $slot failed ${e.javaClass.simpleName}"); null }
 
     private fun type(slot: String) = if (slot == RING) RingtoneManager.TYPE_RINGTONE else RingtoneManager.TYPE_NOTIFICATION
 
@@ -70,11 +70,14 @@ object ToneStore {
                 return true
             }
             if (sp.getString("stock_$slot", null) == null) sp.edit().putString("stock_$slot", RingtoneManager.getActualDefaultRingtoneUri(c, ty)?.toString() ?: "none").apply()
-            val uri = place(c, slot, wav(Tones.byId(id), if (slot == RING) 1200 else 0, if (slot == RING) RING_AMP else MSG_AMP, style(c))) ?: return false
+            val uri = place(c, slot, wav(Tones.byId(id), if (slot == RING) 1200 else 0, (if (slot == RING) RING_AMP else MSG_AMP) * SoundLevels.gain(c, if (slot == RING) SoundLevels.RING else SoundLevels.MSG), style(c))) ?: return false
             RingtoneManager.setActualDefaultRingtoneUri(c, ty, uri)
             return true
         } catch (e: Exception) { Log.log(c, "tones: $slot $id failed ${e.javaClass.simpleName}"); return false }
     }
+
+    /** A level changed: rewrites the saved file for [slot] at the new gain (one at a time, so quick presses cannot interleave). */
+    @Synchronized fun levelChanged(c: Context, slot: String) { val id = pick(c, slot); if (id != STOCK) apply(c, slot, id) }
 
     /** One file per slot, rewritten in place when the pick changes. */
     private fun place(c: Context, slot: String, bytes: ByteArray): Uri? {
@@ -123,7 +126,9 @@ object ToneStore {
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Tones.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                 .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
-            t.write(pcm, 0, pcm.size); t.setVolume(0.5f); t.play()
+            val g = SoundLevels.gain(c, SoundLevels.MSG)
+            if (g <= 0.0) { t.release(); return }
+            t.write(pcm, 0, pcm.size); t.setVolume((0.625 * g).toFloat()); t.play()
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ try { t.stop(); t.release() } catch (_: Exception) { } }, pcm.size * 1000L / Tones.RATE + 500)
         } catch (e: Exception) { Log.log(c, "tones: message tone failed ${e.javaClass.simpleName}") }
     }
@@ -131,15 +136,16 @@ object ToneStore {
     private var sampleTrack: AudioTrack? = null
 
     /** A short sample (the first second and a half of a tune) on the channel a volume bar sets: [usage] picks the stream, so the level heard is that stream's. */
-    fun sample(c: Context, usage: Int, id: String) {
+    fun sample(c: Context, usage: Int, id: String, gain: Double = 1.0) {
         try {
             sampleTrack?.let { it.stop(); it.release() }; sampleTrack = null
+            if (gain <= 0.0) return
             val pcm = Tones.render(Tones.byId(id), amp = 0.6, style = style(c)).let { if (it.size > Tones.RATE * 3 / 2) it.copyOf(Tones.RATE * 3 / 2) else it }
             val t = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder().setUsage(usage).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(Tones.RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                 .setBufferSizeInBytes(pcm.size * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
-            t.write(pcm, 0, pcm.size); t.play(); sampleTrack = t
+            t.write(pcm, 0, pcm.size); if (gain < 1.0) t.setVolume(gain.toFloat()); t.play(); sampleTrack = t
         } catch (_: Exception) { }
     }
 }

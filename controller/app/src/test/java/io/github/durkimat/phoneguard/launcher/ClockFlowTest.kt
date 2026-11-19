@@ -137,4 +137,23 @@ class TonesFlowTest {
         assertEquals(listOf("waltz", "waltz", "elise", "double"), heard)
         assertEquals("Calls: Classic waltz", m.rows[0])
     }
+
+    @Test fun oneVolumePressIsOneStepAndEachBarIsItsOwn() {
+        val m = phone(); val seen = ArrayList<Pair<Int, Int>>()
+        // ringtone and messages: eleven steps drawn as seven bars; media: a stream of five steps shown as five cells
+        var pos = listOf(1, 0, 3, 2)
+        m.soundInfo = { LauncherModel.SoundInfo(0, null, pos.mapIndexed { i, p -> if (i < 2) LauncherModel.Vol(p, 10, io.github.durkimat.phoneguard.alarm.SoundLevels.bars(p), 7) else LauncherModel.Vol(p, 5, p, 5) }) }
+        m.onVolume = { w, v -> seen.add(w to v); pos = pos.toMutableList().also { it[w] = v } }
+        m.key(Key.OK); m.key(Key.UP); m.key(Key.OK)            // Settings > Sound and typing
+        m.key(Key.DOWN); m.key(Key.OK)                                  // Sound and typing
+        m.key(Key.DOWN); m.key(Key.OK)                                  // Volumes
+        assertEquals("Volumes", m.title)
+        assertEquals("#------", m.rows[0].substringAfter(" ").trim().takeLast(7))
+        m.key(Key.RIGHT); assertEquals(listOf(0 to 2), seen)            // hidden sub-step: the bar does not change
+        assertTrue(m.rows[0].endsWith("#------"))
+        m.key(Key.DOWN); m.key(Key.LEFT); assertEquals(listOf(0 to 2, 1 to 0), seen)   // zero on messages
+        assertEquals(2, pos[0])                                         // ringtone untouched
+        m.key(Key.DOWN); m.key(Key.RIGHT)
+        assertEquals(2 to 4, seen.last())                               // media: one press, one step
+    }
 }

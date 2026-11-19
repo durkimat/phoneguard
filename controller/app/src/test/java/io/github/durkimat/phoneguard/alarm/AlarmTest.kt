@@ -99,6 +99,15 @@ class AlarmTest {
     }
 
     /** Writes before/after WAVs for listening when PG_WAV_DIR is set (not an assertion): the old 16 kHz naive square, the band-limited Classic and the Soft voice. */
+    @Test fun volumeLevelsRiseInEvenQuietSteps() {
+        val g = (0..SoundLevels.MAX).map { SoundLevels.gainAt(it) }
+        assertEquals(0.0, g[0], 0.0); assertEquals(1.0, g.last(), 0.0)
+        for (i in 1..SoundLevels.MAX) assertTrue("step $i rises", g[i] > g[i - 1])
+        assertTrue("bar 1 is well quiet", g[1] <= 0.03 && g[3] <= 0.08)
+        assertEquals(0, SoundLevels.bars(0)); assertEquals(1, SoundLevels.bars(3)); assertEquals(7, SoundLevels.bars(SoundLevels.MAX))
+        for (i in 1..SoundLevels.MAX) assertTrue(SoundLevels.bars(i) - SoundLevels.bars(i - 1) in 0..1)
+    }
+
     @Test fun writeAuditionWavsWhenAsked() {
         val dir = System.getenv("PG_WAV_DIR") ?: return
         java.io.File(dir).mkdirs()

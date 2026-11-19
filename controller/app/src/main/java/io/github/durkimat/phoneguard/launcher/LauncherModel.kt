@@ -2192,8 +2192,10 @@ class LauncherModel(
     var onToneStyle: (String) -> Unit = {}
 
     /** What the Sound screens show: the ringer (0 normal, 1 vibrate, 2 silent), why it cannot be changed (the mode's words, or null), and the four volumes as current and maximum step. */
-    class SoundInfo(val ringer: Int, val lockedBy: String?, val vols: List<Pair<Int, Int>>)
-    var soundInfo: () -> SoundInfo = { SoundInfo(0, null, List(4) { 3 to 7 }) }
+    class SoundInfo(val ringer: Int, val lockedBy: String?, val vols: List<Vol>)
+    /** One volume bar: the step it is on (0..[steps]) and how many of its [cells] are filled; one key press is one step. */
+    class Vol(val pos: Int, val steps: Int, val bars: Int, val cells: Int)
+    var soundInfo: () -> SoundInfo = { SoundInfo(0, null, List(4) { Vol(3, 7, 3, 7) }) }
     var onRinger: (Int) -> Unit = {}
     /** Sets volume [which] (0 ringtone, 1 messages, 2 media, 3 phone call) to a step and plays a sample on that channel. */
     var onVolume: (Int, Int) -> Unit = { _, _ -> }
@@ -2213,8 +2215,8 @@ class LauncherModel(
         val names = listOf("Ringtone", "Messages", "Media", "Phone call")
         return Form("Volumes", "Done", {
             names.mapIndexed { i, n ->
-                FormRow(n, { val (cur, max) = soundInfo().vols[i]; "#".repeat(Math.round(cur * 7f / max.coerceAtLeast(1))) + "-".repeat(7 - Math.round(cur * 7f / max.coerceAtLeast(1))) },
-                    onStep = { d, _ -> val (cur, max) = soundInfo().vols[i]; onVolume(i, (cur + d).coerceIn(0, max)) })
+                FormRow(n, { val v = soundInfo().vols[i]; "#".repeat(v.bars) + "-".repeat((v.cells - v.bars).coerceAtLeast(0)) },
+                    onStep = { d, _ -> val v = soundInfo().vols[i]; onVolume(i, (v.pos + Integer.signum(d)).coerceIn(0, v.steps)) })
             }
         }) { leave(); Action.Redraw }
     }
