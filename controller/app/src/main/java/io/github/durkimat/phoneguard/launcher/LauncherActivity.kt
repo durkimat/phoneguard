@@ -66,6 +66,7 @@ class LauncherActivity : Activity() {
             contentResolver.registerContentObserver(android.provider.Telephony.Sms.CONTENT_URI, true, sms)
             contentResolver.registerContentObserver(CallLog.Calls.CONTENT_URI, true, callLog)
             contentResolver.registerContentObserver(android.provider.ContactsContract.Contacts.CONTENT_URI, true, contactsObs)
+            contentResolver.registerContentObserver(android.provider.CalendarContract.CONTENT_URI, true, calObs)
         } catch (e: Exception) { Log.log(this, "launcher observers: ${e.javaClass.simpleName}") }
         io.github.durkimat.phoneguard.keys.Torch.onChange(torchChanged)
         io.github.durkimat.phoneguard.notes.Notes.onChange(notesChanged)
@@ -349,7 +350,7 @@ class LauncherActivity : Activity() {
     }
     private val notesChanged: () -> Unit = { invalidate(D.INFO) }
 
-    override fun onDestroy() { try { contentResolver.unregisterContentObserver(sms); contentResolver.unregisterContentObserver(callLog); contentResolver.unregisterContentObserver(contactsObs) } catch (_: Exception) { }; loader.shutdown(); io.github.durkimat.phoneguard.music.Radio.offChange(radioChanged); WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
+    override fun onDestroy() { try { contentResolver.unregisterContentObserver(sms); contentResolver.unregisterContentObserver(callLog); contentResolver.unregisterContentObserver(contactsObs); contentResolver.unregisterContentObserver(calObs) } catch (_: Exception) { }; loader.shutdown(); io.github.durkimat.phoneguard.music.Radio.offChange(radioChanged); WhatsApp.offChange(waChanged); io.github.durkimat.phoneguard.keys.Torch.offChange(torchChanged); io.github.durkimat.phoneguard.notes.Notes.offChange(notesChanged); super.onDestroy() }
 
     private val gameStep = object : Runnable {
         override fun run() {
@@ -695,6 +696,9 @@ class LauncherActivity : Activity() {
     private val radioChanged: () -> Unit = { invalidate(D.SCREEN or D.INFO) }
     private val sms = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CONVOS or D.INFO) } }
     private val callLog = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CALLS or D.INFO) } }
+    /** A new, changed or deleted event: the Now strip's event page follows within a second or so (a sync writes many rows, so it waits for the burst to settle). */
+    private val calRefresh = Runnable { invalidate(D.INFO) }
+    private val calObs = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { LauncherData.invalidateNext(); ui.removeCallbacks(calRefresh); ui.postDelayed(calRefresh, 800) } }
     private val contactsObs = object : android.database.ContentObserver(ui) { override fun onChange(selfChange: Boolean) { invalidate(D.CONTACTS or D.INFO) } }
 
     private fun key(code: Int): Pair<Key, Int>? = KeyMap.of(code)

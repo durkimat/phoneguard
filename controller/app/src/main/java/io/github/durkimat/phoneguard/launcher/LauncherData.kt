@@ -57,7 +57,9 @@ object LauncherData {
     fun voiceCommandsAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).second
     fun voiceTypingAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).first
 
-    private var nextCache: Pair<Long, String> = 0L to ""
+    @Volatile private var nextCache: Pair<Long, String> = 0L to ""
+    /** A calendar change was seen: the next lookup reads the calendar again instead of using the minute's answer. */
+    fun invalidateNext() { nextCache = 0L to "" }
     /** "15:00 Dentist": the next timed event today, or the first event tomorrow ("Tmrw 09:00 Football"); empty when there is none. Looked up at most once a minute. */
     private fun nextUp(c: Context, now: Long): String {
         if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
