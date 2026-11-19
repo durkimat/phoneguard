@@ -1501,3 +1501,4 @@ A Now playing screen inspired by Winamp, in our retro style: a compact player lo
 - Keys: keep OK play/pause, Left/Right previous/next, long-press OK Stop, Up/Down volume as today, so the new look changes drawing only, not behaviour.
 - Costs: the visualiser redraws often, so battery and the 5-second Home redraw need care; keep it only on the Now playing screen and only while playing. Test at the J36's 480x640 size, and in the light and dark themes.
 - Open points: Winamp-style skins as a theme choice or a fixed look; whether the visualiser is worth the battery; whether the strip on Home (zone 5) gets a mini version.
+- 0.4.77 rebuild after the owner's first test: the battery highlight wraps only the icon (x 404-474, y 4-42); Home shows Spotify only when it plays on this phone (on another device it appears only in the Now playing screen); the strip skips a Spotify-elsewhere candidate and falls to a paused radio. Zone 2/3 spacing proposal waits for the owner.

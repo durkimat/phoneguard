@@ -63,6 +63,11 @@ class HomeFocusTest {
         m.onKey(Key.DOWN); assertEquals("clock", kind(m))
     }
 
+    @Test fun theBatteryBoxWrapsOnlyTheBatteryIcon() {
+        val b = model().homeTargets().first { it.kind == "battery" } // the icon is drawn from x 411 to 467, y 10 to 36
+        assertEquals(404f, b.l, 0f); assertEquals(474f, b.r, 0f); assertEquals(4f, b.t, 0f); assertEquals(42f, b.b, 0f)
+    }
+
     @Test fun theHighlightStaysOnTheSameSymbolWhenOthersComeAndGo() {
         val m = model(); m.badges = listOf(Badge(BadgeKind.SMS, 2), Badge(BadgeKind.WHATSAPP, 1), Badge(BadgeKind.MISSED, 1))
         m.onKey(Key.UP); m.onKey(Key.RIGHT); assertEquals("badge:MISSED", kind(m))

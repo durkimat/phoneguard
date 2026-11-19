@@ -296,12 +296,13 @@ class LauncherActivity : Activity() {
         return m.copy(playing = h.first)
     }
 
-    /** What the home screen's Now playing line shows: the provider that is playing, else one that is paused; null when music is off in the mode or nothing is on. */
+    /** What the home screen's Now playing line shows: the provider that is playing, else one that is paused (Spotify only when it is on this phone); null when music is off in the mode or nothing qualifies. */
     private fun homeNowPlaying(): io.github.durkimat.phoneguard.music.MusicInfo? = try {
         if (!LauncherData.musicShown(this) || !io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now()).nowStrip) null else {
             val (playing, status) = providerStates()
-            val prov = playing ?: status.entries.firstOrNull { it.value == 1 }?.key
-            prov?.let { nowPlaying(it) }?.takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank()) }
+            // the one playing first, then paused ones; Spotify only when it is on THIS phone (on another device it is for the Now playing screen alone)
+            (listOfNotNull(playing) + status.entries.filter { it.value == 1 }.map { it.key }).distinct()
+                .firstNotNullOfOrNull { prov -> nowPlaying(prov).takeIf { it.active && (it.title.isNotBlank() || it.artist.isNotBlank()) && (it.source == "radio" || it.thisPhone) } }
         }
     } catch (_: Exception) { null }
 

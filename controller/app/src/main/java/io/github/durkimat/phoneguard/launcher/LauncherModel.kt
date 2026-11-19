@@ -1579,7 +1579,7 @@ class LauncherModel(
         if (dataShown || wifiShown) add(HomeTarget("signal", 0f, 0f, 105f, 46f))
         if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
-        if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 330f, 0f, 480f, 46f)) // the battery page lives under Settings: hidden where the mode hides Settings
+        if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 404f, 4f, 474f, 42f)) // the battery page lives under Settings: hidden where the mode hides Settings
         if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, 52f + y, 472f, 88f + y)) }
         if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         add(clockTarget())
