@@ -39,7 +39,7 @@ import io.github.durkimat.phoneguard.launcher.PaintedSkin
 import java.util.concurrent.CopyOnWriteArrayList
 
 /** What is ringing now: [kind] is "alarm" or "timer" (a snooze ringing again is an alarm). Read by the ring screen. */
-data class RingInfo(val kind: String, val id: Int, val tone: String, val time: String, val silentForCall: Boolean = false)
+data class RingInfo(val kind: String, val id: Int, val tone: String, val time: String, val silentForCall: Boolean = false, val vol: Int = 5, val gradual: Boolean = false)
 
 object RingState {
     @Volatile var info: RingInfo? = null; private set
@@ -64,7 +64,13 @@ class AlarmFire : BroadcastReceiver() {
         val a = AlarmStore.alarms(c).firstOrNull { it.id == id }
         val tone = i.getStringExtra("tone")?.takeIf { it.isNotEmpty() } ?: Tones.DEFAULT
         val t = if (kind == "timer") "Timer" else java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date(Clock.now()))
-        RingService.start(c, RingInfo(if (kind == "timer") "timer" else "alarm", id, if (kind == "timer") "beep" else tone, t))
+        val prefs = AlarmStore.prefs(c)
+        val (vol, gradual) = when {
+            kind == "snooze" -> AlarmStore.snoozeVol(c) to AlarmStore.snoozeGradual(c)
+            a != null -> (if (a.vol > 0) a.vol else prefs.volume) to (a.gradual || (a.vol == 0 && prefs.crescendo))
+            else -> prefs.volume to false
+        }
+        RingService.start(c, RingInfo(if (kind == "timer") "timer" else "alarm", id, if (kind == "timer") "beep" else tone, t, vol = vol, gradual = gradual))
         if (kind == "snooze") AlarmStore.clearSnooze(c)
         if (a == null && kind == "alarm") Log.log(c, "alarms: alarm $id rang but is gone")
     }
@@ -73,14 +79,12 @@ class AlarmFire : BroadcastReceiver() {
 /** Plays the tune, vibrates and shows the ring screen until the alarm is stopped, snoozed or has rung for five minutes. */
 class RingService : Service() {
     private val ui = Handler(Looper.getMainLooper())
-    private var track: AudioTrack? = null
+    private var player: LoopPlayer? = null
     private var wake: PowerManager.WakeLock? = null
     private var savedFilter = -1
-    private var savedAlarmVol = -1
     private var info: RingInfo? = null
     private var startedAt = 0L
     private var gainAt = 0L
-    private var prefs = ClockPrefs()
     private var mode = 0 // 0 nothing yet, 1 sounding, 2 vibrating only
     private var sawOn = false
     /** The power key puts the screen off: that quiets the alarm (snooze), as on any phone. Only once the screen has been on, so waking the phone is not mistaken for it. */
@@ -98,9 +102,9 @@ class RingService : Service() {
             ACT_SNOOZE -> { snooze(); return START_NOT_STICKY }
             ACT_STOP -> { stop(); return START_NOT_STICKY }
         }
-        val ri = i?.let { RingInfo(it.getStringExtra("kind") ?: "alarm", it.getIntExtra("id", 0), it.getStringExtra("tone") ?: Tones.DEFAULT, it.getStringExtra("time") ?: "") } ?: return START_NOT_STICKY
+        val ri = i?.let { RingInfo(it.getStringExtra("kind") ?: "alarm", it.getIntExtra("id", 0), it.getStringExtra("tone") ?: Tones.DEFAULT, it.getStringExtra("time") ?: "", vol = it.getIntExtra("vol", 5), gradual = it.getBooleanExtra("gradual", false)) } ?: return START_NOT_STICKY
         if (info != null) { stop(false) } // a second alarm at the same minute: one ring, the later one wins
-        info = ri; mode = 0; startedAt = Clock.now(); prefs = AlarmStore.prefs(this)
+        info = ri; mode = 0; startedAt = Clock.now()
         sawOn = getSystemService(PowerManager::class.java).isInteractive
         try { registerReceiver(screen, android.content.IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_SCREEN_OFF) }) } catch (_: Exception) { }
         wake = getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, "phoneguard:ring").also { it.acquire(6 * 60_000L) }
@@ -130,7 +134,6 @@ class RingService : Service() {
             if (quiet && mode != 2) { silence(); mode = 2; vibrate(true) }
             else if (!quiet && mode != 1) { sound(ri); mode = 1 }
             if (quiet != ri.silentForCall) { info = ri.copy(silentForCall = quiet); RingState.set(info) }
-            track?.let { t -> t.setVolume(gain(now)) }
             if (now - startedAt > RING_MS) { if (ri.kind == "timer") stop() else snooze(auto = true); return }
             ui.postDelayed(this, 1000)
         }
@@ -138,32 +141,19 @@ class RingService : Service() {
 
     private fun inCall() = try { getSystemService(TelephonyManager::class.java).callState != TelephonyManager.CALL_STATE_IDLE } catch (_: Exception) { false }
 
-    /** 0..1: the alarm volume setting, and with a gradual alarm a climb over the first minute. */
-    private fun gain(now: Long): Float {
-        val level = (prefs.volume / AlarmMath.MAX_VOLUME.toFloat())
-        val ramp = if (prefs.crescendo) (0.15f + 0.85f * ((now - startedAt) / 60_000f)).coerceAtMost(1f) else 1f
-        return level * level * ramp // a squared curve: the steps near the bottom are quiet, as ears expect
-    }
+    /** 0..1 applied to the samples themselves: this alarm's volume step, and with Gradual a climb over the first minute. */
+    private fun gain(): Float { val ri = info ?: return 0f; return AlarmGain.level(ri.vol) * AlarmGain.ramp(Clock.now() - startedAt, ri.gradual) }
 
     private fun sound(ri: RingInfo) {
         silence()
         try {
-            val am = getSystemService(AudioManager::class.java)
-            if (savedAlarmVol < 0) savedAlarmVol = am.getStreamVolume(AudioManager.STREAM_ALARM)
-            am.setStreamVolume(AudioManager.STREAM_ALARM, am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) // our own volume setting scales the tune
-            val pcm = Tones.render(Tones.byId(ri.tone))
-            val frames = pcm.size.coerceAtLeast(1)
-            val t = AudioTrack.Builder()
-                .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-                .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(16000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-                .setBufferSizeInBytes(frames * 2).setTransferMode(AudioTrack.MODE_STATIC).build()
-            t.write(pcm, 0, pcm.size); t.setLoopPoints(0, frames, -1); t.setVolume(gain(Clock.now())); t.play()
-            track = t
+            val p = LoopPlayer(this, Tones.render(Tones.byId(ri.tone), amp = 0.85), { gain() })
+            p.start(); player = p
         } catch (e: Exception) { Log.log(this, "alarms: sound ${e.javaClass.simpleName}") }
         vibrate(true)
     }
 
-    private fun silence() { try { track?.stop(); track?.release() } catch (_: Exception) { }; track = null; vibrate(inCall()) }
+    private fun silence() { try { player?.stop() } catch (_: Exception) { }; player = null; vibrate(inCall()) }
 
     private fun vibrate(on: Boolean) {
         val v = getSystemService(Vibrator::class.java)
@@ -178,15 +168,13 @@ class RingService : Service() {
         val n = if (auto) sp.getInt("autoSnoozes", 0) + 1 else 0
         sp.edit().putInt("autoSnoozes", n).apply()
         if (auto && n > 3) { stop(); return } // nobody is there: stop after three rings
-        AlarmStore.setSnooze(this, Clock.now() + AlarmMath.SNOOZE_MIN * 60_000L, ri.tone)
+        AlarmStore.setSnooze(this, Clock.now() + AlarmMath.SNOOZE_MIN * 60_000L, ri.tone, ri.vol, ri.gradual)
         stop()
     }
 
     private fun stop(end: Boolean = true) {
         ui.removeCallbacks(step)
         silence(); vibrate(false)
-        try { if (savedAlarmVol >= 0) getSystemService(AudioManager::class.java).setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVol, 0) } catch (_: Exception) { }
-        savedAlarmVol = -1
         try { wake?.takeIf { it.isHeld }?.release() } catch (_: Exception) { }
         info = null; savedFilter = -1
         try { unregisterReceiver(screen) } catch (_: Exception) { }
@@ -204,7 +192,7 @@ class RingService : Service() {
         const val ACT_SNOOZE = "io.github.durkimat.phoneguard.RING_SNOOZE"; const val ACT_STOP = "io.github.durkimat.phoneguard.RING_STOP"
         private const val RING_MS = 5 * 60_000L
         fun start(c: Context, i: RingInfo) {
-            c.startForegroundService(Intent(c, RingService::class.java).putExtra("kind", i.kind).putExtra("id", i.id).putExtra("tone", i.tone).putExtra("time", i.time))
+            c.startForegroundService(Intent(c, RingService::class.java).putExtra("kind", i.kind).putExtra("id", i.id).putExtra("tone", i.tone).putExtra("time", i.time).putExtra("vol", i.vol).putExtra("gradual", i.gradual))
         }
         fun snooze(c: Context) { c.startService(Intent(c, RingService::class.java).setAction(ACT_SNOOZE)) }
         fun stop(c: Context) { c.startService(Intent(c, RingService::class.java).setAction(ACT_STOP)) }

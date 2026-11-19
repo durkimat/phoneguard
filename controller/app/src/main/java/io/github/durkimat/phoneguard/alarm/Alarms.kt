@@ -7,7 +7,9 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /** One alarm. [days] is a bit mask, bit 0 Monday to bit 6 Sunday; 0 means once (it switches itself off after ringing). */
-data class Alarm(val id: Int, val hour: Int, val minute: Int, val days: Int = 0, val on: Boolean = true, val tone: String = Tones.DEFAULT)
+data class Alarm(val id: Int, val hour: Int, val minute: Int, val days: Int = 0, val on: Boolean = true, val tone: String = Tones.DEFAULT,
+    /** This alarm's volume step 1..7 (0 = not set: the Clock settings' old default), and whether it climbs over the first minute. */
+    val vol: Int = 0, val gradual: Boolean = false)
 
 /** The Clock app's saved settings, shared by the screens, the scheduler and the ring screen. */
 data class ClockPrefs(val volume: Int = 5, val crescendo: Boolean = false)
@@ -59,7 +61,7 @@ object AlarmMath {
         return "in " + listOfNotNull(if (d > 0) "$d d" else null, if (h > 0) "$h h" else null, if (m > 0 || (d == 0L && h == 0L)) "$m min" else null).joinToString(" ")
     }
 
-    fun encode(list: List<Alarm>) = list.joinToString(";") { "${it.id},${it.hour},${it.minute},${it.days},${if (it.on) 1 else 0},${it.tone}" }
+    fun encode(list: List<Alarm>) = list.joinToString(";") { "${it.id},${it.hour},${it.minute},${it.days},${if (it.on) 1 else 0},${it.tone},${it.vol},${if (it.gradual) 1 else 0}" }
 
     fun decode(s: String): List<Alarm> = s.split(';').mapNotNull { r ->
         val p = r.split(',')
@@ -67,7 +69,8 @@ object AlarmMath {
         val id = p[0].toIntOrNull() ?: return@mapNotNull null
         val h = p[1].toIntOrNull()?.takeIf { it in 0..23 } ?: return@mapNotNull null
         val m = p[2].toIntOrNull()?.takeIf { it in 0..59 } ?: return@mapNotNull null
-        Alarm(id, h, m, (p[3].toIntOrNull() ?: 0) and EVERY, p[4] == "1", p[5].let { t -> if (Tones.all.any { it.id == t }) t else Tones.DEFAULT })
+        Alarm(id, h, m, (p[3].toIntOrNull() ?: 0) and EVERY, p[4] == "1", p[5].let { t -> if (Tones.all.any { it.id == t }) t else Tones.DEFAULT },
+            (p.getOrNull(6)?.toIntOrNull() ?: 0).coerceIn(0, MAX_VOLUME), p.getOrNull(7) == "1")
     }.take(MAX_ALARMS)
 
     /** A new alarm's id: the smallest 1..MAX not in use. */

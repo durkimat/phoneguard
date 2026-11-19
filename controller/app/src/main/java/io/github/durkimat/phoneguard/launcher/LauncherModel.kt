@@ -320,7 +320,7 @@ class LauncherModel(
         screen = target; selected = row
     }
     /** Back: returns to the screen below and the row it was on, or home when there is nothing below. */
-    private fun leave() { remember(); val f = trail.removeLastOrNull(); if (f == null || f.screen == Screen.HOME) goHome() else { screen = f.screen; selected = f.selected } }
+    private fun leave() { onPreviewStop(); remember(); val f = trail.removeLastOrNull(); if (f == null || f.screen == Screen.HOME) goHome() else { screen = f.screen; selected = f.selected } }
 
     /** The allowed apps that are not in the main menu, shown under "Android Apps". */
     var apps: List<MenuItem> = emptyList()
@@ -505,7 +505,7 @@ class LauncherModel(
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
 
-    fun goHome() { screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); homeFocus = -1; positions.clear() }
+    fun goHome() { onPreviewStop(); screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); homeFocus = -1; positions.clear() }
 
     val title: String get() = when (screen) {
         Screen.SETTINGS -> "Settings"
@@ -2084,6 +2084,11 @@ class LauncherModel(
     var timeSettable = false
     var onAlarms: (List<Alarm>) -> Unit = {}
     var onClockPrefs: (ClockPrefs) -> Unit = {}
+    /** The volume step a new alarm starts with (the companion's default, else 5). */
+    var defaultAlarmVol = 5
+    /** Plays an alarm tune on a loop at a volume step while it is being chosen; the preview stops when the form is left. */
+    var onPreviewLoop: (String, Int) -> Unit = { _, _ -> }
+    var onPreviewStop: () -> Unit = {}
     var onTimer: (TimerState) -> Unit = {}
     var onStopwatch: (Stopwatch) -> Unit = {}
     var onSetTime: (Long) -> Boolean = { false }
@@ -2108,7 +2113,6 @@ class LauncherModel(
     private val clockRows: List<String> get() = buildList {
         add("Alarms"); add("Timer"); add("Stopwatch")
         add(if (timeSettable) "Set time" else "Set time: from network")
-        add("Alarm sound and volume")
     }
 
     private fun clockKey(key: Key): Action {
@@ -2119,7 +2123,6 @@ class LauncherModel(
                 "Timer" -> { enter(Screen.TIMER); Action.Redraw }
                 "Stopwatch" -> { enter(Screen.STOPWATCH); Action.Redraw }
                 "Set time", "Set time: from network" -> if (timeSettable) { pushForm(setTimeForm()); Action.Redraw } else { notify("Time is set from the network"); Action.Redraw }
-                "Alarm sound and volume" -> { pushForm(alarmSettingsForm()); Action.Redraw }
                 else -> Action.None
             }
             Key.SOFT_RIGHT -> { leave(); Action.Redraw }
@@ -2134,7 +2137,7 @@ class LauncherModel(
         val n = alarmRows.size
         return move(key, n) ?: when (key) {
             Key.OK, Key.SOFT_LEFT -> {
-                val a = alarms.getOrNull(selected) ?: Alarm(AlarmMath.freeId(alarms), 7, 0)
+                val a = alarms.getOrNull(selected) ?: Alarm(AlarmMath.freeId(alarms), 7, 0, vol = defaultAlarmVol)
                 if (a.id == 0) Action.None else { pushForm(alarmForm(a, alarms.none { it.id == a.id })); Action.Redraw }
             }
             Key.LEFT, Key.RIGHT -> { // switch the chosen alarm on or off without opening it
@@ -2154,7 +2157,7 @@ class LauncherModel(
     }
 
     private fun alarmForm(a0: Alarm, isNew: Boolean): Form {
-        var a = a0
+        var a = a0.let { if (it.vol == 0) it.copy(vol = clockPrefs.volume, gradual = it.gradual || clockPrefs.crescendo) else it } // an alarm saved before volumes were per alarm takes the old shared setting
         val rows: () -> List<FormRow> = {
             buildList {
                 add(FormRow("Alarm", { if (a.on) "On" else "Off" }, onStep = { _, _ -> a = a.copy(on = !a.on) }, okStep = true))
@@ -2170,8 +2173,12 @@ class LauncherModel(
                 }))
                 add(FormRow("Sound", { Tones.byId(a.tone).name }, onStep = { d, _ ->
                     val i = Tones.all.indexOfFirst { it.id == a.tone }.coerceAtLeast(0)
-                    a = a.copy(tone = Tones.all[((i + d) % Tones.all.size + Tones.all.size) % Tones.all.size].id); onPreview(a.tone)
+                    a = a.copy(tone = Tones.all[((i + d) % Tones.all.size + Tones.all.size) % Tones.all.size].id); onPreviewLoop(a.tone, a.vol)
                 }))
+                add(FormRow("Volume", { "#".repeat(a.vol) + "-".repeat(AlarmMath.MAX_VOLUME - a.vol) }, onStep = { d, _ ->
+                    a = a.copy(vol = (a.vol + d).coerceIn(1, AlarmMath.MAX_VOLUME)); onPreviewLoop(a.tone, a.vol)
+                }))
+                add(FormRow("Gradual", { if (a.gradual) "Starts quiet, gets louder" else "Off" }, onStep = { _, _ -> a = a.copy(gradual = !a.gradual) }, okStep = true))
                 if (!isNew) add(FormRow("Delete this alarm", run = { alarms = alarms.filter { it.id != a.id }; onAlarms(alarms); leave(); Action.Redraw }))
             }
         }
@@ -2187,13 +2194,6 @@ class LauncherModel(
         })
         return Form("Tones", "Done", { listOf(row("Calls", "ring"), row("Text messages", "sms"), row("WhatsApp", "wa")) }) { leave(); Action.Redraw }
     }
-
-    private fun alarmSettingsForm(): Form = Form("Alarm sound", "Done", {
-        listOf(
-            FormRow("Volume", { "${clockPrefs.volume} of ${AlarmMath.MAX_VOLUME}" }, onStep = { d, _ -> clockPrefs = clockPrefs.copy(volume = (clockPrefs.volume + d).coerceIn(1, AlarmMath.MAX_VOLUME)); onClockPrefs(clockPrefs) }),
-            FormRow("Gradual (gets louder)", { if (clockPrefs.crescendo) "On" else "Off" }, onStep = { _, _ -> clockPrefs = clockPrefs.copy(crescendo = !clockPrefs.crescendo); onClockPrefs(clockPrefs) }, okStep = true),
-        )
-    }) { leave(); Action.Redraw }
 
     private fun setTimeForm(): Form {
         var at = java.time.ZonedDateTime.now(zone).withSecond(0).withNano(0)
@@ -3120,6 +3120,8 @@ data class HomeInfo(
     val dataView: io.github.durkimat.phoneguard.core.DataView? = null,
     /** What is playing (or paused), for the home screen's one-line Now playing; null when nothing is, or the mode has no music. */
     val nowPlaying: io.github.durkimat.phoneguard.music.MusicInfo? = null,
+    /** An alarm is switched on or the timer is running: a small bell shows in the top bar. */
+    val alarmSet: Boolean = false,
 )
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */

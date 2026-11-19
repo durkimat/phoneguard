@@ -25,7 +25,9 @@ object AlarmStore {
     fun saveStopwatch(c: Context, s: Stopwatch) { sp(c).edit().putString("sw", (listOf(s.before, s.startedAt) + s.laps).joinToString(",")).apply() }
     fun snoozeAt(c: Context) = sp(c).getLong("snoozeAt", 0)
     fun snoozeTone(c: Context) = sp(c).getString("snoozeTone", Tones.DEFAULT) ?: Tones.DEFAULT
-    fun setSnooze(c: Context, at: Long, tone: String) { sp(c).edit().putLong("snoozeAt", at).putString("snoozeTone", tone).apply(); reschedule(c) }
+    fun snoozeVol(c: Context) = sp(c).getInt("snoozeVol", 5)
+    fun snoozeGradual(c: Context) = sp(c).getBoolean("snoozeGrad", false)
+    fun setSnooze(c: Context, at: Long, tone: String, vol: Int = 5, gradual: Boolean = false) { sp(c).edit().putLong("snoozeAt", at).putString("snoozeTone", tone).putInt("snoozeVol", vol).putBoolean("snoozeGrad", gradual).apply(); reschedule(c) }
     fun clearSnooze(c: Context) { if (snoozeAt(c) != 0L) { sp(c).edit().putLong("snoozeAt", 0).apply(); reschedule(c) } }
 
     private const val SNOOZE_CODE = 200

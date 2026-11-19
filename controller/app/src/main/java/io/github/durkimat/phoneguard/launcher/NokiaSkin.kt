@@ -233,6 +233,15 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 c.drawRect(231 * u, 28 * u, 249 * u, 42 * u, stroke)                         // the body
                 c.drawLine(225 * u, 14 * u, 220 * u, 9 * u, stroke); c.drawLine(240 * u, 12 * u, 240 * u, 5 * u, stroke); c.drawLine(255 * u, 14 * u, 260 * u, 9 * u, stroke) // the light
             }
+            // a small bell while an alarm is switched on or the timer is running
+            if (i.alarmSet) {
+                val cx = 298f
+                val bell = android.graphics.Path().apply {
+                    moveTo((cx - 10) * u, 30 * u); lineTo((cx - 7) * u, 27 * u); lineTo((cx - 7) * u, 19 * u); quadTo((cx - 7) * u, 12 * u, cx * u, 12 * u)
+                    quadTo((cx + 7) * u, 12 * u, (cx + 7) * u, 19 * u); lineTo((cx + 7) * u, 27 * u); lineTo((cx + 10) * u, 30 * u); close()
+                }
+                c.drawPath(bell, fill); c.drawCircle(cx * u, 11 * u, 2f * u, fill); c.drawCircle(cx * u, 34 * u, 2.6f * u, fill)
+            }
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
         }

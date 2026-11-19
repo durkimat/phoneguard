@@ -18,7 +18,7 @@ class ClockFlowTest {
         val m = phone()
         m.openClockApp()
         assertEquals(Screen.CLOCK, m.screen)
-        assertEquals(listOf("Alarms", "Timer", "Stopwatch", "Set time: from network", "Alarm sound and volume"), m.rows)
+        assertEquals(listOf("Alarms", "Timer", "Stopwatch", "Set time: from network"), m.rows)
         repeat(3) { m.key(Key.DOWN) }; m.key(Key.OK)
         assertEquals("Time is set from the network", m.notice); assertEquals(Screen.CLOCK, m.screen)
         m.timeSettable = true
@@ -39,12 +39,12 @@ class ClockFlowTest {
         m.key(Key.DOWN); m.key(Key.OK)                         // Mon on
         m.key(Key.SOFT_LEFT)                                   // Save
         assertEquals(Screen.ALARMS, m.screen)
-        assertEquals(listOf(Alarm(1, 9, 50, 1, true, "chime")), saved)
+        assertEquals(listOf(Alarm(1, 9, 50, 1, true, "chime", 5, false)), saved)
         assertEquals(listOf("09:50  Mon", "Add alarm"), m.rows)
         m.key(Key.RIGHT)                                       // off without opening
         assertEquals(false, saved[0].on); assertEquals("09:50  Off", m.rows[0])
         m.key(Key.OK)                                          // open it, delete it
-        repeat(12) { m.key(Key.DOWN) }
+        repeat(14) { m.key(Key.DOWN) }
         assertEquals("Delete this alarm", m.rows[m.selected])
         m.key(Key.OK)
         assertEquals(Screen.ALARMS, m.screen); assertTrue(saved.isEmpty())
@@ -94,13 +94,19 @@ class ClockFlowTest {
         assertTrue(got > 0); assertEquals("This phone can't change the time", m.notice)
     }
 
-    @Test fun volumeAndGradualAreKept() {
-        val m = phone(); var p = ClockPrefs(); m.onClockPrefs = { p = it }
-        m.openClockApp(); repeat(4) { m.key(Key.DOWN) }; m.key(Key.OK)
-        m.key(Key.RIGHT); m.key(Key.RIGHT); m.key(Key.RIGHT)
-        assertEquals(7, p.volume)
-        m.key(Key.DOWN); m.key(Key.OK)
-        assertTrue(p.crescendo)
+    @Test fun volumeAndGradualArePerAlarm() {
+        val m = phone(); var saved = emptyList<Alarm>(); val previews = ArrayList<Pair<String, Int>>()
+        m.onAlarms = { saved = it }; m.onPreviewLoop = { t, v -> previews.add(t to v) }; m.defaultAlarmVol = 4
+        m.openClockApp(); m.key(Key.OK); m.key(Key.OK)          // Alarms, a new alarm: starts at the default volume
+        repeat(11) { m.key(Key.DOWN) }
+        assertTrue(m.rows[m.selected].startsWith("Sound"))
+        m.key(Key.DOWN)                                         // the Volume row sits right under Sound
+        assertTrue(m.rows[m.selected].contains("####-"))
+        m.key(Key.RIGHT); m.key(Key.RIGHT)
+        assertEquals(6, previews.last().second)
+        m.key(Key.DOWN); m.key(Key.OK)                          // Gradual on
+        m.key(Key.SOFT_LEFT)
+        assertEquals(6, saved[0].vol); assertTrue(saved[0].gradual)
     }
 
     @Test fun ringScreenSnoozesAndStops() {

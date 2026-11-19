@@ -147,6 +147,7 @@ class LauncherActivity : Activity() {
     }
 
     override fun onPause() {
+        previewStop()
         inFront = false; if (current === this) current = null
         voiceStart?.let { ui.removeCallbacks(it); voiceStart = null }
         io.github.durkimat.phoneguard.where.WhereTracker.stop(this); window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -439,6 +440,25 @@ class LauncherActivity : Activity() {
         override fun run() { if (inFront && (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH)) { redraw(); ui.postDelayed(this, if (model.screen == Screen.STOPWATCH) 100 else 500) } }
     }
 
+    private var loop: io.github.durkimat.phoneguard.alarm.LoopPlayer? = null
+    private var loopVol = 5
+    private val loopOff = Runnable { previewStop() }
+
+    /** The alarm tune on a loop at a volume step, so a level can be judged; a new step changes it at once, and it stops after a few seconds of nothing or when the form is left. */
+    private var loopTone = ""
+    private fun previewLoop(tone: String, vol: Int) {
+        if (io.github.durkimat.phoneguard.alarm.RingState.sounding) return
+        loopVol = vol
+        if (loop != null && loopTone == tone) { ui.removeCallbacks(loopOff); ui.postDelayed(loopOff, 8_000); return } // same tune: only the level changes
+        previewStop(); loopTone = tone
+        try {
+            val p = io.github.durkimat.phoneguard.alarm.LoopPlayer(this, io.github.durkimat.phoneguard.alarm.Tones.render(io.github.durkimat.phoneguard.alarm.Tones.byId(tone), amp = 0.85), { io.github.durkimat.phoneguard.alarm.AlarmGain.level(loopVol) })
+            p.start(); loop = p
+            ui.postDelayed(loopOff, 8_000)
+        } catch (_: Exception) { }
+    }
+    private fun previewStop() { ui.removeCallbacks(loopOff); loop?.stop(); loop = null }
+
     /** Puts the saved alarms, timer and stopwatch into the model, and has it save what the person changes. */
     private fun loadClock() {
         val st = io.github.durkimat.phoneguard.alarm.AlarmStore
@@ -454,6 +474,9 @@ class LauncherActivity : Activity() {
             if (slot == "wa") io.github.durkimat.phoneguard.notes.NoteService.instance?.applyWaTone()
             if (!ok && slot != "wa") ui.post { model.notify("This phone would not take that tune"); refresh() }
         }.start() }
+        model.defaultAlarmVol = (cfg?.alarmVolume ?: 0).takeIf { it > 0 } ?: model.clockPrefs.volume
+        model.onPreviewLoop = { tone, vol -> previewLoop(tone, vol) }
+        model.onPreviewStop = { previewStop() }
         model.onAlarms = { st.saveAlarms(this, it) }
         model.onClockPrefs = { st.savePrefs(this, it) }
         model.onTimer = { st.saveTimer(this, it) }

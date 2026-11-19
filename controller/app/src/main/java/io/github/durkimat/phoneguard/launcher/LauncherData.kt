@@ -194,6 +194,10 @@ object LauncherData {
             bt = bluetoothState(c),
             data = dataState(c),
             dataView = if (eff.dataWidget) try { io.github.durkimat.phoneguard.net.DataUsage.view(c, now) } catch (_: Exception) { null } else null,
+            alarmSet = try {
+                val st = io.github.durkimat.phoneguard.alarm.AlarmStore
+                (Engine.alarms(cfg, now) && (st.alarms(c).any { it.on } || st.snoozeAt(c) > now)) || st.timer(c).running
+            } catch (_: Exception) { false },
         )
     }
 
