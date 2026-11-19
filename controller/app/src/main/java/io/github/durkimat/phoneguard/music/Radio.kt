@@ -194,8 +194,16 @@ class RadioService : Service() {
         p.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(st: Int) { sync(p) }
             override fun onIsPlayingChanged(isPlaying: Boolean) { sync(p) }
+            override fun onMediaMetadataChanged(md: androidx.media3.common.MediaMetadata) {
+                Log.log(this@RadioService, "radio: mediaMetadata title='${md.title}' artist='${md.artist}' station='${md.station}' subtitle='${md.subtitle}'")
+            }
             override fun onMetadata(m: Metadata) {
-                for (k in 0 until m.length()) (m[k] as? IcyInfo)?.title?.trim()?.takeIf { it.isNotEmpty() }?.let { t -> Radio.set(Radio.state.copy(nowPlaying = t)); session?.let { updateSession() } }
+                for (k in 0 until m.length()) {
+                    val e = m[k]
+                    // the raw stream text, as the station sent it, so what a station really sends can be read in the log
+                    Log.log(this@RadioService, "radio: metadata ${e.javaClass.simpleName} ${(e as? IcyInfo)?.let { "title='${it.title}' url='${it.url}'" } ?: e.toString()}")
+                    (e as? IcyInfo)?.title?.trim()?.takeIf { it.isNotEmpty() }?.let { t -> Radio.set(Radio.state.copy(nowPlaying = t)); session?.let { updateSession() } }
+                }
             }
             override fun onPlayerError(e: PlaybackException) {
                 Log.log(this@RadioService, "radio: player error ${e.errorCodeName}")

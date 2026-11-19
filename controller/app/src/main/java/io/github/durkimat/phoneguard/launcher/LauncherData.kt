@@ -57,7 +57,7 @@ object LauncherData {
     fun voiceCommandsAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).second
     fun voiceTypingAllowed(c: Context): Boolean = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.voice(Store.config(c), Clock.now()).first
 
-    @Volatile private var nextCache: Pair<Long, List<String>> = 0L to emptyList()
+    @Volatile private var nextCache: Pair<Long, List<NextEvent>> = 0L to emptyList()
     /** A calendar change was seen: the next lookup reads the calendar again instead of using the minute's answer. */
     fun invalidateNext() { nextCache = 0L to emptyList() }
     /** How many days ahead the strip looks for its two events (today included). */
@@ -66,7 +66,7 @@ object LauncherData {
      * The next two timed events that have not ended, looked for today and the following days: "15:00 Dentist" for today, "20/11 09:00 Football" for a later
      * day. All-day events are left out. Looked up at most once a minute (a calendar change clears it).
      */
-    private fun nextUp(c: Context, now: Long): List<String> {
+    private fun nextUp(c: Context, now: Long): List<NextEvent> {
         if (now - nextCache.first < 60_000L && now >= nextCache.first) return nextCache.second
         val text = try {
             val z = java.time.ZoneId.systemDefault(); val today = java.time.Instant.ofEpochMilli(now).atZone(z).toLocalDate()
@@ -78,10 +78,10 @@ object LauncherData {
         return text
     }
 
-    private fun io.github.durkimat.phoneguard.calendar.AgendaItem.line(today: java.time.LocalDate, z: java.time.ZoneId): String {
+    private fun io.github.durkimat.phoneguard.calendar.AgendaItem.line(today: java.time.LocalDate, z: java.time.ZoneId): NextEvent {
         val time = io.github.durkimat.phoneguard.calendar.Cal.clock(event.start, z)
         val date = if (day == today) "" else "%02d/%02d ".format(day.dayOfMonth, day.monthValue)
-        return date + time + " " + event.title.ifBlank { "(no title)" }
+        return NextEvent(date + time + " ", event.title.ifBlank { "(no title)" })
     }
 
     fun items(c: Context): List<MenuItem> {

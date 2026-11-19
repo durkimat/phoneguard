@@ -3256,7 +3256,7 @@ data class HomeInfo(
     val softLeft: String,
     val softRight: String,
     /** The next two timed events, one line each ("15:00 Dentist", "20/11 09:00 Football"), or fewer; empty when there are none. */
-    val nextEvents: List<String> = emptyList(),
+    val nextEvents: List<NextEvent> = emptyList(),
     /** Wi-Fi: -1 not shown (the mode hides it), 0 not connected (drawn greyed), 1 connected. */
     val wifi: Int = -1,
     /** Bluetooth: -1 not shown, 0 on but nothing connected (drawn faint), 1 a device is connected, 2 switched off (faint with a slash). */
@@ -3276,6 +3276,9 @@ data class HomeInfo(
     /** Music is playing (the right key goes straight to Now playing). It is not a count on the home screen any more: zone 5 shows it. */
     val musicOn: Boolean = false,
 )
+
+/** One event of the Now strip: the time (and date) that stays still, and the title that may scroll. */
+data class NextEvent(val prefix: String, val title: String)
 
 /** A way of drawing the launcher. The engine never knows which one is in use. */
 interface LauncherSkin {

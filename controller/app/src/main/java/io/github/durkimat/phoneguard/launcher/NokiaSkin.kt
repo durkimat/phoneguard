@@ -521,7 +521,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 "event" -> if (i.nextEvents.isNotEmpty()) {
                     // the calendar mark at the left, centred on the block; one event a line, the same size and weight
                     calendarIcon(c, 24f, 411f, u)
-                    nowLines(c, i.nextEvents.map { NowLine(it, NOW_SIZE, NOW_BOLD) }, 72f, 384f, u)
+                    nowLines(c, i.nextEvents.map { NowLine(it.title, NOW_SIZE, NOW_BOLD, it.prefix) }, 72f, 384f, u)
                 }
             }
         }
@@ -536,14 +536,19 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             nowLines(c, listOfNotNull(first.takeIf { it.isNotBlank() }, second.takeIf { it.isNotBlank() }).map { NowLine(it, NOW_SIZE, NOW_BOLD) }, x, room, u)
         }
 
-        private fun measureLine(l: NowLine): Float { val paint = bodyPaint(); paint.textSize = l.size * scaleOf(TEXT); paint.isFakeBoldText = l.bold; val w = paint.measureText(l.s); paint.isFakeBoldText = false; return w }
+        private fun measureText(t: String, size: Float, bold: Boolean): Float { val paint = bodyPaint(); paint.textSize = size * scaleOf(TEXT); paint.isFakeBoldText = bold; val w = paint.measureText(t); paint.isFakeBoldText = false; return w }
+        private fun measureLine(l: NowLine): Float = measureText(l.fixed + l.s, l.size, l.bold)
 
-        /** One or two lines at the strip's two baselines (a lone line halfway between), scrolling together when too long. */
+        /**
+         * One or two lines at the strip's two baselines (a lone line halfway between). A line scrolls only when it is too long for its room; one that fits stays still.
+         * When both scroll they move together (one offset and timing). A line's [NowLine.fixed] start (an event's time) stays put and only the rest scrolls beside it.
+         */
         private fun nowLines(c: Canvas, lines: List<NowLine>, x: Float, room: Float, u: Float) {
             if (lines.isEmpty()) return
             val ys = if (lines.size == 1) listOf(NOW_LONE) else listOf(NOW_LINE1, NOW_LINE2)
-            val shown = lines.map { l -> if (measureLine(l) > room * 3) NowLine(ellipsize(l.s, room * 3, l.size), l.size, l.bold) else l } // never longer than three screens
-            val over = shown.map { (measureLine(it) - room).coerceAtLeast(0f) }
+            val fw = lines.map { if (it.fixed.isEmpty()) 0f else measureText(it.fixed, it.size, it.bold) }
+            val shown = lines.mapIndexed { n, l -> if (measureText(l.s, l.size, l.bold) > (room - fw[n]) * 3) NowLine(ellipsize(l.s, (room - fw[n]) * 3, l.size), l.size, l.bold, l.fixed) else l } // never longer than three screens
+            val over = shown.mapIndexed { n, l -> (measureText(l.s, l.size, l.bold) - (room - fw[n])).coerceAtLeast(0f) }
             val travel = over.max()
             val off = if (travel <= 0f) 0f else {
                 val speed = 90f; val rest = 1500L; val moveMs = (travel / speed * 1000).toLong()
@@ -551,9 +556,12 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 when { t < rest -> 0f; t < rest + moveMs -> (t - rest) / 1000f * speed; t < 2 * rest + moveMs -> travel; else -> travel - (t - 2 * rest - moveMs) / 1000f * speed }.coerceIn(0f, travel)
             }
             shown.forEachIndexed { n, l ->
+                val y = ys[n]
+                if (l.fixed.isNotEmpty()) text(c, l.fixed, x, y, l.size, u, bold = l.bold)
+                val tx = x + fw[n]
+                if (over[n] <= 0f) { text(c, l.s, tx, y, l.size, u, bold = l.bold); return@forEachIndexed } // it fits: it stays still
                 val o = if (NOW_SHORT_STAYS) minOf(off, over[n]) else off
-                if (travel <= 0f) text(c, l.s, x, ys[n], l.size, u, bold = l.bold)
-                else { c.save(); c.clipRect(x * u, (ys[n] - l.size * 1.1f) * u, (x + room) * u, (ys[n] + l.size * 0.4f) * u); text(c, l.s, x - o, ys[n], l.size, u, bold = l.bold); c.restore() }
+                c.save(); c.clipRect(tx * u, (y - l.size * 1.1f) * u, (x + room) * u, (y + l.size * 0.4f) * u); text(c, l.s, tx - o, y, l.size, u, bold = l.bold); c.restore()
             }
             if (travel > 0f) postInvalidateDelayed(60)
         }
@@ -1440,4 +1448,4 @@ class NokiaSkin : PaintedSkin(NokiaChrome, "nokia-list")
 class MacSkin : PaintedSkin(MacChrome(), "classic-mac")
 
 /** One line of the Now strip: its text, size and weight. */
-private class NowLine(val s: String, val size: Float, val bold: Boolean)
+private class NowLine(val s: String, val size: Float, val bold: Boolean, val fixed: String = "")
