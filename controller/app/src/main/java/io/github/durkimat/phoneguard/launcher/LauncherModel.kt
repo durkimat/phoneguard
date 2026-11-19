@@ -24,7 +24,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, SPEAKER, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -232,6 +232,10 @@ sealed class Action {
     /** The ring screen: snooze the alarm (nine minutes) or stop it. */
     object AlarmSnooze : Action()
     object AlarmStop : Action()
+    /** The power menu (long press of the power key): switch the phone off, restart it, or close the menu. */
+    object PowerOff : Action()
+    object PowerRestart : Action()
+    object PowerClose : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
     object MusicPlayPause : Action()
@@ -598,6 +602,7 @@ class LauncherModel(
         Screen.TIMER -> "Timer"
         Screen.STOPWATCH -> "Stopwatch"
         Screen.RING -> if (ringKind == "timer") "Timer" else "Alarm"
+        Screen.POWERMENU -> "Phone"
         Screen.DEVICES -> "Play on"
         Screen.SEARCHRES -> "Results"
         Screen.NOTES -> "Notifications"
@@ -641,6 +646,7 @@ class LauncherModel(
         Screen.TIMER -> (if (timer.running) "Pause" else if (timer.paused) "Resume" else "Start") to "Back"
         Screen.STOPWATCH -> (if (stopwatch.running) "Stop" else "Start") to "Back"
         Screen.RING -> (if (ringKind == "timer") "" else "Snooze") to "Stop"
+        Screen.POWERMENU -> "Select" to "Back"
         Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
@@ -711,6 +717,7 @@ class LauncherModel(
         Screen.CLOCK -> clockRows
         Screen.ALARMS -> alarmRows
         Screen.TIMER, Screen.STOPWATCH, Screen.RING -> emptyList()
+        Screen.POWERMENU -> listOf("Power off", "Restart")
         Screen.SEARCHRES -> spResults.map { it.label }
         Screen.DEVICES -> spDevices.map { (if (it.active) "> " else "  ") + it.name + (if (spIsThisPhone(it)) " (this phone)" else "") }
         Screen.NOTES -> notes.map { n -> n.app + ": " + (if (n.title.isNotEmpty()) n.title else n.text) } + (if (notes.isEmpty()) emptyList() else listOf("Clear all"))
@@ -757,7 +764,7 @@ class LauncherModel(
     }
 
     /** The lists whose numbered entries are chosen by pressing that number, like a Nokia menu. */
-    private val numbered = setOf(Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE)
+    private val numbered = setOf(Screen.POWERMENU, Screen.CLOCK, Screen.ALARMS, Screen.SETTINGS, Screen.THEME, Screen.FONT, Screen.MENUSTYLE, Screen.APPEARANCE, Screen.CHOICE, Screen.TYPING, Screen.SPEAKER, Screen.INBOX, Screen.WHATSAPP, Screen.WASET, Screen.WASETUP, Screen.WAREMOVE, Screen.WANAMES, Screen.CHAT, Screen.CONTACTS, Screen.CONTACT, Screen.CALLLOG, Screen.CALLMENU, Screen.APPS, Screen.GAMES, Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.SOUNDTEST, Screen.RUNNING, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV, Screen.RADIO, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.RADIOBROWSE, Screen.RADIORES, Screen.CONNECTIONS, Screen.CALENDAR, Screen.CALMENU, Screen.EVMENU, Screen.FORM, Screen.MAILBOX, Screen.MAILLIST, Screen.MAILMENU, Screen.FIRSTRUN, Screen.PHONETYPE, Screen.OPENOPTS, Screen.TIMEZONE, Screen.LANGUAGE, Screen.DATA, Screen.LOOK, Screen.SOUNDSET, Screen.THISPHONE, Screen.POWERMENU)
 
     private fun dispatch(key: Key, digit: Int, nowMs: Long): Action {
         if (key == Key.DIGIT && screen in numbered && !inConfirm() && digit in 1..minOf(9, rows.size)) { selected = digit - 1; return route(Key.OK, -1, nowMs) }
@@ -838,6 +845,7 @@ class LauncherModel(
         Screen.TIMER -> timerKey(key, digit, nowMs)
         Screen.STOPWATCH -> stopwatchKey(key, nowMs)
         Screen.RING -> ringKey(key)
+        Screen.POWERMENU -> powerMenuKey(key, digit)
         Screen.MAILBOX -> mailBoxKey(key)
         Screen.MAILLIST -> mailListKey(key)
         Screen.MAILMSG -> mailMsgKey(key)
@@ -2208,6 +2216,17 @@ class LauncherModel(
     var onTonePick: (String, String) -> Unit = { _, _ -> }
     var onPreview: (String) -> Unit = {}
     var ringKind = "alarm"; var ringTime = ""; var ringQuiet = false
+
+    /** The power menu: the activity that shows it starts the model here. */
+    fun openPowerMenu() { trail.clear(); screen = Screen.POWERMENU; selected = 0 }
+
+    private fun powerMenuKey(key: Key, digit: Int): Action = move(key, 2) ?: when {
+        key == Key.OK || key == Key.LEFT || key == Key.SOFT_LEFT -> if (selected == 0) Action.PowerOff else Action.PowerRestart
+        key == Key.DIGIT && digit == 1 -> Action.PowerOff
+        key == Key.DIGIT && digit == 2 -> Action.PowerRestart
+        key == Key.SOFT_RIGHT || key == Key.RIGHT || key == Key.END -> Action.PowerClose
+        else -> Action.None
+    }
 
     fun setRing(kind: String, time: String, quiet: Boolean) {
         ringKind = kind; ringTime = time; ringQuiet = quiet

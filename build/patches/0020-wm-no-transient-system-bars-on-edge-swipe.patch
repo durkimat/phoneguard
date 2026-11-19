@@ -1,0 +1,15 @@
+# repo: frameworks/base
+diff --git a/services/core/java/com/android/server/wm/DisplayPolicy.java b/services/core/java/com/android/server/wm/DisplayPolicy.java
+--- a/services/core/java/com/android/server/wm/DisplayPolicy.java
++++ b/services/core/java/com/android/server/wm/DisplayPolicy.java
+@@ -2222,6 +2222,10 @@
+         if (CLIENT_TRANSIENT) {
+             return;
+         }
++        // Phone Guard: no system bar may be revealed by a swipe from any edge (the status bar is off in every mode).
++        if (!SystemProperties.getBoolean("persist.pg.allow_transient_bars", false)) {
++            return;
++        }
+         if (swipeTarget == null || !mService.mPolicy.isUserSetupComplete()) {
+             // Swipe-up for navigation bar is disabled during setup
+             return;

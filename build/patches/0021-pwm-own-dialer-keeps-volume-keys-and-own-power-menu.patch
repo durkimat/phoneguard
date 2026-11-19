@@ -1,0 +1,61 @@
+# repo: frameworks/base
+diff --git a/services/core/java/com/android/server/policy/PhoneWindowManager.java b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+--- a/services/core/java/com/android/server/policy/PhoneWindowManager.java
++++ b/services/core/java/com/android/server/policy/PhoneWindowManager.java
+@@ -2028,7 +2028,47 @@
+         mHandler.sendEmptyMessage(MSG_DISPATCH_SHOW_GLOBAL_ACTIONS);
+     }
+ 
++    // Phone Guard: when Phone Guard is the default dialer it rings the call itself and uses the volume keys to set the ring
++    // level, so the keys are not turned into "silence ringer" here (its own * key silences).
++    private boolean pgOwnDialerHandlesRing(TelecomManager tm) {
++        try {
++            return "io.github.durkimat.phoneguard".equals(tm.getDefaultDialerPackage());
++        } catch (Exception e) {
++            return false;
++        }
++    }
++
++    // Phone Guard: the power menu is Phone Guard's own screen when the app has it. A second long press within six seconds
++    // (or an app without the screen, or any failure) shows the stock menu, so there is always a way to power off.
++    private long mPgLastPowerMenu = 0;
++    private boolean pgShowPowerMenu() {
++        try {
++            final long now = SystemClock.uptimeMillis();
++            if (mPgLastPowerMenu != 0 && now - mPgLastPowerMenu < 6000) {
++                mPgLastPowerMenu = 0;
++                return false;
++            }
++            final android.content.Intent i = new android.content.Intent("io.github.durkimat.phoneguard.POWER_MENU")
++                    .setPackage("io.github.durkimat.phoneguard")
++                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
++            final int user = android.app.ActivityManager.getCurrentUser();
++            if (mContext.getPackageManager().resolveActivityAsUser(i, 0, user) == null) {
++                return false;
++            }
++            mContext.startActivityAsUser(i, android.os.UserHandle.of(user));
++            mPgLastPowerMenu = now;
++            return true;
++        } catch (Exception e) {
++            Slog.w(TAG, "Phone Guard power menu failed, using the stock one", e);
++            return false;
++        }
++    }
++
+     void showGlobalActionsInternal() {
++        if (pgShowPowerMenu()) {
++            mPowerManager.userActivity(SystemClock.uptimeMillis(), false);
++            return;
++        }
+         if (mGlobalActions == null) {
+             mGlobalActions = mGlobalActionsFactory.get();
+         }
+@@ -5403,7 +5443,7 @@
+                     if (telecomManager != null && !mHandleVolumeKeysInWM) {
+                         // When {@link #mHandleVolumeKeysInWM} is set, volume key events
+                         // should be dispatched to WM.
+-                        if (telecomManager.isRinging()) {
++                        if (telecomManager.isRinging() && !pgOwnDialerHandlesRing(telecomManager)) {
+                             if (mVolumeAnswerCall) {
+                                 telecomManager.acceptRingingCall();
+                             }

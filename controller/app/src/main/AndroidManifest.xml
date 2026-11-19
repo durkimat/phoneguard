@@ -39,6 +39,8 @@
     <uses-permission android:name="android.permission.MASTER_CLEAR" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SET_TIME_ZONE" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.SET_TIME" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REBOOT" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.CHANGE_CONFIGURATION" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="lineageos.permission.WRITE_SETTINGS" />
@@ -151,6 +153,20 @@
             android:turnScreenOn="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
+        <!-- The power menu (long press of the power key): the image's window manager opens it with this action, and falls back to the stock menu when it is missing -->
+        <activity
+            android:name=".launcher.PowerMenuActivity"
+            android:directBootAware="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="io.github.durkimat.phoneguard.POWER_MENU" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".alarm.RingActivity"
             android:directBootAware="true"
