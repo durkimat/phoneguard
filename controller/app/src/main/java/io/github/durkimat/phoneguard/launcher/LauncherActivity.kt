@@ -728,12 +728,19 @@ class LauncherActivity : Activity() {
             return true
         }
         val k = key(ev.keyCode) ?: return super.dispatchKeyEvent(ev)
+        // a key UP acts only if its DOWN came on the screen that is showing now (see DownGate): Back is handled on DOWN, so its UP lands on the next screen
+        val upOk = when {
+            ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0 -> { downGate.down(ev.keyCode, model.screen); true }
+            ev.action == KeyEvent.ACTION_UP -> downGate.up(ev.keyCode, model.screen)
+            else -> true
+        }
+        if (ev.action == KeyEvent.ACTION_UP && k.first == Key.SOFT_RIGHT) ui.removeCallbacks(homeRightHold) // a hold that was armed on another screen must not fire later
         if (model.screen == Screen.WRITE && (model.writeField == 2 || model.voiceState != 0) && voiceKey(k.first, ev)) return true
         // Now playing: a long press of OK is a real Stop (the music is stopped and dropped, the app closed); a short press is play/pause when the key comes up
         if (model.screen == Screen.MUSIC && model.music.active && k.first == Key.OK) {
             when (ev.action) {
                 KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) { musicStopFired = false; ui.removeCallbacks(musicStopHold); ui.postDelayed(musicStopHold, 800) }
-                KeyEvent.ACTION_UP -> { ui.removeCallbacks(musicStopHold); if (!musicStopFired) perform(model.onKey(k.first, k.second)); musicStopFired = false }
+                KeyEvent.ACTION_UP -> { ui.removeCallbacks(musicStopHold); if (!musicStopFired && upOk) perform(model.onKey(k.first, k.second)); musicStopFired = false }
             }
             return true
         }
@@ -741,7 +748,7 @@ class LauncherActivity : Activity() {
         if (model.screen == Screen.MUSIC && model.music.active && model.provider != Provider.RADIO && (k.first == Key.LEFT || k.first == Key.RIGHT || (k.first == Key.DIGIT && (k.second == 4 || k.second == 6)))) {
             val dir = if (k.first == Key.RIGHT || k.second == 6) 1 else -1
             if (ev.action == KeyEvent.ACTION_DOWN && ev.repeatCount == 0) { seekDir = dir; seekFired = false; seekSteps = 0; ui.removeCallbacks(seekStep); ui.postDelayed(seekStep, 500) }
-            else if (ev.action == KeyEvent.ACTION_UP) { ui.removeCallbacks(seekStep); if (!seekFired) perform(if (dir > 0) Action.MusicNext else Action.MusicPrevious); seekFired = false }
+            else if (ev.action == KeyEvent.ACTION_UP) { ui.removeCallbacks(seekStep); if (!seekFired && upOk) perform(if (dir > 0) Action.MusicNext else Action.MusicPrevious); seekFired = false }
             return true
         }
         // radio Now playing: a short press of 1 to 9 plays that preset; holding it stores the playing station there (where the mode allows any station)
@@ -754,7 +761,7 @@ class LauncherActivity : Activity() {
         if (k.first == Key.SOFT_RIGHT && model.screen == Screen.HOME && model.homeFocus < 0) {
             when (ev.action) {
                 KeyEvent.ACTION_DOWN -> if (ev.repeatCount == 0) { homeRightFired = false; ui.removeCallbacks(homeRightHold); ui.postDelayed(homeRightHold, android.view.ViewConfiguration.getLongPressTimeout().toLong()) }
-                KeyEvent.ACTION_UP -> { ui.removeCallbacks(homeRightHold); if (!homeRightFired) perform(model.onKey(k.first, k.second)); homeRightFired = false }
+                KeyEvent.ACTION_UP -> { ui.removeCallbacks(homeRightHold); if (!homeRightFired && upOk) perform(model.onKey(k.first, k.second)); homeRightFired = false }
             }
             return true
         }
@@ -777,10 +784,13 @@ class LauncherActivity : Activity() {
     }
 
     private var musicStopFired = false
-    private val musicStopHold = Runnable { musicStopFired = true; perform(model.stopMusic(model.provider)) }
+    private val musicStopHold = Runnable { if (model.screen != Screen.MUSIC) return@Runnable; musicStopFired = true; perform(model.stopMusic(model.provider)) }
+
+    private val downGate = DownGate()
 
     private var homeRightFired = false
     private val homeRightHold = Runnable {
+        if (model.screen != Screen.HOME) return@Runnable
         homeRightFired = true
         perform(model.openMusicFromHome())
     }
