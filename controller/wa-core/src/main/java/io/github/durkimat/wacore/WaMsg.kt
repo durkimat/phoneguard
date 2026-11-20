@@ -7,7 +7,7 @@ data class WaMsg(
     val mid: String = "", val kind: String = "text", val mediaPath: String = "", val mediaRef: String = "", val mediaSize: Long = 0, val mime: String = "",
     val seconds: Int = 0, val width: Int = 0, val height: Int = 0, val animated: Boolean = false,
     val quoteId: String = "", val quoteText: String = "", val quoteSender: String = "",
-    val edited: Boolean = false, val deleted: Boolean = false, val reactions: List<WaReaction> = emptyList(),
+    val edited: Boolean = false, val deleted: Boolean = false, val reactions: List<WaReaction> = emptyList(), val senderId: String = "",
 )
 
 /** One person's reaction to a message. */

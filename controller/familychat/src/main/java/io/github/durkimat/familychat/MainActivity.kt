@@ -51,7 +51,7 @@ class MainActivity : Activity() {
             r?.last?.let { top.addView(Ui.text(c, Ui.timeText(it.date), 14f, Ui.MUTED)) }
             mid.addView(top)
             val last = r?.last
-            val preview = if (last == null) "No messages yet" else (if (last.mine) "${s.childName}: " else if (last.sender.isNotBlank()) "${last.sender}: " else "") + last.body
+            val preview = if (last == null) "No messages yet" else (if (last.mine) "${s.childName}: " else if (last.sender.isNotBlank()) "${last.sender}: " else "") + Rich.snippet(last)
             mid.addView(Ui.text(c, preview, 16f, Ui.MUTED).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }, Ui.params(c = c, top = 4))
             line.addView(mid, Ui.params(0, weight = 1f).also { it.leftMargin = Ui.dp(c, 12) })
             if ((r?.unread ?: 0) > 0) line.addView(Ui.text(c, r!!.unread.toString(), 14f, 0xFFFFFFFF.toInt(), true).apply {

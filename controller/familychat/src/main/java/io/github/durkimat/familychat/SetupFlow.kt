@@ -67,6 +67,15 @@ interface Settings {
     var setupDone: Boolean
     /** Tell WhatsApp (so the parent's phone shows it read) when the child opens a conversation. On unless the parent turns it off. */
     var sendReadReceipts: Boolean
+    /** Pictures, GIFs and stickers are shown (and downloaded). Off: a plain marker instead. */
+    var showMedia: Boolean
+    /** The child may send photos and videos (the "+" button). Off unless the parent turns it on, in the admin menu or with "photos on". */
+    var photosAllowed: Boolean
+    /** Videos are fetched only on Wi-Fi (or any unmetered network). */
+    var wifiOnlyVideos: Boolean
+    /** The wallpaper chosen for a chat ("sand", "mint", ... or "photo"), by whoever holds the phone. */
+    fun wallpaper(chat: String): String
+    fun setWallpaper(chat: String, key: String)
     /** The groups last listed by the account, so the pickers have something to show before the connection answers. */
     var knownGroups: List<Group>
     fun clear()

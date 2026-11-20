@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <queries>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+        <intent><action android:name="android.media.action.VIDEO_CAPTURE" /></intent>
+    </queries>
+
     <application android:name=".FcApp" android:label="Family Chat" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -17,6 +22,10 @@
         </activity>
         <activity android:name=".SetupActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ConversationActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ViewerActivity" android:exported="false" />
+        <activity android:name=".WallpaperActivity" android:exported="false" />
+        <activity android:name=".SendActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <provider android:name=".CaptureProvider" android:authorities="io.github.durkimat.familychat.capture" android:exported="false" android:grantUriPermissions="true" />
         <activity android:name=".PinActivity" android:exported="false" />
         <activity android:name=".AdminActivity" android:exported="false" android:excludeFromRecents="true" />
         <service android:name=".ConnectionService" android:exported="false" android:foregroundServiceType="specialUse">

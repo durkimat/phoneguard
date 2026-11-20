@@ -7,6 +7,7 @@ They connect to WhatsApp as a linked device using the unofficial open-source lib
 (https://github.com/tulir/whatsmeow), version go.mau.fi/whatsmeow v0.0.0-20261107160454-79dc2a8c33df,
 licensed under the Mozilla Public License 2.0 (https://www.mozilla.org/MPL/2.0/). The library is used unmodified;
 its source is available at https://github.com/tulir/whatsmeow/tree/79dc2a8c33df.
+Family Chat also uses AndroidX Media3 Transformer and Effect 1.4.1 (Apache-2.0) to prepare videos for sending.
 Other components: the Go standard library and golang.org/x modules (BSD-3-Clause), protobuf (BSD-3-Clause),
 gomobile (BSD-3-Clause), and the Android SDK libraries (Apache-2.0).
 (Before a release, regenerate this list from wabridge/go.sum.)

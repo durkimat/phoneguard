@@ -87,7 +87,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 3) {
                 val mid = cur.getString(5)
                 out.add(WaMsg(cur.getString(0), cur.getLong(1) * 1000, mine, if (group && !mine) who else "", mid, cur.getString(6), cur.getString(7), cur.getString(8), cur.getLong(9),
                     cur.getString(10), cur.getInt(11), cur.getInt(12), cur.getInt(13), cur.getInt(14) == 1, cur.getString(15), cur.getString(16), cur.getString(17),
-                    cur.getInt(18) == 1, cur.getInt(19) == 1, reacts[mid].orEmpty()))
+                    cur.getInt(18) == 1, cur.getInt(19) == 1, reacts[mid].orEmpty(), cur.getString(4) ?: ""))
             }
         }
         return out

@@ -48,13 +48,20 @@ class AdminActivity : Activity() {
         groups.addView(Ui.divider(c), Ui.params(c = c, top = 12))
         groups.addView(Ui.row(c, "Add or remove groups", chevron = true) { show(Page.GROUPS) })
         body.addView(groups, Ui.params())
+        val opts = Ui.card(c)
+        opts.addView(Ui.text(c, "Chat options", 18f, Ui.INK, true))
+        fun toggle(label: String, on: Boolean, flip: () -> Unit) { opts.addView(Ui.divider(c), Ui.params(c = c, top = 4)); opts.addView(Ui.row(c, label, if (on) "On" else "Off", chevron = false) { flip(); Fc.applyConfig(); show(Page.MENU) }) }
+        toggle("Show pictures, GIFs and stickers", s.showMedia) { s.showMedia = !s.showMedia }
+        toggle("Tell WhatsApp when read", s.sendReadReceipts) { s.sendReadReceipts = !s.sendReadReceipts }
+        toggle("Allow sending photos and videos", s.photosAllowed) { s.photosAllowed = !s.photosAllowed }
+        toggle("Download videos only on Wi-Fi", s.wifiOnlyVideos) { s.wifiOnlyVideos = !s.wifiOnlyVideos }
+        body.addView(opts, Ui.params(c = c, top = 16))
         val settings = Ui.card(c)
         settings.addView(Ui.row(c, "Child's name", s.childName)); settings.addView(Ui.divider(c))
         settings.addView(Ui.row(c, "Your name", s.parentName)); settings.addView(Ui.divider(c))
         settings.addView(Ui.row(c, "Admin group", WaNames.adminName(s), chevron = true) { show(Page.ADMIN_GROUP) }); settings.addView(Ui.divider(c))
         val exempt = ConnectionService.batteryExempt(c)
         settings.addView(Ui.row(c, "Stay connected", if (exempt) "Allowed" else "Tap to allow", chevron = !exempt) { if (!exempt) { leaving = true; startActivityForResult(ConnectionService.batteryExemptionIntent(c), 1) } }); settings.addView(Ui.divider(c))
-        settings.addView(Ui.row(c, "Tell WhatsApp when read", if (s.sendReadReceipts) "On" else "Off", chevron = true) { s.sendReadReceipts = !s.sendReadReceipts; show(Page.MENU) }); settings.addView(Ui.divider(c))
         settings.addView(Ui.row(c, "Change PIN", chevron = true) { show(Page.PIN) }); settings.addView(Ui.divider(c))
         settings.addView(Ui.row(c, "About and risks", chevron = true) { show(Page.ABOUT) })
         body.addView(settings, Ui.params(c = c, top = 16))

@@ -34,7 +34,8 @@ M=$("$BT/aapt" dump xmltree "$OUT" AndroidManifest.xml)
 echo "$M" | grep -qi "testOnly" && { echo "FAIL: release is testOnly"; exit 1; } || echo "ok: not testOnly"
 "$BT/aapt" dump badging "$OUT" | grep -q "package: name='io.github.durkimat.familychat'" || { echo "FAIL: wrong package"; exit 1; }
 echo "$M" | grep -i "android:label" | grep -qi whatsapp && { echo "FAIL: WhatsApp in the app name"; exit 1; } || echo "ok: no WhatsApp in the name"
-unzip -l "$OUT" | grep -q "libgojni.so" || { echo "FAIL: bridge missing"; exit 1; } && echo "ok: bridge packaged"
+LIST=$(unzip -l "$OUT") # (not piped: grep -q closing the pipe early fails under pipefail)
+grep -q "libgojni.so" <<<"$LIST" || { echo "FAIL: bridge missing"; exit 1; }; echo "ok: bridge packaged"
 # 16 KB pages (Android 15+): the .so must be stored uncompressed at a 16 KB offset in the zip and its ELF segments aligned to 16 KB
 python3 - "$OUT" <<'PY' || { echo "FAIL: not 16 KB aligned"; exit 1; }
 import sys,zipfile,struct,io

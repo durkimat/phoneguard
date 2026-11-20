@@ -52,3 +52,13 @@ and only for groups the parent has allowed.
 - whatsmeow is pinned to one commit; bump deliberately with the bridge tests.
 - Needs hardware testing: linking, admin group binding, commands from the parent's phone, reconnect after reboot.
 - Google/F-Droid listings: not planned.
+
+## rc2 (2026-11-20): richer chat
+- Receive: pictures, stickers (animated WebP too), GIFs (short looping videos) are fetched by the bridge as they arrive (up to 5 MB, live messages only, never history) into app-private storage; videos show "Tap to download . size", are fetched on tap (up to 100 MB, Wi-Fi only by default), and play in the app (VideoView). A cache cleaner removes unreferenced files and the oldest beyond 200 MB.
+- Reactions shown under messages; the child's reaction is a quoted reply "<child>: <emoji>" (a real WhatsApp reaction carries no name, so it would look like the parent's). Replies quote. Edit (own text, within 15 minutes) and delete for everyone (own only: keys are sent as "from me", so another person's message cannot be touched). "edited" label.
+- Labelling rule in one place (wa-core WaLabels, run by the transport): a sticker is preceded by "Sent by <child>"; photos and videos carry "<child>: caption" ("<child>:" when empty). Each item counts as one send and a burst is refused whole.
+- Send: bundled stickers (36, our own artwork: Happy, Words, Animals), photos (upright, scaled to 1600 px, re-saved as JPEG so EXIF/GPS is gone), videos (Media3 Transformer to H.264/AAC 720p, then a remux that drops location; up to 5 minutes and 100 MB). "+" shows only when the parent allows photos and videos (default OFF; admin menu or "photos on"/"photos off" in the admin group). Photo picker and the system camera (no storage or camera permission; a small private content provider gives the camera its file).
+- Per-chat wallpaper (8 original ones + "From my photos"), new green look, new icon (white bubble with a padlock cut out, adaptive and themed).
+- New library: androidx.media3 transformer and effect 1.4.1 (Apache-2.0), listed in NOTICE.txt.
+- Not in rc2: GIF search, voice notes, calls, location, opening links, an animated sticker pack (the bridge flag exists), thumbnails sent with photos (receivers see the picture after download).
+- Media through an unofficial client raises WhatsApp's attention: limits stay at 5 sends a minute and 200 a day; a sticker costs two, a photo or video one.

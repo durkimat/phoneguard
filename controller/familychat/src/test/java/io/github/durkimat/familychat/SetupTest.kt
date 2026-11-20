@@ -7,6 +7,10 @@ internal class Memory : Settings {
     override var riskAccepted = false; override var childName = ""; override var parentName = ""; override var linked = false
     override var adminGroupId = ""; override var pin: PinStore.Saved? = null; override var pinFailures = 0; override var pinLockUntil = 0L
     override var allowedGroups: List<Group> = emptyList(); override var lastCommand = 0L; override var setupDone = false; override var sendReadReceipts = true
+    override var showMedia = true; override var photosAllowed = false; override var wifiOnlyVideos = true
+    private val wp = HashMap<String, String>()
+    override fun wallpaper(chat: String) = wp[chat] ?: "sand"
+    override fun setWallpaper(chat: String, key: String) { wp[chat] = key }
     override var knownGroups: List<Group> = emptyList()
     override fun clear() { riskAccepted = false; childName = ""; parentName = ""; linked = false; adminGroupId = ""; pin = null; allowedGroups = emptyList(); setupDone = false }
 }
@@ -135,6 +139,13 @@ class AdminBrainTest {
         val b = brain()
         assertEquals("Nothing to choose.", b.handle("1"))
         b.handle("add group Football"); assertEquals("Nothing to choose.", b.handle("7")); assertTrue(allowed.isEmpty())
+    }
+
+    @Test fun photosCommandsSwitchAndAnswer() {
+        var on = false
+        val b = AdminBrain({ "Sam" }, { "9" }, { allowed }, { allowed = it }, { lines }, { on = it })
+        assertEquals("Photos and videos: on", b.handle("photos on")); assertTrue(on)
+        assertEquals("Photos and videos: off", b.handle("Photos OFF")); assertFalse(on)
     }
 
     @Test fun unknownTextGetsTheUsageLine() {

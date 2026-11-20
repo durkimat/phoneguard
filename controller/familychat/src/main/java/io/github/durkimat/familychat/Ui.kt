@@ -21,8 +21,8 @@ import android.widget.TextView
 /** The look: light, plain, large type, the system sans. Everything is built in code; there are no layout files. */
 object Ui {
     const val GROUND = 0xFFF4F7FB.toInt(); const val CARD = 0xFFFFFFFF.toInt(); const val BORDER = 0xFFDCE3EA.toInt()
-    const val INK = 0xFF14202B.toInt(); const val MUTED = 0xFF566370.toInt(); const val ACCENT = 0xFF0E7C7B.toInt()
-    const val ACCENT_SOFT = 0xFFD9EFEE.toInt(); const val WARN = 0xFFFFF1D6.toInt(); const val WARN_TEXT = 0xFF5A3B00.toInt()
+    const val INK = 0xFF14202B.toInt(); const val MUTED = 0xFF566370.toInt(); const val ACCENT = 0xFF0A7D4F.toInt()
+    const val ACCENT_SOFT = 0xFFD6F2E1.toInt(); const val DEEP = 0xFF075B38.toInt(); const val MINE = 0xFFD9F5D0.toInt(); const val SAND = 0xFFEFE9DF.toInt(); const val WARN = 0xFFFFF1D6.toInt(); const val WARN_TEXT = 0xFF5A3B00.toInt()
     const val DANGER = 0xFFA12B2B.toInt(); const val THEIRS = 0xFFE6EBF1.toInt(); const val DISABLED = 0xFFB8C4CE.toInt()
 
     fun dp(c: Context, v: Int) = (v * c.resources.displayMetrics.density + 0.5f).toInt()
@@ -124,7 +124,7 @@ object Ui {
     }
 }
 
-/** A drawn icon (no emoji, no files): "lock", "back" or "send". */
+/** A drawn icon (no emoji, no files): lock, back, send, plus, close, smile, picture, play, photo, video. */
 class IconView(c: Context, private val kind: String, private val color: Int = Ui.MUTED) : View(c) {
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = Ui.dp(c, 2).toFloat(); strokeCap = Paint.Cap.ROUND; strokeJoin = Paint.Join.ROUND }
     override fun onDraw(cv: Canvas) {
@@ -134,6 +134,13 @@ class IconView(c: Context, private val kind: String, private val color: Int = Ui
         when (kind) {
             "lock" -> { cv.drawRoundRect(4f, 11f, 20f, 21f, 2f, 2f, p); cv.drawPath(Path().apply { moveTo(8f, 11f); lineTo(8f, 7f); arcTo(8f, 3f, 16f, 11f, 180f, 180f, false); lineTo(16f, 11f) }, p) }
             "back" -> cv.drawPath(Path().apply { moveTo(15f, 5f); lineTo(8f, 12f); lineTo(15f, 19f) }, p)
+            "plus" -> { cv.drawLine(12f, 5f, 12f, 19f, p); cv.drawLine(5f, 12f, 19f, 12f, p) }
+            "close" -> { cv.drawLine(6f, 6f, 18f, 18f, p); cv.drawLine(18f, 6f, 6f, 18f, p) }
+            "smile" -> { cv.drawCircle(12f, 12f, 9f, p); cv.drawPoint(9f, 10f, p); cv.drawPoint(15f, 10f, p); cv.drawPath(Path().apply { moveTo(8f, 14f); quadTo(12f, 18.5f, 16f, 14f) }, p) }
+            "picture" -> { cv.drawRoundRect(3f, 5f, 21f, 19f, 2f, 2f, p); cv.drawPath(Path().apply { moveTo(4f, 17f); lineTo(9f, 11f); lineTo(13f, 15f); lineTo(16f, 12f); lineTo(20f, 17f) }, p); cv.drawCircle(16f, 9f, 1.5f, p) }
+            "play" -> { p.style = Paint.Style.FILL; cv.drawPath(Path().apply { moveTo(8f, 5f); lineTo(19f, 12f); lineTo(8f, 19f); close() }, p); p.style = Paint.Style.STROKE }
+            "photo" -> { cv.drawRoundRect(3f, 6f, 21f, 19f, 2f, 2f, p); cv.drawCircle(12f, 12.5f, 3.5f, p) }
+            "video" -> { cv.drawRoundRect(3f, 6f, 15f, 18f, 2f, 2f, p); cv.drawPath(Path().apply { moveTo(15f, 11f); lineTo(21f, 8f); lineTo(21f, 16f); lineTo(15f, 13f) }, p) }
             else -> cv.drawPath(Path().apply { moveTo(4f, 12f); lineTo(20f, 4f); lineTo(14f, 20f); lineTo(11f, 13f); close() }, p)
         }
         cv.restore()
