@@ -24,6 +24,8 @@ class ConnectionService : Service() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Connection", NotificationManager.IMPORTANCE_MIN))
         val n = Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("Family Chat is connected").setOngoing(true).build()
         startForeground(NOTE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        Fc.init(this)
+        Thread { if (Fc.settings.setupDone) { Fc.open(); Fc.connect() } }.start()
         return START_STICKY
     }
 

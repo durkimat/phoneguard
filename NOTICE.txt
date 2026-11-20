@@ -1,0 +1,16 @@
+Family Chat and Phone Guard
+Licensed under the Apache License 2.0 (see LICENSE).
+
+These apps are NOT made by, endorsed by or connected to WhatsApp or Meta. "WhatsApp" is a trademark of its owner.
+
+They connect to WhatsApp as a linked device using the unofficial open-source library whatsmeow
+(https://github.com/tulir/whatsmeow), version go.mau.fi/whatsmeow v0.0.0-20261107160454-79dc2a8c33df,
+licensed under the Mozilla Public License 2.0 (https://www.mozilla.org/MPL/2.0/). The library is used unmodified;
+its source is available at https://github.com/tulir/whatsmeow/tree/79dc2a8c33df.
+Other components: the Go standard library and golang.org/x modules (BSD-3-Clause), protobuf (BSD-3-Clause),
+gomobile (BSD-3-Clause), and the Android SDK libraries (Apache-2.0).
+(Before a release, regenerate this list from wabridge/go.sum.)
+
+Risk: using an unofficial client is against WhatsApp's terms of service. WhatsApp can block or ban the account
+it is linked to, without notice. Use an account you can afford to lose; the apps limit messages per minute and per day
+to lower, not remove, that risk. Messages are held on the phone only, and only for groups the parent has allowed.

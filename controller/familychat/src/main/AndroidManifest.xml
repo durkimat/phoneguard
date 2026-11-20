@@ -7,8 +7,23 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <!-- No screens yet: the visual work waits for the owner's approved mockup. Only the always-on connection lives here. -->
-    <application android:label="Family Chat" android:allowBackup="false">
+    <application android:name=".FcApp" android:label="Family Chat" android:allowBackup="false" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".SetupActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ConversationActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".PinActivity" android:exported="false" />
+        <activity android:name=".AdminActivity" android:exported="false" android:excludeFromRecents="true" />
         <service android:name=".ConnectionService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

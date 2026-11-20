@@ -33,6 +33,6 @@ echo "== checks"
 M=$("$BT/aapt" dump xmltree "$OUT" AndroidManifest.xml)
 echo "$M" | grep -qi "testOnly" && { echo "FAIL: release is testOnly"; exit 1; } || echo "ok: not testOnly"
 "$BT/aapt" dump badging "$OUT" | grep -q "package: name='io.github.durkimat.familychat'" || { echo "FAIL: wrong package"; exit 1; }
-"$BT/aapt" dump badging "$OUT" | grep -qi "application-label:'.*whatsapp" && { echo "FAIL: WhatsApp in the app name"; exit 1; } || echo "ok: no WhatsApp in the name"
+echo "$M" | grep -i "android:label" | grep -qi whatsapp && { echo "FAIL: WhatsApp in the app name"; exit 1; } || echo "ok: no WhatsApp in the name"
 unzip -l "$OUT" | grep -q "libgojni.so" || { echo "FAIL: bridge missing"; exit 1; } && echo "ok: bridge packaged"
 ls -la "$OUT"

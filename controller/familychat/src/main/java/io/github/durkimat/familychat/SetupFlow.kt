@@ -3,18 +3,30 @@ package io.github.durkimat.familychat
 import io.github.durkimat.wacore.WaCommands
 
 /**
- * The first-run steps, with no screen in them: names, linking, then the admin group. A screen only shows [step] and calls the functions.
- * The admin group is found by its FamilyChat-<child> name (WaCommands.ADMIN_PREFIX) and then bound by its id, never by name afterwards.
+ * The first-run steps, with no screen in them: welcome, PIN, names, link, admin group, groups. A screen only shows [step] and calls the
+ * functions. The admin group is found by its FamilyChat-<child> name (WaCommands.ADMIN_PREFIX) and then bound by its id, never by name afterwards.
  */
 class SetupFlow(private val s: Settings) {
-    enum class Step { NAMES, LINK, ADMIN_GROUP, PIN, DONE }
+    enum class Step { WELCOME, PIN, NAMES, LINK, ADMIN_GROUP, GROUPS, DONE }
 
     val step: Step get() = when {
+        !s.riskAccepted -> Step.WELCOME
+        s.pin == null -> Step.PIN
         s.childName.isBlank() || s.parentName.isBlank() -> Step.NAMES
         !s.linked -> Step.LINK
         s.adminGroupId.isBlank() -> Step.ADMIN_GROUP
-        s.pin == null -> Step.PIN
+        !s.setupDone -> Step.GROUPS
         else -> Step.DONE
+    }
+
+    /** "Step N of 6" for the screen (1..6). */
+    val number: Int get() = minOf(step.ordinal + 1, 6)
+
+    fun acceptRisk() { s.riskAccepted = true }
+
+    fun setPin(pin: String, again: String): Boolean {
+        if (pin != again || !PinStore.valid(pin)) return false
+        s.pin = PinStore.create(pin); return true
     }
 
     fun setNames(child: String, parent: String): Boolean {
@@ -36,17 +48,24 @@ class SetupFlow(private val s: Settings) {
         s.adminGroupId = id.removeSuffix("@g.us"); return true
     }
 
-    fun setPin(pin: String): Boolean {
-        if (!PinStore.valid(pin)) return false
-        s.pin = PinStore.create(pin); return true
-    }
+    /** The last step: the chosen groups are saved and the app is handed over. */
+    fun finish(chosen: List<Group>) { s.allowedGroups = chosen.filter { it.id != s.adminGroupId }; s.setupDone = true }
 }
 
 /** What the app remembers about itself. [Memory] is the test one; the real one is [PrefsSettings]. */
 interface Settings {
+    var riskAccepted: Boolean
     var childName: String
     var parentName: String
     var linked: Boolean
     var adminGroupId: String
     var pin: PinStore.Saved?
+    var pinFailures: Int
+    var pinLockUntil: Long
+    var allowedGroups: List<Group>
+    var lastCommand: Long
+    var setupDone: Boolean
+    /** The groups last listed by the account, so the pickers have something to show before the connection answers. */
+    var knownGroups: List<Group>
+    fun clear()
 }

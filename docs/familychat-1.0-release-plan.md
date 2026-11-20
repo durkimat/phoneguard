@@ -9,7 +9,9 @@ Nothing here is released or approved. The release needs the owner's go; PC publi
 - Always-on connection: foreground service with a minimal notification; reconnect after boot.
 - Local PIN (salted PBKDF2, on the phone only) for parent-only screens.
 - Not in 1.0: media, calls, a companion/Worker, remote config, other languages, a Play Store listing.
-- Screens: the owner's approved 12-screen mockup (visual work not started). Skeleton and tested non-visual parts are on branch familychat-core (SetupFlow, PinStore, ConnectionService, PrefsSettings).
+- Screens (built 2026-11-20 from the owner's approved mockup, plain Android Views, no Compose): Chats, Conversation, Admin PIN, Admin menu (groups, names, admin group help, stay connected, change PIN, About and risks, Unlink), the shared group picker (search, chips, A-to-Z list) and the six setup steps. Admin sub-screens are one activity that closes when left. Test APK: familychat-0.9.0-screens-test.apk.
+- Also built: real account linking (pairing code), boot receiver, local admin-group commands (add group / remove group / groups / number), reply wording in wa-core WaAcks.
+- Known gaps for 1.0: no launcher icon yet, no new-message notification, no read receipts back to WhatsApp, boot start of the foreground service is blocked on Android 15+ (fine on 14).
 
 ## Identity
 - Module `:familychat`, applicationId `io.github.durkimat.familychat`, label "Family Chat" (no "WhatsApp" in the name; release script fails if it appears).
@@ -22,7 +24,7 @@ Nothing here is released or approved. The release needs the owner's go; PC publi
 ## GitHub release assets
 `familychat-1.0.0.apk`, `familychat-1.0.0.apk.sha256`, `NOTICE.txt`, and release notes (changelog + the risk paragraph below). Tag `familychat-v1.0.0`. Phone Guard releases keep their own tags.
 
-## NOTICE text (draft)
+## NOTICE text (now the file NOTICE.txt at the repo root; the app's About screen links to it on main)
 ```
 Family Chat
 Copyright the Family Chat authors. Licensed under the Apache License 2.0 (see LICENSE).
