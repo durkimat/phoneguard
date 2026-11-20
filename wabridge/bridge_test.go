@@ -35,6 +35,10 @@ func (r *rec) OnCall(chat, chatName string, ts int64, rejected bool) {
 
 func (r *rec) OnLog(string) {}
 
+func (r *rec) OnCommand(text string, ts int64, id string) {
+	r.msgs = append(r.msgs, fmt.Sprintf("cmd:%s@%d", text, ts))
+}
+
 func (r *rec) OnRead(chat string, ts int64) {
 	r.msgs = append(r.msgs, fmt.Sprintf("read:%s@%d", chat, ts))
 }
@@ -255,6 +259,7 @@ func (s *senderRec) OnPairCode(string)                                     {}
 func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (s *senderRec) OnRead(chat string, ts int64)                          {}
 func (s *senderRec) OnLog(line string)                                     {}
+func (s *senderRec) OnCommand(text string, ts int64, id string)            {}
 func (s *senderRec) OnMessage(m *Message) {
 	*s.out = m.Sender
 }
@@ -320,6 +325,7 @@ func (f *fullRec) OnPairCode(string)                                     {}
 func (f *fullRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (f *fullRec) OnRead(chat string, ts int64)                          {}
 func (f *fullRec) OnLog(line string)                                     {}
+func (f *fullRec) OnCommand(text string, ts int64, id string)            {}
 func (f *fullRec) OnMessage(m *Message)                                  { f.got = append(f.got, m) }
 
 func TestMessagesCarryTheirIdAndTheSendersNumber(t *testing.T) {
@@ -450,3 +456,115 @@ func TestHeldHistoryIsBoundedAndTheHoldTimesOut(t *testing.T) {
 		t.Fatalf("got %d", len(r.msgs))
 	}
 }
+
+func TestGroupsCanBeAllowedByIdAndAnotherGroupWithTheSameNameStaysOut(t *testing.T) {
+	m, b, r := group("Family", "12036311", "dinner?")
+	b.SetAllowed("gid:12036311@g.us")
+	b.onMessage(m)
+	if len(r.msgs) != 1 {
+		t.Fatalf("a group allowed by id did not get through: %v", r.msgs)
+	}
+	// a different group that happens to be called Family is not the one that was allowed
+	other, b2, r2 := group("Family", "99999", "hello")
+	b2.SetAllowed("gid:12036311")
+	b2.onMessage(other)
+	if len(r2.msgs) != 0 {
+		t.Fatalf("a group with the same name got through by id: %v", r2.msgs)
+	}
+	// the older way, by name, still works
+	b2.SetAllowed("g:family")
+	b2.onMessage(other)
+	if len(r2.msgs) != 1 {
+		t.Fatalf("the name entry stopped working: %v", r2.msgs)
+	}
+	if cleanGroupID(" 12036311@G.US ") != "12036311" {
+		t.Fatal("cleanGroupID")
+	}
+}
+
+func adminMsg(b *Bridge, id string, fromMe bool, device uint16, ts int64, text string) *events.Message {
+	m := dm("447700900111", text)
+	m.Info.Chat = types.NewJID(id, types.GroupServer)
+	m.Info.IsGroup = true
+	m.Info.IsFromMe = fromMe
+	m.Info.Sender = types.JID{User: "447700900111", Device: device, Server: types.DefaultUserServer}
+	m.Info.Timestamp = time.Unix(ts, 0)
+	return m
+}
+
+func TestAdminGroupCommandsAreAcceptedOnlyFromTheParentsOtherDevices(t *testing.T) {
+	b, r := bridge()
+	b.SetAdmin("1203adm@g.us", 1000)
+	b.SetAllowAll(true) // even so the admin group is never a chat
+	// from the parent's phone (device 0; ours has no device yet, 0xFFFF): accepted
+	b.deliver(adminMsg(b, "1203adm", true, 0, 2000, "add group Family"), false)
+	if len(r.msgs) != 1 || r.msgs[0] != "cmd:add group Family@2000" {
+		t.Fatalf("got %v", r.msgs)
+	}
+	r.msgs = nil
+	for name, m := range map[string]*events.Message{
+		"not from the parent":     adminMsg(b, "1203adm", false, 0, 3000, "add group Family"),
+		"our own device":          adminMsg(b, "1203adm", true, b.ourDevice(), 3000, "add group Family"),
+		"older than the last one": adminMsg(b, "1203adm", true, 0, 1500, "add group Family"),
+		"our own acknowledgement": adminMsg(b, "1203adm", true, 0, 3000, AckPrefix+"added Family"),
+		"empty":                   adminMsg(b, "1203adm", true, 0, 3000, "   "),
+	} {
+		b.deliver(m, false)
+		if len(r.msgs) != 0 {
+			t.Fatalf("%s was taken as a command: %v", name, r.msgs)
+		}
+	}
+	b.deliver(adminMsg(b, "1203adm", true, 0, 3000, "groups"), true) // history
+	if len(r.msgs) != 0 {
+		t.Fatalf("history was taken as a command: %v", r.msgs)
+	}
+	// another group is untouched by the admin id, and the admin group is not a chat
+	b.deliver(adminMsg(b, "other", true, 0, 4000, "hello"), false)
+	if len(r.msgs) != 1 || r.msgs[0] != "gother|hello" {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestACommandIsOnlyAppliedOnce(t *testing.T) {
+	b, r := bridge()
+	b.SetAdmin("adm", 0)
+	m := adminMsg(b, "adm", true, 0, 500, "groups")
+	b.deliver(m, false)
+	b.deliver(m, false) // the same message again (a replay) is not applied twice
+	if len(r.msgs) != 1 {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestTheTagIsPutInFrontByTheBridgeItself(t *testing.T) {
+	b, _ := bridge()
+	b.SetAllowed("g:x, gid:777")
+	b.SetTag("Tom")
+	long := make([]rune, 998)
+	for i := range long {
+		long[i] = 'a'
+	}
+	if err := b.Send("g777", string(long)); err == nil { // 998 letters plus "Tom: " is over the limit
+		t.Fatal("the tag was not counted in the length")
+	}
+}
+
+func TestTheParentsOwnMessagesInAGroupUseTheirNameInsteadOfMe(t *testing.T) {
+	m, b, r := group("Family", "12036311", "on my way")
+	b.SetAllowed("gid:12036311")
+	m.Info.IsFromMe = true
+	var who []string
+	b.l = &whoRec{rec: r, who: &who}
+	b.SetOwnName("Karen")
+	b.onMessage(m)
+	if len(who) != 1 || who[0] != "Karen" {
+		t.Fatalf("got %v", who)
+	}
+}
+
+type whoRec struct {
+	*rec
+	who *[]string
+}
+
+func (w *whoRec) OnMessage(m *Message) { *w.who = append(*w.who, m.Sender) }

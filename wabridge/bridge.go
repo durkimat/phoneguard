@@ -64,6 +64,9 @@ type Listener interface {
 	// OnRead: this account read the chat on another device (the main phone, say), up to ts (unix seconds). The app should
 	// clear its unread marks for that chat's messages up to then. chat is as in Message.
 	OnRead(chat string, ts int64)
+	// OnCommand: a command the parent typed in the admin group (see SetAdmin): text as written, ts in unix seconds, id the message id.
+	// Only messages from the account's own OTHER devices, newer than the last applied one, are ever passed on; the app decides what they mean.
+	OnCommand(text string, ts int64, id string)
 	// OnLog: a short diagnostic line (which read-related events arrived), with numbers masked. Only for the phone's own log.
 	OnLog(line string)
 }
@@ -76,6 +79,11 @@ type Bridge struct {
 	mu          sync.Mutex
 	allowed     map[string]bool // phone numbers (digits)
 	groups      map[string]bool // group names, lower case
+	gids        map[string]bool // group ids (the part before @g.us), lower case: the safe way to allow a group
+	tag         string          // put in front of every message sent ("Tom: "), by Send itself so no screen can skip it
+	ownName     string          // what the account's own messages in a group are called (instead of "Me")
+	admin       string          // the admin group's id (never shown, never an allowed group), or ""
+	adminLast   int64           // the newest command already applied (unix seconds)
 	allowAll    bool
 	rejectCalls bool
 	gnames      map[string]string // group id -> name, cached
@@ -200,8 +208,15 @@ func (b *Bridge) Logout() error {
 func (b *Bridge) SetAllowed(entries string) {
 	m := map[string]bool{}
 	g := map[string]bool{}
+	gi := map[string]bool{}
 	for _, f := range strings.FieldsFunc(entries, func(r rune) bool { return r == ',' || r == ';' || r == '\n' }) {
 		f = strings.TrimSpace(f)
+		if strings.HasPrefix(strings.ToLower(f), "gid:") {
+			if id := cleanGroupID(f[4:]); id != "" {
+				gi[id] = true
+			}
+			continue
+		}
 		if strings.HasPrefix(strings.ToLower(f), "g:") {
 			if name := strings.ToLower(strings.TrimSpace(f[2:])); name != "" {
 				g[name] = true
@@ -213,8 +228,93 @@ func (b *Bridge) SetAllowed(entries string) {
 		}
 	}
 	b.mu.Lock()
-	b.allowed, b.groups = m, g
+	b.allowed, b.groups, b.gids = m, g, gi
 	b.mu.Unlock()
+}
+
+// cleanGroupID lower-cases a group id and drops the "@g.us" ending, so "12036@g.us" and "12036" are the same group.
+func cleanGroupID(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	return strings.TrimSuffix(s, "@g.us")
+}
+
+// SetTag sets the text put in front of every message sent, with ": " after it (the child's name). Empty means none.
+func (b *Bridge) SetTag(name string) {
+	b.mu.Lock()
+	b.tag = strings.TrimSpace(name)
+	b.mu.Unlock()
+}
+
+// SetOwnName sets what the account's own messages are called in a group (the parent's name) instead of "Me". Empty keeps "Me".
+func (b *Bridge) SetOwnName(name string) {
+	b.mu.Lock()
+	b.ownName = strings.TrimSpace(name)
+	b.mu.Unlock()
+}
+
+// SetAdmin names the admin group (by id, never by name) that commands are read from, and the newest command already applied.
+// The admin group is never delivered as a chat and never counts as an allowed group. An empty id switches commands off.
+func (b *Bridge) SetAdmin(groupID string, lastApplied int64) {
+	b.mu.Lock()
+	b.admin = cleanGroupID(groupID)
+	b.adminLast = lastApplied
+	b.mu.Unlock()
+}
+
+// AckPrefix starts every acknowledgement the bridge writes in the admin group, so it can never be read back as a command.
+const AckPrefix = "» "
+
+// acceptCommand is the whole rule for taking a message in the admin group as a command: it must be the parent's own account
+// (fromMe), written on another device than this one (this app is itself a linked device, so without this the child's own app could
+// type commands), live (not history), newer than the last applied command, not empty, and not one of our own acknowledgements.
+func acceptCommand(fromMe bool, senderDevice, ourDevice uint16, history bool, ts, last int64, text string) bool {
+	text = strings.TrimSpace(text)
+	return fromMe && !history && senderDevice != ourDevice && ts > last && text != "" && !strings.HasPrefix(text, strings.TrimSpace(AckPrefix))
+}
+
+// ourDevice is this linked device's number; 0xFFFF (no device) before the account is linked.
+func (b *Bridge) ourDevice() uint16 {
+	if b.cli != nil && b.cli.Store != nil && b.cli.Store.ID != nil {
+		return b.cli.Store.ID.Device
+	}
+	return 0xFFFF
+}
+
+// SendAdmin writes an acknowledgement in the admin group (prefixed with AckPrefix). Only to the admin group set with SetAdmin.
+func (b *Bridge) SendAdmin(text string) error {
+	b.mu.Lock()
+	admin := b.admin
+	b.mu.Unlock()
+	text = strings.TrimSpace(text)
+	if admin == "" {
+		return errors.New("no admin group")
+	}
+	if text == "" || len([]rune(text)) > 1000 {
+		return errors.New("empty or too long")
+	}
+	_, err := b.cli.SendMessage(context.Background(), types.NewJID(admin, types.GroupServer), &waE2E.Message{Conversation: proto.String(AckPrefix + text)})
+	return err
+}
+
+// Groups lists the groups this account has joined, one "id|name" per line (the id without "@g.us"), so the parent can pick by name
+// and the app keep the id. Connects first if needed.
+func (b *Bridge) Groups() (string, error) {
+	if err := b.ensureConnected(); err != nil {
+		return "", err
+	}
+	groups, err := b.cli.GetJoinedGroups(context.Background())
+	if err != nil {
+		return "", err
+	}
+	var out []string
+	b.mu.Lock()
+	for _, g := range groups {
+		b.gnames[g.JID.User] = g.Name
+		clean := strings.NewReplacer("|", " ", "\n", " ", "\r", " ").Replace(g.Name)
+		out = append(out, g.JID.User+"|"+clean)
+	}
+	b.mu.Unlock()
+	return strings.Join(out, "\n"), nil
 }
 
 // SetRejectCalls makes the bridge decline every incoming WhatsApp call (for modes that block incoming calls).
@@ -252,7 +352,14 @@ func (b *Bridge) Send(chat string, text string) error {
 	b.mu.Lock()
 	ok := b.allowAll || b.allowed[n]
 	if isGroup {
-		ok = b.allowAll || b.groups[strings.ToLower(b.gnames[chat[1:]])]
+		ok = b.groupOKLocked(chat[1:], b.gnames[chat[1:]])
+	}
+	if tag := b.tag; tag != "" {
+		text = tag + ": " + text
+		if len([]rune(text)) > 1000 {
+			b.mu.Unlock()
+			return errors.New("message too long")
+		}
 	}
 	now := time.Now()
 	keep := b.sent[:0]
@@ -356,10 +463,19 @@ func (b *Bridge) isAllowed(n string) bool {
 	return b.allowAll || b.allowed[n]
 }
 
-func (b *Bridge) groupAllowed(name string) bool {
+// groupOKLocked: the group may be read and written to when it is allowed by id, or by name (the older way), or everything is allowed; the
+// admin group never is. b.mu must be held.
+func (b *Bridge) groupOKLocked(id, name string) bool {
+	if b.admin != "" && id == b.admin {
+		return false
+	}
+	return b.allowAll || b.gids[id] || b.groups[strings.ToLower(name)]
+}
+
+func (b *Bridge) groupAllowed(id, name string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.allowAll || b.groups[strings.ToLower(name)]
+	return b.groupOKLocked(id, name)
 }
 
 // groupName finds a group's name (asking WhatsApp once, then remembering it).
@@ -501,7 +617,7 @@ func (b *Bridge) onCall(v *events.CallOffer) {
 	name := ""
 	if !v.GroupJID.IsEmpty() {
 		name = b.groupName(v.GroupJID)
-		if !b.groupAllowed(name) {
+		if !b.groupAllowed(v.GroupJID.User, name) {
 			return
 		}
 		chat = "g" + v.GroupJID.User
@@ -530,8 +646,20 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		return
 	}
 	if v.Info.IsGroup {
+		b.mu.Lock()
+		admin, last := b.admin, b.adminLast
+		b.mu.Unlock()
+		if admin != "" && v.Info.Chat.User == admin { // the admin group: commands, never a chat
+			if acceptCommand(v.Info.IsFromMe, v.Info.Sender.Device, b.ourDevice(), history, v.Info.Timestamp.Unix(), last, text) {
+				b.mu.Lock()
+				b.adminLast = v.Info.Timestamp.Unix()
+				b.mu.Unlock()
+				b.l.OnCommand(strings.TrimSpace(text), v.Info.Timestamp.Unix(), v.Info.ID)
+			}
+			return
+		}
 		name := b.groupName(v.Info.Chat)
-		if !b.groupAllowed(name) {
+		if !b.groupAllowed(v.Info.Chat.User, name) {
 			return
 		}
 		who := b.nameOf(v.Info.Sender, v.Info.SenderAlt, v.Info.PushName)
@@ -540,6 +668,11 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		}
 		if v.Info.IsFromMe {
 			who = "Me"
+			b.mu.Lock()
+			if b.ownName != "" {
+				who = b.ownName
+			}
+			b.mu.Unlock()
 		}
 		if name == "" {
 			name = "Group"
@@ -788,7 +921,7 @@ func (b *Bridge) processHistory(v *events.HistorySync) {
 // historyChatAllowed is the cheap check made before a chat's messages are even parsed.
 func (b *Bridge) historyChatAllowed(jid types.JID, pn string) bool {
 	if jid.Server == types.GroupServer {
-		return b.groupAllowed(b.groupName(jid))
+		return b.groupAllowed(jid.User, b.groupName(jid))
 	}
 	alt := types.JID{}
 	if pn != "" {

@@ -102,6 +102,7 @@ object WhatsApp {
                     if (changed) fire()
                 }
                 override fun onLog(line: String) { Log.log(app, "whatsapp: $line") }
+                override fun onCommand(text: String, ts: Long, id: String) { } // admin-group commands: not used by Phone Guard yet
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
                     st.add(chat, chatName, chatName, chat, "", if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
