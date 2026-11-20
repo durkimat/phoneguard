@@ -122,15 +122,15 @@ class TonesFlowTest {
     private fun LauncherModel.key(k: Key, d: Int = -1) = onKey(k, d, 0L)
 
     @Test fun pickTonesForCallsTextsAndWhatsAppWithAPreview() {
-        val m = phone(); val picks = mutableListOf<Pair<String, String>>(); val heard = mutableListOf<String>()
+        val m = phone(); m.waEnabled = true; val picks = mutableListOf<Pair<String, String>>(); val heard = mutableListOf<String>()
         m.onTonePick = { s, id -> picks += s to id }; m.onPreview = { heard += it }
         m.key(Key.OK); m.key(Key.OK)                 // Menu, Settings
         m.key(Key.DIGIT, 1); m.key(Key.DIGIT, 2)     // Sound, Calls
         assertEquals(Screen.FORM, m.screen); assertEquals("Calls", m.title)
-        assertEquals(listOf("Tune: Phone's own", "Volume: ###----", "Vibrate: On", "Speaker button: Show", "Style: Classic beep"), m.rows)
+        assertEquals(listOf("Ringtone: Phone's own", "Volume: ###----", "Vibrate: On", "Speaker button: Show", "Style: Classic beep"), m.rows)
         m.key(Key.RIGHT)                             // ringtone: the first tune
         m.key(Key.SOFT_RIGHT); m.key(Key.DIGIT, 3)   // back to Sound, then Messages
-        assertEquals("Messages", m.title); assertEquals(listOf("Text: Phone's own", "Chat: Phone's own", "Volume: ###----", "Vibrate: On"), m.rows)
+        assertEquals("Messages", m.title); assertEquals(listOf("Text: Phone's own", "WhatsApp: Phone's own", "Volume: ###----", "Vibrate: On"), m.rows)
         m.key(Key.RIGHT); m.key(Key.RIGHT)           // text tone: two steps on
         m.key(Key.DOWN); m.key(Key.LEFT)             // WhatsApp tone: back round to the last tune
         assertEquals(listOf("ring" to "waltz", "sms" to "waltz", "sms" to "elise", "wa" to "double"), picks)
@@ -139,7 +139,7 @@ class TonesFlowTest {
     }
 
     @Test fun oneVolumePressIsOneStepAndEachBarIsItsOwn() {
-        val m = phone(); val seen = ArrayList<Pair<Int, Int>>()
+        val m = phone(); m.waEnabled = true; val seen = ArrayList<Pair<Int, Int>>()
         // ringtone and messages: eleven steps drawn as seven bars; media: a stream of five steps shown as five cells
         var pos = listOf(1, 0, 3, 2)
         m.soundInfo = { LauncherModel.SoundInfo(0, null, pos.mapIndexed { i, p -> if (i < 2) LauncherModel.Vol(p, 10, io.github.durkimat.phoneguard.alarm.SoundLevels.bars(p), 7) else LauncherModel.Vol(p, 5, p, 5) }) }

@@ -874,7 +874,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 // a place found by kind has its kind in smaller type under the name (the name moves up a little to make room)
                 val sub = m.rowSubs.getOrNull(idx).orEmpty()
                 val ny = if (sub.isEmpty()) top + 42f else top + 31f; val ns = if (sub.isEmpty()) 32f else 29f
-                val label = ellipsize(prefix + row, room, ns)
+                val label = cutRow(prefix + row, room, ns)
                 if (idx == m.selected) {
                     val sel = chrome.selection(this)
                     fill.color = sel?.first ?: ink; c.drawRect(0f, top * u, width.toFloat(), (top + rowH - 4) * u, fill); fill.color = ink
@@ -934,6 +934,15 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
             m.items.getOrNull(m.selected)?.let { marquee(c, it.label, 20f, 556f, 34f, 440f, u, bold = true, center = true) }
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** A row that does not fit: a "label: value" row keeps its whole label and loses the end of the value; anything else is cut at the end. (The highlighted row scrolls instead.) */
+        fun cutRow(s: String, room: Float, size: Float): String {
+            val i = s.indexOf(": ")
+            if (i < 0 || measureBold(s, size) <= room) return ellipsize(s, room, size)
+            val head = s.substring(0, i + 2); val headW = measureBold(head, size)
+            if (headW > room * 0.7f) return ellipsize(s, room, size)
+            return head + ellipsize(s.substring(i + 2), room - headW, size)
         }
 
         private val BODY = 28f

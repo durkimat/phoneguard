@@ -30,3 +30,7 @@
 - 0.4.78 (image ims52): power menu, SET_TIME/REBOOT, no transient status bar on a swipe, own-dialer volume keys, boot chime.
 - Spotify downloads are discoverable: the Playlists screen always shows a hint for the highlighted playlist ("# download   * pin", "# remove download", "Downloading..."); the Spotify menu opened from the Playlists screen ends with "Download playlist" / "Remove download" for that playlist; a "What the marks mean" help screen (↓ Downloaded, … Downloading, * Pinned); the "Phone Guard keys are off" refusal now says "Turn on Phone Guard keys in Settings, then try again". No "Remove all downloads" row.
 - Now playing hints (Nokia look) spaced out: "Hold OK: stop" joins the hint block.
+
+## 0.4.81 (in progress)
+- A row that does not fit keeps its whole label and loses only the end of the value ("WhatsApp: Two-note c..."); the highlighted row scrolls as before. Applies to every "label: value" list row.
+- Sound > Messages rows come from a small service list (Text, WhatsApp; a later service is one more entry, hidden when it is off): "Chat" is gone, the label is the service name. Sound > Calls: "Ringtone".

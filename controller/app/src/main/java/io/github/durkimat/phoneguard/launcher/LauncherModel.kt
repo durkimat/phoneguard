@@ -2392,6 +2392,10 @@ class LauncherModel(
     /** One volume on a screen of its own (Media volume, Call volume). */
     private fun singleVolumeForm(title: String, i: Int): Form = Form(title, "Done", { listOf(volumeRow("Volume", i)) }) { leave(); Action.Redraw }
 
+    /** A message service with a tone of its own in Sound > Messages: its id (the tone slot), the name shown, and whether it is on. One entry per service: a later one (Signal) is one more line here. */
+    class ChatService(val id: String, val label: String, val enabled: (LauncherModel) -> Boolean)
+    private val chatServices = listOf(ChatService("sms", "Text") { true }, ChatService("wa", "WhatsApp") { it.waEnabled })
+
     private fun toneRow(label: String, slot: String): FormRow {
         val opts = listOf("stock") + Tones.all.map { it.id }
         return FormRow(label, { tonePicks[slot]?.takeIf { it != "stock" }?.let { Tones.byId(it).name } ?: "Phone's own" }, onStep = { d, _ ->
@@ -2410,12 +2414,12 @@ class LauncherModel(
         }, okStep = true)
         val speaker = FormRow("Speaker button", { if (speakerShown) "Show" else "Hide" },
             onStep = { _, _ -> speakerShown = !speakerShown; onDo(Action.SaveSpeaker(speakerShown)) }, okStep = true)
-        return Form("Calls", "Done", { listOf(toneRow("Tune", "ring"), volumeRow("Volume", 0), vibrateRow(0), speaker, style) }) { leave(); Action.Redraw }
+        return Form("Calls", "Done", { listOf(toneRow("Ringtone", "ring"), volumeRow("Volume", 0), vibrateRow(0), speaker, style) }) { leave(); Action.Redraw }
     }
 
     /** Sound > Messages: the text and WhatsApp tones, the volume and whether they vibrate. */
     private fun messagesForm(): Form =
-        Form("Messages", "Done", { listOf(toneRow("Text", "sms"), toneRow("Chat", "wa"), volumeRow("Volume", 1), vibrateRow(1)) }) { leave(); Action.Redraw }
+        Form("Messages", "Done", { chatServices.filter { it.enabled(this) }.map { toneRow(it.label, it.id) } + listOf(volumeRow("Volume", 1), vibrateRow(1)) }) { leave(); Action.Redraw }
 
     private fun setTimeForm(): Form {
         var at = java.time.ZonedDateTime.now(zone).withSecond(0).withNano(0)

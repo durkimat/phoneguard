@@ -51,7 +51,7 @@ class Menu079Test {
     }
 
     @Test fun vibrateIsAnOnOffPerKindAndSpeakerphoneIsARowInCalls() {
-        val m = phone(); val got = ArrayList<Pair<Int, Boolean>>(); var vib = listOf(true, true)
+        val m = phone(); m.waEnabled = true; val got = ArrayList<Pair<Int, Boolean>>(); var vib = listOf(true, true)
         m.soundInfo = { LauncherModel.SoundInfo(0, null, List(4) { LauncherModel.Vol(3, 7, 3, 7) }, vib) }
         m.onVibrate = { k, on -> got.add(k to on); vib = vib.toMutableList().also { it[k] = on } }
         m.onKey(Key.OK); m.onKey(Key.DIGIT, 7); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 2) // Calls
@@ -77,5 +77,12 @@ class Menu079Test {
         val m = phone()
         m.onKey(Key.RIGHT); assertEquals(Screen.CONTACTS, m.screen); m.goHome()
         m.onKey(Key.DOWN); assertTrue(m.homeFocus >= 0); m.onKey(Key.RIGHT); assertEquals(Screen.HOME, m.screen) // with a zone chosen the arrows navigate the zone
+    }
+
+    @Test fun messageToneRowsComeFromTheServiceListAndHideWithTheService() {
+        val m = phone(); m.onKey(Key.OK); m.onKey(Key.DIGIT, 7); m.onKey(Key.DIGIT, 1); m.onKey(Key.DIGIT, 3) // Settings > Sound > Messages
+        assertEquals(listOf("Text: Phone's own", "Volume: #####--", "Vibrate: On"), m.rows.map { if (it.startsWith("Volume")) "Volume: #####--" else it }) // WhatsApp is off: no row for it
+        m.onKey(Key.SOFT_RIGHT); m.waEnabled = true; m.onKey(Key.DIGIT, 3)
+        assertEquals("WhatsApp: Phone's own", m.rows[1]) // the second row, after Text, no "Chat"
     }
 }
