@@ -72,6 +72,8 @@ data class WaConfig(
     /** Put the child's name in front of what the phone sends ([tagName]), so the group can tell who wrote it. */
     val tagSent: Boolean = false,
     val tagName: String = "",
+    /** The admin group (its id) this phone reads chat commands from; empty when none. Set by the companion, which holds it in the profile. */
+    val adminGroup: String = "",
     /** Present only while the companion allows the WhatsApp setup window (SIM method). */
     val setupWindow: SetupAllow? = null,
 )
@@ -245,6 +247,7 @@ data class Config(
                         who = w.optString("who", "people"),
                         tagSent = w.optBoolean("tagSent", false),
                         tagName = w.optString("tagName", ""),
+                        adminGroup = w.optString("adminGroup", ""),
                         setupWindow = w.optJSONObject("setupWindow")?.let { SetupAllow(it.optLong("allowedUntil", 0), it.optInt("extraMin", 0), it.optInt("endRev", 0)) },
                     )
                 },

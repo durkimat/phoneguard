@@ -33,6 +33,8 @@ object WorkerLink {
     private val pool = Executors.newSingleThreadExecutor()
 
     private fun sp(c: Context) = c.applicationContext.createDeviceProtectedStorageContext().getSharedPreferences("pg-worker", Context.MODE_PRIVATE)
+    /** The config version the phone holds (what a change made by message is based on). */
+    fun cfgVersion(c: Context): Int = sp(c).getInt("cfgVersion", 0)
 
     fun isPaired(c: Context) = sp(c).getString("did", "").orEmpty().isNotEmpty()
     fun pendingMatch(c: Context): String? = if (sp(c).getString("pairingId", null) != null && !isPaired(c)) sp(c).getString("match", null) else null
@@ -123,7 +125,9 @@ object WorkerLink {
             val reply = JSONObject(http(host, "POST", "/api/sync", env.toString()))
             val (rp, t) = verifyReply(c, reply, n) ?: throw IllegalStateException("reply not trusted")
             s.edit().putLong("lastSync", System.currentTimeMillis()).putInt("failures", 0).apply()
-            applyConfig(c, rp, t).also { s.edit().putString("lastResult", it).apply(); Link.commitReports(c) }
+            val waResults = io.github.durkimat.phoneguard.whatsapp.WaPending.parseResults(rp.optJSONArray("waResults"))
+            // the config first (it already carries the changes the Worker applied), THEN the answers: until then a change stays on top of whatever list arrives
+            applyConfig(c, rp, t).also { s.edit().putString("lastResult", it).apply(); Link.commitReports(c); io.github.durkimat.phoneguard.whatsapp.WaAdmin.onResults(c, waResults) }
         } catch (e: Exception) {
             val f = s.getInt("failures", 0) + 1
             s.edit().putInt("failures", f).putString("lastResult", "FAILED ${e.javaClass.simpleName}: ${e.message}").apply()
@@ -346,7 +350,9 @@ object WorkerLink {
         val cals = io.github.durkimat.phoneguard.calendar.Subscriptions.status(c)
         if (cals.length() > 0) st.put("calendars", cals)
         io.github.durkimat.phoneguard.whatsapp.WhatsApp.allowSummary(c).let { (all, n) ->
-            st.put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("all", all).put("allowed", n))
+            st.put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("all", all).put("allowed", n)
+                // the changes made by message in the admin group and not yet answered by the Worker, and the groups the phone is in: they go in THIS sync, before the reply's config is applied
+                .put("admin", io.github.durkimat.phoneguard.whatsapp.WaPending.payload(c, io.github.durkimat.phoneguard.whatsapp.WaPending.groupsAt(c), io.github.durkimat.phoneguard.whatsapp.WaPending.cachedGroups(c))))
         }
         try { st.put("lock", io.github.durkimat.phoneguard.ScreenLock.state(c)) } catch (_: Exception) { }
         try { io.github.durkimat.phoneguard.net.DataUsage.state(c)?.let { st.put("data", it) } } catch (_: Exception) { }

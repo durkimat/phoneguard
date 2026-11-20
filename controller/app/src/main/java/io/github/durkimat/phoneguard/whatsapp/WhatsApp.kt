@@ -103,7 +103,7 @@ object WhatsApp {
                     if (changed) fire()
                 }
                 override fun onLog(line: String) { Log.log(app, "whatsapp: $line") }
-                override fun onCommand(text: String, ts: Long, id: String) { } // admin-group commands: not used by Phone Guard yet
+                override fun onCommand(text: String, ts: Long, id: String) { WaAdmin.onCommand(app, text, ts) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
                     st.add(chat, chatName, chatName, chat, "", if (rejected) "[call declined]" else "[missed call]", ts, false); fire()
@@ -170,6 +170,12 @@ object WhatsApp {
 
     fun isPaired(c: Context): Boolean = open(c)?.isPaired ?: false
 
+    /** The config's allow list with the changes made by message (not yet answered by the Worker) on top. */
+    fun effectiveAllowed(c: Context, w: io.github.durkimat.phoneguard.core.WaConfig): List<String> = WaPending.overlay(w.allowed, WaPending.pending(c))
+
+    /** Applies the allow list again now (after a change made by message). */
+    fun refreshAllowed(c: Context) { io.github.durkimat.phoneguard.Store.config(c)?.whatsapp?.let { setAllowed(c, effectiveAllowed(c, it).joinToString("\n"), it.all) } }
+
     /** [entries]: numbers and "g:Group name" entries, separated by commas or new lines. [all] allows everyone and every group. */
     fun setAllowed(c: Context, entries: String, all: Boolean = false) {
         if (prefs(c).getString("wa_allowed", null) == entries && prefs(c).getBoolean("wa_all", false) == all && bridge != null) return
@@ -178,8 +184,9 @@ object WhatsApp {
         b?.setAllowed(entries); b?.setAllowAll(all)
         val parts = entries.split(',', ';', '\n').map { it.trim() }
         val groups = parts.filter { it.startsWith("g:", ignoreCase = true) }.map { it.substring(2).trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
-        val numbers = parts.filterNot { it.startsWith("g:", ignoreCase = true) }.map { n -> n.filter { it.isDigit() } }.filter { it.isNotEmpty() }.toSet()
-        store(c).keepOnly(numbers, groups, all)
+        val ids = parts.filter { it.startsWith("gid:", ignoreCase = true) }.map { it.substring(4).trim().lowercase().removeSuffix("@g.us") }.filter { it.isNotEmpty() }.toSet()
+        val numbers = parts.filterNot { it.startsWith("g:", ignoreCase = true) || it.startsWith("gid:", ignoreCase = true) }.map { n -> n.filter { it.isDigit() } }.filter { it.isNotEmpty() }.toSet()
+        store(c).keepOnly(numbers, groups, all, ids)
     }
 
     /**
@@ -198,7 +205,7 @@ object WhatsApp {
 
     /** Makes the bridge use the allow list the config on the phone says, right now (a sync only stores the config; applying follows soon after). */
     private fun freshAllowList(app: Context) {
-        io.github.durkimat.phoneguard.Store.config(app)?.whatsapp?.let { setAllowed(app, it.allowed.joinToString("\n"), it.all) }
+        io.github.durkimat.phoneguard.Store.config(app)?.whatsapp?.let { setAllowed(app, effectiveAllowed(app, it).joinToString("\n"), it.all) }
     }
 
     /** Link screen opened: have the companion's latest choice before a code is shown. Returns quickly when there is no companion. */
@@ -261,7 +268,9 @@ object WhatsApp {
             cancelAlarm(c); main.removeCallbacks(idleOff); quiet = true; bridge?.disconnect(); return
         }
         cfg?.whatsapp?.let { w ->
-            setAllowed(c, w.allowed.joinToString("\n"), w.all)
+            setAllowed(c, effectiveAllowed(c, w).joinToString("\n"), w.all)
+            open(c)?.setTag(if (w.tagSent) w.tagName else "") // the bridge puts the name in front itself
+            open(c)?.setAdmin(w.adminGroup, WaPending.lastCommand(c))
             open(c)?.setLimits(w.perMinute.toLong(), w.perDay.toLong())
         }
         rejectCalls(c, !eff.inbound)
@@ -390,10 +399,7 @@ object WhatsApp {
     }
 
     /** What is actually sent: with the tag on, the child's name goes in front so a group can tell who wrote it. Our own copy keeps the plain text. */
-    fun tagged(c: Context, text: String): String {
-        val w = io.github.durkimat.phoneguard.Store.config(c)?.whatsapp ?: return text
-        return if (w.tagSent && w.tagName.isNotBlank()) "${w.tagName}: ${text.trim()}" else text
-    }
+    fun tagged(c: Context, text: String): String = text // the bridge puts the child's name in front itself (setTag), so no screen can skip it
     fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, tagged(c, text)); "sent" } catch (e: Throwable) { e.message ?: "error" }
     /**
      * Pulls names and gaps back in without unlinking: asks WhatsApp again for the address-book names and the groups, gives

@@ -127,14 +127,14 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
     @Synchronized fun unreadTotal(): Int = readableDatabase.rawQuery("SELECT COALESCE(SUM(unread),0) FROM msg", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
     /** Forget every chat that is no longer allowed: people by number, groups by name (lower case), or keep all. */
-    @Synchronized fun keepOnly(numbers: Set<String>, groups: Set<String>, all: Boolean) {
+    @Synchronized fun keepOnly(numbers: Set<String>, groups: Set<String>, all: Boolean, groupIds: Set<String> = emptySet()) {
         if (all) return
         val db = writableDatabase
         val have = db.rawQuery("SELECT DISTINCT chat FROM msg", null).use { c -> generateSequence { if (c.moveToNext()) c.getString(0) else null }.toList() }
         for (n in have) {
             val keep = if (n.startsWith("g")) {
                 val name = db.rawQuery("SELECT name FROM chat WHERE number=?", arrayOf(n)).use { if (it.moveToFirst()) it.getString(0) else null }
-                name != null && name.lowercase() in groups
+                n.substring(1).lowercase() in groupIds || (name != null && name.lowercase() in groups)
             } else n in numbers
             if (!keep) { db.execSQL("DELETE FROM msg WHERE chat=?", arrayOf(n)); db.execSQL("DELETE FROM chat WHERE number=?", arrayOf(n)) }
         }
