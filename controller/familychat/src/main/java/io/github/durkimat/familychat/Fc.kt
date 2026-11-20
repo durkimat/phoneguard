@@ -50,7 +50,7 @@ object Fc {
                 override fun onStatus(state: String) {
                     status = state
                     if (state == "paired") { settings.linked = true; pairCode = null }
-                    if (state == "connected") applyConfig()
+                    if (state == "connected") { applyConfig(); Thread { announceCommands() }.start() }
                     if (state == "logged_out") { settings.linked = false; pairCode = null; wantConnected = false }
                     if (state == "disconnected" && wantConnected) main.postDelayed({ if (wantConnected && bridge?.isConnected == false) try { bridge?.connect() } catch (_: Throwable) { } }, 30_000)
                     fire()
@@ -226,6 +226,16 @@ object Fc {
         st.markRead(chat)
         if (!settings.sendReadReceipts || info == null || (info.ids.isEmpty() && info.lastId.isEmpty())) return
         Thread { try { if (connectAndWait()) open()?.markRead(chat, info.ids, info.senders, info.lastId, info.lastSender, info.lastFromMe, info.lastTs) } catch (_: Throwable) { } }.start()
+    }
+
+    private var announcing = false
+
+    /** After an upgrade that changed the commands: one short note in the admin group, once (see WaAcks.upgradeNote). Never on a fresh setup or an unbound group. */
+    @Synchronized fun announceCommands() {
+        if (announcing) return
+        val note = io.github.durkimat.wacore.WaAcks.upgradeNote(settings.commandsVersion, settings.setupDone, settings.adminGroupId.isNotBlank(), isConnected(), AboutText.version(app)) ?: return
+        announcing = true
+        try { open()?.sendAdmin(note); settings.commandsVersion = io.github.durkimat.wacore.WaAcks.COMMANDS_VERSION } catch (_: Throwable) { } finally { announcing = false }
     }
 
     fun sendAdmin(text: String) { try { open()?.sendAdmin(text) } catch (_: Throwable) { } }

@@ -22,6 +22,7 @@ class AdminBrain(
     @Synchronized fun handle(text: String): String = when (val cmd = WaCommands.parse(text)) {
         is WaCommand.Unknown -> { choice = null; WaAcks.usage() }
         is WaCommand.ListAllowed -> { choice = null; WaAcks.canUse(child(), allowed().map { it.name }.sortedBy { it.lowercase() }) }
+        is WaCommand.Help -> { choice = null; WaAcks.help(true) }
         is WaCommand.Photos -> { choice = null; setPhotos(cmd.on); WaAcks.photos(cmd.on) }
         is WaCommand.AddGroup -> change(true, cmd.name, groups())
         is WaCommand.RemoveGroup -> change(false, cmd.name, Group.format(allowed()))

@@ -49,7 +49,7 @@ class SetupFlow(private val s: Settings) {
     }
 
     /** The last step: the chosen groups are saved and the app is handed over. */
-    fun finish(chosen: List<Group>) { s.allowedGroups = chosen.filter { it.id != s.adminGroupId }; s.setupDone = true }
+    fun finish(chosen: List<Group>) { s.allowedGroups = chosen.filter { it.id != s.adminGroupId }; s.setupDone = true; s.commandsVersion = io.github.durkimat.wacore.WaAcks.COMMANDS_VERSION }
 }
 
 /** What the app remembers about itself. [Memory] is the test one; the real one is [PrefsSettings]. */
@@ -65,6 +65,8 @@ interface Settings {
     var allowedGroups: List<Group>
     var lastCommand: Long
     var setupDone: Boolean
+    /** The WaAcks.COMMANDS_VERSION the admin group was last told about (the "Ready" message of a fresh setup, or the upgrade note). */
+    var commandsVersion: Int
     /** Tell WhatsApp (so the parent's phone shows it read) when the child opens a conversation. On unless the parent turns it off. */
     var sendReadReceipts: Boolean
     /** Pictures, GIFs and stickers are shown (and downloaded). Off: a plain marker instead. */

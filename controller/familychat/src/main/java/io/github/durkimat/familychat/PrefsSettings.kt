@@ -21,6 +21,7 @@ class PrefsSettings(c: Context) : Settings {
     override var pinFailures: Int get() = p.getInt("pin_fail", 0); set(v) = p.edit().putInt("pin_fail", v).apply()
     override var pinLockUntil: Long get() = p.getLong("pin_lock", 0); set(v) = p.edit().putLong("pin_lock", v).apply()
     override var lastCommand: Long get() = p.getLong("last_cmd", 0); set(v) = p.edit().putLong("last_cmd", v).apply()
+    override var commandsVersion: Int get() = p.getInt("cmds", 0); set(v) = p.edit().putInt("cmds", v).apply()
     override var setupDone: Boolean get() = p.getBoolean("done", false); set(v) = p.edit().putBoolean("done", v).apply()
     override var allowedGroups: List<Group> get() = Group.parse(str("allowed")); set(v) = p.edit().putString("allowed", Group.format(v)).apply()
     override var knownGroups: List<Group> get() = Group.parse(str("known")); set(v) = p.edit().putString("known", Group.format(v)).apply()

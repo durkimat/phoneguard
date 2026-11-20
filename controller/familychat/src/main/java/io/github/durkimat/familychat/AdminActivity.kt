@@ -112,7 +112,7 @@ class AdminActivity : Activity() {
         body.addView(ex, Ui.params(c = c, top = 16))
         val cmds = Ui.card(c)
         cmds.addView(Ui.text(c, "Commands", 17f, Ui.INK, true))
-        cmds.addView(Ui.text(c, "add group <name>   ·   remove group <name>   ·   groups", 17f, Ui.INK), Ui.params(c = c, top = 6))
+        for (line in io.github.durkimat.wacore.WaAcks.commandLines(true)) cmds.addView(Ui.text(c, line, 17f, Ui.INK), Ui.params(c = c, top = 6))
         body.addView(cmds, Ui.params(c = c, top = 16))
         return Ui.screen(c, body, Ui.footer(c, Ui.button(c, "Back", primary = false) { show(Page.MENU) }))
     }

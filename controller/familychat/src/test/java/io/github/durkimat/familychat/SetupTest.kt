@@ -6,7 +6,7 @@ import org.junit.Test
 internal class Memory : Settings {
     override var riskAccepted = false; override var childName = ""; override var parentName = ""; override var linked = false
     override var adminGroupId = ""; override var pin: PinStore.Saved? = null; override var pinFailures = 0; override var pinLockUntil = 0L
-    override var allowedGroups: List<Group> = emptyList(); override var lastCommand = 0L; override var setupDone = false; override var sendReadReceipts = true
+    override var allowedGroups: List<Group> = emptyList(); override var lastCommand = 0L; override var setupDone = false; override var commandsVersion = 0; override var sendReadReceipts = true
     override var showMedia = true; override var photosAllowed = false; override var wifiOnlyVideos = true
     private val wp = HashMap<String, String>()
     override fun wallpaper(chat: String) = wp[chat] ?: "sand"
@@ -31,6 +31,18 @@ class SetupTest {
         f.finish(listOf(Group("1", "Family"), Group("123-456", "FamilyChat-Tom")))
         assertEquals(SetupFlow.Step.DONE, f.step)
         assertEquals(listOf("1"), s.allowedGroups.map { it.id }) // the admin group is never allowed
+    }
+
+    @Test fun aFreshSetupNeverGetsTheUpgradeNoteAndAnUpgradeGetsItOnce() {
+        val s = Memory().apply { childName = "Tom"; parentName = "Mum"; riskAccepted = true; linked = true; adminGroupId = "9"; pin = PinStore.create("4821") }
+        val f = SetupFlow(s)
+        f.finish(emptyList()) // setup ends: "Ready" is sent, the current commands are recorded
+        assertNull(io.github.durkimat.wacore.WaAcks.upgradeNote(s.commandsVersion, s.setupDone, true, true, "1.0.0-rc3"))
+        val upgraded = Memory().apply { setupDone = true; adminGroupId = "9" } // a phone set up by rc1: nothing recorded
+        val note = io.github.durkimat.wacore.WaAcks.upgradeNote(upgraded.commandsVersion, upgraded.setupDone, true, true, "1.0.0-rc3")
+        assertNotNull(note)
+        upgraded.commandsVersion = io.github.durkimat.wacore.WaAcks.COMMANDS_VERSION // recorded after the post
+        assertNull(io.github.durkimat.wacore.WaAcks.upgradeNote(upgraded.commandsVersion, upgraded.setupDone, true, true, "1.0.0-rc3")) // never twice
     }
 
     @Test fun adminGroupIsFoundByTheChildsNameOnly() {
@@ -146,6 +158,10 @@ class AdminBrainTest {
         val b = AdminBrain({ "Sam" }, { "9" }, { allowed }, { allowed = it }, { lines }, { on = it })
         assertEquals("Photos and videos: on", b.handle("photos on")); assertTrue(on)
         assertEquals("Photos and videos: off", b.handle("Photos OFF")); assertFalse(on)
+    }
+
+    @Test fun helpListsTheCommands() {
+        assertEquals(io.github.durkimat.wacore.WaAcks.help(true), brain().handle("help"))
     }
 
     @Test fun unknownTextGetsTheUsageLine() {
