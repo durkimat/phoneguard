@@ -27,6 +27,8 @@ object Fc {
     private var store: WaStore? = null
     private var brain: AdminBrain? = null
     @Volatile private var wantConnected = false
+    /** The conversation on screen, if any: it gets no notification, and what arrives in it is read at once. */
+    @Volatile var openChat: String? = null
 
     fun init(c: Context) { if (this::app.isInitialized) return; app = c.applicationContext; settings = PrefsSettings(app) }
 
@@ -52,8 +54,11 @@ object Fc {
                 override fun onPairCode(code: String) { pairCode = code; fire() }
                 override fun onMessage(m: WaMessage) {
                     // this phone's own sends are kept by send(); a message from our own account here comes from the parent's phone, so it shows under the parent's name
-                    if (m.fromMe) st.add(m.chat, m.chatName, settings.parentName, "", m.id, m.text, m.ts, mine = false, history = m.history)
+                    if (m.fromMe) st.add(m.chat, m.chatName, settings.parentName, "", m.id, m.text, m.ts, mine = false, history = m.history, read = true)
                     else st.add(m.chat, m.chatName, m.sender, m.senderId, m.id, m.text, m.ts, mine = false, history = m.history)
+                    // a notification only for a live message from someone else, in an allowed group (never the child's own, never the history sync, never the admin group)
+                    if (!m.fromMe && !m.history && openChat != m.chat && settings.allowedGroups.any { "g${it.id}" == m.chat }) Notifier.message(app, m.chat, m.chatName.ifBlank { settings.allowedGroups.firstOrNull { "g${it.id}" == m.chat }?.name ?: "" }, m.sender, m.text)
+                    if (openChat == m.chat && !m.fromMe) readChat(m.chat)
                     fire()
                 }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) { }
@@ -130,11 +135,20 @@ object Fc {
         applyConfig()
     }
 
+    /** Tells WhatsApp the chat was read here, so the parent's phone shows it read (the switch in the admin menu; on unless turned off). */
+    fun readChat(chat: String) {
+        val st = store()
+        val info = st.readInfo(chat)
+        st.markRead(chat)
+        if (!settings.sendReadReceipts || info == null || (info.ids.isEmpty() && info.lastId.isEmpty())) return
+        Thread { try { if (connectAndWait()) open()?.markRead(chat, info.ids, info.senders, info.lastId, info.lastSender, info.lastFromMe, info.lastTs) } catch (_: Throwable) { } }.start()
+    }
+
     fun sendAdmin(text: String) { try { open()?.sendAdmin(text) } catch (_: Throwable) { } }
 
     /** Removes the link and everything kept on this phone. */
     fun unlink() {
-        wantConnected = false
+        wantConnected = false; Notifier.cancelAll(app)
         try { bridge?.logout() } catch (_: Throwable) { }
         try { bridge?.close() } catch (_: Throwable) { }
         bridge = null; status = "off"; pairCode = null

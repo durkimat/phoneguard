@@ -70,8 +70,19 @@ object Ui {
         if (header != null) root.addView(header, params())
         root.addView(ScrollView(a).apply { isFillViewport = true; addView(body) }, params(h = 0, weight = 1f))
         if (footer != null) root.addView(footer, params())
-        root.setOnApplyWindowInsetsListener { v, ins -> v.setPadding(0, ins.systemWindowInsetTop, 0, ins.systemWindowInsetBottom); ins }
+        fitInsets(root)
         return root
+    }
+
+    /**
+     * Keeps a screen clear of the status bar, the navigation bar and the keyboard. When the app is drawn edge to edge (forced from target 35,
+     * and on newer Android) the insets arrive here and become padding; on a window the system already fits they are zero and nothing changes.
+     */
+    fun fitInsets(root: View) {
+        root.setOnApplyWindowInsetsListener { v, ins ->
+            val i = ins.getInsets(android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.ime())
+            v.setPadding(i.left, i.top, i.right, i.bottom); ins
+        }
     }
 
     fun pad(c: Context): LinearLayout = col(c).apply { setPadding(dp(c, 20), dp(c, 20), dp(c, 20), dp(c, 20)) }

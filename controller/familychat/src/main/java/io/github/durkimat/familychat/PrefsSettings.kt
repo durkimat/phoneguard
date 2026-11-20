@@ -12,6 +12,7 @@ class PrefsSettings(c: Context) : Settings {
     override var parentName: String get() = str("parent"); set(v) = p.edit().putString("parent", v).apply()
     override var linked: Boolean get() = p.getBoolean("linked", false); set(v) = p.edit().putBoolean("linked", v).apply()
     override var adminGroupId: String get() = str("admin"); set(v) = p.edit().putString("admin", v).apply()
+    override var sendReadReceipts: Boolean get() = p.getBoolean("receipts", true); set(v) = p.edit().putBoolean("receipts", v).apply()
     override var pinFailures: Int get() = p.getInt("pin_fail", 0); set(v) = p.edit().putInt("pin_fail", v).apply()
     override var pinLockUntil: Long get() = p.getLong("pin_lock", 0); set(v) = p.edit().putLong("pin_lock", v).apply()
     override var lastCommand: Long get() = p.getLong("last_cmd", 0); set(v) = p.edit().putLong("last_cmd", v).apply()

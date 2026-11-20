@@ -42,17 +42,16 @@ class ConversationActivity : Activity() {
         }
         val root = Ui.col(c).apply { setBackgroundColor(Ui.GROUND) }
         root.addView(header, Ui.params()); root.addView(scroll, Ui.params(h = 0, weight = 1f)); root.addView(error, Ui.params()); root.addView(bar, Ui.params())
-        root.setOnApplyWindowInsetsListener { v, ins -> v.setPadding(0, ins.systemWindowInsetTop, 0, ins.systemWindowInsetBottom); ins }
+        Ui.fitInsets(root)
         setContentView(root)
     }
 
-    override fun onResume() { super.onResume(); Fc.listeners.add(redraw); drawMessages(); ConnectionService.start(this); Thread { Fc.connect() }.start() }
-    override fun onPause() { Fc.listeners.remove(redraw); super.onPause() }
+    override fun onResume() { super.onResume(); Fc.openChat = chat; Notifier.cancel(this, chat); Fc.listeners.add(redraw); drawMessages(); Thread { Fc.readChat(chat) }.start(); ConnectionService.start(this); Thread { Fc.connect() }.start() }
+    override fun onPause() { Fc.listeners.remove(redraw); if (Fc.openChat == chat) Fc.openChat = null; super.onPause() }
 
     private fun drawMessages() {
         if (!::list.isInitialized) return
         val c = this
-        Fc.store().markRead(chat)
         list.removeAllViews()
         for (m in Fc.store().messages(chat)) {
             val mine = m.mine

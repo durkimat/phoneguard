@@ -35,4 +35,17 @@ echo "$M" | grep -qi "testOnly" && { echo "FAIL: release is testOnly"; exit 1; }
 "$BT/aapt" dump badging "$OUT" | grep -q "package: name='io.github.durkimat.familychat'" || { echo "FAIL: wrong package"; exit 1; }
 echo "$M" | grep -i "android:label" | grep -qi whatsapp && { echo "FAIL: WhatsApp in the app name"; exit 1; } || echo "ok: no WhatsApp in the name"
 unzip -l "$OUT" | grep -q "libgojni.so" || { echo "FAIL: bridge missing"; exit 1; } && echo "ok: bridge packaged"
+# 16 KB pages (Android 15+): the .so must be stored uncompressed at a 16 KB offset in the zip and its ELF segments aligned to 16 KB
+python3 - "$OUT" <<'PY' || { echo "FAIL: not 16 KB aligned"; exit 1; }
+import sys,zipfile,struct,io
+apk=sys.argv[1]; z=zipfile.ZipFile(apk); raw=open(apk,'rb'); bad=0
+for i in z.infolist():
+    if not i.filename.endswith('.so'): continue
+    raw.seek(i.header_offset); h=raw.read(30); n,e=struct.unpack('<HH',h[26:30]); off=i.header_offset+30+n+e
+    d=z.read(i); phoff,=struct.unpack_from('<Q',d,0x20); es,pn=struct.unpack_from('<HH',d,0x36)
+    al=[struct.unpack_from('<IIQQQQQQ',d,phoff+k*es)[7] for k in range(pn) if struct.unpack_from('<I',d,phoff+k*es)[0]==1]
+    ok=i.compress_type==0 and off%16384==0 and all(a%16384==0 for a in al); bad+=0 if ok else 1
+    print(('ok' if ok else 'FAIL')+': 16 KB alignment of '+i.filename)
+sys.exit(1 if bad else 0)
+PY
 ls -la "$OUT"

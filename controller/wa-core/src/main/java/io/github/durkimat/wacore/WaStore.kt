@@ -25,7 +25,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
      */
     @Synchronized fun add(
         chat: String, chatName: String, sender: String, senderId: String, mid: String, text: String, ts: Long, mine: Boolean,
-        keep: Int = KEEP, history: Boolean = false,
+        keep: Int = KEEP, history: Boolean = false, read: Boolean = false,
     ) {
         val db = writableDatabase
         // the same message can arrive twice (queued, then live, or in history): ignore a repeat
@@ -34,7 +34,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         else db.rawQuery("SELECT 1 FROM msg WHERE chat=? AND ts=? AND mine=? AND (text=? OR text LIKE ?)", arrayOf(chat, ts.toString(), if (mine) "1" else "0", text, "%: $text"))
         dup.use { if (it.moveToFirst()) return }
         db.insert("msg", null, ContentValues().apply {
-            put("chat", chat); put("ts", ts); put("mine", if (mine) 1 else 0); put("text", text); put("unread", if (mine || history) 0 else 1)
+            put("chat", chat); put("ts", ts); put("mine", if (mine) 1 else 0); put("text", text); put("unread", if (mine || history || read) 0 else 1)
             put("sender_id", senderId); put("sender_name", if (mine) "" else sender); put("mid", mid)
         })
         if (chatName.isNotBlank() && (!mine || chat.startsWith("g"))) db.insertWithOnConflict("chat", null, ContentValues().apply { put("number", chat); put("name", chatName) }, SQLiteDatabase.CONFLICT_REPLACE)

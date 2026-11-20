@@ -54,6 +54,7 @@ class AdminActivity : Activity() {
         settings.addView(Ui.row(c, "Admin group", WaNames.adminName(s), chevron = true) { show(Page.ADMIN_GROUP) }); settings.addView(Ui.divider(c))
         val exempt = ConnectionService.batteryExempt(c)
         settings.addView(Ui.row(c, "Stay connected", if (exempt) "Allowed" else "Tap to allow", chevron = !exempt) { if (!exempt) { leaving = true; startActivityForResult(ConnectionService.batteryExemptionIntent(c), 1) } }); settings.addView(Ui.divider(c))
+        settings.addView(Ui.row(c, "Tell WhatsApp when read", if (s.sendReadReceipts) "On" else "Off", chevron = true) { s.sendReadReceipts = !s.sendReadReceipts; show(Page.MENU) }); settings.addView(Ui.divider(c))
         settings.addView(Ui.row(c, "Change PIN", chevron = true) { show(Page.PIN) }); settings.addView(Ui.divider(c))
         settings.addView(Ui.row(c, "About and risks", chevron = true) { show(Page.ABOUT) })
         body.addView(settings, Ui.params(c = c, top = 16))

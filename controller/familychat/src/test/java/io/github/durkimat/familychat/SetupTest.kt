@@ -6,7 +6,7 @@ import org.junit.Test
 internal class Memory : Settings {
     override var riskAccepted = false; override var childName = ""; override var parentName = ""; override var linked = false
     override var adminGroupId = ""; override var pin: PinStore.Saved? = null; override var pinFailures = 0; override var pinLockUntil = 0L
-    override var allowedGroups: List<Group> = emptyList(); override var lastCommand = 0L; override var setupDone = false
+    override var allowedGroups: List<Group> = emptyList(); override var lastCommand = 0L; override var setupDone = false; override var sendReadReceipts = true
     override var knownGroups: List<Group> = emptyList()
     override fun clear() { riskAccepted = false; childName = ""; parentName = ""; linked = false; adminGroupId = ""; pin = null; allowedGroups = emptyList(); setupDone = false }
 }

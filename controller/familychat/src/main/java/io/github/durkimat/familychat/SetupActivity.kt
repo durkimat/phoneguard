@@ -167,6 +167,7 @@ class SetupActivity : Activity() {
     private fun groups() {
         val c = this; val s = Fc.settings
         val body = page("Which groups can ${s.childName} use?", "${s.childName} sees everything anyone writes in these groups, and can write in them. Start with just the ones you need. You can add more later.")
+        body.addView(Ui.text(c, "When you finish, Android will ask to let Family Chat show notifications, so ${s.childName} sees new messages. You can say no and still use the app.", 15f, Ui.MUTED), Ui.params(c = c, top = 8))
         val model = PickerModel(s.knownGroups.filter { it.id != s.adminGroupId })
         val picker = GroupPickerView(c, model) { }
         body.addView(picker, Ui.params(c = c, top = 16))

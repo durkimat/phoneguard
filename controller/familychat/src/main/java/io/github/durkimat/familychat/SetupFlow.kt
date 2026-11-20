@@ -65,6 +65,8 @@ interface Settings {
     var allowedGroups: List<Group>
     var lastCommand: Long
     var setupDone: Boolean
+    /** Tell WhatsApp (so the parent's phone shows it read) when the child opens a conversation. On unless the parent turns it off. */
+    var sendReadReceipts: Boolean
     /** The groups last listed by the account, so the pickers have something to show before the connection answers. */
     var knownGroups: List<Group>
     fun clear()

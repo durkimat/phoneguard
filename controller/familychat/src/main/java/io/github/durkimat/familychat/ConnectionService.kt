@@ -23,11 +23,27 @@ class ConnectionService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Connection", NotificationManager.IMPORTANCE_MIN))
         val n = Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.stat_notify_sync).setContentTitle("Family Chat is connected").setOngoing(true).build()
-        startForeground(NOTE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        startForeground(NOTE, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         Fc.init(this)
         Thread { if (Fc.settings.setupDone) { Fc.open(); Fc.connect() } }.start()
+        watchNetwork()
         return START_STICKY
     }
+
+    private var net: android.net.ConnectivityManager.NetworkCallback? = null
+
+    /** When the network comes back (airplane mode off, wifi to mobile), connect again at once instead of waiting for the next retry. */
+    private fun watchNetwork() {
+        if (net != null) return
+        val cm = getSystemService(android.net.ConnectivityManager::class.java)
+        val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(n: android.net.Network) { Thread { if (Fc.settings.setupDone) Fc.connect() }.start() }
+        }
+        net = cb
+        try { cm.registerDefaultNetworkCallback(cb) } catch (_: Throwable) { net = null }
+    }
+
+    override fun onDestroy() { net?.let { try { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(it) } catch (_: Throwable) { } }; net = null; super.onDestroy() }
 
     companion object {
         private const val CHANNEL = "connection"
