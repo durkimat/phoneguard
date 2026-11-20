@@ -11,10 +11,11 @@ import io.github.durkimat.phoneguard.core.Effective
 import io.github.durkimat.phoneguard.core.Engine
 import io.github.durkimat.phoneguard.launcher.Contact
 import io.github.durkimat.phoneguard.launcher.Convo
-import wabridge.Bridge
-import wabridge.Listener
-import wabridge.Message
-import wabridge.Wabridge
+import io.github.durkimat.wacore.WaListener
+import io.github.durkimat.wacore.WaMessage
+import io.github.durkimat.wacore.WaStore
+import io.github.durkimat.wacore.WaTransport
+import io.github.durkimat.wacore.WhatsmeowTransport
 import java.io.File
 
 /**
@@ -26,7 +27,7 @@ object WhatsApp {
         private set
     @Volatile var pairCode: String? = null
         private set
-    private var bridge: Bridge? = null
+    private var bridge: WaTransport? = null
     @Volatile private var appCtx: Context? = null
     private var lastTone = 0L
     private var store: WaStore? = null
@@ -65,7 +66,7 @@ object WhatsApp {
     @Synchronized fun store(c: Context): WaStore = store ?: WaStore(c.applicationContext).also { store = it }
 
     /** Opens the bridge (does not connect). */
-    @Synchronized fun open(c: Context): Bridge? {
+    @Synchronized fun open(c: Context): WaTransport? {
         bridge?.let { return it }
         val app = c.applicationContext
         appCtx = app
@@ -74,7 +75,7 @@ object WhatsApp {
         return try {
             val dir = File(app.filesDir, "wa").apply { mkdirs() }
             val st = store(app)
-            val b = Wabridge.open(dir.absolutePath, object : Listener {
+            val b = WhatsmeowTransport.open(dir.absolutePath, object : WaListener {
                 override fun onStatus(state: String) {
                     if (state == "connecting" || state == "connected") quiet = false
                     status = if (state == "disconnected" && quiet) "idle" else state; Log.log(app, "whatsapp: $state")
@@ -89,8 +90,8 @@ object WhatsApp {
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
-                override fun onMessage(m: Message) {
-                    st.add(m.chat, m.chatName, nameFor(app, m.senderID, m.sender), m.senderID, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history)
+                override fun onMessage(m: WaMessage) {
+                    st.add(m.chat, m.chatName, nameFor(app, m.senderId, m.sender), m.senderId, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history)
                     // a new message gets the child's WhatsApp tune (not our own, not the backlog); the system's ringer mode and Do Not Disturb apply to it
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (!m.history && !m.fromMe && now - lastTone > 3_000L) { lastTone = now; io.github.durkimat.phoneguard.notes.MessageAlert.fire(app, io.github.durkimat.phoneguard.alarm.ToneStore.WA) }

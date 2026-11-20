@@ -1,10 +1,9 @@
-package io.github.durkimat.phoneguard.whatsapp
+package io.github.durkimat.wacore
 
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import io.github.durkimat.phoneguard.launcher.Msg
 
 /** What the phone remembers of WhatsApp chats: the last few messages of each allowed chat, and nothing else. Private to the app. */
 class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
@@ -18,7 +17,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         }
     }
 
-    data class ChatRow(val number: String, val name: String, val last: Msg?, val unread: Int)
+    data class ChatRow(val number: String, val name: String, val last: WaMsg?, val unread: Int)
 
     /**
      * Keeps one message. [chatName] is the person's or group's name; [sender]/[senderId] say who wrote it (shown in front of
@@ -57,15 +56,15 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         return out
     }
 
-    /** One chat, oldest first. Group messages from other people carry who wrote them in [Msg.sender]. */
-    @Synchronized fun messages(chat: String): List<Msg> {
-        val out = ArrayList<Msg>()
+    /** One chat, oldest first. Group messages from other people carry who wrote them in [WaMsg.sender]. */
+    @Synchronized fun messages(chat: String): List<WaMsg> {
+        val out = ArrayList<WaMsg>()
         val group = chat.startsWith("g")
         readableDatabase.rawQuery("SELECT text, ts, mine, sender_name, sender_id FROM msg WHERE chat=? ORDER BY ts ASC, id ASC", arrayOf(chat)).use { cur ->
             while (cur.moveToNext()) {
                 val mine = cur.getInt(2) == 1
                 val who = (cur.getString(3) ?: "").ifBlank { cur.getString(4) ?: "" }
-                out.add(Msg(cur.getString(0), cur.getLong(1) * 1000, mine, if (group && !mine) who else ""))
+                out.add(WaMsg(cur.getString(0), cur.getLong(1) * 1000, mine, if (group && !mine) who else ""))
             }
         }
         return out

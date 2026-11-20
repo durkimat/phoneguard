@@ -41,7 +41,7 @@ data class CallEntry(val number: String, val name: String, val type: Int, val da
 
 /** One text message. [mine] is true for messages this phone sent. */
 /** [sender] is who wrote it in a group (empty otherwise); the text does not repeat it. */
-data class Msg(val body: String, val date: Long, val mine: Boolean, val sender: String = "")
+typealias Msg = io.github.durkimat.wacore.WaMsg
 
 /** A conversation with one number, oldest message first. */
 data class Convo(val address: String, val name: String, val msgs: List<Msg>, val unread: Int)
