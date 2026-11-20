@@ -20,6 +20,11 @@ sealed class WaMatch {
 
 /** The command parser, shared by both apps so they behave the same: "add group <name>", "remove group <name>", "groups", and a number to pick from a list. */
 object WaCommands {
+    /** The one place the admin group name prefix lives: the group is "<prefix><child name>", e.g. FamilyChat-Sam. Both apps use it; pass another prefix if Phone Guard should get its own. */
+    const val ADMIN_PREFIX = "FamilyChat-"
+
+    fun adminGroupName(child: String, prefix: String = ADMIN_PREFIX) = prefix + child.trim()
+
     fun parse(text: String): WaCommand {
         val t = text.trim().replace(Regex("\\s+"), " ")
         if (t.isEmpty()) return WaCommand.Unknown
@@ -42,8 +47,8 @@ object WaCommands {
         return when (hits.size) { 0 -> WaMatch.None; 1 -> WaMatch.One(hits[0].first, hits[0].second); else -> WaMatch.Many(hits) }
     }
 
-    /** The groups an admin group may be: those whose name starts with [prefix] ("ChildApp-"), as (id, name) pairs. */
-    fun adminCandidates(groups: String, prefix: String = "ChildApp-"): List<Pair<String, String>> = groups.lineSequence().mapNotNull { line ->
+    /** The groups an admin group may be: those whose name starts with [prefix] ([ADMIN_PREFIX], "FamilyChat-"), as (id, name) pairs. */
+    fun adminCandidates(groups: String, prefix: String = ADMIN_PREFIX): List<Pair<String, String>> = groups.lineSequence().mapNotNull { line ->
         val i = line.indexOf('|'); if (i <= 0) null else line.substring(0, i) to line.substring(i + 1)
     }.filter { it.second.startsWith(prefix, ignoreCase = true) }.toList()
 }

@@ -4,7 +4,7 @@ Nothing here is released or approved. The release needs the owner's go; PC publi
 
 ## What 1.0 contains
 - Groups only (no one-to-one chats), by group id. Send and read text; the parent's name shown instead of "Me".
-- Setup, once, by the parent: child's and parent's names, link as a linked device (pairing code), create the admin group "ChildApp-<child>" and bind it by id, set a PIN, keep-connected (battery exemption) in the app's own words.
+- Setup, once, by the parent: child's and parent's names, link as a linked device (pairing code), create the admin group "FamilyChat-<child>" and bind it by id, set a PIN, keep-connected (battery exemption) in the app's own words.
 - Parent control from the admin group, from the parent's own phone: `add group <name>`, `remove group <name>`, `groups`, a number to choose between groups with the same name. Acks go to the admin group. The admin group is never shown to the child nor allowed as a chat.
 - Always-on connection: foreground service with a minimal notification; reconnect after boot.
 - Local PIN (salted PBKDF2, on the phone only) for parent-only screens.

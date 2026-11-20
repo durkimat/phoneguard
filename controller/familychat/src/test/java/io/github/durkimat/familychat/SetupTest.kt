@@ -25,9 +25,9 @@ class SetupTest {
     @Test fun adminGroupIsFoundByTheChildsNameOnly() {
         val s = Memory().apply { childName = "Tom" }
         val f = SetupFlow(s)
-        val groups = "111|ChildApp-Tom\n222|ChildApp-Anna\n333|Football\n444|childapp-tom"
+        val groups = "111|FamilyChat-Tom\n222|FamilyChat-Anna\n333|Football\n444|familychat-tom"
         assertEquals(listOf("111", "444"), f.adminCandidates(groups).map { it.first })
-        assertEquals("ChildApp-Tom", f.adminGroupName())
+        assertEquals("FamilyChat-Tom", f.adminGroupName())
     }
 
     @Test fun pinIsHashedAndChecked() {

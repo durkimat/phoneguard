@@ -4,7 +4,7 @@ import io.github.durkimat.wacore.WaCommands
 
 /**
  * The first-run steps, with no screen in them: names, linking, then the admin group. A screen only shows [step] and calls the functions.
- * The admin group is found by its ChildApp- name and then bound by its id, never by name afterwards.
+ * The admin group is found by its FamilyChat-<child> name (WaCommands.ADMIN_PREFIX) and then bound by its id, never by name afterwards.
  */
 class SetupFlow(private val s: Settings) {
     enum class Step { NAMES, LINK, ADMIN_GROUP, PIN, DONE }
@@ -26,10 +26,10 @@ class SetupFlow(private val s: Settings) {
 
     /** The groups (the transport's "id|name" lines) that look like this child's admin group. Several: the parent chooses. */
     fun adminCandidates(groups: String): List<Pair<String, String>> =
-        WaCommands.adminCandidates(groups).filter { it.second.equals("ChildApp-${s.childName}", ignoreCase = true) }
+        WaCommands.adminCandidates(groups).filter { it.second.equals(adminGroupName(), ignoreCase = true) }
 
     /** The name the parent should give the group in WhatsApp. */
-    fun adminGroupName() = "ChildApp-${s.childName}"
+    fun adminGroupName() = WaCommands.adminGroupName(s.childName)
 
     fun bindAdmin(id: String): Boolean {
         if (id.isBlank()) return false
