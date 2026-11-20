@@ -26,6 +26,7 @@ object WaAdmin {
         when (val cmd = WaCommands.parse(text)) {
             is WaCommand.Unknown -> ack("I did not understand. Use: add group <name>, remove group <name>, or groups.")
             is WaCommand.ListAllowed -> ack(allowedLine(c, b.groups()))
+            is WaCommand.Photos -> ack(io.github.durkimat.wacore.WaAcks.notSupported()) // Family Chat only: here it changes nothing
             is WaCommand.AddGroup -> change(c, b.groups(), WaPending.ADD, cmd.name, adminId, ts, ::ack)
             is WaCommand.RemoveGroup -> change(c, b.groups(), WaPending.REMOVE, cmd.name, adminId, ts, ::ack)
             is WaCommand.Choose -> {

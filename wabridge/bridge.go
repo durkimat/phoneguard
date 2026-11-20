@@ -48,6 +48,23 @@ type Message struct {
 	TS       int64
 	FromMe   bool
 	History  bool
+
+	// What the message is, beyond its text: "text", "image", "sticker", "gif" (a short looping video), "video", "audio" or "other".
+	// Images, stickers and GIFs are downloaded at once when SetMedia is on (never for history, never over MaxAutoMedia); a video is only
+	// described, and fetched later with DownloadMedia(MediaRef). MediaPath is a file in the app's private media folder, or "".
+	Kind      string
+	MediaPath string
+	MediaRef  string // opaque: what DownloadMedia needs (the media's keys), kept by the app beside the message
+	MediaSize int64
+	Mime      string
+	Seconds   int
+	Width     int
+	Height    int
+	Animated  bool
+	// The message this one replies to: its id, who wrote it (best effort; the app prefers its own copy) and a short text of it.
+	QuoteID     string
+	QuoteSender string
+	QuoteText   string
 }
 
 // Listener is implemented by the app. Calls come from background threads.
@@ -67,6 +84,11 @@ type Listener interface {
 	// OnCommand: a command the parent typed in the admin group (see SetAdmin): text as written, ts in unix seconds, id the message id.
 	// Only messages from the account's own OTHER devices, newer than the last applied one, are ever passed on; the app decides what they mean.
 	OnCommand(text string, ts int64, id string)
+	// OnReaction: someone reacted (emoji "" = took their reaction back) to the message targetID in chat. sender is their name.
+	OnReaction(chat string, targetID string, senderID string, sender string, emoji string, ts int64, fromMe bool)
+	// OnEdit: the message targetID in chat was edited: text is the new text. OnRevoke: it was deleted for everyone.
+	OnEdit(chat string, targetID string, text string, ts int64)
+	OnRevoke(chat string, targetID string)
 	// OnLog: a short diagnostic line (which read-related events arrived), with numbers masked. Only for the phone's own log.
 	OnLog(line string)
 }
@@ -90,6 +112,8 @@ type Bridge struct {
 	perMin      int
 	perDay      int
 	sent        []time.Time
+	dir         string // the app's private data folder (media goes in dir/media)
+	media       bool   // download images, stickers and GIFs as they arrive
 
 	// the history WhatsApp sends once, when the account is linked, is kept in memory (never on disk) until the app says the
 	// allow list is up to date, or holdFor has passed, and only then looked at: see HoldHistory
@@ -139,7 +163,7 @@ func Open(dir string, l Listener) (*Bridge, error) {
 	if err != nil {
 		return nil, err
 	}
-	b := &Bridge{db: db, l: l, allowed: map[string]bool{}, groups: map[string]bool{}, gnames: map[string]string{}, perMin: 5, perDay: 200}
+	b := &Bridge{dir: dir, db: db, l: l, allowed: map[string]bool{}, groups: map[string]bool{}, gnames: map[string]string{}, perMin: 5, perDay: 200}
 	b.cli = whatsmeow.NewClient(device, log)
 	b.cli.AddEventHandler(b.onEvent)
 	return b, nil
@@ -641,6 +665,14 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 	if srv == types.BroadcastServer || srv == types.NewsletterServer {
 		return // status updates, broadcast lists and channels are never read
 	}
+	if pm := v.Message.GetProtocolMessage(); pm != nil {
+		b.protocol(v, pm, history)
+		return
+	}
+	if rm := v.Message.GetReactionMessage(); rm != nil {
+		b.reaction(v, rm, history)
+		return
+	}
 	text := textOf(v.Message)
 	if text == "" {
 		return
@@ -677,7 +709,9 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		if name == "" {
 			name = "Group"
 		}
-		b.l.OnMessage(&Message{Chat: "g" + v.Info.Chat.User, ChatName: name, Sender: who, SenderID: b.senderID(v), ID: v.Info.ID, Text: text, TS: v.Info.Timestamp.Unix(), FromMe: v.Info.IsFromMe, History: history})
+		m := &Message{Chat: "g" + v.Info.Chat.User, ChatName: name, Sender: who, SenderID: b.senderID(v), ID: v.Info.ID, Text: text, TS: v.Info.Timestamp.Unix(), FromMe: v.Info.IsFromMe, History: history}
+		b.enrich(m, v.Message)
+		b.l.OnMessage(m)
 		return
 	}
 	chat := b.phoneOf(v.Info.Chat, v.Info.RecipientAlt, v.Info.SenderAlt, v.Info.IsFromMe)
@@ -685,7 +719,9 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		return
 	}
 	name := b.nameOf(v.Info.Chat, v.Info.SenderAlt, v.Info.PushName)
-	b.l.OnMessage(&Message{Chat: chat, ChatName: name, Sender: name, SenderID: chat, ID: v.Info.ID, Text: text, TS: v.Info.Timestamp.Unix(), FromMe: v.Info.IsFromMe, History: history})
+	m := &Message{Chat: chat, ChatName: name, Sender: name, SenderID: chat, ID: v.Info.ID, Text: text, TS: v.Info.Timestamp.Unix(), FromMe: v.Info.IsFromMe, History: history}
+	b.enrich(m, v.Message)
+	b.l.OnMessage(m)
 }
 
 // nameOf finds the best name for a person: the name from the owner's own address book (WhatsApp syncs it from the

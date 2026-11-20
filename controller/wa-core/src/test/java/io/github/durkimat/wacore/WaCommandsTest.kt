@@ -37,3 +37,31 @@ class WaCommandsTest {
         assertEquals(listOf("5" to "X-Sam"), WaCommands.adminCandidates("5|X-Sam\n6|FamilyChat-Sam", "X-"))
     }
 }
+
+class WaLabelsTest {
+    @Test fun aStickerIsPrecededByTheSentByLine() {
+        val plan = WaLabels.sticker("Sam", "/s.webp", true)
+        assertEquals(listOf<WaLabels.Step>(WaLabels.Step.Text("Sent by Sam"), WaLabels.Step.Sticker("/s.webp", true)), plan)
+    }
+
+    @Test fun photosAndVideosCarryTheNameInTheCaption() {
+        assertEquals("Sam: look", WaLabels.caption("Sam", " look "))
+        assertEquals("Sam:", WaLabels.caption("Sam", "  "))
+        assertEquals(listOf<WaLabels.Step>(WaLabels.Step.Photo("/p.jpg", "Sam:", 10, 20)), WaLabels.photo("Sam", "/p.jpg", "", 10, 20))
+        assertEquals(listOf<WaLabels.Step>(WaLabels.Step.Video("/v.mp4", "Sam: hi", 3, 1, 2)), WaLabels.video("Sam", "/v.mp4", "hi", 3, 1, 2))
+    }
+
+    @Test fun withNoNameNothingIsAdded() {
+        assertEquals(listOf<WaLabels.Step>(WaLabels.Step.Sticker("/s.webp", false)), WaLabels.sticker(" ", "/s.webp", false))
+        assertEquals("hi", WaLabels.caption("", "hi"))
+    }
+
+    @Test fun photosCommandsAndTheirReplies() {
+        assertEquals(WaCommand.Photos(true), WaCommands.parse(" Photos  ON "))
+        assertEquals(WaCommand.Photos(false), WaCommands.parse("photos off"))
+        assertEquals(WaCommand.Unknown, WaCommands.parse("photos"))
+        assertEquals(WaCommand.Unknown, WaCommands.parse("photos maybe"))
+        assertEquals("Photos and videos: on", WaAcks.photos(true)); assertEquals("Photos and videos: off", WaAcks.photos(false))
+        assertEquals("Not supported here", WaAcks.notSupported())
+    }
+}

@@ -8,6 +8,8 @@ sealed class WaCommand {
     object ListAllowed : WaCommand()
     /** A number, the answer to "which one?". */
     data class Choose(val n: Int) : WaCommand()
+    /** "photos on" / "photos off": whether the child may send photos and videos (Family Chat only). */
+    data class Photos(val on: Boolean) : WaCommand()
     object Unknown : WaCommand()
 }
 
@@ -32,6 +34,8 @@ object WaCommands {
         val lower = t.lowercase()
         return when {
             lower == "groups" -> WaCommand.ListAllowed
+            lower == "photos on" -> WaCommand.Photos(true)
+            lower == "photos off" -> WaCommand.Photos(false)
             lower.startsWith("add group ") && t.length > 10 -> WaCommand.AddGroup(t.substring(10).trim())
             lower.startsWith("remove group ") && t.length > 13 -> WaCommand.RemoveGroup(t.substring(13).trim())
             else -> WaCommand.Unknown

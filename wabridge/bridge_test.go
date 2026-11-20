@@ -35,6 +35,9 @@ func (r *rec) OnCall(chat, chatName string, ts int64, rejected bool) {
 
 func (r *rec) OnLog(string) {}
 
+func (r *rec) OnReaction(chat, targetID, senderID, sender, emoji string, ts int64, fromMe bool) {}
+func (r *rec) OnEdit(chat, targetID, text string, ts int64) {}
+func (r *rec) OnRevoke(chat, targetID string) {}
 func (r *rec) OnCommand(text string, ts int64, id string) {
 	r.msgs = append(r.msgs, fmt.Sprintf("cmd:%s@%d", text, ts))
 }
@@ -259,6 +262,9 @@ func (s *senderRec) OnPairCode(string)                                     {}
 func (s *senderRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (s *senderRec) OnRead(chat string, ts int64)                          {}
 func (s *senderRec) OnLog(line string)                                     {}
+func (s *senderRec) OnReaction(chat, targetID, senderID, sender, emoji string, ts int64, fromMe bool) {}
+func (s *senderRec) OnEdit(chat, targetID, text string, ts int64) {}
+func (s *senderRec) OnRevoke(chat, targetID string) {}
 func (s *senderRec) OnCommand(text string, ts int64, id string)            {}
 func (s *senderRec) OnMessage(m *Message) {
 	*s.out = m.Sender
@@ -325,6 +331,9 @@ func (f *fullRec) OnPairCode(string)                                     {}
 func (f *fullRec) OnCall(chat, chatName string, ts int64, rejected bool) {}
 func (f *fullRec) OnRead(chat string, ts int64)                          {}
 func (f *fullRec) OnLog(line string)                                     {}
+func (f *fullRec) OnReaction(chat, targetID, senderID, sender, emoji string, ts int64, fromMe bool) {}
+func (f *fullRec) OnEdit(chat, targetID, text string, ts int64) {}
+func (f *fullRec) OnRevoke(chat, targetID string) {}
 func (f *fullRec) OnCommand(text string, ts int64, id string)            {}
 func (f *fullRec) OnMessage(m *Message)                                  { f.got = append(f.got, m) }
 

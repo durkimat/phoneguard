@@ -10,6 +10,11 @@ interface WaListener {
     /** A command the parent typed in the admin group (only from another device of the account, live, newer than the last applied). */
     fun onCommand(text: String, ts: Long, id: String)
     fun onLog(line: String)
+    // richer messages: only Family Chat uses these (Phone Guard keeps the empty defaults)
+    /** [emoji] empty = the reaction was taken back. */
+    fun onReaction(chat: String, targetId: String, senderId: String, sender: String, emoji: String, ts: Long, fromMe: Boolean) {}
+    fun onEdit(chat: String, targetId: String, text: String, ts: Long) {}
+    fun onRevoke(chat: String, targetId: String) {}
 }
 
 /**
@@ -44,4 +49,20 @@ interface WaTransport {
     fun sendAdmin(text: String)
     /** The joined groups, one "id|name" per line. */
     fun groups(): String
+
+    // ---- richer messages (Family Chat). Every send below counts as one against the send limits, and a burst is refused whole.
+    /** Download images, stickers and GIFs as they arrive (small ones only). */
+    fun setMedia(on: Boolean)
+    /** Fetches a video the child tapped (up to 100 MB) into the private media folder; returns the file path. */
+    fun downloadMedia(ref: String, id: String, mime: String): String
+    fun mediaDir(): String
+    /** A text message with the child's name in front, optionally quoting another message. Returns its id. A reaction by the child is this, with the emoji as the text. */
+    fun sendReply(chat: String, text: String, quoteId: String, quoteSender: String, quoteText: String): String
+    /** Sticker, photo and video: each goes with the labelling [WaLabels] says (a "Sent by <child>" line before a sticker, "<child>: caption" on a photo or video). Returns the id of the media message. */
+    fun sendSticker(chat: String, path: String, animated: Boolean): String
+    fun sendPhoto(chat: String, path: String, caption: String, width: Int, height: Int): String
+    fun sendVideo(chat: String, path: String, caption: String, seconds: Int, width: Int, height: Int): String
+    /** Only messages this account sent can be edited or deleted for everyone (the bridge sends the keys as "from me"). */
+    fun editMessage(chat: String, id: String, text: String)
+    fun deleteMessage(chat: String, id: String)
 }

@@ -9,6 +9,8 @@ object WaAcks {
     fun noGroup(name: String) = "No group called $name"
     fun nothingToChoose() = "Nothing to choose."
     fun canUse(child: String, names: List<String>) = if (names.isEmpty()) "$child can use no groups yet." else "$child can use: " + names.joinToString(", ")
+    fun photos(on: Boolean) = "Photos and videos: ${if (on) "on" else "off"}"
+    fun notSupported() = "Not supported here"
     fun ready() = "Ready. Commands: add group <name>, remove group <name>, groups."
 
     /** Several groups share [name]: a numbered list ("1) Football (ends 1a2b)") and the way to answer. [options] are (id, name). */

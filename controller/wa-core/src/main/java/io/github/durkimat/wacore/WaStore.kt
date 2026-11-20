@@ -6,15 +6,24 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
 /** What the phone remembers of WhatsApp chats: the last few messages of each allowed chat, and nothing else. Private to the app. */
-class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
+class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE msg (id INTEGER PRIMARY KEY AUTOINCREMENT, chat TEXT NOT NULL, ts INTEGER NOT NULL, mine INTEGER NOT NULL, text TEXT NOT NULL, unread INTEGER NOT NULL, sender_id TEXT, sender_name TEXT, mid TEXT)")
         db.execSQL("CREATE TABLE chat (number TEXT PRIMARY KEY, name TEXT)")
+        v3(db, columns = true)
+    }
+
+    // v3: what a message carries beyond its text (kind, media, the message it replies to, edited/deleted) and reactions
+    private fun v3(db: SQLiteDatabase, columns: Boolean) {
+        if (columns) for (c in listOf("kind TEXT", "media_path TEXT", "media_ref TEXT", "media_size INTEGER", "mime TEXT", "seconds INTEGER", "w INTEGER", "h INTEGER",
+            "animated INTEGER", "quote_id TEXT", "quote_text TEXT", "quote_sender TEXT", "edited INTEGER", "deleted INTEGER")) db.execSQL("ALTER TABLE msg ADD COLUMN $c")
+        db.execSQL("CREATE TABLE IF NOT EXISTS react (chat TEXT NOT NULL, target TEXT NOT NULL, sender_id TEXT NOT NULL, sender TEXT, emoji TEXT NOT NULL, ts INTEGER, PRIMARY KEY (chat, target, sender_id))")
     }
     override fun onUpgrade(db: SQLiteDatabase, o: Int, n: Int) {
         if (o < 2) { // v2 keeps who wrote a message and WhatsApp's id for it, apart from the text
             db.execSQL("ALTER TABLE msg ADD COLUMN sender_id TEXT"); db.execSQL("ALTER TABLE msg ADD COLUMN sender_name TEXT"); db.execSQL("ALTER TABLE msg ADD COLUMN mid TEXT")
         }
+        if (o < 3) v3(db, columns = true)
     }
 
     data class ChatRow(val number: String, val name: String, val last: WaMsg?, val unread: Int)
@@ -25,7 +34,7 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
      */
     @Synchronized fun add(
         chat: String, chatName: String, sender: String, senderId: String, mid: String, text: String, ts: Long, mine: Boolean,
-        keep: Int = KEEP, history: Boolean = false, read: Boolean = false,
+        keep: Int = KEEP, history: Boolean = false, read: Boolean = false, extra: WaExtra = WaExtra(),
     ) {
         val db = writableDatabase
         // the same message can arrive twice (queued, then live, or in history): ignore a repeat
@@ -36,9 +45,13 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         db.insert("msg", null, ContentValues().apply {
             put("chat", chat); put("ts", ts); put("mine", if (mine) 1 else 0); put("text", text); put("unread", if (mine || history || read) 0 else 1)
             put("sender_id", senderId); put("sender_name", if (mine) "" else sender); put("mid", mid)
+            put("kind", extra.kind); put("media_path", extra.mediaPath); put("media_ref", extra.mediaRef); put("media_size", extra.mediaSize); put("mime", extra.mime)
+            put("seconds", extra.seconds); put("w", extra.width); put("h", extra.height); put("animated", if (extra.animated) 1 else 0)
+            put("quote_id", extra.quoteId); put("quote_text", extra.quoteText); put("quote_sender", extra.quoteSender)
         })
         if (chatName.isNotBlank() && (!mine || chat.startsWith("g"))) db.insertWithOnConflict("chat", null, ContentValues().apply { put("number", chat); put("name", chatName) }, SQLiteDatabase.CONFLICT_REPLACE)
         db.execSQL("DELETE FROM msg WHERE chat=? AND id NOT IN (SELECT id FROM msg WHERE chat=? ORDER BY ts DESC, id DESC LIMIT ?)", arrayOf(chat, chat, keep))
+        db.execSQL("DELETE FROM react WHERE chat=? AND target NOT IN (SELECT mid FROM msg WHERE chat=? AND mid IS NOT NULL)", arrayOf(chat, chat))
     }
 
     /** Chats with their latest message, newest first. */
@@ -60,11 +73,21 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
     @Synchronized fun messages(chat: String): List<WaMsg> {
         val out = ArrayList<WaMsg>()
         val group = chat.startsWith("g")
-        readableDatabase.rawQuery("SELECT text, ts, mine, sender_name, sender_id FROM msg WHERE chat=? ORDER BY ts ASC, id ASC", arrayOf(chat)).use { cur ->
+        val db = readableDatabase
+        val reacts = HashMap<String, MutableList<WaReaction>>()
+        db.rawQuery("SELECT target, sender_id, COALESCE(sender,''), emoji FROM react WHERE chat=? ORDER BY ts", arrayOf(chat)).use { cur ->
+            while (cur.moveToNext()) reacts.getOrPut(cur.getString(0)) { ArrayList() }.add(WaReaction(cur.getString(1), cur.getString(2), cur.getString(3)))
+        }
+        db.rawQuery("SELECT text, ts, mine, sender_name, sender_id, COALESCE(mid,''), COALESCE(kind,'text'), COALESCE(media_path,''), COALESCE(media_ref,''), COALESCE(media_size,0), COALESCE(mime,''), " +
+            "COALESCE(seconds,0), COALESCE(w,0), COALESCE(h,0), COALESCE(animated,0), COALESCE(quote_id,''), COALESCE(quote_text,''), COALESCE(quote_sender,''), COALESCE(edited,0), COALESCE(deleted,0) " +
+            "FROM msg WHERE chat=? ORDER BY ts ASC, id ASC", arrayOf(chat)).use { cur ->
             while (cur.moveToNext()) {
                 val mine = cur.getInt(2) == 1
                 val who = (cur.getString(3) ?: "").ifBlank { cur.getString(4) ?: "" }
-                out.add(WaMsg(cur.getString(0), cur.getLong(1) * 1000, mine, if (group && !mine) who else ""))
+                val mid = cur.getString(5)
+                out.add(WaMsg(cur.getString(0), cur.getLong(1) * 1000, mine, if (group && !mine) who else "", mid, cur.getString(6), cur.getString(7), cur.getString(8), cur.getLong(9),
+                    cur.getString(10), cur.getInt(11), cur.getInt(12), cur.getInt(13), cur.getInt(14) == 1, cur.getString(15), cur.getString(16), cur.getString(17),
+                    cur.getInt(18) == 1, cur.getInt(19) == 1, reacts[mid].orEmpty()))
             }
         }
         return out
@@ -149,7 +172,42 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 2) {
         db.execSQL("DELETE FROM chat WHERE number NOT IN (SELECT DISTINCT chat FROM msg)")
     }
 
-    @Synchronized fun wipe() { writableDatabase.execSQL("DELETE FROM msg"); writableDatabase.execSQL("DELETE FROM chat") }
+    @Synchronized fun wipe() { writableDatabase.execSQL("DELETE FROM msg"); writableDatabase.execSQL("DELETE FROM chat"); writableDatabase.execSQL("DELETE FROM react") }
+
+    // ---- richer messages (Family Chat)
+
+    /** The file a downloaded media message now has (a video the child tapped). */
+    @Synchronized fun setMediaPath(chat: String, mid: String, path: String) { writableDatabase.execSQL("UPDATE msg SET media_path=? WHERE chat=? AND mid=?", arrayOf(path, chat, mid)) }
+
+    /** One message by WhatsApp's id (for the one a reply or reaction is about). */
+    @Synchronized fun find(chat: String, mid: String): WaMsg? = if (mid.isEmpty()) null else messages(chat).firstOrNull { it.mid == mid }
+
+    /** The message was edited: new text and the "edited" mark. True if we hold that message. */
+    @Synchronized fun applyEdit(chat: String, mid: String, text: String): Boolean {
+        val db = writableDatabase
+        db.execSQL("UPDATE msg SET text=?, edited=1 WHERE chat=? AND mid=?", arrayOf(text, chat, mid))
+        return db.rawQuery("SELECT changes()", null).use { it.moveToFirst() && it.getInt(0) > 0 }
+    }
+
+    /** The message was deleted for everyone: nothing of it is kept (text, media reference, reactions); returns the media file it had, so the caller can remove it. */
+    @Synchronized fun applyRevoke(chat: String, mid: String): String? {
+        val db = writableDatabase
+        val path = db.rawQuery("SELECT media_path FROM msg WHERE chat=? AND mid=?", arrayOf(chat, mid)).use { if (it.moveToFirst()) it.getString(0) else null }
+        db.execSQL("UPDATE msg SET text='', deleted=1, media_path='', media_ref='', quote_text='' WHERE chat=? AND mid=?", arrayOf(chat, mid))
+        db.execSQL("DELETE FROM react WHERE chat=? AND target=?", arrayOf(chat, mid))
+        return path
+    }
+
+    /** A reaction arrived (or was taken back: emoji empty). One reaction per person per message. */
+    @Synchronized fun setReaction(chat: String, target: String, senderId: String, sender: String, emoji: String, ts: Long) {
+        val db = writableDatabase
+        if (emoji.isEmpty()) { db.execSQL("DELETE FROM react WHERE chat=? AND target=? AND sender_id=?", arrayOf(chat, target, senderId)); return }
+        db.insertWithOnConflict("react", null, ContentValues().apply { put("chat", chat); put("target", target); put("sender_id", senderId); put("sender", sender); put("emoji", emoji); put("ts", ts) }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    /** Every media file the messages still point at (the cache cleaner removes the others). */
+    @Synchronized fun mediaPathsInUse(): Set<String> =
+        readableDatabase.rawQuery("SELECT media_path FROM msg WHERE media_path IS NOT NULL AND media_path != ''", null).use { c -> generateSequence { if (c.moveToNext()) c.getString(0) else null }.toSet() }
 
     companion object { const val KEEP = 20; const val MAX_CHATS = 60 }
 }
