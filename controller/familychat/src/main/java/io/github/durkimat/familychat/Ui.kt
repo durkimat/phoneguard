@@ -190,3 +190,24 @@ class CappedColumn(c: Context) : LinearLayout(c) {
         super.onMeasure(if (MeasureSpec.getMode(wSpec) == MeasureSpec.UNSPECIFIED) wSpec else MeasureSpec.makeMeasureSpec(Rich.bubbleCap(offered), MeasureSpec.AT_MOST), hSpec)
     }
 }
+
+/**
+ * A grid that uses the whole width it is given: the column count comes from the width ([Rich.columns]) and the tiles are square-ish and fill each row
+ * evenly. Use it full width inside one vertical scroll. [aspect] is the tile height over its width.
+ */
+class TileGrid(c: Context, private val tileDp: Float = 84f, private val minCols: Int = 4, private val aspect: Float = 1f) : ViewGroup(c) {
+    private var cols = minCols
+    override fun onMeasure(wSpec: Int, hSpec: Int) {
+        val w = MeasureSpec.getSize(wSpec)
+        val density = resources.displayMetrics.density
+        cols = Rich.columns(w / density, tileDp, minCols)
+        val tw = w / cols; val th = (tw * aspect).toInt()
+        for (i in 0 until childCount) getChildAt(i).measure(MeasureSpec.makeMeasureSpec(tw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(th, MeasureSpec.EXACTLY))
+        val rows = (childCount + cols - 1) / cols
+        setMeasuredDimension(w, rows * th)
+    }
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        val tw = (r - l) / cols
+        for (i in 0 until childCount) { val v = getChildAt(i); val x = (i % cols) * tw; val y = (i / cols) * v.measuredHeight; v.layout(x, y, x + tw, y + v.measuredHeight) }
+    }
+}

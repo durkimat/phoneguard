@@ -165,7 +165,10 @@ class AdminBrainTest {
     }
 
     @Test fun helpListsTheCommands() {
-        assertEquals(io.github.durkimat.wacore.WaAcks.help(true), brain().handle("help"))
+        assertEquals(io.github.durkimat.wacore.WaAcks.help(true), brain().handle("help")) // no status supplied: just the commands
+        val st = object : io.github.durkimat.wacore.WaAcks.HelpStatus { override val child = "Sam"; override val groups = listOf("Family"); override val connected = true; override val version = "v" }
+        val b = AdminBrain({ "Sam" }, { "9" }, { allowed }, { allowed = it }, { lines }, {}, { st })
+        assertTrue(b.handle("help").contains("Sam can use: Family")); assertTrue(b.handle("help").endsWith("Version: v"))
     }
 
     @Test fun unknownTextGetsTheUsageLine() {

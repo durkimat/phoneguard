@@ -13,6 +13,9 @@ object Rich {
 
     private val kinds = setOf("image", "sticker", "gif", "video")
 
+    /** How many tiles fit a row: as many as the width allows at about [tileDp] each, never fewer than [min] (360 dp phone: 4; 800 dp landscape: 9; 1280 dp tablet: 15). */
+    fun columns(availableDp: Float, tileDp: Float = 84f, min: Int = 4): Int = maxOf(min, (availableDp / tileDp).toInt())
+
     /** A bubble is at most this share of the width of the chat. */
     const val BUBBLE_MAX = 0.78f
     fun bubbleCap(offered: Int): Int = (offered * BUBBLE_MAX).toInt()

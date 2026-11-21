@@ -80,3 +80,13 @@ class BubbleTest {
         assertFalse(Rich.isSystem(m("[photo] hi", "image"))); assertFalse(Rich.isSystem(m("call me")))
     }
 }
+
+class ColumnsTest {
+    // the grid's own width: the screen minus the tray's side padding (24 dp)
+    @Test fun aPhoneGetsFourColumns() { assertEquals(4, Rich.columns(360f - 24)); assertEquals(4, Rich.columns(412f - 24)) }
+    @Test fun aWideScreenGetsMore() { assertEquals(9, Rich.columns(800f - 24)); assertEquals(14, Rich.columns(1280f - 24)); assertTrue(Rich.columns(800f) >= 8 && Rich.columns(1280f) >= 8) }
+    @Test fun neverFewerThanTheMinimumAndTilesStayAboutEightyFourDp() {
+        assertEquals(4, Rich.columns(100f)); assertEquals(3, Rich.columns(100f, 100f, 3)); assertEquals(3, Rich.columns(336f, 100f, 3)); assertEquals(7, Rich.columns(776f, 100f, 3))
+        for (w in listOf(360f, 412f, 800f, 1280f)) { val cols = Rich.columns(w); assertTrue(w / cols in 84f..(84f * 1.3f + 1) || cols == 4) }
+    }
+}

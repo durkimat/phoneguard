@@ -16,13 +16,14 @@ class AdminBrain(
     private val setAllowed: (List<Group>) -> Unit,
     private val groups: () -> String,
     private val setPhotos: (Boolean) -> Unit = {},
+    private val status: () -> WaAcks.HelpStatus? = { null },
 ) {
     private var choice: Pair<Boolean, List<Group>>? = null // (add?, the groups that share the name)
 
     @Synchronized fun handle(text: String): String = when (val cmd = WaCommands.parse(text)) {
         is WaCommand.Unknown -> { choice = null; WaAcks.usage() }
         is WaCommand.ListAllowed -> { choice = null; WaAcks.canUse(child(), allowed().map { it.name }.sortedBy { it.lowercase() }) }
-        is WaCommand.Help -> { choice = null; WaAcks.help(true) }
+        is WaCommand.Help -> { choice = null; WaAcks.help(true, status()) }
         is WaCommand.Photos -> { choice = null; setPhotos(cmd.on); WaAcks.photos(cmd.on) }
         is WaCommand.AddGroup -> change(true, cmd.name, groups())
         is WaCommand.RemoveGroup -> change(false, cmd.name, Group.format(allowed()))

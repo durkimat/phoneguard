@@ -10,8 +10,34 @@ object WaAcks {
     private fun commands(photos: Boolean) = commandLines(photos).joinToString("\n")
 
     fun usage(photos: Boolean = true) = "I did not understand. Use: " + commandLines(photos).dropLast(1).joinToString(", ") + " or help."
-    /** The reply to "help": the same list as [ready]. */
-    fun help(photos: Boolean = true) = "Commands:\n" + commands(photos)
+    /** What "help" says about the current settings, supplied by the app: a null line is not shown (Phone Guard has no photo or picture settings). */
+    interface HelpStatus {
+        val child: String
+        val groups: List<String>
+        val photosAllowed: Boolean? get() = null
+        val wifiOnlyVideos: Boolean? get() = null
+        val showMedia: Boolean? get() = null
+        val readReceipts: Boolean? get() = null
+        val connected: Boolean
+        val version: String
+    }
+
+    /** The reply to "help": the commands on one line, then the settings at a glance, one plain line each (short enough for one WhatsApp message). */
+    fun help(photos: Boolean = true, st: HelpStatus? = null): String {
+        val head = "Commands: " + commandLines(photos).joinToString(", ")
+        if (st == null) return head
+        fun onOff(b: Boolean) = if (b) "on" else "off"
+        val lines = listOfNotNull(
+            canUse(st.child, st.groups),
+            st.photosAllowed?.let { "Photos and videos: ${onOff(it)}" },
+            st.wifiOnlyVideos?.let { "Videos download: ${if (it) "on Wi-Fi only" else "on any connection"}" },
+            st.showMedia?.let { "Pictures, GIFs and stickers: ${if (it) "shown" else "hidden"}" },
+            st.readReceipts?.let { "Tell WhatsApp when read: ${onOff(it)}" },
+            "Connection: ${if (st.connected) "up" else "down"}",
+            "Version: ${st.version}",
+        )
+        return (listOf(head) + lines).joinToString("\n").take(900)
+    }
 
     /**
      * The one-time note after an upgrade: only when setup was finished before, the admin group is bound, the connection is up, and the commands changed

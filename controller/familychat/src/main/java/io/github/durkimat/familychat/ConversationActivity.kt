@@ -262,7 +262,7 @@ class ConversationActivity : Activity() {
 
     // ---- stickers: search, Recent, Animated and a tab for each kind
     private var stickerTab = "Happy"
-    private lateinit var stickerGrid: GridLayout
+    private lateinit var stickerGrid: TileGrid
     private lateinit var stickerTabs: LinearLayout
     private lateinit var stickerSearch: EditText
     private lateinit var stickerNote: TextView
@@ -275,8 +275,9 @@ class ConversationActivity : Activity() {
         panel.addView(stickerSearch, Ui.params())
         stickerTabs = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL }
         panel.addView(HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; addView(stickerTabs) }, Ui.params(c = c, top = 6))
-        stickerGrid = GridLayout(c).apply { columnCount = 4 }
-        panel.addView(ScrollView(c).apply { addView(stickerGrid) }, Ui.params(h = Ui.dp(c, 200), c = c, top = 4))
+        stickerGrid = TileGrid(c)
+        // one vertical scroll, full width: the grid takes the whole row and chooses its columns from it
+        panel.addView(ScrollView(c).apply { isFillViewport = true; addView(stickerGrid, android.view.ViewGroup.LayoutParams(-1, -2)) }, Ui.params(h = Ui.dp(c, 200), c = c, top = 4))
         stickerNote = Ui.text(c, "Sends \u201CSent by ${Fc.settings.childName}\u201D and then the sticker, so everyone knows who sent it. Green dot = animated.", 13f, Ui.MUTED)
         panel.addView(stickerNote, Ui.params(c = c, top = 4))
         stickerTab = if (Fc.settings.recentStickers.isNotEmpty()) "Recent" else "Happy"
@@ -296,8 +297,7 @@ class ConversationActivity : Activity() {
         val all = StickerLibrary.all(c)
         val list = if (q.isNotBlank()) StickerLibrary.search(all, q) else StickerLibrary.tab(all, stickerTab, Fc.settings.recentStickers)
         stickerGrid.removeAllViews()
-        if (list.isEmpty()) { stickerGrid.columnCount = 1; stickerGrid.addView(Ui.text(c, if (q.isNotBlank()) "No sticker matches that search." else if (stickerTab == "Recent") "Stickers you send appear here." else "No stickers here.", 16f, Ui.MUTED).apply { setPadding(Ui.dp(c, 8), Ui.dp(c, 16), Ui.dp(c, 8), Ui.dp(c, 16)) }); return }
-        stickerGrid.columnCount = 4
+        if (list.isEmpty()) { stickerGrid.addView(Ui.text(c, if (q.isNotBlank()) "No sticker matches that search." else if (stickerTab == "Recent") "Stickers you send appear here." else "No stickers here.", 16f, Ui.MUTED).apply { setPadding(Ui.dp(c, 8), Ui.dp(c, 16), Ui.dp(c, 8), Ui.dp(c, 16)) }); return }
         for (st in list) {
             val cell = android.widget.FrameLayout(c).apply { isClickable = true; contentDescription = st.name }
             val iv = ImageView(c).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setPadding(Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5))
@@ -305,7 +305,7 @@ class ConversationActivity : Activity() {
             cell.addView(iv, android.widget.FrameLayout.LayoutParams(-1, -1))
             if (st.animated) cell.addView(View(c).apply { background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Ui.ACCENT) } }, android.widget.FrameLayout.LayoutParams(Ui.dp(c, 10), Ui.dp(c, 10), Gravity.TOP or Gravity.END).also { it.setMargins(0, Ui.dp(c, 4), Ui.dp(c, 4), 0) })
             cell.setOnClickListener { stickerPanel.visibility = View.GONE; background { Fc.sendSticker(chat, st) } }
-            stickerGrid.addView(cell, GridLayout.LayoutParams().apply { width = Ui.dp(c, 80); height = Ui.dp(c, 80) })
+            stickerGrid.addView(cell)
         }
     }
 

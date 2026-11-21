@@ -221,6 +221,7 @@ object Fc {
             setAllowed = { settings.allowedGroups = it; applyConfig() },
             groups = { b.groups() },
             setPhotos = { settings.photosAllowed = it; fire() },
+            status = { helpStatus() },
         ).also { brain = it }
         val reply = try { br.handle(text) } catch (e: Throwable) { return }
         try { b.sendAdmin(reply) } catch (_: Throwable) { }
@@ -234,6 +235,18 @@ object Fc {
         st.markRead(chat)
         if (!settings.sendReadReceipts || info == null || (info.ids.isEmpty() && info.lastId.isEmpty())) return
         Thread { try { if (connectAndWait()) open()?.markRead(chat, info.ids, info.senders, info.lastId, info.lastSender, info.lastFromMe, info.lastTs) } catch (_: Throwable) { } }.start()
+    }
+
+    /** The settings "help" reports in the admin group (see WaAcks.help). */
+    private fun helpStatus() = object : io.github.durkimat.wacore.WaAcks.HelpStatus {
+        override val child = settings.childName
+        override val groups = settings.allowedGroups.map { it.name }.sortedBy { it.lowercase() }
+        override val photosAllowed: Boolean? = settings.photosAllowed
+        override val wifiOnlyVideos: Boolean? = settings.wifiOnlyVideos
+        override val showMedia: Boolean? = settings.showMedia
+        override val readReceipts: Boolean? = settings.sendReadReceipts
+        override val connected = isConnected()
+        override val version = AboutText.version(app)
     }
 
     private var announcing = false

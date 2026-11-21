@@ -26,7 +26,7 @@ object WaAdmin {
         when (val cmd = WaCommands.parse(text)) {
             is WaCommand.Unknown -> ack(io.github.durkimat.wacore.WaAcks.usage(photos = false))
             is WaCommand.ListAllowed -> ack(allowedLine(c, b.groups()))
-            is WaCommand.Help -> ack(io.github.durkimat.wacore.WaAcks.help(photos = false))
+            is WaCommand.Help -> ack(io.github.durkimat.wacore.WaAcks.help(photos = false, st = helpStatus(c, b.groups())))
             is WaCommand.Photos -> ack(io.github.durkimat.wacore.WaAcks.notSupported()) // Family Chat only: here it changes nothing
             is WaCommand.AddGroup -> change(c, b.groups(), WaPending.ADD, cmd.name, adminId, ts, ::ack)
             is WaCommand.RemoveGroup -> change(c, b.groups(), WaPending.REMOVE, cmd.name, adminId, ts, ::ack)
@@ -52,6 +52,21 @@ object WaAdmin {
         WhatsApp.refreshAllowed(c)
         ack(if (op == WaPending.ADD) "Added $name." else "Removed $name.")
         Thread { try { WorkerLink.sync(c, "admin command") } catch (_: Throwable) { } }.start() // the Worker hears about it on this very sync
+    }
+
+    /** What "help" reports here: only the groups this phone may use, the connection and the version (Phone Guard has no photo or picture settings). */
+    private fun helpStatus(c: Context, groupLines: String): io.github.durkimat.wacore.WaAcks.HelpStatus {
+        WaPending.cacheGroups(c, groupLines)
+        val names = groupLines.lineSequence().mapNotNull { l -> val i = l.indexOf('|'); if (i <= 0) null else l.substring(0, i).lowercase() to l.substring(i + 1) }.toMap()
+        val w = Store.config(c)?.whatsapp
+        val groups = if (w == null) emptyList() else WhatsApp.effectiveAllowed(c, w).filter { it.startsWith("gid:", true) || it.startsWith("g:", true) }
+            .map { e -> if (e.startsWith("gid:", true)) names[e.substring(4).removeSuffix("@g.us").lowercase()] ?: "a group" else e.substring(2) }.sortedBy { it.lowercase() }
+        return object : io.github.durkimat.wacore.WaAcks.HelpStatus {
+            override val child = w?.tagName?.ifBlank { null } ?: "This phone"
+            override val groups = groups
+            override val connected = WhatsApp.isConnected()
+            override val version = io.github.durkimat.phoneguard.BuildConfig.VERSION_NAME
+        }
     }
 
     private fun allowedLine(c: Context, groups: String): String {

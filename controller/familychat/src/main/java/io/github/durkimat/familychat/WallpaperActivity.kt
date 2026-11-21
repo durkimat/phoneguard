@@ -24,7 +24,7 @@ class WallpaperActivity : Activity() {
     private lateinit var preview: LinearLayout
     private lateinit var bubbleRow: LinearLayout
     private lateinit var tabs: LinearLayout
-    private lateinit var tiles: GridLayout
+    private lateinit var tiles: TileGrid
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
@@ -43,7 +43,7 @@ class WallpaperActivity : Activity() {
         body.addView(Ui.text(c, "Wallpaper", 18f, Ui.INK, true), Ui.params(c = c, top = 16))
         tabs = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL }
         body.addView(HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; addView(tabs) }, Ui.params(c = c, top = 8))
-        tiles = GridLayout(c).apply { columnCount = 3 }
+        tiles = TileGrid(c, tileDp = 100f, minCols = 3, aspect = 0.98f)
         body.addView(tiles, Ui.params(c = c, top = 8))
         body.addView(Ui.text(c, "Only you see your theme. A photo stays on this phone and is never sent to anyone.", 15f, Ui.MUTED), Ui.params(c = c, top = 12))
         setContentView(Ui.screen(c, body, Ui.footer(c, Ui.button(c, "Use this theme") { Fc.settings.setWallpaper(chat, wallpaper); Fc.settings.setBubbleColor(chat, bubble); finish() }, Ui.button(c, "Cancel", primary = false) { finish() })))
@@ -74,9 +74,9 @@ class WallpaperActivity : Activity() {
             val tile = LinearLayout(c).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4)); isClickable = true; contentDescription = label
                 background = Ui.shape(c, Ui.CARD, 14, if (sel) Ui.ACCENT else Ui.BORDER, if (sel) 3 else 1); setOnClickListener { if (key == "photo") pickPhoto() else { wallpaper = key; draw() } } }
             val sw = View(c).apply { background = if (key == "photo") Ui.shape(c, Ui.ACCENT_SOFT, 10) else Themes.drawable(c, key, chat) }
-            tile.addView(sw, LinearLayout.LayoutParams(Ui.dp(c, 84), Ui.dp(c, 56)))
+            tile.addView(sw, LinearLayout.LayoutParams(-1, 0, 1f))
             tile.addView(Ui.text(c, label, 14f, Ui.INK, sel).apply { gravity = Gravity.CENTER; setPadding(0, Ui.dp(c, 4), 0, 0) })
-            tiles.addView(tile, GridLayout.LayoutParams().apply { width = Ui.dp(c, 100); height = Ui.dp(c, 98); setMargins(Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4)) })
+            tiles.addView(android.widget.FrameLayout(c).apply { setPadding(Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4), Ui.dp(c, 4)); addView(tile, android.widget.FrameLayout.LayoutParams(-1, -1)) })
         }
     }
 

@@ -74,13 +74,13 @@ class WaHelpTest {
     @Test fun helpIsParsedAndListsEveryCommandOnePerLine() {
         assertEquals(WaCommand.Help, WaCommands.parse(" Help "))
         assertEquals(WaCommand.Unknown, WaCommands.parse("help me"))
-        assertEquals("Commands:\nadd group <name>\nremove group <name>\ngroups\nphotos on\nphotos off\nhelp", WaAcks.help(true))
+        assertEquals("Commands: add group <name>, remove group <name>, groups, photos on, photos off, help", WaAcks.help(true))
         assertEquals("Ready. Commands:\nadd group <name>\nremove group <name>\ngroups\nphotos on\nphotos off\nhelp", WaAcks.ready())
         assertTrue(WaAcks.usage(true).contains("photos on, photos off or help"))
     }
 
     @Test fun phoneGuardListsOnlyWhatItSupports() {
-        assertEquals("Commands:\nadd group <name>\nremove group <name>\ngroups\nhelp", WaAcks.help(false))
+        assertEquals("Commands: add group <name>, remove group <name>, groups, help", WaAcks.help(false))
         assertFalse(WaAcks.usage(false).contains("photos"))
     }
 
@@ -119,4 +119,38 @@ class WaStickerLabelTest {
         assertEquals(2, WaLabels.sticker("Sam", "/s.webp", false, true).size)
         assertEquals(listOf<WaLabels.Step>(WaLabels.Step.Sticker("/s.webp", true)), WaLabels.sticker("Sam", "/s.webp", true, false))
     }
+}
+
+class WaHelpStatusTest {
+    private class St(override val child: String = "Sam", override val groups: List<String> = listOf("Family", "Cousins"), override val photosAllowed: Boolean? = false,
+        override val wifiOnlyVideos: Boolean? = true, override val showMedia: Boolean? = true, override val readReceipts: Boolean? = true, override val connected: Boolean = true,
+        override val version: String = "1.0.0-rc7") : WaAcks.HelpStatus
+
+    @Test fun helpShowsTheCommandsAndTheSettingsOneLineEach() {
+        assertEquals("""Commands: add group <name>, remove group <name>, groups, photos on, photos off, help
+Sam can use: Family, Cousins
+Photos and videos: off
+Videos download: on Wi-Fi only
+Pictures, GIFs and stickers: shown
+Tell WhatsApp when read: on
+Connection: up
+Version: 1.0.0-rc7""", WaAcks.help(true, St()))
+    }
+
+    @Test fun otherValuesReadInPlainWords() {
+        val h = WaAcks.help(true, St(groups = emptyList(), photosAllowed = true, wifiOnlyVideos = false, showMedia = false, readReceipts = false, connected = false))
+        assertTrue(h.contains("Sam can use no groups yet.")); assertTrue(h.contains("Photos and videos: on")); assertTrue(h.contains("Videos download: on any connection"))
+        assertTrue(h.contains("Pictures, GIFs and stickers: hidden")); assertTrue(h.contains("Tell WhatsApp when read: off")); assertTrue(h.contains("Connection: down"))
+    }
+
+    @Test fun phoneGuardShowsOnlyWhatItHas() {
+        val h = WaAcks.help(false, St(photosAllowed = null, wifiOnlyVideos = null, showMedia = null, readReceipts = null))
+        assertEquals("Commands: add group <name>, remove group <name>, groups, help\nSam can use: Family, Cousins\nConnection: up\nVersion: 1.0.0-rc7", h)
+    }
+
+    @Test fun theGroupsLineIsTheSameInHelpAndInGroups() {
+        assertTrue(WaAcks.help(true, St()).lines().contains(WaAcks.canUse("Sam", listOf("Family", "Cousins"))))
+    }
+
+    @Test fun theReplyStaysShort() { assertTrue(WaAcks.help(true, St(groups = (1..60).map { "Group number $it" })).length <= 900) }
 }
