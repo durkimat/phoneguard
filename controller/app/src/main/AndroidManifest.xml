@@ -165,6 +165,8 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar">
             <intent-filter>
                 <action android:name="io.github.durkimat.phoneguard.POWER_MENU" />
+                <!-- without DEFAULT an implicit startActivity cannot resolve (result -91), which is how the image's window manager starts this screen -->
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
         <activity
