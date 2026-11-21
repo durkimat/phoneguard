@@ -22,8 +22,23 @@ object WaLabels {
         return if (c.isEmpty()) t else if (t.isEmpty()) "$c:" else "$c: $t"
     }
 
-    fun sticker(child: String, path: String, animated: Boolean): List<Step> =
-        (if (child.isBlank()) emptyList() else listOf(Step.Text(senderLine(child)))) + Step.Sticker(path, animated)
+    /** A sticker is preceded by the "Sent by" line, unless [label] is false (see [needsLabel]). */
+    fun sticker(child: String, path: String, animated: Boolean, label: Boolean = true): List<Step> =
+        (if (child.isBlank() || !label) emptyList() else listOf(Step.Text(senderLine(child)))) + Step.Sticker(path, animated)
+
+    /** Within this long of the child's last sticker, in the same chat, a following sticker needs no new "Sent by" line. */
+    const val SAME_BURST_MS = 2 * 60 * 1000L
+
+    /**
+     * Whether a sticker needs its "Sent by <child>" line: yes, unless the very last thing in this chat is a sticker the child sent less than two
+     * minutes ago, and no reaction has arrived since either. [last] is the newest message of the chat (any sender; null for an empty chat),
+     * [lastReactionMs] the time of the newest reaction in it (0 for none). Anything else, or another chat, gets the label.
+     */
+    fun needsLabel(last: WaMsg?, lastReactionMs: Long, nowMs: Long): Boolean {
+        if (last == null || !last.mine || last.kind != "sticker" || last.deleted) return true
+        if (nowMs - last.date >= SAME_BURST_MS || nowMs < last.date) return true
+        return lastReactionMs > last.date
+    }
 
     fun photo(child: String, path: String, text: String, w: Int, h: Int): List<Step> = listOf(Step.Photo(path, caption(child, text), w, h))
     fun video(child: String, path: String, text: String, seconds: Int, w: Int, h: Int): List<Step> = listOf(Step.Video(path, caption(child, text), seconds, w, h))

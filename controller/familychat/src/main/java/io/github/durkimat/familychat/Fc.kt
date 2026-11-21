@@ -161,14 +161,19 @@ object Fc {
         return err
     }
 
-    /** A bundled sticker (an asset path). The bridge sends "Sent by <child>" first, then the sticker. */
-    fun sendSticker(chat: String, asset: String): String {
+    /**
+     * A sticker from the library (an asset). The bridge sends "Sent by <child>" first (see WaLabels), except when the child's own sticker is the very last
+     * thing in this chat, less than two minutes old, with no reaction since: then it follows without the line. Animated ones go with the animated flag.
+     */
+    fun sendSticker(chat: String, st: Sticker): String {
         val own = File(Media.dir(app, "wa/media"), "own-${System.nanoTime()}.webp")
-        app.assets.open(asset).use { i -> own.outputStream().use { i.copyTo(it) } }
+        app.assets.open(st.asset).use { i -> own.outputStream().use { i.copyTo(it) } }
+        val label = io.github.durkimat.wacore.WaLabels.needsLabel(store().messages(chat).lastOrNull(), store().lastReactionMs(chat), System.currentTimeMillis())
         var id = ""
-        val err = sending { id = it.sendSticker(chat, own.absolutePath, false) }
+        val err = sending { id = it.sendSticker(chat, own.absolutePath, st.animated, label) }
         if (err.isNotEmpty()) { own.delete(); return err }
-        store().add(chat, "", "", "", id, "", now(), true, keep = KEEP, extra = WaExtra(kind = "sticker", mediaPath = own.absolutePath, mime = "image/webp", width = 512, height = 512))
+        settings.recentStickers = StickerLibrary.pushRecent(settings.recentStickers, st.id)
+        store().add(chat, "", "", "", id, "", now(), true, keep = KEEP, extra = WaExtra(kind = "sticker", mediaPath = own.absolutePath, mime = "image/webp", width = 512, height = 512, animated = st.animated))
         fire(); return ""
     }
 

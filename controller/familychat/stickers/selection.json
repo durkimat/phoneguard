@@ -1,0 +1,4569 @@
+{
+ "source": "https://github.com/microsoft/fluentui-emoji",
+ "commit": "1ffb34c752ecf5d402f04cfb4b392c77f57c54bc",
+ "items": [
+  {
+   "name": "Angry face",
+   "id": "angry-face",
+   "cldr": "angry face",
+   "keywords": [
+    "anger",
+    "angry",
+    "face",
+    "mad"
+   ],
+   "unicode": "1f620",
+   "cat": "Happy"
+  },
+  {
+   "name": "Astonished face",
+   "id": "astonished-face",
+   "cldr": "astonished face",
+   "keywords": [
+    "astonished",
+    "face",
+    "shocked",
+    "totally"
+   ],
+   "unicode": "1f632",
+   "cat": "Happy"
+  },
+  {
+   "name": "Beaming face with smiling eyes",
+   "id": "beaming-face-with-smiling-eyes",
+   "cldr": "beaming face with smiling eyes",
+   "keywords": [
+    "beaming face with smiling eyes",
+    "eye",
+    "face",
+    "grin",
+    "smile"
+   ],
+   "unicode": "1f601",
+   "cat": "Happy"
+  },
+  {
+   "name": "Confused face",
+   "id": "confused-face",
+   "cldr": "confused face",
+   "keywords": [
+    "confused",
+    "face",
+    "meh"
+   ],
+   "unicode": "1f615",
+   "cat": "Happy"
+  },
+  {
+   "name": "Cowboy hat face",
+   "id": "cowboy-hat-face",
+   "cldr": "cowboy hat face",
+   "keywords": [
+    "cowboy",
+    "cowgirl",
+    "face",
+    "hat"
+   ],
+   "unicode": "1f920",
+   "cat": "Happy"
+  },
+  {
+   "name": "Crying face",
+   "id": "crying-face",
+   "cldr": "crying face",
+   "keywords": [
+    "cry",
+    "crying face",
+    "face",
+    "sad",
+    "tear"
+   ],
+   "unicode": "1f622",
+   "cat": "Happy"
+  },
+  {
+   "name": "Disappointed face",
+   "id": "disappointed-face",
+   "cldr": "disappointed face",
+   "keywords": [
+    "disappointed",
+    "face"
+   ],
+   "unicode": "1f61e",
+   "cat": "Happy"
+  },
+  {
+   "name": "Dizzy",
+   "id": "dizzy",
+   "cldr": "dizzy",
+   "keywords": [
+    "comic",
+    "dizzy",
+    "star"
+   ],
+   "unicode": "1f4ab",
+   "cat": "Happy"
+  },
+  {
+   "name": "Downcast face with sweat",
+   "id": "downcast-face-with-sweat",
+   "cldr": "downcast face with sweat",
+   "keywords": [
+    "cold",
+    "downcast face with sweat",
+    "face",
+    "sweat"
+   ],
+   "unicode": "1f613",
+   "cat": "Happy"
+  },
+  {
+   "name": "Expressionless face",
+   "id": "expressionless-face",
+   "cldr": "expressionless face",
+   "keywords": [
+    "expressionless",
+    "face",
+    "inexpressive",
+    "meh",
+    "unexpressive"
+   ],
+   "unicode": "1f611",
+   "cat": "Happy"
+  },
+  {
+   "name": "Face holding back tears",
+   "id": "face-holding-back-tears",
+   "cldr": "face holding back tears",
+   "keywords": [
+    "angry",
+    "cry",
+    "face holding back tears",
+    "proud",
+    "resist",
+    "sad"
+   ],
+   "unicode": "1f979",
+   "cat": "Happy"
+  },
+  {
+   "name": "Face screaming in fear",
+   "id": "face-screaming-in-fear",
+   "cldr": "face screaming in fear",
+   "keywords": [
+    "face",
+    "face screaming in fear",
+    "fear",
+    "munch",
+    "scared",
+    "scream"
+   ],
+   "unicode": "1f631",
+   "cat": "Happy"
+  },
+  {
+   "name": "Face with monocle",
+   "id": "face-with-monocle",
+   "cldr": "face with monocle",
+   "keywords": [
+    "face with monocle",
+    "stuffy"
+   ],
+   "unicode": "1f9d0",
+   "cat": "Happy"
+  },
+  {
+   "name": "Face with tears of joy",
+   "id": "face-with-tears-of-joy",
+   "cldr": "face with tears of joy",
+   "keywords": [
+    "face",
+    "face with tears of joy",
+    "joy",
+    "laugh",
+    "tear"
+   ],
+   "unicode": "1f602",
+   "cat": "Happy"
+  },
+  {
+   "name": "Fearful face",
+   "id": "fearful-face",
+   "cldr": "fearful face",
+   "keywords": [
+    "face",
+    "fear",
+    "fearful",
+    "scared"
+   ],
+   "unicode": "1f628",
+   "cat": "Happy"
+  },
+  {
+   "name": "Flushed face",
+   "id": "flushed-face",
+   "cldr": "flushed face",
+   "keywords": [
+    "dazed",
+    "face",
+    "flushed"
+   ],
+   "unicode": "1f633",
+   "cat": "Happy"
+  },
+  {
+   "name": "Frowning face",
+   "id": "frowning-face",
+   "cldr": "frowning face",
+   "keywords": [
+    "face",
+    "frown",
+    "frowning face"
+   ],
+   "unicode": "2639 fe0f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Grinning cat with smiling eyes",
+   "id": "grinning-cat-with-smiling-eyes",
+   "cldr": "grinning cat with smiling eyes",
+   "keywords": [
+    "cat",
+    "eye",
+    "face",
+    "grin",
+    "grinning cat with smiling eyes",
+    "smile"
+   ],
+   "unicode": "1f638",
+   "cat": "Happy"
+  },
+  {
+   "name": "Grinning face",
+   "id": "grinning-face",
+   "cldr": "grinning face",
+   "keywords": [
+    "face",
+    "grin",
+    "grinning face"
+   ],
+   "unicode": "1f600",
+   "cat": "Happy"
+  },
+  {
+   "name": "Grinning face with sweat",
+   "id": "grinning-face-with-sweat",
+   "cldr": "grinning face with sweat",
+   "keywords": [
+    "cold",
+    "face",
+    "grinning face with sweat",
+    "open",
+    "smile",
+    "sweat"
+   ],
+   "unicode": "1f605",
+   "cat": "Happy"
+  },
+  {
+   "name": "Hear-no-evil monkey",
+   "id": "hear-no-evil-monkey",
+   "cldr": "hear-no-evil monkey",
+   "keywords": [
+    "evil",
+    "face",
+    "forbidden",
+    "hear",
+    "hear-no-evil monkey",
+    "monkey"
+   ],
+   "unicode": "1f649",
+   "cat": "Happy"
+  },
+  {
+   "name": "Hugging face",
+   "id": "hugging-face",
+   "cldr": "hugging face",
+   "keywords": [
+    "face",
+    "hug",
+    "hugging",
+    "open hands",
+    "smiling face",
+    "smiling face with open hands"
+   ],
+   "unicode": "1f917",
+   "cat": "Happy"
+  },
+  {
+   "name": "Hushed face",
+   "id": "hushed-face",
+   "cldr": "hushed face",
+   "keywords": [
+    "face",
+    "hushed",
+    "stunned",
+    "surprised"
+   ],
+   "unicode": "1f62f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Nerd face",
+   "id": "nerd-face",
+   "cldr": "nerd face",
+   "keywords": [
+    "face",
+    "geek",
+    "nerd"
+   ],
+   "unicode": "1f913",
+   "cat": "Happy"
+  },
+  {
+   "name": "Neutral face",
+   "id": "neutral-face",
+   "cldr": "neutral face",
+   "keywords": [
+    "deadpan",
+    "face",
+    "meh",
+    "neutral"
+   ],
+   "unicode": "1f610",
+   "cat": "Happy"
+  },
+  {
+   "name": "Partying face",
+   "id": "partying-face",
+   "cldr": "partying face",
+   "keywords": [
+    "celebration",
+    "hat",
+    "horn",
+    "party",
+    "partying face"
+   ],
+   "unicode": "1f973",
+   "cat": "Happy"
+  },
+  {
+   "name": "Pensive face",
+   "id": "pensive-face",
+   "cldr": "pensive face",
+   "keywords": [
+    "dejected",
+    "face",
+    "pensive"
+   ],
+   "unicode": "1f614",
+   "cat": "Happy"
+  },
+  {
+   "name": "Persevering face",
+   "id": "persevering-face",
+   "cldr": "persevering face",
+   "keywords": [
+    "face",
+    "persevere",
+    "persevering face"
+   ],
+   "unicode": "1f623",
+   "cat": "Happy"
+  },
+  {
+   "name": "Pleading face",
+   "id": "pleading-face",
+   "cldr": "pleading face",
+   "keywords": [
+    "begging",
+    "mercy",
+    "pleading face",
+    "puppy eyes"
+   ],
+   "unicode": "1f97a",
+   "cat": "Happy"
+  },
+  {
+   "name": "Pouting face",
+   "id": "pouting-face",
+   "cldr": "pouting face",
+   "keywords": [
+    "angry",
+    "face",
+    "mad",
+    "pouting",
+    "rage",
+    "red"
+   ],
+   "unicode": "1f621",
+   "cat": "Happy"
+  },
+  {
+   "name": "Relieved face",
+   "id": "relieved-face",
+   "cldr": "relieved face",
+   "keywords": [
+    "face",
+    "relieved"
+   ],
+   "unicode": "1f60c",
+   "cat": "Happy"
+  },
+  {
+   "name": "Rolling on the floor laughing",
+   "id": "rolling-on-the-floor-laughing",
+   "cldr": "rolling on the floor laughing",
+   "keywords": [
+    "face",
+    "floor",
+    "laugh",
+    "rofl",
+    "rolling",
+    "rolling on the floor laughing",
+    "rotfl"
+   ],
+   "unicode": "1f923",
+   "cat": "Happy"
+  },
+  {
+   "name": "Sad but relieved face",
+   "id": "sad-but-relieved-face",
+   "cldr": "sad but relieved face",
+   "keywords": [
+    "disappointed",
+    "face",
+    "relieved",
+    "sad but relieved face",
+    "whew"
+   ],
+   "unicode": "1f625",
+   "cat": "Happy"
+  },
+  {
+   "name": "See-no-evil monkey",
+   "id": "see-no-evil-monkey",
+   "cldr": "see-no-evil monkey",
+   "keywords": [
+    "evil",
+    "face",
+    "forbidden",
+    "monkey",
+    "see",
+    "see-no-evil monkey"
+   ],
+   "unicode": "1f648",
+   "cat": "Happy"
+  },
+  {
+   "name": "Shushing face",
+   "id": "shushing-face",
+   "cldr": "shushing face",
+   "keywords": [
+    "quiet",
+    "shush",
+    "shushing face"
+   ],
+   "unicode": "1f92b",
+   "cat": "Happy"
+  },
+  {
+   "name": "Sleeping face",
+   "id": "sleeping-face",
+   "cldr": "sleeping face",
+   "keywords": [
+    "face",
+    "sleep",
+    "sleeping face",
+    "zzz"
+   ],
+   "unicode": "1f634",
+   "cat": "Happy"
+  },
+  {
+   "name": "Sleepy face",
+   "id": "sleepy-face",
+   "cldr": "sleepy face",
+   "keywords": [
+    "face",
+    "sleep",
+    "sleepy face"
+   ],
+   "unicode": "1f62a",
+   "cat": "Happy"
+  },
+  {
+   "name": "Slightly frowning face",
+   "id": "slightly-frowning-face",
+   "cldr": "slightly frowning face",
+   "keywords": [
+    "face",
+    "frown",
+    "slightly frowning face"
+   ],
+   "unicode": "1f641",
+   "cat": "Happy"
+  },
+  {
+   "name": "Slightly smiling face",
+   "id": "slightly-smiling-face",
+   "cldr": "slightly smiling face",
+   "keywords": [
+    "face",
+    "slightly smiling face",
+    "smile"
+   ],
+   "unicode": "1f642",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling cat with heart-eyes",
+   "id": "smiling-cat-with-heart-eyes",
+   "cldr": "smiling cat with heart-eyes",
+   "keywords": [
+    "cat",
+    "eye",
+    "face",
+    "heart",
+    "love",
+    "smile",
+    "smiling cat with heart-eyes"
+   ],
+   "unicode": "1f63b",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face",
+   "id": "smiling-face",
+   "cldr": "smiling face",
+   "keywords": [
+    "face",
+    "outlined",
+    "relaxed",
+    "smile",
+    "smiling face"
+   ],
+   "unicode": "263a fe0f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face with halo",
+   "id": "smiling-face-with-halo",
+   "cldr": "smiling face with halo",
+   "keywords": [
+    "angel",
+    "face",
+    "fantasy",
+    "halo",
+    "innocent",
+    "smiling face with halo"
+   ],
+   "unicode": "1f607",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face with heart-eyes",
+   "id": "smiling-face-with-heart-eyes",
+   "cldr": "smiling face with heart-eyes",
+   "keywords": [
+    "eye",
+    "face",
+    "love",
+    "smile",
+    "smiling face with heart-eyes"
+   ],
+   "unicode": "1f60d",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face with hearts",
+   "id": "smiling-face-with-hearts",
+   "cldr": "smiling face with hearts",
+   "keywords": [
+    "adore",
+    "crush",
+    "hearts",
+    "in love",
+    "smiling face with hearts"
+   ],
+   "unicode": "1f970",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face with smiling eyes",
+   "id": "smiling-face-with-smiling-eyes",
+   "cldr": "smiling face with smiling eyes",
+   "keywords": [
+    "blush",
+    "eye",
+    "face",
+    "smile",
+    "smiling face with smiling eyes"
+   ],
+   "unicode": "1f60a",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face with sunglasses",
+   "id": "smiling-face-with-sunglasses",
+   "cldr": "smiling face with sunglasses",
+   "keywords": [
+    "bright",
+    "cool",
+    "face",
+    "smiling face with sunglasses",
+    "sun",
+    "sunglasses"
+   ],
+   "unicode": "1f60e",
+   "cat": "Happy"
+  },
+  {
+   "name": "Smiling face with tear",
+   "id": "smiling-face-with-tear",
+   "cldr": "smiling face with tear",
+   "keywords": [
+    "grateful",
+    "proud",
+    "relieved",
+    "smiling",
+    "smiling face with tear",
+    "tear",
+    "touched"
+   ],
+   "unicode": "1f972",
+   "cat": "Happy"
+  },
+  {
+   "name": "Speak-no-evil monkey",
+   "id": "speak-no-evil-monkey",
+   "cldr": "speak-no-evil monkey",
+   "keywords": [
+    "evil",
+    "face",
+    "forbidden",
+    "monkey",
+    "speak",
+    "speak-no-evil monkey"
+   ],
+   "unicode": "1f64a",
+   "cat": "Happy"
+  },
+  {
+   "name": "Star-struck",
+   "id": "star-struck",
+   "cldr": "star-struck",
+   "keywords": [
+    "eyes",
+    "face",
+    "grinning",
+    "star",
+    "star-struck"
+   ],
+   "unicode": "1f929",
+   "cat": "Happy"
+  },
+  {
+   "name": "Thinking face",
+   "id": "thinking-face",
+   "cldr": "thinking face",
+   "keywords": [
+    "face",
+    "thinking"
+   ],
+   "unicode": "1f914",
+   "cat": "Happy"
+  },
+  {
+   "name": "Tired face",
+   "id": "tired-face",
+   "cldr": "tired face",
+   "keywords": [
+    "face",
+    "tired"
+   ],
+   "unicode": "1f62b",
+   "cat": "Happy"
+  },
+  {
+   "name": "Upside-down face",
+   "id": "upside-down-face",
+   "cldr": "upside-down face",
+   "keywords": [
+    "face",
+    "upside-down"
+   ],
+   "unicode": "1f643",
+   "cat": "Happy"
+  },
+  {
+   "name": "Weary face",
+   "id": "weary-face",
+   "cldr": "weary face",
+   "keywords": [
+    "face",
+    "tired",
+    "weary"
+   ],
+   "unicode": "1f629",
+   "cat": "Happy"
+  },
+  {
+   "name": "Winking face",
+   "id": "winking-face",
+   "cldr": "winking face",
+   "keywords": [
+    "face",
+    "wink",
+    "winking face"
+   ],
+   "unicode": "1f609",
+   "cat": "Happy"
+  },
+  {
+   "name": "Worried face",
+   "id": "worried-face",
+   "cldr": "worried face",
+   "keywords": [
+    "face",
+    "worried"
+   ],
+   "unicode": "1f61f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Yawning face",
+   "id": "yawning-face",
+   "cldr": "yawning face",
+   "keywords": [
+    "bored",
+    "tired",
+    "yawn",
+    "yawning face"
+   ],
+   "unicode": "1f971",
+   "cat": "Happy"
+  },
+  {
+   "name": "Zany face",
+   "id": "zany-face",
+   "cldr": "zany face",
+   "keywords": [
+    "eye",
+    "goofy",
+    "large",
+    "small",
+    "zany face"
+   ],
+   "unicode": "1f92a",
+   "cat": "Happy"
+  },
+  {
+   "name": "Backhand index pointing up",
+   "id": "backhand-index-pointing-up",
+   "cldr": "backhand index pointing up",
+   "keywords": [
+    "backhand",
+    "backhand index pointing up",
+    "finger",
+    "hand",
+    "point",
+    "up"
+   ],
+   "unicode": "1f446",
+   "cat": "Happy"
+  },
+  {
+   "name": "Call me hand",
+   "id": "call-me-hand",
+   "cldr": "call me hand",
+   "keywords": [
+    "call",
+    "call me hand",
+    "hand"
+   ],
+   "unicode": "1f919",
+   "cat": "Happy"
+  },
+  {
+   "name": "Clapping hands",
+   "id": "clapping-hands",
+   "cldr": "clapping hands",
+   "keywords": [
+    "clap",
+    "clapping hands",
+    "hand"
+   ],
+   "unicode": "1f44f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Crossed fingers",
+   "id": "crossed-fingers",
+   "cldr": "crossed fingers",
+   "keywords": [
+    "cross",
+    "crossed fingers",
+    "finger",
+    "hand",
+    "luck"
+   ],
+   "unicode": "1f91e",
+   "cat": "Happy"
+  },
+  {
+   "name": "Flexed biceps",
+   "id": "flexed-biceps",
+   "cldr": "flexed biceps",
+   "keywords": [
+    "biceps",
+    "comic",
+    "flex",
+    "flexed biceps",
+    "muscle"
+   ],
+   "unicode": "1f4aa",
+   "cat": "Happy"
+  },
+  {
+   "name": "Handshake",
+   "id": "handshake",
+   "cldr": "handshake",
+   "keywords": [
+    "agreement",
+    "hand",
+    "handshake",
+    "meeting",
+    "shake"
+   ],
+   "unicode": "1f91d",
+   "cat": "Happy"
+  },
+  {
+   "name": "Love-you gesture",
+   "id": "love-you-gesture",
+   "cldr": "love-you gesture",
+   "keywords": [
+    "hand",
+    "ILY",
+    "love-you gesture"
+   ],
+   "unicode": "1f91f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Ok hand",
+   "id": "ok-hand",
+   "cldr": "OK hand",
+   "keywords": [
+    "hand",
+    "OK"
+   ],
+   "unicode": "1f44c",
+   "cat": "Happy"
+  },
+  {
+   "name": "Raised hand",
+   "id": "raised-hand",
+   "cldr": "raised hand",
+   "keywords": [
+    "hand",
+    "high 5",
+    "high five",
+    "raised hand"
+   ],
+   "unicode": "270b",
+   "cat": "Happy"
+  },
+  {
+   "name": "Raising hands",
+   "id": "raising-hands",
+   "cldr": "raising hands",
+   "keywords": [
+    "celebration",
+    "gesture",
+    "hand",
+    "hooray",
+    "raised",
+    "raising hands"
+   ],
+   "unicode": "1f64c",
+   "cat": "Happy"
+  },
+  {
+   "name": "Thumbs up",
+   "id": "thumbs-up",
+   "cldr": "thumbs up",
+   "keywords": [
+    "+1",
+    "hand",
+    "thumb",
+    "thumbs up",
+    "up"
+   ],
+   "unicode": "1f44d",
+   "cat": "Happy"
+  },
+  {
+   "name": "Victory hand",
+   "id": "victory-hand",
+   "cldr": "victory hand",
+   "keywords": [
+    "hand",
+    "v",
+    "victory"
+   ],
+   "unicode": "270c fe0f",
+   "cat": "Happy"
+  },
+  {
+   "name": "Waving hand",
+   "id": "waving-hand",
+   "cldr": "waving hand",
+   "keywords": [
+    "hand",
+    "wave",
+    "waving"
+   ],
+   "unicode": "1f44b",
+   "cat": "Happy"
+  },
+  {
+   "name": "Beating heart",
+   "id": "beating-heart",
+   "cldr": "beating heart",
+   "keywords": [
+    "beating",
+    "beating heart",
+    "heartbeat",
+    "pulsating"
+   ],
+   "unicode": "1f493",
+   "cat": "Love"
+  },
+  {
+   "name": "Black heart",
+   "id": "black-heart",
+   "cldr": "black heart",
+   "keywords": [
+    "black",
+    "black heart",
+    "evil",
+    "wicked"
+   ],
+   "unicode": "1f5a4",
+   "cat": "Love"
+  },
+  {
+   "name": "Blue heart",
+   "id": "blue-heart",
+   "cldr": "blue heart",
+   "keywords": [
+    "blue",
+    "blue heart"
+   ],
+   "unicode": "1f499",
+   "cat": "Love"
+  },
+  {
+   "name": "Broken heart",
+   "id": "broken-heart",
+   "cldr": "broken heart",
+   "keywords": [
+    "break",
+    "broken",
+    "broken heart"
+   ],
+   "unicode": "1f494",
+   "cat": "Love"
+  },
+  {
+   "name": "Brown heart",
+   "id": "brown-heart",
+   "cldr": "brown heart",
+   "keywords": [
+    "brown",
+    "heart"
+   ],
+   "unicode": "1f90e",
+   "cat": "Love"
+  },
+  {
+   "name": "Green heart",
+   "id": "green-heart",
+   "cldr": "green heart",
+   "keywords": [
+    "green",
+    "green heart"
+   ],
+   "unicode": "1f49a",
+   "cat": "Love"
+  },
+  {
+   "name": "Grey heart",
+   "id": "grey-heart",
+   "cldr": "grey heart",
+   "keywords": [
+    "gray",
+    "grey heart",
+    "heart",
+    "silver",
+    "slate"
+   ],
+   "unicode": "1fa76",
+   "cat": "Love"
+  },
+  {
+   "name": "Growing heart",
+   "id": "growing-heart",
+   "cldr": "growing heart",
+   "keywords": [
+    "excited",
+    "growing",
+    "growing heart",
+    "nervous",
+    "pulse"
+   ],
+   "unicode": "1f497",
+   "cat": "Love"
+  },
+  {
+   "name": "Heart decoration",
+   "id": "heart-decoration",
+   "cldr": "heart decoration",
+   "keywords": [
+    "heart",
+    "heart decoration"
+   ],
+   "unicode": "1f49f",
+   "cat": "Love"
+  },
+  {
+   "name": "Heart on fire",
+   "id": "heart-on-fire",
+   "cldr": "heart on fire",
+   "keywords": [
+    "burn",
+    "heart",
+    "heart on fire",
+    "love",
+    "lust",
+    "sacred heart"
+   ],
+   "unicode": "2764 fe0f 200d 1f525",
+   "cat": "Love"
+  },
+  {
+   "name": "Heart with arrow",
+   "id": "heart-with-arrow",
+   "cldr": "heart with arrow",
+   "keywords": [
+    "arrow",
+    "cupid",
+    "heart with arrow"
+   ],
+   "unicode": "1f498",
+   "cat": "Love"
+  },
+  {
+   "name": "Heart with ribbon",
+   "id": "heart-with-ribbon",
+   "cldr": "heart with ribbon",
+   "keywords": [
+    "heart with ribbon",
+    "ribbon",
+    "valentine"
+   ],
+   "unicode": "1f49d",
+   "cat": "Love"
+  },
+  {
+   "name": "Light blue heart",
+   "id": "light-blue-heart",
+   "cldr": "light blue heart",
+   "keywords": [
+    "cyan",
+    "heart",
+    "light blue",
+    "light blue heart",
+    "teal"
+   ],
+   "unicode": "1fa75",
+   "cat": "Love"
+  },
+  {
+   "name": "Mending heart",
+   "id": "mending-heart",
+   "cldr": "mending heart",
+   "keywords": [
+    "healthier",
+    "improving",
+    "mending",
+    "mending heart",
+    "recovering",
+    "recuperating",
+    "well"
+   ],
+   "unicode": "2764 fe0f 200d 1fa79",
+   "cat": "Love"
+  },
+  {
+   "name": "Orange heart",
+   "id": "orange-heart",
+   "cldr": "orange heart",
+   "keywords": [
+    "orange",
+    "orange heart"
+   ],
+   "unicode": "1f9e1",
+   "cat": "Love"
+  },
+  {
+   "name": "Pink heart",
+   "id": "pink-heart",
+   "cldr": "pink heart",
+   "keywords": [
+    "cute",
+    "heart",
+    "like",
+    "love",
+    "pink"
+   ],
+   "unicode": "1fa77",
+   "cat": "Love"
+  },
+  {
+   "name": "Purple heart",
+   "id": "purple-heart",
+   "cldr": "purple heart",
+   "keywords": [
+    "purple",
+    "purple heart"
+   ],
+   "unicode": "1f49c",
+   "cat": "Love"
+  },
+  {
+   "name": "Red heart",
+   "id": "red-heart",
+   "cldr": "red heart",
+   "keywords": [
+    "heart",
+    "red heart"
+   ],
+   "unicode": "2764 fe0f",
+   "cat": "Love"
+  },
+  {
+   "name": "Revolving hearts",
+   "id": "revolving-hearts",
+   "cldr": "revolving hearts",
+   "keywords": [
+    "revolving",
+    "revolving hearts"
+   ],
+   "unicode": "1f49e",
+   "cat": "Love"
+  },
+  {
+   "name": "Sparkling heart",
+   "id": "sparkling-heart",
+   "cldr": "sparkling heart",
+   "keywords": [
+    "excited",
+    "sparkle",
+    "sparkling heart"
+   ],
+   "unicode": "1f496",
+   "cat": "Love"
+  },
+  {
+   "name": "Two hearts",
+   "id": "two-hearts",
+   "cldr": "two hearts",
+   "keywords": [
+    "love",
+    "two hearts"
+   ],
+   "unicode": "1f495",
+   "cat": "Love"
+  },
+  {
+   "name": "White heart",
+   "id": "white-heart",
+   "cldr": "white heart",
+   "keywords": [
+    "heart",
+    "white"
+   ],
+   "unicode": "1f90d",
+   "cat": "Love"
+  },
+  {
+   "name": "Yellow heart",
+   "id": "yellow-heart",
+   "cldr": "yellow heart",
+   "keywords": [
+    "yellow",
+    "yellow heart"
+   ],
+   "unicode": "1f49b",
+   "cat": "Love"
+  },
+  {
+   "name": "Blossom",
+   "id": "blossom",
+   "cldr": "blossom",
+   "keywords": [
+    "blossom",
+    "flower"
+   ],
+   "unicode": "1f33c",
+   "cat": "Love"
+  },
+  {
+   "name": "Bouquet",
+   "id": "bouquet",
+   "cldr": "bouquet",
+   "keywords": [
+    "bouquet",
+    "flower"
+   ],
+   "unicode": "1f490",
+   "cat": "Love"
+  },
+  {
+   "name": "Cherry blossom",
+   "id": "cherry-blossom",
+   "cldr": "cherry blossom",
+   "keywords": [
+    "blossom",
+    "cherry",
+    "flower"
+   ],
+   "unicode": "1f338",
+   "cat": "Love"
+  },
+  {
+   "name": "Hibiscus",
+   "id": "hibiscus",
+   "cldr": "hibiscus",
+   "keywords": [
+    "flower",
+    "hibiscus"
+   ],
+   "unicode": "1f33a",
+   "cat": "Love"
+  },
+  {
+   "name": "Rose",
+   "id": "rose",
+   "cldr": "rose",
+   "keywords": [
+    "flower",
+    "rose"
+   ],
+   "unicode": "1f339",
+   "cat": "Love"
+  },
+  {
+   "name": "Sunflower",
+   "id": "sunflower",
+   "cldr": "sunflower",
+   "keywords": [
+    "flower",
+    "sun",
+    "sunflower"
+   ],
+   "unicode": "1f33b",
+   "cat": "Love"
+  },
+  {
+   "name": "Tulip",
+   "id": "tulip",
+   "cldr": "tulip",
+   "keywords": [
+    "flower",
+    "tulip"
+   ],
+   "unicode": "1f337",
+   "cat": "Love"
+  },
+  {
+   "name": "Baby chick",
+   "id": "baby-chick",
+   "cldr": "baby chick",
+   "keywords": [
+    "baby",
+    "bird",
+    "chick"
+   ],
+   "unicode": "1f424",
+   "cat": "Animals"
+  },
+  {
+   "name": "Badger",
+   "id": "badger",
+   "cldr": "badger",
+   "keywords": [
+    "badger",
+    "honey badger",
+    "pester"
+   ],
+   "unicode": "1f9a1",
+   "cat": "Animals"
+  },
+  {
+   "name": "Bear",
+   "id": "bear",
+   "cldr": "bear",
+   "keywords": [
+    "bear",
+    "face"
+   ],
+   "unicode": "1f43b",
+   "cat": "Animals"
+  },
+  {
+   "name": "Beaver",
+   "id": "beaver",
+   "cldr": "beaver",
+   "keywords": [
+    "beaver",
+    "dam"
+   ],
+   "unicode": "1f9ab",
+   "cat": "Animals"
+  },
+  {
+   "name": "Bird",
+   "id": "bird",
+   "cldr": "bird",
+   "keywords": [
+    "bird"
+   ],
+   "unicode": "1f426",
+   "cat": "Animals"
+  },
+  {
+   "name": "Black cat",
+   "id": "black-cat",
+   "cldr": "black cat",
+   "keywords": [
+    "black",
+    "cat",
+    "unlucky"
+   ],
+   "unicode": "1f408 200d 2b1b",
+   "cat": "Animals"
+  },
+  {
+   "name": "Blowfish",
+   "id": "blowfish",
+   "cldr": "blowfish",
+   "keywords": [
+    "blowfish",
+    "fish"
+   ],
+   "unicode": "1f421",
+   "cat": "Animals"
+  },
+  {
+   "name": "Boar",
+   "id": "boar",
+   "cldr": "boar",
+   "keywords": [
+    "boar",
+    "pig"
+   ],
+   "unicode": "1f417",
+   "cat": "Animals"
+  },
+  {
+   "name": "Butterfly",
+   "id": "butterfly",
+   "cldr": "butterfly",
+   "keywords": [
+    "butterfly",
+    "insect",
+    "pretty"
+   ],
+   "unicode": "1f98b",
+   "cat": "Animals"
+  },
+  {
+   "name": "Camel",
+   "id": "camel",
+   "cldr": "camel",
+   "keywords": [
+    "camel",
+    "dromedary",
+    "hump"
+   ],
+   "unicode": "1f42a",
+   "cat": "Animals"
+  },
+  {
+   "name": "Cat",
+   "id": "cat",
+   "cldr": "cat",
+   "keywords": [
+    "cat",
+    "pet"
+   ],
+   "unicode": "1f408",
+   "cat": "Animals"
+  },
+  {
+   "name": "Cat face",
+   "id": "cat-face",
+   "cldr": "cat face",
+   "keywords": [
+    "cat",
+    "face",
+    "pet"
+   ],
+   "unicode": "1f431",
+   "cat": "Animals"
+  },
+  {
+   "name": "Chicken",
+   "id": "chicken",
+   "cldr": "chicken",
+   "keywords": [
+    "bird",
+    "chicken"
+   ],
+   "unicode": "1f414",
+   "cat": "Animals"
+  },
+  {
+   "name": "Chipmunk",
+   "id": "chipmunk",
+   "cldr": "chipmunk",
+   "keywords": [
+    "chipmunk",
+    "squirrel"
+   ],
+   "unicode": "1f43f fe0f",
+   "cat": "Animals"
+  },
+  {
+   "name": "Coral",
+   "id": "coral",
+   "cldr": "coral",
+   "keywords": [
+    "coral",
+    "ocean",
+    "reef"
+   ],
+   "unicode": "1fab8",
+   "cat": "Animals"
+  },
+  {
+   "name": "Cow",
+   "id": "cow",
+   "cldr": "cow",
+   "keywords": [
+    "cow"
+   ],
+   "unicode": "1f404",
+   "cat": "Animals"
+  },
+  {
+   "name": "Cow face",
+   "id": "cow-face",
+   "cldr": "cow face",
+   "keywords": [
+    "cow",
+    "face"
+   ],
+   "unicode": "1f42e",
+   "cat": "Animals"
+  },
+  {
+   "name": "Cricket",
+   "id": "cricket",
+   "cldr": "cricket",
+   "keywords": [
+    "cricket",
+    "grasshopper"
+   ],
+   "unicode": "1f997",
+   "cat": "Animals"
+  },
+  {
+   "name": "Deer",
+   "id": "deer",
+   "cldr": "deer",
+   "keywords": [
+    "deer"
+   ],
+   "unicode": "1f98c",
+   "cat": "Animals"
+  },
+  {
+   "name": "Dog",
+   "id": "dog",
+   "cldr": "dog",
+   "keywords": [
+    "dog",
+    "pet"
+   ],
+   "unicode": "1f415",
+   "cat": "Animals"
+  },
+  {
+   "name": "Dog face",
+   "id": "dog-face",
+   "cldr": "dog face",
+   "keywords": [
+    "dog",
+    "face",
+    "pet"
+   ],
+   "unicode": "1f436",
+   "cat": "Animals"
+  },
+  {
+   "name": "Dolphin",
+   "id": "dolphin",
+   "cldr": "dolphin",
+   "keywords": [
+    "dolphin",
+    "flipper"
+   ],
+   "unicode": "1f42c",
+   "cat": "Animals"
+  },
+  {
+   "name": "Dove",
+   "id": "dove",
+   "cldr": "dove",
+   "keywords": [
+    "bird",
+    "dove",
+    "fly",
+    "peace"
+   ],
+   "unicode": "1f54a fe0f",
+   "cat": "Animals"
+  },
+  {
+   "name": "Dragon",
+   "id": "dragon",
+   "cldr": "dragon",
+   "keywords": [
+    "dragon",
+    "fairy tale"
+   ],
+   "unicode": "1f409",
+   "cat": "Animals"
+  },
+  {
+   "name": "Dragon face",
+   "id": "dragon-face",
+   "cldr": "dragon face",
+   "keywords": [
+    "dragon",
+    "face",
+    "fairy tale"
+   ],
+   "unicode": "1f432",
+   "cat": "Animals"
+  },
+  {
+   "name": "Duck",
+   "id": "duck",
+   "cldr": "duck",
+   "keywords": [
+    "bird",
+    "duck"
+   ],
+   "unicode": "1f986",
+   "cat": "Animals"
+  },
+  {
+   "name": "Eagle",
+   "id": "eagle",
+   "cldr": "eagle",
+   "keywords": [
+    "bird",
+    "eagle"
+   ],
+   "unicode": "1f985",
+   "cat": "Animals"
+  },
+  {
+   "name": "Elephant",
+   "id": "elephant",
+   "cldr": "elephant",
+   "keywords": [
+    "elephant"
+   ],
+   "unicode": "1f418",
+   "cat": "Animals"
+  },
+  {
+   "name": "Fish",
+   "id": "fish",
+   "cldr": "fish",
+   "keywords": [
+    "fish",
+    "Pisces",
+    "zodiac"
+   ],
+   "unicode": "1f41f",
+   "cat": "Animals"
+  },
+  {
+   "name": "Flamingo",
+   "id": "flamingo",
+   "cldr": "flamingo",
+   "keywords": [
+    "flamboyant",
+    "flamingo",
+    "tropical"
+   ],
+   "unicode": "1f9a9",
+   "cat": "Animals"
+  },
+  {
+   "name": "Fox",
+   "id": "fox",
+   "cldr": "fox",
+   "keywords": [
+    "face",
+    "fox"
+   ],
+   "unicode": "1f98a",
+   "cat": "Animals"
+  },
+  {
+   "name": "Frog",
+   "id": "frog",
+   "cldr": "frog",
+   "keywords": [
+    "face",
+    "frog"
+   ],
+   "unicode": "1f438",
+   "cat": "Animals"
+  },
+  {
+   "name": "Giraffe",
+   "id": "giraffe",
+   "cldr": "giraffe",
+   "keywords": [
+    "giraffe",
+    "spots"
+   ],
+   "unicode": "1f992",
+   "cat": "Animals"
+  },
+  {
+   "name": "Goat",
+   "id": "goat",
+   "cldr": "goat",
+   "keywords": [
+    "Capricorn",
+    "goat",
+    "zodiac"
+   ],
+   "unicode": "1f410",
+   "cat": "Animals"
+  },
+  {
+   "name": "Gorilla",
+   "id": "gorilla",
+   "cldr": "gorilla",
+   "keywords": [
+    "gorilla"
+   ],
+   "unicode": "1f98d",
+   "cat": "Animals"
+  },
+  {
+   "name": "Hamster",
+   "id": "hamster",
+   "cldr": "hamster",
+   "keywords": [
+    "face",
+    "hamster",
+    "pet"
+   ],
+   "unicode": "1f439",
+   "cat": "Animals"
+  },
+  {
+   "name": "Hedgehog",
+   "id": "hedgehog",
+   "cldr": "hedgehog",
+   "keywords": [
+    "hedgehog",
+    "spiny"
+   ],
+   "unicode": "1f994",
+   "cat": "Animals"
+  },
+  {
+   "name": "Hippopotamus",
+   "id": "hippopotamus",
+   "cldr": "hippopotamus",
+   "keywords": [
+    "hippo",
+    "hippopotamus"
+   ],
+   "unicode": "1f99b",
+   "cat": "Animals"
+  },
+  {
+   "name": "Honeybee",
+   "id": "honeybee",
+   "cldr": "honeybee",
+   "keywords": [
+    "bee",
+    "honeybee",
+    "insect"
+   ],
+   "unicode": "1f41d",
+   "cat": "Animals"
+  },
+  {
+   "name": "Horse",
+   "id": "horse",
+   "cldr": "horse",
+   "keywords": [
+    "equestrian",
+    "horse",
+    "racehorse",
+    "racing"
+   ],
+   "unicode": "1f40e",
+   "cat": "Animals"
+  },
+  {
+   "name": "Horse face",
+   "id": "horse-face",
+   "cldr": "horse face",
+   "keywords": [
+    "face",
+    "horse"
+   ],
+   "unicode": "1f434",
+   "cat": "Animals"
+  },
+  {
+   "name": "Jellyfish",
+   "id": "jellyfish",
+   "cldr": "jellyfish",
+   "keywords": [
+    "burn",
+    "invertebrate",
+    "jelly",
+    "jellyfish",
+    "marine",
+    "ouch",
+    "stinger"
+   ],
+   "unicode": "1fabc",
+   "cat": "Animals"
+  },
+  {
+   "name": "Kangaroo",
+   "id": "kangaroo",
+   "cldr": "kangaroo",
+   "keywords": [
+    "Australia",
+    "joey",
+    "jump",
+    "kangaroo",
+    "marsupial"
+   ],
+   "unicode": "1f998",
+   "cat": "Animals"
+  },
+  {
+   "name": "Koala",
+   "id": "koala",
+   "cldr": "koala",
+   "keywords": [
+    "koala",
+    "face",
+    "marsupial"
+   ],
+   "unicode": "1f428",
+   "cat": "Animals"
+  },
+  {
+   "name": "Lady beetle",
+   "id": "lady-beetle",
+   "cldr": "lady beetle",
+   "keywords": [
+    "beetle",
+    "insect",
+    "lady beetle",
+    "ladybird",
+    "ladybug"
+   ],
+   "unicode": "1f41e",
+   "cat": "Animals"
+  },
+  {
+   "name": "Leopard",
+   "id": "leopard",
+   "cldr": "leopard",
+   "keywords": [
+    "leopard"
+   ],
+   "unicode": "1f406",
+   "cat": "Animals"
+  },
+  {
+   "name": "Lion",
+   "id": "lion",
+   "cldr": "lion",
+   "keywords": [
+    "face",
+    "Leo",
+    "lion",
+    "zodiac"
+   ],
+   "unicode": "1f981",
+   "cat": "Animals"
+  },
+  {
+   "name": "Lizard",
+   "id": "lizard",
+   "cldr": "lizard",
+   "keywords": [
+    "lizard",
+    "reptile"
+   ],
+   "unicode": "1f98e",
+   "cat": "Animals"
+  },
+  {
+   "name": "Llama",
+   "id": "llama",
+   "cldr": "llama",
+   "keywords": [
+    "alpaca",
+    "guanaco",
+    "llama",
+    "vicuña",
+    "wool"
+   ],
+   "unicode": "1f999",
+   "cat": "Animals"
+  },
+  {
+   "name": "Monkey",
+   "id": "monkey",
+   "cldr": "monkey",
+   "keywords": [
+    "monkey"
+   ],
+   "unicode": "1f412",
+   "cat": "Animals"
+  },
+  {
+   "name": "Monkey face",
+   "id": "monkey-face",
+   "cldr": "monkey face",
+   "keywords": [
+    "face",
+    "monkey"
+   ],
+   "unicode": "1f435",
+   "cat": "Animals"
+  },
+  {
+   "name": "Mouse",
+   "id": "mouse",
+   "cldr": "mouse",
+   "keywords": [
+    "mouse"
+   ],
+   "unicode": "1f401",
+   "cat": "Animals"
+  },
+  {
+   "name": "Mouse face",
+   "id": "mouse-face",
+   "cldr": "mouse face",
+   "keywords": [
+    "face",
+    "mouse"
+   ],
+   "unicode": "1f42d",
+   "cat": "Animals"
+  },
+  {
+   "name": "Octopus",
+   "id": "octopus",
+   "cldr": "octopus",
+   "keywords": [
+    "octopus"
+   ],
+   "unicode": "1f419",
+   "cat": "Animals"
+  },
+  {
+   "name": "Otter",
+   "id": "otter",
+   "cldr": "otter",
+   "keywords": [
+    "fishing",
+    "otter",
+    "playful"
+   ],
+   "unicode": "1f9a6",
+   "cat": "Animals"
+  },
+  {
+   "name": "Owl",
+   "id": "owl",
+   "cldr": "owl",
+   "keywords": [
+    "bird",
+    "owl",
+    "wise"
+   ],
+   "unicode": "1f989",
+   "cat": "Animals"
+  },
+  {
+   "name": "Ox",
+   "id": "ox",
+   "cldr": "ox",
+   "keywords": [
+    "bull",
+    "ox",
+    "Taurus",
+    "zodiac"
+   ],
+   "unicode": "1f402",
+   "cat": "Animals"
+  },
+  {
+   "name": "Panda",
+   "id": "panda",
+   "cldr": "panda",
+   "keywords": [
+    "face",
+    "panda"
+   ],
+   "unicode": "1f43c",
+   "cat": "Animals"
+  },
+  {
+   "name": "Parrot",
+   "id": "parrot",
+   "cldr": "parrot",
+   "keywords": [
+    "bird",
+    "parrot",
+    "pirate",
+    "talk"
+   ],
+   "unicode": "1f99c",
+   "cat": "Animals"
+  },
+  {
+   "name": "Paw prints",
+   "id": "paw-prints",
+   "cldr": "paw prints",
+   "keywords": [
+    "feet",
+    "paw",
+    "paw prints",
+    "print"
+   ],
+   "unicode": "1f43e",
+   "cat": "Animals"
+  },
+  {
+   "name": "Peacock",
+   "id": "peacock",
+   "cldr": "peacock",
+   "keywords": [
+    "bird",
+    "ostentatious",
+    "peacock",
+    "peahen",
+    "proud"
+   ],
+   "unicode": "1f99a",
+   "cat": "Animals"
+  },
+  {
+   "name": "Penguin",
+   "id": "penguin",
+   "cldr": "penguin",
+   "keywords": [
+    "bird",
+    "penguin"
+   ],
+   "unicode": "1f427",
+   "cat": "Animals"
+  },
+  {
+   "name": "Pig",
+   "id": "pig",
+   "cldr": "pig",
+   "keywords": [
+    "pig",
+    "sow"
+   ],
+   "unicode": "1f416",
+   "cat": "Animals"
+  },
+  {
+   "name": "Pig face",
+   "id": "pig-face",
+   "cldr": "pig face",
+   "keywords": [
+    "face",
+    "pig"
+   ],
+   "unicode": "1f437",
+   "cat": "Animals"
+  },
+  {
+   "name": "Polar bear",
+   "id": "polar-bear",
+   "cldr": "polar bear",
+   "keywords": [
+    "arctic",
+    "bear",
+    "polar bear",
+    "white"
+   ],
+   "unicode": "1f43b 200d 2744 fe0f",
+   "cat": "Animals"
+  },
+  {
+   "name": "Poodle",
+   "id": "poodle",
+   "cldr": "poodle",
+   "keywords": [
+    "dog",
+    "poodle"
+   ],
+   "unicode": "1f429",
+   "cat": "Animals"
+  },
+  {
+   "name": "Rabbit",
+   "id": "rabbit",
+   "cldr": "rabbit",
+   "keywords": [
+    "bunny",
+    "pet",
+    "rabbit"
+   ],
+   "unicode": "1f407",
+   "cat": "Animals"
+  },
+  {
+   "name": "Rabbit face",
+   "id": "rabbit-face",
+   "cldr": "rabbit face",
+   "keywords": [
+    "bunny",
+    "face",
+    "pet",
+    "rabbit"
+   ],
+   "unicode": "1f430",
+   "cat": "Animals"
+  },
+  {
+   "name": "Raccoon",
+   "id": "raccoon",
+   "cldr": "raccoon",
+   "keywords": [
+    "curious",
+    "raccoon",
+    "sly"
+   ],
+   "unicode": "1f99d",
+   "cat": "Animals"
+  },
+  {
+   "name": "Rhinoceros",
+   "id": "rhinoceros",
+   "cldr": "rhinoceros",
+   "keywords": [
+    "rhinoceros"
+   ],
+   "unicode": "1f98f",
+   "cat": "Animals"
+  },
+  {
+   "name": "Rooster",
+   "id": "rooster",
+   "cldr": "rooster",
+   "keywords": [
+    "bird",
+    "rooster"
+   ],
+   "unicode": "1f413",
+   "cat": "Animals"
+  },
+  {
+   "name": "Seal",
+   "id": "seal",
+   "cldr": "seal",
+   "keywords": [
+    "sea lion",
+    "seal"
+   ],
+   "unicode": "1f9ad",
+   "cat": "Animals"
+  },
+  {
+   "name": "Shark",
+   "id": "shark",
+   "cldr": "shark",
+   "keywords": [
+    "fish",
+    "shark"
+   ],
+   "unicode": "1f988",
+   "cat": "Animals"
+  },
+  {
+   "name": "Skunk",
+   "id": "skunk",
+   "cldr": "skunk",
+   "keywords": [
+    "skunk",
+    "stink"
+   ],
+   "unicode": "1f9a8",
+   "cat": "Animals"
+  },
+  {
+   "name": "Sloth",
+   "id": "sloth",
+   "cldr": "sloth",
+   "keywords": [
+    "lazy",
+    "sloth",
+    "slow"
+   ],
+   "unicode": "1f9a5",
+   "cat": "Animals"
+  },
+  {
+   "name": "Snail",
+   "id": "snail",
+   "cldr": "snail",
+   "keywords": [
+    "snail"
+   ],
+   "unicode": "1f40c",
+   "cat": "Animals"
+  },
+  {
+   "name": "Spouting whale",
+   "id": "spouting-whale",
+   "cldr": "spouting whale",
+   "keywords": [
+    "face",
+    "spouting",
+    "whale"
+   ],
+   "unicode": "1f433",
+   "cat": "Animals"
+  },
+  {
+   "name": "Swan",
+   "id": "swan",
+   "cldr": "swan",
+   "keywords": [
+    "bird",
+    "cygnet",
+    "swan",
+    "ugly duckling"
+   ],
+   "unicode": "1f9a2",
+   "cat": "Animals"
+  },
+  {
+   "name": "Tiger",
+   "id": "tiger",
+   "cldr": "tiger",
+   "keywords": [
+    "tiger"
+   ],
+   "unicode": "1f405",
+   "cat": "Animals"
+  },
+  {
+   "name": "Tiger face",
+   "id": "tiger-face",
+   "cldr": "tiger face",
+   "keywords": [
+    "face",
+    "tiger"
+   ],
+   "unicode": "1f42f",
+   "cat": "Animals"
+  },
+  {
+   "name": "Tropical fish",
+   "id": "tropical-fish",
+   "cldr": "tropical fish",
+   "keywords": [
+    "fish",
+    "tropical"
+   ],
+   "unicode": "1f420",
+   "cat": "Animals"
+  },
+  {
+   "name": "Turkey",
+   "id": "turkey",
+   "cldr": "turkey",
+   "keywords": [
+    "bird",
+    "turkey"
+   ],
+   "unicode": "1f983",
+   "cat": "Animals"
+  },
+  {
+   "name": "Turtle",
+   "id": "turtle",
+   "cldr": "turtle",
+   "keywords": [
+    "terrapin",
+    "tortoise",
+    "turtle"
+   ],
+   "unicode": "1f422",
+   "cat": "Animals"
+  },
+  {
+   "name": "Two-hump camel",
+   "id": "two-hump-camel",
+   "cldr": "two-hump camel",
+   "keywords": [
+    "bactrian",
+    "camel",
+    "hump",
+    "two-hump camel"
+   ],
+   "unicode": "1f42b",
+   "cat": "Animals"
+  },
+  {
+   "name": "Unicorn",
+   "id": "unicorn",
+   "cldr": "unicorn",
+   "keywords": [
+    "face",
+    "unicorn"
+   ],
+   "unicode": "1f984",
+   "cat": "Animals"
+  },
+  {
+   "name": "Water buffalo",
+   "id": "water-buffalo",
+   "cldr": "water buffalo",
+   "keywords": [
+    "buffalo",
+    "water"
+   ],
+   "unicode": "1f403",
+   "cat": "Animals"
+  },
+  {
+   "name": "Whale",
+   "id": "whale",
+   "cldr": "whale",
+   "keywords": [
+    "whale"
+   ],
+   "unicode": "1f40b",
+   "cat": "Animals"
+  },
+  {
+   "name": "Wolf",
+   "id": "wolf",
+   "cldr": "wolf",
+   "keywords": [
+    "face",
+    "wolf"
+   ],
+   "unicode": "1f43a",
+   "cat": "Animals"
+  },
+  {
+   "name": "Zebra",
+   "id": "zebra",
+   "cldr": "zebra",
+   "keywords": [
+    "stripe",
+    "zebra"
+   ],
+   "unicode": "1f993",
+   "cat": "Animals"
+  },
+  {
+   "name": "Avocado",
+   "id": "avocado",
+   "cldr": "avocado",
+   "keywords": [
+    "avocado",
+    "food",
+    "fruit"
+   ],
+   "unicode": "1f951",
+   "cat": "Food"
+  },
+  {
+   "name": "Bagel",
+   "id": "bagel",
+   "cldr": "bagel",
+   "keywords": [
+    "bagel",
+    "bakery",
+    "breakfast",
+    "schmear"
+   ],
+   "unicode": "1f96f",
+   "cat": "Food"
+  },
+  {
+   "name": "Baguette bread",
+   "id": "baguette-bread",
+   "cldr": "baguette bread",
+   "keywords": [
+    "baguette",
+    "bread",
+    "food",
+    "french"
+   ],
+   "unicode": "1f956",
+   "cat": "Food"
+  },
+  {
+   "name": "Bell pepper",
+   "id": "bell-pepper",
+   "cldr": "bell pepper",
+   "keywords": [
+    "bell pepper",
+    "capsicum",
+    "pepper",
+    "vegetable"
+   ],
+   "unicode": "1fad1",
+   "cat": "Food"
+  },
+  {
+   "name": "Bento box",
+   "id": "bento-box",
+   "cldr": "bento box",
+   "keywords": [
+    "bento",
+    "box"
+   ],
+   "unicode": "1f371",
+   "cat": "Food"
+  },
+  {
+   "name": "Beverage box",
+   "id": "beverage-box",
+   "cldr": "beverage box",
+   "keywords": [
+    "beverage",
+    "box",
+    "juice",
+    "straw",
+    "sweet"
+   ],
+   "unicode": "1f9c3",
+   "cat": "Food"
+  },
+  {
+   "name": "Birthday cake",
+   "id": "birthday-cake",
+   "cldr": "birthday cake",
+   "keywords": [
+    "birthday",
+    "cake",
+    "celebration",
+    "dessert",
+    "pastry",
+    "sweet"
+   ],
+   "unicode": "1f382",
+   "cat": "Food"
+  },
+  {
+   "name": "Blueberries",
+   "id": "blueberries",
+   "cldr": "blueberries",
+   "keywords": [
+    "berry",
+    "bilberry",
+    "blue",
+    "blueberries",
+    "blueberry"
+   ],
+   "unicode": "1fad0",
+   "cat": "Food"
+  },
+  {
+   "name": "Bowl with spoon",
+   "id": "bowl-with-spoon",
+   "cldr": "bowl with spoon",
+   "keywords": [
+    "bowl with spoon",
+    "breakfast",
+    "cereal",
+    "congee"
+   ],
+   "unicode": "1f963",
+   "cat": "Food"
+  },
+  {
+   "name": "Bread",
+   "id": "bread",
+   "cldr": "bread",
+   "keywords": [
+    "bread",
+    "loaf"
+   ],
+   "unicode": "1f35e",
+   "cat": "Food"
+  },
+  {
+   "name": "Broccoli",
+   "id": "broccoli",
+   "cldr": "broccoli",
+   "keywords": [
+    "broccoli",
+    "wild cabbage"
+   ],
+   "unicode": "1f966",
+   "cat": "Food"
+  },
+  {
+   "name": "Bubble tea",
+   "id": "bubble-tea",
+   "cldr": "bubble tea",
+   "keywords": [
+    "bubble",
+    "milk",
+    "pearl",
+    "tea"
+   ],
+   "unicode": "1f9cb",
+   "cat": "Food"
+  },
+  {
+   "name": "Burrito",
+   "id": "burrito",
+   "cldr": "burrito",
+   "keywords": [
+    "burrito",
+    "mexican",
+    "wrap"
+   ],
+   "unicode": "1f32f",
+   "cat": "Food"
+  },
+  {
+   "name": "Candy",
+   "id": "candy",
+   "cldr": "candy",
+   "keywords": [
+    "candy",
+    "dessert",
+    "sweet"
+   ],
+   "unicode": "1f36c",
+   "cat": "Food"
+  },
+  {
+   "name": "Carrot",
+   "id": "carrot",
+   "cldr": "carrot",
+   "keywords": [
+    "carrot",
+    "food",
+    "vegetable"
+   ],
+   "unicode": "1f955",
+   "cat": "Food"
+  },
+  {
+   "name": "Cheese wedge",
+   "id": "cheese-wedge",
+   "cldr": "cheese wedge",
+   "keywords": [
+    "cheese",
+    "cheese wedge"
+   ],
+   "unicode": "1f9c0",
+   "cat": "Food"
+  },
+  {
+   "name": "Chocolate bar",
+   "id": "chocolate-bar",
+   "cldr": "chocolate bar",
+   "keywords": [
+    "bar",
+    "chocolate",
+    "dessert",
+    "sweet"
+   ],
+   "unicode": "1f36b",
+   "cat": "Food"
+  },
+  {
+   "name": "Coconut",
+   "id": "coconut",
+   "cldr": "coconut",
+   "keywords": [
+    "coconut",
+    "palm",
+    "piña colada"
+   ],
+   "unicode": "1f965",
+   "cat": "Food"
+  },
+  {
+   "name": "Cooked rice",
+   "id": "cooked-rice",
+   "cldr": "cooked rice",
+   "keywords": [
+    "cooked",
+    "rice"
+   ],
+   "unicode": "1f35a",
+   "cat": "Food"
+  },
+  {
+   "name": "Cookie",
+   "id": "cookie",
+   "cldr": "cookie",
+   "keywords": [
+    "cookie",
+    "dessert",
+    "sweet"
+   ],
+   "unicode": "1f36a",
+   "cat": "Food"
+  },
+  {
+   "name": "Croissant",
+   "id": "croissant",
+   "cldr": "croissant",
+   "keywords": [
+    "bread",
+    "breakfast",
+    "croissant",
+    "food",
+    "french",
+    "roll"
+   ],
+   "unicode": "1f950",
+   "cat": "Food"
+  },
+  {
+   "name": "Cucumber",
+   "id": "cucumber",
+   "cldr": "cucumber",
+   "keywords": [
+    "cucumber",
+    "food",
+    "pickle",
+    "vegetable"
+   ],
+   "unicode": "1f952",
+   "cat": "Food"
+  },
+  {
+   "name": "Cup with straw",
+   "id": "cup-with-straw",
+   "cldr": "cup with straw",
+   "keywords": [
+    "cup with straw",
+    "juice",
+    "soda"
+   ],
+   "unicode": "1f964",
+   "cat": "Food"
+  },
+  {
+   "name": "Cupcake",
+   "id": "cupcake",
+   "cldr": "cupcake",
+   "keywords": [
+    "bakery",
+    "cupcake",
+    "sweet"
+   ],
+   "unicode": "1f9c1",
+   "cat": "Food"
+  },
+  {
+   "name": "Curry rice",
+   "id": "curry-rice",
+   "cldr": "curry rice",
+   "keywords": [
+    "curry",
+    "rice"
+   ],
+   "unicode": "1f35b",
+   "cat": "Food"
+  },
+  {
+   "name": "Custard",
+   "id": "custard",
+   "cldr": "custard",
+   "keywords": [
+    "custard",
+    "dessert",
+    "pudding",
+    "sweet"
+   ],
+   "unicode": "1f36e",
+   "cat": "Food"
+  },
+  {
+   "name": "Doughnut",
+   "id": "doughnut",
+   "cldr": "doughnut",
+   "keywords": [
+    "breakfast",
+    "dessert",
+    "donut",
+    "doughnut",
+    "sweet"
+   ],
+   "unicode": "1f369",
+   "cat": "Food"
+  },
+  {
+   "name": "Dumpling",
+   "id": "dumpling",
+   "cldr": "dumpling",
+   "keywords": [
+    "dumpling",
+    "empanada",
+    "gyōza",
+    "jiaozi",
+    "pierogi",
+    "potsticker"
+   ],
+   "unicode": "1f95f",
+   "cat": "Food"
+  },
+  {
+   "name": "Ear of corn",
+   "id": "ear-of-corn",
+   "cldr": "ear of corn",
+   "keywords": [
+    "corn",
+    "ear",
+    "ear of corn",
+    "maize",
+    "maze"
+   ],
+   "unicode": "1f33d",
+   "cat": "Food"
+  },
+  {
+   "name": "Egg",
+   "id": "egg",
+   "cldr": "egg",
+   "keywords": [
+    "breakfast",
+    "egg",
+    "food"
+   ],
+   "unicode": "1f95a",
+   "cat": "Food"
+  },
+  {
+   "name": "Fortune cookie",
+   "id": "fortune-cookie",
+   "cldr": "fortune cookie",
+   "keywords": [
+    "fortune cookie",
+    "prophecy"
+   ],
+   "unicode": "1f960",
+   "cat": "Food"
+  },
+  {
+   "name": "French fries",
+   "id": "french-fries",
+   "cldr": "french fries",
+   "keywords": [
+    "french",
+    "fries"
+   ],
+   "unicode": "1f35f",
+   "cat": "Food"
+  },
+  {
+   "name": "Fried shrimp",
+   "id": "fried-shrimp",
+   "cldr": "fried shrimp",
+   "keywords": [
+    "fried",
+    "prawn",
+    "shrimp",
+    "tempura"
+   ],
+   "unicode": "1f364",
+   "cat": "Food"
+  },
+  {
+   "name": "Glass of milk",
+   "id": "glass-of-milk",
+   "cldr": "glass of milk",
+   "keywords": [
+    "drink",
+    "glass",
+    "glass of milk",
+    "milk"
+   ],
+   "unicode": "1f95b",
+   "cat": "Food"
+  },
+  {
+   "name": "Grapes",
+   "id": "grapes",
+   "cldr": "grapes",
+   "keywords": [
+    "fruit",
+    "grape",
+    "grapes"
+   ],
+   "unicode": "1f347",
+   "cat": "Food"
+  },
+  {
+   "name": "Green apple",
+   "id": "green-apple",
+   "cldr": "green apple",
+   "keywords": [
+    "apple",
+    "fruit",
+    "green"
+   ],
+   "unicode": "1f34f",
+   "cat": "Food"
+  },
+  {
+   "name": "Green salad",
+   "id": "green-salad",
+   "cldr": "green salad",
+   "keywords": [
+    "food",
+    "green",
+    "salad"
+   ],
+   "unicode": "1f957",
+   "cat": "Food"
+  },
+  {
+   "name": "Hamburger",
+   "id": "hamburger",
+   "cldr": "hamburger",
+   "keywords": [
+    "burger",
+    "hamburger"
+   ],
+   "unicode": "1f354",
+   "cat": "Food"
+  },
+  {
+   "name": "Honey pot",
+   "id": "honey-pot",
+   "cldr": "honey pot",
+   "keywords": [
+    "honey",
+    "honeypot",
+    "pot",
+    "sweet"
+   ],
+   "unicode": "1f36f",
+   "cat": "Food"
+  },
+  {
+   "name": "Hot beverage",
+   "id": "hot-beverage",
+   "cldr": "hot beverage",
+   "keywords": [
+    "beverage",
+    "coffee",
+    "drink",
+    "hot",
+    "steaming",
+    "tea"
+   ],
+   "unicode": "2615",
+   "cat": "Food"
+  },
+  {
+   "name": "Hot dog",
+   "id": "hot-dog",
+   "cldr": "hot dog",
+   "keywords": [
+    "frankfurter",
+    "hot dog",
+    "hotdog",
+    "sausage"
+   ],
+   "unicode": "1f32d",
+   "cat": "Food"
+  },
+  {
+   "name": "Ice cream",
+   "id": "ice-cream",
+   "cldr": "ice cream",
+   "keywords": [
+    "cream",
+    "dessert",
+    "ice",
+    "sweet"
+   ],
+   "unicode": "1f368",
+   "cat": "Food"
+  },
+  {
+   "name": "Kiwi fruit",
+   "id": "kiwi-fruit",
+   "cldr": "kiwi fruit",
+   "keywords": [
+    "food",
+    "fruit",
+    "kiwi"
+   ],
+   "unicode": "1f95d",
+   "cat": "Food"
+  },
+  {
+   "name": "Leafy green",
+   "id": "leafy-green",
+   "cldr": "leafy green",
+   "keywords": [
+    "bok choy",
+    "cabbage",
+    "kale",
+    "leafy green",
+    "lettuce"
+   ],
+   "unicode": "1f96c",
+   "cat": "Food"
+  },
+  {
+   "name": "Lemon",
+   "id": "lemon",
+   "cldr": "lemon",
+   "keywords": [
+    "citrus",
+    "fruit",
+    "lemon"
+   ],
+   "unicode": "1f34b",
+   "cat": "Food"
+  },
+  {
+   "name": "Lime",
+   "id": "lime",
+   "cldr": "lime",
+   "keywords": [
+    "citrus",
+    "fruit",
+    "lime",
+    "tropical"
+   ],
+   "unicode": "1f34b 200d 1f7e9",
+   "cat": "Food"
+  },
+  {
+   "name": "Lollipop",
+   "id": "lollipop",
+   "cldr": "lollipop",
+   "keywords": [
+    "candy",
+    "dessert",
+    "lollipop",
+    "sweet"
+   ],
+   "unicode": "1f36d",
+   "cat": "Food"
+  },
+  {
+   "name": "Mango",
+   "id": "mango",
+   "cldr": "mango",
+   "keywords": [
+    "fruit",
+    "mango",
+    "tropical"
+   ],
+   "unicode": "1f96d",
+   "cat": "Food"
+  },
+  {
+   "name": "Melon",
+   "id": "melon",
+   "cldr": "melon",
+   "keywords": [
+    "fruit",
+    "melon"
+   ],
+   "unicode": "1f348",
+   "cat": "Food"
+  },
+  {
+   "name": "Moon cake",
+   "id": "moon-cake",
+   "cldr": "moon cake",
+   "keywords": [
+    "autumn",
+    "festival",
+    "moon cake",
+    "yuèbǐng"
+   ],
+   "unicode": "1f96e",
+   "cat": "Food"
+  },
+  {
+   "name": "Pancakes",
+   "id": "pancakes",
+   "cldr": "pancakes",
+   "keywords": [
+    "breakfast",
+    "crêpe",
+    "food",
+    "hotcake",
+    "pancake",
+    "pancakes"
+   ],
+   "unicode": "1f95e",
+   "cat": "Food"
+  },
+  {
+   "name": "Peanuts",
+   "id": "peanuts",
+   "cldr": "peanuts",
+   "keywords": [
+    "food",
+    "nut",
+    "peanut",
+    "peanuts",
+    "vegetable"
+   ],
+   "unicode": "1f95c",
+   "cat": "Food"
+  },
+  {
+   "name": "Pear",
+   "id": "pear",
+   "cldr": "pear",
+   "keywords": [
+    "fruit",
+    "pear"
+   ],
+   "unicode": "1f350",
+   "cat": "Food"
+  },
+  {
+   "name": "Pie",
+   "id": "pie",
+   "cldr": "pie",
+   "keywords": [
+    "filling",
+    "pastry",
+    "pie"
+   ],
+   "unicode": "1f967",
+   "cat": "Food"
+  },
+  {
+   "name": "Pineapple",
+   "id": "pineapple",
+   "cldr": "pineapple",
+   "keywords": [
+    "fruit",
+    "pineapple"
+   ],
+   "unicode": "1f34d",
+   "cat": "Food"
+  },
+  {
+   "name": "Pizza",
+   "id": "pizza",
+   "cldr": "pizza",
+   "keywords": [
+    "cheese",
+    "pizza",
+    "slice"
+   ],
+   "unicode": "1f355",
+   "cat": "Food"
+  },
+  {
+   "name": "Popcorn",
+   "id": "popcorn",
+   "cldr": "popcorn",
+   "keywords": [
+    "popcorn"
+   ],
+   "unicode": "1f37f",
+   "cat": "Food"
+  },
+  {
+   "name": "Potato",
+   "id": "potato",
+   "cldr": "potato",
+   "keywords": [
+    "food",
+    "potato",
+    "vegetable"
+   ],
+   "unicode": "1f954",
+   "cat": "Food"
+  },
+  {
+   "name": "Pretzel",
+   "id": "pretzel",
+   "cldr": "pretzel",
+   "keywords": [
+    "pretzel",
+    "twisted"
+   ],
+   "unicode": "1f968",
+   "cat": "Food"
+  },
+  {
+   "name": "Red apple",
+   "id": "red-apple",
+   "cldr": "red apple",
+   "keywords": [
+    "apple",
+    "fruit",
+    "red"
+   ],
+   "unicode": "1f34e",
+   "cat": "Food"
+  },
+  {
+   "name": "Rice ball",
+   "id": "rice-ball",
+   "cldr": "rice ball",
+   "keywords": [
+    "ball",
+    "Japanese",
+    "rice"
+   ],
+   "unicode": "1f359",
+   "cat": "Food"
+  },
+  {
+   "name": "Rice cracker",
+   "id": "rice-cracker",
+   "cldr": "rice cracker",
+   "keywords": [
+    "cracker",
+    "rice"
+   ],
+   "unicode": "1f358",
+   "cat": "Food"
+  },
+  {
+   "name": "Roasted sweet potato",
+   "id": "roasted-sweet-potato",
+   "cldr": "roasted sweet potato",
+   "keywords": [
+    "potato",
+    "roasted",
+    "sweet"
+   ],
+   "unicode": "1f360",
+   "cat": "Food"
+  },
+  {
+   "name": "Sandwich",
+   "id": "sandwich",
+   "cldr": "sandwich",
+   "keywords": [
+    "bread",
+    "sandwich"
+   ],
+   "unicode": "1f96a",
+   "cat": "Food"
+  },
+  {
+   "name": "Shaved ice",
+   "id": "shaved-ice",
+   "cldr": "shaved ice",
+   "keywords": [
+    "dessert",
+    "ice",
+    "shaved",
+    "sweet"
+   ],
+   "unicode": "1f367",
+   "cat": "Food"
+  },
+  {
+   "name": "Shortcake",
+   "id": "shortcake",
+   "cldr": "shortcake",
+   "keywords": [
+    "cake",
+    "dessert",
+    "pastry",
+    "shortcake",
+    "slice",
+    "sweet"
+   ],
+   "unicode": "1f370",
+   "cat": "Food"
+  },
+  {
+   "name": "Soft ice cream",
+   "id": "soft-ice-cream",
+   "cldr": "soft ice cream",
+   "keywords": [
+    "cream",
+    "dessert",
+    "ice",
+    "icecream",
+    "soft",
+    "sweet"
+   ],
+   "unicode": "1f366",
+   "cat": "Food"
+  },
+  {
+   "name": "Spaghetti",
+   "id": "spaghetti",
+   "cldr": "spaghetti",
+   "keywords": [
+    "pasta",
+    "spaghetti"
+   ],
+   "unicode": "1f35d",
+   "cat": "Food"
+  },
+  {
+   "name": "Steaming bowl",
+   "id": "steaming-bowl",
+   "cldr": "steaming bowl",
+   "keywords": [
+    "bowl",
+    "noodle",
+    "ramen",
+    "steaming"
+   ],
+   "unicode": "1f35c",
+   "cat": "Food"
+  },
+  {
+   "name": "Strawberry",
+   "id": "strawberry",
+   "cldr": "strawberry",
+   "keywords": [
+    "berry",
+    "fruit",
+    "strawberry"
+   ],
+   "unicode": "1f353",
+   "cat": "Food"
+  },
+  {
+   "name": "Sushi",
+   "id": "sushi",
+   "cldr": "sushi",
+   "keywords": [
+    "sushi"
+   ],
+   "unicode": "1f363",
+   "cat": "Food"
+  },
+  {
+   "name": "Taco",
+   "id": "taco",
+   "cldr": "taco",
+   "keywords": [
+    "mexican",
+    "taco"
+   ],
+   "unicode": "1f32e",
+   "cat": "Food"
+  },
+  {
+   "name": "Tangerine",
+   "id": "tangerine",
+   "cldr": "tangerine",
+   "keywords": [
+    "fruit",
+    "orange",
+    "tangerine"
+   ],
+   "unicode": "1f34a",
+   "cat": "Food"
+  },
+  {
+   "name": "Teacup without handle",
+   "id": "teacup-without-handle",
+   "cldr": "teacup without handle",
+   "keywords": [
+    "beverage",
+    "cup",
+    "drink",
+    "tea",
+    "teacup",
+    "teacup without handle"
+   ],
+   "unicode": "1f375",
+   "cat": "Food"
+  },
+  {
+   "name": "Teapot",
+   "id": "teapot",
+   "cldr": "teapot",
+   "keywords": [
+    "drink",
+    "pot",
+    "tea",
+    "teapot"
+   ],
+   "unicode": "1fad6",
+   "cat": "Food"
+  },
+  {
+   "name": "Tomato",
+   "id": "tomato",
+   "cldr": "tomato",
+   "keywords": [
+    "fruit",
+    "tomato",
+    "vegetable"
+   ],
+   "unicode": "1f345",
+   "cat": "Food"
+  },
+  {
+   "name": "Waffle",
+   "id": "waffle",
+   "cldr": "waffle",
+   "keywords": [
+    "breakfast",
+    "indecisive",
+    "iron",
+    "waffle"
+   ],
+   "unicode": "1f9c7",
+   "cat": "Food"
+  },
+  {
+   "name": "Watermelon",
+   "id": "watermelon",
+   "cldr": "watermelon",
+   "keywords": [
+    "fruit",
+    "watermelon"
+   ],
+   "unicode": "1f349",
+   "cat": "Food"
+  },
+  {
+   "name": "American football",
+   "id": "american-football",
+   "cldr": "american football",
+   "keywords": [
+    "american",
+    "ball",
+    "football"
+   ],
+   "unicode": "1f3c8",
+   "cat": "Sports"
+  },
+  {
+   "name": "Badminton",
+   "id": "badminton",
+   "cldr": "badminton",
+   "keywords": [
+    "badminton",
+    "birdie",
+    "game",
+    "racquet",
+    "shuttlecock"
+   ],
+   "unicode": "1f3f8",
+   "cat": "Sports"
+  },
+  {
+   "name": "Baseball",
+   "id": "baseball",
+   "cldr": "baseball",
+   "keywords": [
+    "ball",
+    "baseball"
+   ],
+   "unicode": "26be",
+   "cat": "Sports"
+  },
+  {
+   "name": "Basketball",
+   "id": "basketball",
+   "cldr": "basketball",
+   "keywords": [
+    "ball",
+    "basketball",
+    "hoop"
+   ],
+   "unicode": "1f3c0",
+   "cat": "Sports"
+  },
+  {
+   "name": "Bowling",
+   "id": "bowling",
+   "cldr": "bowling",
+   "keywords": [
+    "ball",
+    "bowling",
+    "game"
+   ],
+   "unicode": "1f3b3",
+   "cat": "Sports"
+  },
+  {
+   "name": "Boxing glove",
+   "id": "boxing-glove",
+   "cldr": "boxing glove",
+   "keywords": [
+    "boxing",
+    "glove"
+   ],
+   "unicode": "1f94a",
+   "cat": "Sports"
+  },
+  {
+   "name": "Cricket game",
+   "id": "cricket-game",
+   "cldr": "cricket game",
+   "keywords": [
+    "ball",
+    "bat",
+    "cricket game",
+    "game"
+   ],
+   "unicode": "1f3cf",
+   "cat": "Sports"
+  },
+  {
+   "name": "Curling stone",
+   "id": "curling-stone",
+   "cldr": "curling stone",
+   "keywords": [
+    "curling stone",
+    "game",
+    "rock"
+   ],
+   "unicode": "1f94c",
+   "cat": "Sports"
+  },
+  {
+   "name": "Field hockey",
+   "id": "field-hockey",
+   "cldr": "field hockey",
+   "keywords": [
+    "ball",
+    "field",
+    "game",
+    "hockey",
+    "stick"
+   ],
+   "unicode": "1f3d1",
+   "cat": "Sports"
+  },
+  {
+   "name": "Fishing pole",
+   "id": "fishing-pole",
+   "cldr": "fishing pole",
+   "keywords": [
+    "fish",
+    "fishing pole",
+    "pole"
+   ],
+   "unicode": "1f3a3",
+   "cat": "Sports"
+  },
+  {
+   "name": "Flying disc",
+   "id": "flying-disc",
+   "cldr": "flying disc",
+   "keywords": [
+    "flying disc",
+    "ultimate"
+   ],
+   "unicode": "1f94f",
+   "cat": "Sports"
+  },
+  {
+   "name": "Goal net",
+   "id": "goal-net",
+   "cldr": "goal net",
+   "keywords": [
+    "goal",
+    "net"
+   ],
+   "unicode": "1f945",
+   "cat": "Sports"
+  },
+  {
+   "name": "Ice hockey",
+   "id": "ice-hockey",
+   "cldr": "ice hockey",
+   "keywords": [
+    "game",
+    "hockey",
+    "ice",
+    "puck",
+    "stick"
+   ],
+   "unicode": "1f3d2",
+   "cat": "Sports"
+  },
+  {
+   "name": "Ice skate",
+   "id": "ice-skate",
+   "cldr": "ice skate",
+   "keywords": [
+    "ice",
+    "skate"
+   ],
+   "unicode": "26f8 fe0f",
+   "cat": "Sports"
+  },
+  {
+   "name": "Kite",
+   "id": "kite",
+   "cldr": "kite",
+   "keywords": [
+    "fly",
+    "kite",
+    "soar"
+   ],
+   "unicode": "1fa81",
+   "cat": "Sports"
+  },
+  {
+   "name": "Lacrosse",
+   "id": "lacrosse",
+   "cldr": "lacrosse",
+   "keywords": [
+    "ball",
+    "goal",
+    "lacrosse",
+    "stick"
+   ],
+   "unicode": "1f94d",
+   "cat": "Sports"
+  },
+  {
+   "name": "Martial arts uniform",
+   "id": "martial-arts-uniform",
+   "cldr": "martial arts uniform",
+   "keywords": [
+    "judo",
+    "karate",
+    "martial arts",
+    "martial arts uniform",
+    "taekwondo",
+    "uniform"
+   ],
+   "unicode": "1f94b",
+   "cat": "Sports"
+  },
+  {
+   "name": "Rugby football",
+   "id": "rugby-football",
+   "cldr": "rugby football",
+   "keywords": [
+    "ball",
+    "football",
+    "rugby"
+   ],
+   "unicode": "1f3c9",
+   "cat": "Sports"
+  },
+  {
+   "name": "Skis",
+   "id": "skis",
+   "cldr": "skis",
+   "keywords": [
+    "ski",
+    "skis",
+    "snow"
+   ],
+   "unicode": "1f3bf",
+   "cat": "Sports"
+  },
+  {
+   "name": "Sled",
+   "id": "sled",
+   "cldr": "sled",
+   "keywords": [
+    "sled",
+    "sledge",
+    "sleigh"
+   ],
+   "unicode": "1f6f7",
+   "cat": "Sports"
+  },
+  {
+   "name": "Soccer ball",
+   "id": "soccer-ball",
+   "cldr": "soccer ball",
+   "keywords": [
+    "ball",
+    "football",
+    "soccer"
+   ],
+   "unicode": "26bd",
+   "cat": "Sports"
+  },
+  {
+   "name": "Softball",
+   "id": "softball",
+   "cldr": "softball",
+   "keywords": [
+    "ball",
+    "glove",
+    "softball",
+    "underarm"
+   ],
+   "unicode": "1f94e",
+   "cat": "Sports"
+  },
+  {
+   "name": "Tennis",
+   "id": "tennis",
+   "cldr": "tennis",
+   "keywords": [
+    "ball",
+    "racquet",
+    "tennis"
+   ],
+   "unicode": "1f3be",
+   "cat": "Sports"
+  },
+  {
+   "name": "Volleyball",
+   "id": "volleyball",
+   "cldr": "volleyball",
+   "keywords": [
+    "ball",
+    "game",
+    "volleyball"
+   ],
+   "unicode": "1f3d0",
+   "cat": "Sports"
+  },
+  {
+   "name": "Bicycle",
+   "id": "bicycle",
+   "cldr": "bicycle",
+   "keywords": [
+    "bicycle",
+    "bike"
+   ],
+   "unicode": "1f6b2",
+   "cat": "Sports"
+  },
+  {
+   "name": "Kick scooter",
+   "id": "kick-scooter",
+   "cldr": "kick scooter",
+   "keywords": [
+    "kick",
+    "scooter"
+   ],
+   "unicode": "1f6f4",
+   "cat": "Sports"
+  },
+  {
+   "name": "Roller skate",
+   "id": "roller-skate",
+   "cldr": "roller skate",
+   "keywords": [
+    "roller",
+    "skate"
+   ],
+   "unicode": "1f6fc",
+   "cat": "Sports"
+  },
+  {
+   "name": "1st place medal",
+   "id": "1st-place-medal",
+   "cldr": "1st place medal",
+   "keywords": [
+    "1st place medal",
+    "first",
+    "gold",
+    "medal"
+   ],
+   "unicode": "1f947",
+   "cat": "Party"
+  },
+  {
+   "name": "2nd place medal",
+   "id": "2nd-place-medal",
+   "cldr": "2nd place medal",
+   "keywords": [
+    "2nd place medal",
+    "medal",
+    "second",
+    "silver"
+   ],
+   "unicode": "1f948",
+   "cat": "Party"
+  },
+  {
+   "name": "3rd place medal",
+   "id": "3rd-place-medal",
+   "cldr": "3rd place medal",
+   "keywords": [
+    "3rd place medal",
+    "bronze",
+    "medal",
+    "third"
+   ],
+   "unicode": "1f949",
+   "cat": "Party"
+  },
+  {
+   "name": "Fireworks",
+   "id": "fireworks",
+   "cldr": "fireworks",
+   "keywords": [
+    "celebration",
+    "fireworks"
+   ],
+   "unicode": "1f386",
+   "cat": "Party"
+  },
+  {
+   "name": "Joystick",
+   "id": "joystick",
+   "cldr": "joystick",
+   "keywords": [
+    "game",
+    "joystick",
+    "video game"
+   ],
+   "unicode": "1f579 fe0f",
+   "cat": "Party"
+  },
+  {
+   "name": "Party popper",
+   "id": "party-popper",
+   "cldr": "party popper",
+   "keywords": [
+    "celebration",
+    "party",
+    "popper",
+    "tada"
+   ],
+   "unicode": "1f389",
+   "cat": "Party"
+  },
+  {
+   "name": "Piñata",
+   "id": "pi-ata",
+   "cldr": "piñata",
+   "keywords": [
+    "celebration",
+    "party",
+    "piñata"
+   ],
+   "unicode": "1fa85",
+   "cat": "Party"
+  },
+  {
+   "name": "Sparkler",
+   "id": "sparkler",
+   "cldr": "sparkler",
+   "keywords": [
+    "celebration",
+    "fireworks",
+    "sparkle",
+    "sparkler"
+   ],
+   "unicode": "1f387",
+   "cat": "Party"
+  },
+  {
+   "name": "Sparkles",
+   "id": "sparkles",
+   "cldr": "sparkles",
+   "keywords": [
+    "*",
+    "sparkle",
+    "sparkles",
+    "star"
+   ],
+   "unicode": "2728",
+   "cat": "Party"
+  },
+  {
+   "name": "Teddy bear",
+   "id": "teddy-bear",
+   "cldr": "teddy bear",
+   "keywords": [
+    "plaything",
+    "plush",
+    "stuffed",
+    "teddy bear",
+    "toy"
+   ],
+   "unicode": "1f9f8",
+   "cat": "Party"
+  },
+  {
+   "name": "Trophy",
+   "id": "trophy",
+   "cldr": "trophy",
+   "keywords": [
+    "prize",
+    "trophy"
+   ],
+   "unicode": "1f3c6",
+   "cat": "Party"
+  },
+  {
+   "name": "Video game",
+   "id": "video-game",
+   "cldr": "video game",
+   "keywords": [
+    "controller",
+    "game",
+    "video game"
+   ],
+   "unicode": "1f3ae",
+   "cat": "Party"
+  },
+  {
+   "name": "Wrapped gift",
+   "id": "wrapped-gift",
+   "cldr": "wrapped gift",
+   "keywords": [
+    "box",
+    "celebration",
+    "gift",
+    "present",
+    "wrapped"
+   ],
+   "unicode": "1f381",
+   "cat": "Party"
+  },
+  {
+   "name": "Bell",
+   "id": "bell",
+   "cldr": "bell",
+   "keywords": [
+    "bell"
+   ],
+   "unicode": "1f514",
+   "cat": "Party"
+  },
+  {
+   "name": "Crown",
+   "id": "crown",
+   "cldr": "crown",
+   "keywords": [
+    "clothing",
+    "crown",
+    "king",
+    "queen"
+   ],
+   "unicode": "1f451",
+   "cat": "Party"
+  },
+  {
+   "name": "Drum",
+   "id": "drum",
+   "cldr": "drum",
+   "keywords": [
+    "drum",
+    "drumsticks",
+    "music"
+   ],
+   "unicode": "1f941",
+   "cat": "Party"
+  },
+  {
+   "name": "Guitar",
+   "id": "guitar",
+   "cldr": "guitar",
+   "keywords": [
+    "guitar",
+    "instrument",
+    "music"
+   ],
+   "unicode": "1f3b8",
+   "cat": "Party"
+  },
+  {
+   "name": "Microphone",
+   "id": "microphone",
+   "cldr": "microphone",
+   "keywords": [
+    "karaoke",
+    "mic",
+    "microphone"
+   ],
+   "unicode": "1f3a4",
+   "cat": "Party"
+  },
+  {
+   "name": "Musical note",
+   "id": "musical-note",
+   "cldr": "musical note",
+   "keywords": [
+    "music",
+    "musical note",
+    "note"
+   ],
+   "unicode": "1f3b5",
+   "cat": "Party"
+  },
+  {
+   "name": "Musical notes",
+   "id": "musical-notes",
+   "cldr": "musical notes",
+   "keywords": [
+    "music",
+    "musical notes",
+    "note",
+    "notes"
+   ],
+   "unicode": "1f3b6",
+   "cat": "Party"
+  },
+  {
+   "name": "Saxophone",
+   "id": "saxophone",
+   "cldr": "saxophone",
+   "keywords": [
+    "instrument",
+    "music",
+    "sax",
+    "saxophone"
+   ],
+   "unicode": "1f3b7",
+   "cat": "Party"
+  },
+  {
+   "name": "Trumpet",
+   "id": "trumpet",
+   "cldr": "trumpet",
+   "keywords": [
+    "instrument",
+    "music",
+    "trumpet"
+   ],
+   "unicode": "1f3ba",
+   "cat": "Party"
+  },
+  {
+   "name": "Violin",
+   "id": "violin",
+   "cldr": "violin",
+   "keywords": [
+    "instrument",
+    "music",
+    "violin"
+   ],
+   "unicode": "1f3bb",
+   "cat": "Party"
+  },
+  {
+   "name": "Carousel horse",
+   "id": "carousel-horse",
+   "cldr": "carousel horse",
+   "keywords": [
+    "carousel",
+    "horse"
+   ],
+   "unicode": "1f3a0",
+   "cat": "Party"
+  },
+  {
+   "name": "Circus tent",
+   "id": "circus-tent",
+   "cldr": "circus tent",
+   "keywords": [
+    "circus",
+    "tent"
+   ],
+   "unicode": "1f3aa",
+   "cat": "Party"
+  },
+  {
+   "name": "Ferris wheel",
+   "id": "ferris-wheel",
+   "cldr": "ferris wheel",
+   "keywords": [
+    "amusement park",
+    "ferris",
+    "wheel"
+   ],
+   "unicode": "1f3a1",
+   "cat": "Party"
+  },
+  {
+   "name": "Roller coaster",
+   "id": "roller-coaster",
+   "cldr": "roller coaster",
+   "keywords": [
+    "amusement park",
+    "coaster",
+    "roller"
+   ],
+   "unicode": "1f3a2",
+   "cat": "Party"
+  },
+  {
+   "name": "Beach with umbrella",
+   "id": "beach-with-umbrella",
+   "cldr": "beach with umbrella",
+   "keywords": [
+    "beach",
+    "beach with umbrella",
+    "umbrella"
+   ],
+   "unicode": "1f3d6 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Closed umbrella",
+   "id": "closed-umbrella",
+   "cldr": "closed umbrella",
+   "keywords": [
+    "closed umbrella",
+    "clothing",
+    "rain",
+    "umbrella"
+   ],
+   "unicode": "1f302",
+   "cat": "Weather"
+  },
+  {
+   "name": "Cloud",
+   "id": "cloud",
+   "cldr": "cloud",
+   "keywords": [
+    "cloud",
+    "weather"
+   ],
+   "unicode": "2601 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Cloud with lightning",
+   "id": "cloud-with-lightning",
+   "cldr": "cloud with lightning",
+   "keywords": [
+    "cloud",
+    "cloud with lightning",
+    "lightning"
+   ],
+   "unicode": "1f329 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Cloud with lightning and rain",
+   "id": "cloud-with-lightning-and-rain",
+   "cldr": "cloud with lightning and rain",
+   "keywords": [
+    "cloud",
+    "cloud with lightning and rain",
+    "rain",
+    "thunder"
+   ],
+   "unicode": "26c8 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Cloud with rain",
+   "id": "cloud-with-rain",
+   "cldr": "cloud with rain",
+   "keywords": [
+    "cloud",
+    "cloud with rain",
+    "rain"
+   ],
+   "unicode": "1f327 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Cloud with snow",
+   "id": "cloud-with-snow",
+   "cldr": "cloud with snow",
+   "keywords": [
+    "cloud",
+    "cloud with snow",
+    "cold",
+    "snow"
+   ],
+   "unicode": "1f328 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Comet",
+   "id": "comet",
+   "cldr": "comet",
+   "keywords": [
+    "comet",
+    "space"
+   ],
+   "unicode": "2604 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Crescent moon",
+   "id": "crescent-moon",
+   "cldr": "crescent moon",
+   "keywords": [
+    "crescent",
+    "moon"
+   ],
+   "unicode": "1f319",
+   "cat": "Weather"
+  },
+  {
+   "name": "Droplet",
+   "id": "droplet",
+   "cldr": "droplet",
+   "keywords": [
+    "cold",
+    "comic",
+    "drop",
+    "droplet",
+    "sweat"
+   ],
+   "unicode": "1f4a7",
+   "cat": "Weather"
+  },
+  {
+   "name": "Fire",
+   "id": "fire",
+   "cldr": "fire",
+   "keywords": [
+    "fire",
+    "flame",
+    "tool"
+   ],
+   "unicode": "1f525",
+   "cat": "Weather"
+  },
+  {
+   "name": "Full moon",
+   "id": "full-moon",
+   "cldr": "full moon",
+   "keywords": [
+    "full",
+    "moon"
+   ],
+   "unicode": "1f315",
+   "cat": "Weather"
+  },
+  {
+   "name": "Full moon face",
+   "id": "full-moon-face",
+   "cldr": "full moon face",
+   "keywords": [
+    "bright",
+    "face",
+    "full",
+    "moon"
+   ],
+   "unicode": "1f31d",
+   "cat": "Weather"
+  },
+  {
+   "name": "Globe showing europe-africa",
+   "id": "globe-showing-europe-africa",
+   "cldr": "globe showing Europe-Africa",
+   "keywords": [
+    "Africa",
+    "earth",
+    "Europe",
+    "globe",
+    "globe showing Europe-Africa",
+    "world"
+   ],
+   "unicode": "1f30d",
+   "cat": "Weather"
+  },
+  {
+   "name": "Glowing star",
+   "id": "glowing-star",
+   "cldr": "glowing star",
+   "keywords": [
+    "glittery",
+    "glow",
+    "glowing star",
+    "shining",
+    "sparkle",
+    "star"
+   ],
+   "unicode": "1f31f",
+   "cat": "Weather"
+  },
+  {
+   "name": "High voltage",
+   "id": "high-voltage",
+   "cldr": "high voltage",
+   "keywords": [
+    "danger",
+    "electric",
+    "high voltage",
+    "lightning",
+    "voltage",
+    "zap"
+   ],
+   "unicode": "26a1",
+   "cat": "Weather"
+  },
+  {
+   "name": "Milky way",
+   "id": "milky-way",
+   "cldr": "milky way",
+   "keywords": [
+    "milky way",
+    "space"
+   ],
+   "unicode": "1f30c",
+   "cat": "Weather"
+  },
+  {
+   "name": "Mountain",
+   "id": "mountain",
+   "cldr": "mountain",
+   "keywords": [
+    "mountain"
+   ],
+   "unicode": "26f0 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "New moon face",
+   "id": "new-moon-face",
+   "cldr": "new moon face",
+   "keywords": [
+    "face",
+    "moon",
+    "new moon face"
+   ],
+   "unicode": "1f31a",
+   "cat": "Weather"
+  },
+  {
+   "name": "Night with stars",
+   "id": "night-with-stars",
+   "cldr": "night with stars",
+   "keywords": [
+    "night",
+    "night with stars",
+    "star"
+   ],
+   "unicode": "1f303",
+   "cat": "Weather"
+  },
+  {
+   "name": "Rainbow",
+   "id": "rainbow",
+   "cldr": "rainbow",
+   "keywords": [
+    "rain",
+    "rainbow"
+   ],
+   "unicode": "1f308",
+   "cat": "Weather"
+  },
+  {
+   "name": "Shooting star",
+   "id": "shooting-star",
+   "cldr": "shooting star",
+   "keywords": [
+    "falling",
+    "shooting",
+    "star"
+   ],
+   "unicode": "1f320",
+   "cat": "Weather"
+  },
+  {
+   "name": "Snow-capped mountain",
+   "id": "snow-capped-mountain",
+   "cldr": "snow-capped mountain",
+   "keywords": [
+    "cold",
+    "mountain",
+    "snow",
+    "snow-capped mountain"
+   ],
+   "unicode": "1f3d4 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Snowflake",
+   "id": "snowflake",
+   "cldr": "snowflake",
+   "keywords": [
+    "cold",
+    "snow",
+    "snowflake"
+   ],
+   "unicode": "2744 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Snowman",
+   "id": "snowman",
+   "cldr": "snowman",
+   "keywords": [
+    "cold",
+    "snow",
+    "snowman"
+   ],
+   "unicode": "2603 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Star",
+   "id": "star",
+   "cldr": "star",
+   "keywords": [
+    "star"
+   ],
+   "unicode": "2b50",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sun",
+   "id": "sun",
+   "cldr": "sun",
+   "keywords": [
+    "bright",
+    "rays",
+    "sun",
+    "sunny"
+   ],
+   "unicode": "2600 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sun behind cloud",
+   "id": "sun-behind-cloud",
+   "cldr": "sun behind cloud",
+   "keywords": [
+    "cloud",
+    "sun",
+    "sun behind cloud"
+   ],
+   "unicode": "26c5",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sun with face",
+   "id": "sun-with-face",
+   "cldr": "sun with face",
+   "keywords": [
+    "bright",
+    "face",
+    "sun",
+    "sun with face"
+   ],
+   "unicode": "1f31e",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sunrise",
+   "id": "sunrise",
+   "cldr": "sunrise",
+   "keywords": [
+    "morning",
+    "sun",
+    "sunrise"
+   ],
+   "unicode": "1f305",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sunrise over mountains",
+   "id": "sunrise-over-mountains",
+   "cldr": "sunrise over mountains",
+   "keywords": [
+    "morning",
+    "mountain",
+    "sun",
+    "sunrise",
+    "sunrise over mountains"
+   ],
+   "unicode": "1f304",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sunset",
+   "id": "sunset",
+   "cldr": "sunset",
+   "keywords": [
+    "dusk",
+    "sun",
+    "sunset"
+   ],
+   "unicode": "1f307",
+   "cat": "Weather"
+  },
+  {
+   "name": "Thermometer",
+   "id": "thermometer",
+   "cldr": "thermometer",
+   "keywords": [
+    "thermometer",
+    "weather"
+   ],
+   "unicode": "1f321 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Tornado",
+   "id": "tornado",
+   "cldr": "tornado",
+   "keywords": [
+    "cloud",
+    "tornado",
+    "whirlwind"
+   ],
+   "unicode": "1f32a fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Umbrella",
+   "id": "umbrella",
+   "cldr": "umbrella",
+   "keywords": [
+    "clothing",
+    "rain",
+    "umbrella"
+   ],
+   "unicode": "2602 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Umbrella on ground",
+   "id": "umbrella-on-ground",
+   "cldr": "umbrella on ground",
+   "keywords": [
+    "rain",
+    "sun",
+    "umbrella",
+    "umbrella on ground"
+   ],
+   "unicode": "26f1 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Umbrella with rain drops",
+   "id": "umbrella-with-rain-drops",
+   "cldr": "umbrella with rain drops",
+   "keywords": [
+    "clothing",
+    "drop",
+    "rain",
+    "umbrella",
+    "umbrella with rain drops"
+   ],
+   "unicode": "2614",
+   "cat": "Weather"
+  },
+  {
+   "name": "Volcano",
+   "id": "volcano",
+   "cldr": "volcano",
+   "keywords": [
+    "eruption",
+    "mountain",
+    "volcano"
+   ],
+   "unicode": "1f30b",
+   "cat": "Weather"
+  },
+  {
+   "name": "Wind face",
+   "id": "wind-face",
+   "cldr": "wind face",
+   "keywords": [
+    "blow",
+    "cloud",
+    "face",
+    "wind"
+   ],
+   "unicode": "1f32c fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Cactus",
+   "id": "cactus",
+   "cldr": "cactus",
+   "keywords": [
+    "cactus",
+    "plant"
+   ],
+   "unicode": "1f335",
+   "cat": "Weather"
+  },
+  {
+   "name": "Deciduous tree",
+   "id": "deciduous-tree",
+   "cldr": "deciduous tree",
+   "keywords": [
+    "deciduous",
+    "shedding",
+    "tree"
+   ],
+   "unicode": "1f333",
+   "cat": "Weather"
+  },
+  {
+   "name": "Evergreen tree",
+   "id": "evergreen-tree",
+   "cldr": "evergreen tree",
+   "keywords": [
+    "evergreen tree",
+    "tree"
+   ],
+   "unicode": "1f332",
+   "cat": "Weather"
+  },
+  {
+   "name": "Fallen leaf",
+   "id": "fallen-leaf",
+   "cldr": "fallen leaf",
+   "keywords": [
+    "fallen leaf",
+    "falling",
+    "leaf"
+   ],
+   "unicode": "1f342",
+   "cat": "Weather"
+  },
+  {
+   "name": "Four leaf clover",
+   "id": "four-leaf-clover",
+   "cldr": "four leaf clover",
+   "keywords": [
+    "4",
+    "clover",
+    "four",
+    "four-leaf clover",
+    "leaf"
+   ],
+   "unicode": "1f340",
+   "cat": "Weather"
+  },
+  {
+   "name": "Herb",
+   "id": "herb",
+   "cldr": "herb",
+   "keywords": [
+    "herb",
+    "leaf"
+   ],
+   "unicode": "1f33f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Leaf fluttering in wind",
+   "id": "leaf-fluttering-in-wind",
+   "cldr": "leaf fluttering in wind",
+   "keywords": [
+    "blow",
+    "flutter",
+    "leaf",
+    "leaf fluttering in wind",
+    "wind"
+   ],
+   "unicode": "1f343",
+   "cat": "Weather"
+  },
+  {
+   "name": "Maple leaf",
+   "id": "maple-leaf",
+   "cldr": "maple leaf",
+   "keywords": [
+    "falling",
+    "leaf",
+    "maple"
+   ],
+   "unicode": "1f341",
+   "cat": "Weather"
+  },
+  {
+   "name": "Palm tree",
+   "id": "palm-tree",
+   "cldr": "palm tree",
+   "keywords": [
+    "palm",
+    "tree"
+   ],
+   "unicode": "1f334",
+   "cat": "Weather"
+  },
+  {
+   "name": "Seedling",
+   "id": "seedling",
+   "cldr": "seedling",
+   "keywords": [
+    "seedling",
+    "young"
+   ],
+   "unicode": "1f331",
+   "cat": "Weather"
+  },
+  {
+   "name": "Shamrock",
+   "id": "shamrock",
+   "cldr": "shamrock",
+   "keywords": [
+    "plant",
+    "shamrock"
+   ],
+   "unicode": "2618 fe0f",
+   "cat": "Weather"
+  },
+  {
+   "name": "Sparkle",
+   "id": "sparkle",
+   "cldr": "sparkle",
+   "keywords": [
+    "*",
+    "sparkle"
+   ],
+   "unicode": "2747 fe0f",
+   "cat": "Weather"
+  }
+ ]
+}

@@ -12,3 +12,4 @@ node_modules/
 .wrangler/
 companion/worker/.dev.vars
 companion/setup-tool/dist/
+controller/familychat/src/main/assets/stickers-lib/

@@ -19,6 +19,8 @@ if [ ! -f "$KS" ]; then
   chmod 600 "$KS"
 fi
 
+# the sticker library is built from Fluent and Noto files (needs python3 with Pillow and network once; cached afterwards)
+[ -f familychat/src/main/assets/stickers-lib/index.json ] || python3 familychat/stickers/build-stickers.py
 rm -f familychat/build/outputs/apk/release/*.apk # a failed build must never leave an old APK to be picked up
 ./gradlew --offline -q ${FC_VERSION:+-PfcVersion=$FC_VERSION} :wa-core:testDebugUnitTest :familychat:testDebugUnitTest :familychat:assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease 2>&1 | grep -vE "^WARNING" || true
 IN=familychat/build/outputs/apk/release/familychat-release-unsigned.apk
@@ -50,3 +52,4 @@ for i in z.infolist():
 sys.exit(1 if bad else 0)
 PY
 ls -la "$OUT"
+echo "APK size: $(du -h "$OUT" | cut -f1)"

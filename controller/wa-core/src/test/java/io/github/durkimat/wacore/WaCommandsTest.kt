@@ -95,3 +95,28 @@ class WaHelpTest {
         assertNull(WaAcks.upgradeNote(0, true, true, false, "x")) // not connected yet
     }
 }
+
+class WaStickerLabelTest {
+    private val now = 10_000_000L
+    private fun sticker(ageMs: Long, mine: Boolean = true, kind: String = "sticker") = WaMsg("", now - ageMs, mine, "", "m", kind)
+
+    @Test fun theLabelIsSkippedOnlyDirectlyAfterOwnStickerWithinTwoMinutes() {
+        assertFalse(WaLabels.needsLabel(sticker(30_000), 0, now))
+        assertFalse(WaLabels.needsLabel(sticker(119_000), 0, now))
+        assertTrue(WaLabels.needsLabel(sticker(120_000), 0, now)) // two minutes or more
+        assertTrue(WaLabels.needsLabel(null, 0, now)) // an empty chat
+    }
+
+    @Test fun anythingElseInBetweenBringsTheLabelBack() {
+        assertTrue(WaLabels.needsLabel(sticker(10_000, mine = false), 0, now)) // someone else posted last
+        assertTrue(WaLabels.needsLabel(WaMsg("hi", now - 5_000, true, "", "m", "text"), 0, now)) // our own text, not a sticker
+        assertTrue(WaLabels.needsLabel(sticker(30_000), now - 5_000, now)) // a reaction arrived since
+        assertFalse(WaLabels.needsLabel(sticker(30_000), now - 60_000, now)) // a reaction from before the sticker does not count
+        assertTrue(WaLabels.needsLabel(WaMsg("", now - 5_000, true, "", "m", "sticker", deleted = true), 0, now))
+    }
+
+    @Test fun theStickerPlanHasTheLabelOnlyWhenNeeded() {
+        assertEquals(2, WaLabels.sticker("Sam", "/s.webp", false, true).size)
+        assertEquals(listOf<WaLabels.Step>(WaLabels.Step.Sticker("/s.webp", true)), WaLabels.sticker("Sam", "/s.webp", true, false))
+    }
+}

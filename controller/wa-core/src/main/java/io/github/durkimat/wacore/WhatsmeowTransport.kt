@@ -38,7 +38,7 @@ class WhatsmeowTransport private constructor(private val b: Bridge) : WaTranspor
     override fun downloadMedia(ref: String, id: String, mime: String): String = b.downloadMedia(ref, id, mime)
     override fun mediaDir(): String = b.mediaDir()
     override fun sendReply(chat: String, text: String, quoteId: String, quoteSender: String, quoteText: String): String = b.sendTagged(chat, text, quoteId, quoteSender, quoteText)
-    override fun sendSticker(chat: String, path: String, animated: Boolean): String = run(chat, WaLabels.sticker(child, path, animated))
+    override fun sendSticker(chat: String, path: String, animated: Boolean, label: Boolean): String = run(chat, WaLabels.sticker(child, path, animated, label))
     override fun sendPhoto(chat: String, path: String, caption: String, width: Int, height: Int): String = run(chat, WaLabels.photo(child, path, caption, width, height))
     override fun sendVideo(chat: String, path: String, caption: String, seconds: Int, width: Int, height: Int): String = run(chat, WaLabels.video(child, path, caption, seconds, width, height))
     override fun editMessage(chat: String, id: String, text: String) = b.editMessage(chat, id, text)

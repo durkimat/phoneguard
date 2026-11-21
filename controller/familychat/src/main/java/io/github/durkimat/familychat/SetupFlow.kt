@@ -71,6 +71,11 @@ interface Settings {
     var sendReadReceipts: Boolean
     /** Pictures, GIFs and stickers are shown (and downloaded). Off: a plain marker instead. */
     var showMedia: Boolean
+    /** The ids of the stickers sent from this device, newest first (at most 24). */
+    var recentStickers: List<String>
+    /** The colour of the child's own bubbles in a chat (a [Themes] bubble key). */
+    fun bubbleColor(chat: String): String
+    fun setBubbleColor(chat: String, key: String)
     /** The child may send photos and videos (the "+" button). Off unless the parent turns it on, in the admin menu or with "photos on". */
     var photosAllowed: Boolean
     /** Videos are fetched only on Wi-Fi (or any unmetered network). */

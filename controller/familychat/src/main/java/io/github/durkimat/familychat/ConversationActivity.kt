@@ -82,7 +82,7 @@ class ConversationActivity : Activity() {
         applyWallpaper()
     }
 
-    private fun applyWallpaper() { scroll.background = Wallpapers.drawable(this, Fc.settings.wallpaper(chat), chat) }
+    private fun applyWallpaper() { scroll.background = Themes.drawable(this, Fc.settings.wallpaper(chat), chat) }
 
     override fun onResume() {
         super.onResume(); Fc.openChat = chat; Notifier.cancel(this, chat); Fc.listeners.add(redraw); applyWallpaper(); drawMessages()
@@ -105,25 +105,24 @@ class ConversationActivity : Activity() {
         val c = this
         val msgs = Fc.store().messages(chat)
         val nearEnd = scroll.scrollY + scroll.height >= list.height - Ui.dp(c, 80)
-        val dark = Wallpapers.dark(Fc.settings.wallpaper(chat))
+        val key = Fc.settings.wallpaper(chat)
         list.removeAllViews()
-        for (m in msgs) list.addView(row(m, msgs, dark), Ui.params(c = c, top = 8))
+        for (m in msgs) list.addView(row(m, msgs, key), Ui.params(c = c, top = 8))
         if (nearEnd || lastCount < 0 || msgs.size > lastCount) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
         lastCount = msgs.size
     }
 
-    private fun row(m: WaMsg, all: List<WaMsg>, dark: Boolean): View {
+    private fun row(m: WaMsg, all: List<WaMsg>, wallpaperKey: String): View {
         val c = this
         val mine = m.mine
-        val muted = if (dark) 0xFFD6DEE6.toInt() else Ui.MUTED
         // a system line ("[call declined]"): small, centred, no bubble
-        if (Rich.isSystem(m)) return Ui.text(c, m.body, 13f, muted).apply { gravity = Gravity.CENTER; setPadding(Ui.dp(c, 12), Ui.dp(c, 2), Ui.dp(c, 12), Ui.dp(c, 2)) }
+        if (Rich.isSystem(m)) return Ui.metaText(c, m.body, 13f, wallpaperKey).apply { gravity = Gravity.CENTER; setPadding(Ui.dp(c, 12), Ui.dp(c, 2), Ui.dp(c, 12), Ui.dp(c, 2)) }
         val sticker = m.kind == "sticker" && !m.deleted && Fc.settings.showMedia
         // the column is only as wide as its widest part (the bubble hugs its text or picture) and never wider than 78% of the row; the row puts it left or right
         val item = CappedColumn(c).apply { orientation = LinearLayout.VERTICAL; gravity = if (mine) Gravity.END else Gravity.START }
-        if (!mine && m.sender.isNotBlank()) item.addView(Ui.text(c, m.sender, 14f, muted, true).apply { setPadding(Ui.dp(c, 4), 0, 0, Ui.dp(c, 4)) }, LinearLayout.LayoutParams(-2, -2))
+        if (!mine && m.sender.isNotBlank()) item.addView(Ui.metaText(c, m.sender, 14f, wallpaperKey, true), LinearLayout.LayoutParams(-2, -2).also { it.bottomMargin = Ui.dp(c, 4) })
         val bubble = Ui.col(c).apply {
-            if (!sticker) { background = bubbleShape(c, mine); setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8)) }
+            if (!sticker) { background = Ui.bubbleShape(c, mine, if (mine) Themes.bubbleColor(Fc.settings.bubbleColor(chat)) else Ui.CARD); setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8)) }
         }
         if (!m.deleted && (m.quoteText.isNotBlank() || m.quoteId.isNotEmpty())) quoteBlock(m, all)?.let { bubble.addView(it, LinearLayout.LayoutParams(-2, -2)) }
         if (m.deleted) bubble.addView(Ui.text(c, "This message was deleted", 16f, Ui.MUTED).apply { setTypeface(typeface, Typeface.ITALIC) }, LinearLayout.LayoutParams(-2, -2))
@@ -146,17 +145,8 @@ class ConversationActivity : Activity() {
         }
         // the time sits under the child's bubble; "edited" under anyone's
         val foot = (if (mine && !m.deleted) Ui.timeText(m.date) else "") + (if (m.edited && !m.deleted) (if (mine) " \u00B7 edited" else "edited") else "")
-        if (foot.isNotEmpty()) item.addView(Ui.text(c, foot, 13f, muted).apply { setPadding(Ui.dp(c, 4), Ui.dp(c, 3), Ui.dp(c, 4), 0) }, LinearLayout.LayoutParams(-2, -2))
+        if (foot.isNotEmpty()) item.addView(Ui.metaText(c, foot, 13f, wallpaperKey), LinearLayout.LayoutParams(-2, -2).also { it.topMargin = Ui.dp(c, 3) })
         return LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = if (mine) Gravity.END else Gravity.START; addView(item, LinearLayout.LayoutParams(-2, -2)) }
-    }
-
-    /** 20 dp corners with a small 6 dp corner on the side the message comes from: bottom left for others, bottom right for the child. */
-    private fun bubbleShape(c: android.content.Context, mine: Boolean): android.graphics.drawable.GradientDrawable {
-        val big = Ui.dp(c, 20).toFloat(); val small = Ui.dp(c, 6).toFloat()
-        return android.graphics.drawable.GradientDrawable().apply {
-            setColor(if (mine) Ui.MINE else Ui.CARD)
-            cornerRadii = if (mine) floatArrayOf(big, big, big, big, small, small, big, big) else floatArrayOf(big, big, big, big, big, big, small, small)
-        }
     }
 
     private fun quoteBlock(m: WaMsg, all: List<WaMsg>): View? {
@@ -270,27 +260,53 @@ class ConversationActivity : Activity() {
         else background { Fc.send(chat, t, q).also { if (it.isNotEmpty()) runOnUiThread { box.setText(t) } } }
     }
 
-    // ---- stickers
+    // ---- stickers: search, Recent, Animated and a tab for each kind
+    private var stickerTab = "Happy"
+    private lateinit var stickerGrid: GridLayout
+    private lateinit var stickerTabs: LinearLayout
+    private lateinit var stickerSearch: EditText
+    private lateinit var stickerNote: TextView
+
     private fun buildStickerPanel(): LinearLayout {
         val c = this
         val panel = Ui.col(c).apply { setBackgroundColor(Ui.GROUND); setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 4)) }
-        val tabs = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL }
-        val grid = GridLayout(c).apply { columnCount = 4 }
-        val scrollG = ScrollView(c).apply { addView(grid) }
-        fun show(pack: Stickers.Pack) {
-            grid.removeAllViews()
-            for (a in Stickers.list(c, pack.id)) {
-                val iv = ImageView(c).apply { scaleType = ImageView.ScaleType.FIT_CENTER; contentDescription = "Sticker"; isClickable = true; setPadding(Ui.dp(c, 6), Ui.dp(c, 6), Ui.dp(c, 6), Ui.dp(c, 6))
-                    try { setImageDrawable(android.graphics.ImageDecoder.decodeDrawable(android.graphics.ImageDecoder.createSource(c.assets, a))) } catch (_: Throwable) { }
-                    setOnClickListener { stickerPanel.visibility = View.GONE; background { Fc.sendSticker(chat, a) } } }
-                grid.addView(iv, GridLayout.LayoutParams().apply { width = Ui.dp(c, 80); height = Ui.dp(c, 80) })
-            }
-        }
-        for (p in Stickers.packs) tabs.addView(Ui.text(c, p.name, 16f, Ui.ACCENT, true).apply { gravity = Gravity.CENTER; minHeight = Ui.dp(c, 48); setPadding(Ui.dp(c, 16), 0, Ui.dp(c, 16), 0); isClickable = true; setOnClickListener { show(p) } })
-        panel.addView(tabs); panel.addView(scrollG, Ui.params(h = Ui.dp(c, 180)))
-        panel.addView(Ui.text(c, "Sends “Sent by ${Fc.settings.childName}” and then the sticker, so everyone knows who sent it.", 14f, Ui.MUTED), Ui.params(c = c, top = 4))
-        show(Stickers.packs[0])
+        stickerSearch = Ui.input(c, "Search stickers").apply { contentDescription = "Search stickers"; minHeight = Ui.dp(c, 48)
+            addTextChangedListener(object : android.text.TextWatcher { override fun afterTextChanged(s: android.text.Editable?) { showStickers() }; override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}; override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {} }) }
+        panel.addView(stickerSearch, Ui.params())
+        stickerTabs = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL }
+        panel.addView(HorizontalScrollView(c).apply { isHorizontalScrollBarEnabled = false; addView(stickerTabs) }, Ui.params(c = c, top = 6))
+        stickerGrid = GridLayout(c).apply { columnCount = 4 }
+        panel.addView(ScrollView(c).apply { addView(stickerGrid) }, Ui.params(h = Ui.dp(c, 200), c = c, top = 4))
+        stickerNote = Ui.text(c, "Sends \u201CSent by ${Fc.settings.childName}\u201D and then the sticker, so everyone knows who sent it. Green dot = animated.", 13f, Ui.MUTED)
+        panel.addView(stickerNote, Ui.params(c = c, top = 4))
+        stickerTab = if (Fc.settings.recentStickers.isNotEmpty()) "Recent" else "Happy"
+        Thread { StickerLibrary.all(c); runOnUiThread { showStickers() } }.start()
+        showStickers()
         return panel
+    }
+
+    private fun showStickers() {
+        if (!::stickerGrid.isInitialized) return
+        val c = this
+        val q = stickerSearch.text.toString()
+        stickerTabs.removeAllViews()
+        for (t in StickerLibrary.TABS) stickerTabs.addView(Ui.text(c, t, 15f, if (t == stickerTab && q.isBlank()) 0xFFFFFFFF.toInt() else Ui.INK, true).apply {
+            gravity = Gravity.CENTER; minHeight = Ui.dp(c, 44); setPadding(Ui.dp(c, 14), 0, Ui.dp(c, 14), 0); background = Ui.shape(c, if (t == stickerTab && q.isBlank()) Ui.ACCENT else Ui.THEIRS, 22); isClickable = true
+            setOnClickListener { stickerTab = t; stickerSearch.setText(""); showStickers() } }, LinearLayout.LayoutParams(-2, -2).also { it.rightMargin = Ui.dp(c, 6) })
+        val all = StickerLibrary.all(c)
+        val list = if (q.isNotBlank()) StickerLibrary.search(all, q) else StickerLibrary.tab(all, stickerTab, Fc.settings.recentStickers)
+        stickerGrid.removeAllViews()
+        if (list.isEmpty()) { stickerGrid.columnCount = 1; stickerGrid.addView(Ui.text(c, if (q.isNotBlank()) "No sticker matches that search." else if (stickerTab == "Recent") "Stickers you send appear here." else "No stickers here.", 16f, Ui.MUTED).apply { setPadding(Ui.dp(c, 8), Ui.dp(c, 16), Ui.dp(c, 8), Ui.dp(c, 16)) }); return }
+        stickerGrid.columnCount = 4
+        for (st in list) {
+            val cell = android.widget.FrameLayout(c).apply { isClickable = true; contentDescription = st.name }
+            val iv = ImageView(c).apply { scaleType = ImageView.ScaleType.FIT_CENTER; setPadding(Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5), Ui.dp(c, 5))
+                try { setImageDrawable(android.graphics.ImageDecoder.decodeDrawable(android.graphics.ImageDecoder.createSource(c.assets, st.asset)) { dec, _, _ -> dec.setTargetSize(160, 160) }) } catch (_: Throwable) { } }
+            cell.addView(iv, android.widget.FrameLayout.LayoutParams(-1, -1))
+            if (st.animated) cell.addView(View(c).apply { background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Ui.ACCENT) } }, android.widget.FrameLayout.LayoutParams(Ui.dp(c, 10), Ui.dp(c, 10), Gravity.TOP or Gravity.END).also { it.setMargins(0, Ui.dp(c, 4), Ui.dp(c, 4), 0) })
+            cell.setOnClickListener { stickerPanel.visibility = View.GONE; background { Fc.sendSticker(chat, st) } }
+            stickerGrid.addView(cell, GridLayout.LayoutParams().apply { width = Ui.dp(c, 80); height = Ui.dp(c, 80) })
+        }
     }
 
     private fun toggleStickers() { stickerPanel.visibility = if (stickerPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE }

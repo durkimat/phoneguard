@@ -205,6 +205,10 @@ class WaStore(c: Context) : SQLiteOpenHelper(c, "whatsapp.db", null, 3) {
         db.insertWithOnConflict("react", null, ContentValues().apply { put("chat", chat); put("target", target); put("sender_id", senderId); put("sender", sender); put("emoji", emoji); put("ts", ts) }, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
+    /** When the newest reaction in a chat arrived (milliseconds), or 0. */
+    @Synchronized fun lastReactionMs(chat: String): Long =
+        readableDatabase.rawQuery("SELECT COALESCE(MAX(ts),0) FROM react WHERE chat=?", arrayOf(chat)).use { if (it.moveToFirst()) it.getLong(0) * 1000 else 0L }
+
     /** Every media file the messages still point at (the cache cleaner removes the others). */
     @Synchronized fun mediaPathsInUse(): Set<String> =
         readableDatabase.rawQuery("SELECT media_path FROM msg WHERE media_path IS NOT NULL AND media_path != ''", null).use { c -> generateSequence { if (c.moveToNext()) c.getString(0) else null }.toSet() }

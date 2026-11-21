@@ -11,5 +11,7 @@ object AboutText {
     const val NOTICE_LINK = "https://github.com/durkimat/phoneguard/blob/main/NOTICE.txt"
     const val LICENCES = "The connection uses whatsmeow ($WHATSMEOW_VERSION), licensed under the Mozilla Public License 2.0, unmodified. Source: $WHATSMEOW_SOURCE. Other parts are listed in the NOTICE file: $NOTICE_LINK"
 
+    const val STICKER_CREDITS = "Stickers: Fluent Emoji \u00A9 Microsoft Corporation (MIT License). Animated stickers: Noto Emoji, Google, CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), resized and re-encoded. Sticker names: Unicode CLDR (Unicode License). The Words, Happy and Animals packs are our own. Full texts: ${NOTICE_LINK}"
+
     fun version(c: Context): String = try { c.packageManager.getPackageInfo(c.packageName, 0).versionName ?: "" } catch (_: Exception) { "" }
 }

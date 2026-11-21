@@ -1,0 +1,60 @@
+# Noto animated emoji (Google, CC BY 4.0): Unicode (hex, space = sequence), name. Each must be in selection.json, so the deny list applies.
+1f600 | grinning face
+1f601 | beaming face with smiling eyes
+1f602 | face with tears of joy
+1f923 | rolling on the floor laughing
+1f642 | slightly smiling face
+1f609 | winking face
+1f60a | smiling face with smiling eyes
+1f607 | smiling face with halo
+1f970 | smiling face with hearts
+1f60d | smiling face with heart-eyes
+1f929 | star-struck
+1f60e | smiling face with sunglasses
+1f973 | partying face
+1f622 | crying face
+1f97a | pleading face
+1f631 | face screaming in fear
+1f914 | thinking face
+1f634 | sleeping face
+1f496 | sparkling heart
+1f495 | two hearts
+1f49e | revolving hearts
+1f493 | beating heart
+1f49c | purple heart
+1f44d | thumbs up
+1f44f | clapping hands
+1f44b | waving hand
+1f64c | raising hands
+1f4aa | flexed biceps
+1f91d | handshake
+1f44c | OK hand
+1f389 | party popper
+2728 | sparkles
+1f525 | fire
+1f31f | glowing star
+1f308 | rainbow
+1f31e | sun with face
+1f3c6 | trophy
+1f451 | crown
+1f381 | wrapped gift
+1f436 | dog face
+1f431 | cat face
+1f42d | mouse face
+1f439 | hamster
+1f430 | rabbit face
+1f98a | fox
+1f43b | bear
+1f43c | panda
+1f428 | koala
+1f42f | tiger face
+1f981 | lion
+1f984 | unicorn
+1f98b | butterfly
+1f422 | turtle
+1f42c | dolphin
+1f427 | penguin
+1f989 | owl
+1f438 | frog
+2764 fe0f | red heart
+270c fe0f | victory hand

@@ -13,6 +13,9 @@ class PrefsSettings(c: Context) : Settings {
     override var linked: Boolean get() = p.getBoolean("linked", false); set(v) = p.edit().putBoolean("linked", v).apply()
     override var adminGroupId: String get() = str("admin"); set(v) = p.edit().putString("admin", v).apply()
     override var sendReadReceipts: Boolean get() = p.getBoolean("receipts", true); set(v) = p.edit().putBoolean("receipts", v).apply()
+    override var recentStickers: List<String> get() = str("recent").split(",").filter { it.isNotEmpty() }; set(v) = p.edit().putString("recent", v.joinToString(",")).apply()
+    override fun bubbleColor(chat: String): String = str("bub_$chat", "green")
+    override fun setBubbleColor(chat: String, key: String) { p.edit().putString("bub_$chat", key).apply() }
     override var showMedia: Boolean get() = p.getBoolean("media", true); set(v) = p.edit().putBoolean("media", v).apply()
     override var photosAllowed: Boolean get() = p.getBoolean("photos", false); set(v) = p.edit().putBoolean("photos", v).apply()
     override var wifiOnlyVideos: Boolean get() = p.getBoolean("wifi_videos", true); set(v) = p.edit().putBoolean("wifi_videos", v).apply()

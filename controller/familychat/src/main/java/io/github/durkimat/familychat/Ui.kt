@@ -27,8 +27,21 @@ object Ui {
 
     fun dp(c: Context, v: Int) = (v * c.resources.displayMetrics.density + 0.5f).toInt()
 
-    fun shape(c: Context, fill: Int, radius: Int = 16, stroke: Int = 0): GradientDrawable = GradientDrawable().apply {
-        setColor(fill); cornerRadius = dp(c, radius).toFloat(); if (stroke != 0) setStroke(dp(c, 1), stroke)
+    fun shape(c: Context, fill: Int, radius: Int = 16, stroke: Int = 0, strokeDp: Int = 1): GradientDrawable = GradientDrawable().apply {
+        setColor(fill); cornerRadius = dp(c, radius).toFloat(); if (stroke != 0) setStroke(dp(c, strokeDp), stroke)
+    }
+
+    /** A chat bubble: 20 dp corners with a 6 dp corner on the side it comes from (bottom left for others, bottom right for the child). */
+    fun bubbleShape(c: Context, mine: Boolean, color: Int): GradientDrawable {
+        val big = dp(c, 20).toFloat(); val small = dp(c, 6).toFloat()
+        return GradientDrawable().apply { setColor(color); cornerRadii = if (mine) floatArrayOf(big, big, big, big, small, small, big, big) else floatArrayOf(big, big, big, big, big, big, small, small) }
+    }
+
+    /** A small text lying on a chat wallpaper (a name, a time): muted on light ones, light on dark ones, on a white chip on mid-tone ones, so it is readable on every wallpaper. */
+    fun metaText(c: Context, s: CharSequence, sp: Float, wallpaperKey: String, bold: Boolean = false): TextView = when (Themes.meta(wallpaperKey)) {
+        Themes.Meta.LIGHT -> text(c, s, sp, 0xFFE6EDF3.toInt(), bold)
+        Themes.Meta.CHIP -> text(c, s, sp, INK, bold).apply { background = shape(c, 0xE6FFFFFF.toInt(), 10); setPadding(dp(c, 8), dp(c, 2), dp(c, 8), dp(c, 2)) }
+        else -> text(c, s, sp, MUTED, bold)
     }
 
     fun text(c: Context, s: CharSequence, sp: Float = 17f, color: Int = INK, bold: Boolean = false): TextView = TextView(c).apply {

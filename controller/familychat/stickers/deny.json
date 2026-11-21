@@ -1,0 +1,16 @@
+{
+  "_comment": "Child-safety deny list. Matched (case-insensitive, as a regular expression) against each candidate's CLDR name, its keywords and its Unicode group. Anything that matches is never selected. When unsure, leave it out. Tested by StickerSelectionTest.",
+  "groups": ["Flags"],
+  "patterns": [
+    "\\b(beer|wine|cocktail|champagne|sake|tumbler|liquor|whisk(e)?y|drunk|alcohol|clinking|toast|bottle with popping cork|brandy|vodka|tequila)\\b",
+    "\\b(cigarette|smok(e|ing)|tobacco|pipe|cannabis|marijuana|joint|vape|hookah)\\b",
+    "\\b(gun|pistol|rifle|firearm|knife|dagger|sword|swords|bomb|grenade|bow and arrow|archery|axe|hammer|sickle|weapon|shield|crossbow|boomerang|hocho|cleaver|sling)\\b",
+    "\\b(pill|syringe|needle|drug|medicine|mushroom|inject(ion)?)\\b",
+    "\\b(dice|game die|slot machine|casino|gambl\\w*|joker|mahjong|playing card|flower playing cards|pool 8 ball|billiards|poker)\\b",
+    "\\b(eggplant|peach|kiss\\w*|lips|mouth|tongue|bikini|underwear|lingerie|brassiere|briefs|sex\\w*|erotic|adult|nude|naked|breast\\w*|butt|bottom|booty|bunny ears|sweat droplets|banana|cherries|hot face|smirking|couple|love hotel|wedding|bed|bath|shower|toilet|poo|poop|pregnan\\w*|heavy breathing|spicy|hot pepper|splashing)\\b",
+    "\\b(middle finger|reversed hand|vulgar|rude|swear\\w*|cursing|symbols on mouth|raised fist|fist|nail polish|horns|devil|imp|ogre|goblin|demon)\\b",
+    "\\b(skull|skeleton|crossbones|coffin|funeral|urn|grave|headstone|tombstone|death|dead|dying|zombie|ghost|corpse|blood|vampire|murder|kill\\w*|hang\\w*|noose|coffin|vomit\\w*|nauseated|sick|face vomiting|knocked out)\\b",
+    "\\b(flag|flags|banner|swastika|hammer and sickle|communism|cross mark|star of david|menorah|om|wheel of dharma|latin cross|orthodox cross|star and crescent|yin yang|dotted six-pointed star|ichthys|khanda|atom|peace symbol|religious|prayer|folded hands)\\b",
+    "\\b(politic\\w*|election|ballot|military|army|police|prison|handcuffs|jail|tank|rocket launcher|fire engine)\\b"
+  ]
+}

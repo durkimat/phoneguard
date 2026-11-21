@@ -7,6 +7,10 @@ internal class Memory : Settings {
     override var riskAccepted = false; override var childName = ""; override var parentName = ""; override var linked = false
     override var adminGroupId = ""; override var pin: PinStore.Saved? = null; override var pinFailures = 0; override var pinLockUntil = 0L
     override var allowedGroups: List<Group> = emptyList(); override var lastCommand = 0L; override var setupDone = false; override var commandsVersion = 0; override var sendReadReceipts = true
+    override var recentStickers: List<String> = emptyList()
+    private val bc = HashMap<String, String>()
+    override fun bubbleColor(chat: String) = bc[chat] ?: "green"
+    override fun setBubbleColor(chat: String, key: String) { bc[chat] = key }
     override var showMedia = true; override var photosAllowed = false; override var wifiOnlyVideos = true
     private val wp = HashMap<String, String>()
     override fun wallpaper(chat: String) = wp[chat] ?: "sand"

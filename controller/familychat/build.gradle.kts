@@ -37,4 +37,5 @@ dependencies {
     implementation(project(":wa-core"))
     implementation(files("../../wabridge/out/wabridge.aar"))
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

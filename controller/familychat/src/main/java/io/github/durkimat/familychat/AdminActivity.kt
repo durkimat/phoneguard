@@ -128,7 +128,7 @@ class AdminActivity : Activity() {
         body.addView(Ui.warning(c, "Please know the risks", AboutText.RISK))
         val ver = Ui.card(c).apply { addView(Ui.text(c, "Version", 17f, Ui.INK, true)); addView(Ui.text(c, "Family Chat " + AboutText.version(c), 17f), Ui.params(c = c, top = 4)) }
         body.addView(ver, Ui.params(c = c, top = 16))
-        val lic = Ui.card(c).apply { addView(Ui.text(c, "Open-source licences", 17f, Ui.INK, true)); addView(Ui.text(c, AboutText.LICENCES, 17f), Ui.params(c = c, top = 4)) }
+        val lic = Ui.card(c).apply { addView(Ui.text(c, "Open-source licences", 17f, Ui.INK, true)); addView(Ui.text(c, AboutText.LICENCES, 17f), Ui.params(c = c, top = 4)); addView(Ui.text(c, AboutText.STICKER_CREDITS, 17f), Ui.params(c = c, top = 8)) }
         body.addView(lic, Ui.params(c = c, top = 16))
         return Ui.screen(c, body, header = header("About", "Back") { show(Page.MENU) })
     }

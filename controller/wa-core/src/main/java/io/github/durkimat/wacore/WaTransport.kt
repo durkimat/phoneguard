@@ -61,7 +61,7 @@ interface WaTransport {
     /** A text message with the child's name in front, optionally quoting another message. Returns its id. A reaction by the child is this, with the emoji as the text. */
     fun sendReply(chat: String, text: String, quoteId: String, quoteSender: String, quoteText: String): String
     /** Sticker, photo and video: each goes with the labelling [WaLabels] says (a "Sent by <child>" line before a sticker, "<child>: caption" on a photo or video). Returns the id of the media message. */
-    fun sendSticker(chat: String, path: String, animated: Boolean): String
+    fun sendSticker(chat: String, path: String, animated: Boolean, label: Boolean): String
     fun sendPhoto(chat: String, path: String, caption: String, width: Int, height: Int): String
     fun sendVideo(chat: String, path: String, caption: String, seconds: Int, width: Int, height: Int): String
     /** Only messages this account sent can be edited or deleted for everyone (the bridge sends the keys as "from me"). */

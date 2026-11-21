@@ -8,6 +8,20 @@ They connect to WhatsApp as a linked device using the unofficial open-source lib
 licensed under the Mozilla Public License 2.0 (https://www.mozilla.org/MPL/2.0/). The library is used unmodified;
 its source is available at https://github.com/tulir/whatsmeow/tree/79dc2a8c33df.
 Family Chat also uses AndroidX Media3 Transformer and Effect 1.4.1 (Apache-2.0) to prepare videos for sending.
+Family Chat's sticker library (the stickers in its tray):
+ - Static stickers: Microsoft Fluent Emoji, 3D style (https://github.com/microsoft/fluentui-emoji, pinned at commit 1ffb34c752ecf5d402f04cfb4b392c77f57c54bc),
+   resized to 512 px and converted to WebP. MIT License, Copyright (c) Microsoft Corporation:
+   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the
+   Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+   and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be
+   included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+   LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+   IN THE SOFTWARE.
+ - Animated stickers: Noto Emoji, Google (https://googlefonts.github.io/noto-emoji-files/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/).
+   Changes made: resized to 256 px, every second frame kept, re-encoded as animated WebP.
+ - Sticker names and search keywords: Unicode CLDR, Copyright (c) Unicode, Inc., Unicode License v3 (https://www.unicode.org/license.txt), as supplied with Fluent Emoji's data.
+ - The Words, Happy and Animals sticker packs are original artwork made for this project.
 Other components: the Go standard library and golang.org/x modules (BSD-3-Clause), protobuf (BSD-3-Clause),
 gomobile (BSD-3-Clause), and the Android SDK libraries (Apache-2.0).
 (Before a release, regenerate this list from wabridge/go.sum.)
