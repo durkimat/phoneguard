@@ -169,3 +169,11 @@ class FlowLayout(c: Context) : ViewGroup(c) {
         }
     }
 }
+
+/** A column only as wide as its content, but never wider than [Rich.BUBBLE_MAX] of the width it is offered (a chat bubble with its name, reactions and time). */
+class CappedColumn(c: Context) : LinearLayout(c) {
+    override fun onMeasure(wSpec: Int, hSpec: Int) {
+        val offered = MeasureSpec.getSize(wSpec)
+        super.onMeasure(if (MeasureSpec.getMode(wSpec) == MeasureSpec.UNSPECIFIED) wSpec else MeasureSpec.makeMeasureSpec(Rich.bubbleCap(offered), MeasureSpec.AT_MOST), hSpec)
+    }
+}

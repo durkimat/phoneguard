@@ -13,6 +13,13 @@ object Rich {
 
     private val kinds = setOf("image", "sticker", "gif", "video")
 
+    /** A bubble is at most this share of the width of the chat. */
+    const val BUBBLE_MAX = 0.78f
+    fun bubbleCap(offered: Int): Int = (offered * BUBBLE_MAX).toInt()
+
+    /** Calls and the like that WhatsApp notes in a chat: shown as a small centred line, not a bubble. */
+    fun isSystem(m: WaMsg) = m.kind == "text" && !m.deleted && (m.body.startsWith("[call") || m.body.startsWith("[missed call"))
+
     /** Only a text message this phone sent, recently, and not already deleted. */
     fun canEdit(m: WaMsg, now: Long) = m.mine && m.mid.isNotEmpty() && !m.deleted && m.kind == "text" && now - m.date <= EDIT_WINDOW_MS
     /** Only a message this phone sent (it has WhatsApp's id because we sent it), never anyone else's. */

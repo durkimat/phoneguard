@@ -69,3 +69,14 @@ class VideoScaleTest {
         assertEquals(false to 720, Rich.videoScale(1920, 1080, 180))
     }
 }
+
+class BubbleTest {
+    @Test fun aBubbleIsAtMost78PercentOfTheWidth() {
+        assertEquals(280, Rich.bubbleCap(360)); assertEquals(0, Rich.bubbleCap(0)); assertEquals(624, Rich.bubbleCap(800)) // phone and landscape
+    }
+    @Test fun callNotesAreSystemLinesAndNothingElseIs() {
+        fun m(b: String, k: String = "text") = io.github.durkimat.wacore.WaMsg(b, 0, false, "", "x", k)
+        assertTrue(Rich.isSystem(m("[call declined]"))); assertTrue(Rich.isSystem(m("[missed call]")))
+        assertFalse(Rich.isSystem(m("[photo] hi", "image"))); assertFalse(Rich.isSystem(m("call me")))
+    }
+}

@@ -115,35 +115,48 @@ class ConversationActivity : Activity() {
     private fun row(m: WaMsg, all: List<WaMsg>, dark: Boolean): View {
         val c = this
         val mine = m.mine
-        val item = Ui.col(c)
+        val muted = if (dark) 0xFFD6DEE6.toInt() else Ui.MUTED
+        // a system line ("[call declined]"): small, centred, no bubble
+        if (Rich.isSystem(m)) return Ui.text(c, m.body, 13f, muted).apply { gravity = Gravity.CENTER; setPadding(Ui.dp(c, 12), Ui.dp(c, 2), Ui.dp(c, 12), Ui.dp(c, 2)) }
         val sticker = m.kind == "sticker" && !m.deleted && Fc.settings.showMedia
-        if (!mine && m.sender.isNotBlank()) item.addView(Ui.text(c, m.sender, 14f, if (dark) 0xFFD6DEE6.toInt() else Ui.MUTED, true).apply { setPadding(Ui.dp(c, 4), 0, 0, Ui.dp(c, 4)) })
+        // the column is only as wide as its widest part (the bubble hugs its text or picture) and never wider than 78% of the row; the row puts it left or right
+        val item = CappedColumn(c).apply { orientation = LinearLayout.VERTICAL; gravity = if (mine) Gravity.END else Gravity.START }
+        if (!mine && m.sender.isNotBlank()) item.addView(Ui.text(c, m.sender, 14f, muted, true).apply { setPadding(Ui.dp(c, 4), 0, 0, Ui.dp(c, 4)) }, LinearLayout.LayoutParams(-2, -2))
         val bubble = Ui.col(c).apply {
-            if (!sticker) { background = Ui.shape(c, if (mine) Ui.MINE else Ui.CARD, 16); setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8)) }
+            if (!sticker) { background = bubbleShape(c, mine); setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8)) }
         }
-        if (!m.deleted && m.quoteText.isNotBlank() || m.quoteId.isNotEmpty() && !m.deleted) quoteBlock(m, all)?.let { bubble.addView(it, Ui.params(c = c, top = 0)) }
-        if (m.deleted) bubble.addView(Ui.text(c, "This message was deleted", 16f, Ui.MUTED).apply { setTypeface(typeface, Typeface.ITALIC) })
-        else media(m)?.let { bubble.addView(it, Ui.params(c = c, top = if (bubble.childCount > 0) 6 else 0)) }
+        if (!m.deleted && (m.quoteText.isNotBlank() || m.quoteId.isNotEmpty())) quoteBlock(m, all)?.let { bubble.addView(it, LinearLayout.LayoutParams(-2, -2)) }
+        if (m.deleted) bubble.addView(Ui.text(c, "This message was deleted", 16f, Ui.MUTED).apply { setTypeface(typeface, Typeface.ITALIC) }, LinearLayout.LayoutParams(-2, -2))
+        else media(m)?.let { bubble.addView(it, Ui.params(w = it.layoutParams?.width ?: -2, h = it.layoutParams?.height ?: -2, c = c, top = if (bubble.childCount > 0) 6 else 0)) }
         if (!m.deleted) {
             val text = Rich.caption(m)
-            val shown = if (m.kind in setOf("image", "sticker", "gif", "video") && (!Fc.settings.showMedia && m.kind != "video" || m.kind == "video" && !Fc.settings.showMedia)) Rich.marker(m) + (if (text.isNotBlank()) " $text" else "") else text
-            if (shown.isNotBlank()) bubble.addView(Ui.text(c, shown, 17f, Ui.INK), Ui.params(c = c, top = if (bubble.childCount > 0) 6 else 0))
-            val foot = (if (mine) Ui.timeText(m.date) else "") + (if (m.edited) (if (mine) " · edited" else "edited") else "")
-            if (foot.isNotEmpty() && !sticker) bubble.addView(Ui.text(c, foot, 13f, Ui.MUTED).apply { gravity = Gravity.END }, Ui.params(c = c, top = 4))
+            val mediaOff = m.kind in setOf("image", "sticker", "gif", "video") && !Fc.settings.showMedia
+            val shown = if (mediaOff) Rich.marker(m) + (if (text.isNotBlank()) " $text" else "") else text
+            if (shown.isNotBlank()) bubble.addView(Ui.text(c, shown, 17f, Ui.INK), Ui.params(w = -2, c = c, top = if (bubble.childCount > 0) 6 else 0))
         }
         bubble.isLongClickable = true
         bubble.setOnLongClickListener { if (!m.deleted) actions(m); true }
-        item.addView(bubble)
+        item.addView(bubble, LinearLayout.LayoutParams(-2, -2))
         if (m.reactions.isNotEmpty() && !m.deleted) {
             val rr = LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; setPadding(Ui.dp(c, 4), Ui.dp(c, 4), 0, 0) }
             for ((e, n) in Rich.groupReactions(m.reactions)) rr.addView(Ui.text(c, if (n > 1) "$e $n" else e, 15f, Ui.INK).apply {
                 setPadding(Ui.dp(c, 10), Ui.dp(c, 4), Ui.dp(c, 10), Ui.dp(c, 4)); background = Ui.shape(c, Ui.CARD, 14, Ui.BORDER)
             }, Ui.params(w = -2).also { it.rightMargin = Ui.dp(c, 6) })
-            item.addView(rr)
+            item.addView(rr, LinearLayout.LayoutParams(-2, -2))
         }
-        val lp = Ui.params(w = -2, c = c, top = 8).also { it.gravity = if (mine) Gravity.END else Gravity.START }
-        item.layoutParams = lp
-        return item
+        // the time sits under the child's bubble; "edited" under anyone's
+        val foot = (if (mine && !m.deleted) Ui.timeText(m.date) else "") + (if (m.edited && !m.deleted) (if (mine) " \u00B7 edited" else "edited") else "")
+        if (foot.isNotEmpty()) item.addView(Ui.text(c, foot, 13f, muted).apply { setPadding(Ui.dp(c, 4), Ui.dp(c, 3), Ui.dp(c, 4), 0) }, LinearLayout.LayoutParams(-2, -2))
+        return LinearLayout(c).apply { orientation = LinearLayout.HORIZONTAL; gravity = if (mine) Gravity.END else Gravity.START; addView(item, LinearLayout.LayoutParams(-2, -2)) }
+    }
+
+    /** 20 dp corners with a small 6 dp corner on the side the message comes from: bottom left for others, bottom right for the child. */
+    private fun bubbleShape(c: android.content.Context, mine: Boolean): android.graphics.drawable.GradientDrawable {
+        val big = Ui.dp(c, 20).toFloat(); val small = Ui.dp(c, 6).toFloat()
+        return android.graphics.drawable.GradientDrawable().apply {
+            setColor(if (mine) Ui.MINE else Ui.CARD)
+            cornerRadii = if (mine) floatArrayOf(big, big, big, big, small, small, big, big) else floatArrayOf(big, big, big, big, big, big, small, small)
+        }
     }
 
     private fun quoteBlock(m: WaMsg, all: List<WaMsg>): View? {
