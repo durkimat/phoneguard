@@ -47,6 +47,8 @@ interface WaTransport {
     /** The admin group (by id) that commands are read from, and the newest command already applied. Empty id switches commands off. */
     fun setAdmin(groupId: String, lastApplied: Long)
     fun sendAdmin(text: String)
+    /** Who may send commands in the admin group: false (default, Phone Guard) only the linked account from its other devices; true (Family Chat) anyone in the group, never this device. */
+    fun setAdminAnyMember(on: Boolean)
     /** The joined groups, one "id|name" per line. */
     fun groups(): String
 

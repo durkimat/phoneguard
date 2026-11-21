@@ -106,6 +106,8 @@ type Bridge struct {
 	ownName     string          // what the account's own messages in a group are called (instead of "Me")
 	admin       string          // the admin group's id (never shown, never an allowed group), or ""
 	adminLast   int64           // the newest command already applied (unix seconds)
+	adminAny    bool            // any member of the admin group may send commands (Family Chat); false: only the linked account's other devices (Phone Guard)
+	adminSeen   map[string]bool // ids of commands already applied, so an equal-second or replayed message is neither lost nor applied twice
 	allowAll    bool
 	rejectCalls bool
 	gnames      map[string]string // group id -> name, cached
@@ -288,12 +290,41 @@ func (b *Bridge) SetAdmin(groupID string, lastApplied int64) {
 // AckPrefix starts every acknowledgement the bridge writes in the admin group, so it can never be read back as a command.
 const AckPrefix = "» "
 
-// acceptCommand is the whole rule for taking a message in the admin group as a command: it must be the parent's own account
-// (fromMe), written on another device than this one (this app is itself a linked device, so without this the child's own app could
-// type commands), live (not history), newer than the last applied command, not empty, and not one of our own acknowledgements.
-func acceptCommand(fromMe bool, senderDevice, ourDevice uint16, history bool, ts, last int64, text string) bool {
+// SetAdminAnyMember says who may send commands in the admin group. false (the default, Phone Guard): only the linked account, from one of its
+// OTHER devices. true (Family Chat): anyone in the group (WhatsApp itself only lets members post there), still never this device.
+func (b *Bridge) SetAdminAnyMember(on bool) {
+	b.mu.Lock()
+	b.adminAny = on
+	b.mu.Unlock()
+}
+
+// commandVerdict is the whole rule for taking a message in the admin group as a command, with the reason when it is not one. It must be live
+// (not history), not older than the last applied command (the same second is fine: ids tell repeats apart), not empty, not one of our own
+// acknowledgements, and never sent by THIS device (this app is itself a linked device, so without that its own acks or the child's app could act
+// as commands). With anyMember any other sender is accepted (another WhatsApp account, or the linked account's other devices); otherwise only the
+// linked account (fromMe). Membership is WhatsApp's business: no lookup is made, so phone-number and LID addresses make no difference.
+func commandVerdict(anyMember, fromMe bool, senderDevice, ourDevice uint16, history bool, ts, last int64, text string) (bool, string) {
 	text = strings.TrimSpace(text)
-	return fromMe && !history && senderDevice != ourDevice && ts > last && text != "" && !strings.HasPrefix(text, strings.TrimSpace(AckPrefix))
+	switch {
+	case history:
+		return false, "history"
+	case text == "":
+		return false, "empty"
+	case strings.HasPrefix(text, strings.TrimSpace(AckPrefix)):
+		return false, "our own reply"
+	case fromMe && senderDevice == ourDevice:
+		return false, "sent by this device"
+	case ts < last:
+		return false, "older than the last command"
+	case !anyMember && !fromMe:
+		return false, "not the linked account"
+	}
+	return true, ""
+}
+
+func acceptCommand(anyMember, fromMe bool, senderDevice, ourDevice uint16, history bool, ts, last int64, text string) bool {
+	ok, _ := commandVerdict(anyMember, fromMe, senderDevice, ourDevice, history, ts, last, text)
+	return ok
 }
 
 // ourDevice is this linked device's number; 0xFFFF (no device) before the account is linked.
@@ -682,12 +713,36 @@ func (b *Bridge) deliver(v *events.Message, history bool) {
 		admin, last := b.admin, b.adminLast
 		b.mu.Unlock()
 		if admin != "" && v.Info.Chat.User == admin { // the admin group: commands, never a chat
-			if acceptCommand(v.Info.IsFromMe, v.Info.Sender.Device, b.ourDevice(), history, v.Info.Timestamp.Unix(), last, text) {
-				b.mu.Lock()
-				b.adminLast = v.Info.Timestamp.Unix()
-				b.mu.Unlock()
-				b.l.OnCommand(strings.TrimSpace(text), v.Info.Timestamp.Unix(), v.Info.ID)
+			b.mu.Lock()
+			any, seen := b.adminAny, b.adminSeen[v.Info.ID] && v.Info.ID != ""
+			b.mu.Unlock()
+			ts := v.Info.Timestamp.Unix()
+			ok, why := commandVerdict(any, v.Info.IsFromMe, v.Info.Sender.Device, b.ourDevice(), history, ts, last, text)
+			if ok && v.Info.ID == "" && ts == last { // no id to tell a repeat from a new message: the older strict rule
+				ok, why = false, "already applied"
 			}
+			if ok && seen {
+				ok, why = false, "already applied"
+			}
+			if !ok {
+				b.l.OnLog("admin: message ignored (" + why + ")")
+				return
+			}
+			b.mu.Lock()
+			now := time.Now().Unix()
+			if ts > now { // a clock running ahead must never push the "last applied" mark into the future, which would silence every later command
+				ts = now
+			}
+			b.adminLast = ts
+			if b.adminSeen == nil || len(b.adminSeen) > 200 {
+				b.adminSeen = map[string]bool{}
+			}
+			if v.Info.ID != "" {
+				b.adminSeen[v.Info.ID] = true
+			}
+			b.mu.Unlock()
+			b.l.OnLog("admin: command accepted")
+			b.l.OnCommand(strings.TrimSpace(text), v.Info.Timestamp.Unix(), v.Info.ID)
 			return
 		}
 		name := b.groupName(v.Info.Chat)

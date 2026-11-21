@@ -31,6 +31,8 @@ object Fc {
     @Volatile private var wantConnected = false
     /** The conversation on screen, if any: it gets no notification, and what arrives in it is read at once. */
     @Volatile var openChat: String? = null
+    /** What the bridge last said about a message in the admin group ("command accepted", "message ignored (history)"), for the admin help screen. */
+    @Volatile var adminNote: String = ""
 
     fun init(c: Context) { if (this::app.isInitialized) return; app = c.applicationContext; settings = PrefsSettings(app) }
 
@@ -74,7 +76,7 @@ object Fc {
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) { }
                 override fun onRead(chat: String, ts: Long) { }
                 override fun onCommand(text: String, ts: Long, id: String) { Thread { command(text, ts) }.start() }
-                override fun onLog(line: String) { }
+                override fun onLog(line: String) { if (line.startsWith("admin:")) { adminNote = "${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())} ${line.removePrefix("admin: ")}"; fire() } }
             })
             bridge = b
             status = if (b.isPaired) "linked" else "not linked"
@@ -95,6 +97,7 @@ object Fc {
             b.setTag(s.childName)
             b.setOwnName(s.parentName)
             b.setAdmin(s.adminGroupId, s.lastCommand)
+            b.setAdminAnyMember(true) // everyone in the admin group may send commands (WhatsApp only lets members post); never this device
             b.setRejectCalls(true)
             store().keepOnly(emptySet(), emptySet(), false, s.allowedGroups.map { it.id.lowercase() }.toSet())
         } catch (_: Throwable) { }
@@ -206,7 +209,7 @@ object Fc {
 
     private fun command(text: String, ts: Long) {
         val b = bridge ?: return
-        settings.lastCommand = ts
+        settings.lastCommand = minOf(ts, now()) // never ahead of the clock: applyConfig hands this back to the bridge, and a mark in the future would silence every later command
         val br = brain ?: AdminBrain(
             child = { settings.childName }, adminId = { settings.adminGroupId },
             allowed = { settings.allowedGroups },

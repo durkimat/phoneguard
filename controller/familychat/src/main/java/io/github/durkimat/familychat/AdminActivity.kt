@@ -103,17 +103,21 @@ class AdminActivity : Activity() {
         val body = Ui.pad(c)
         body.addView(Ui.text(c, "In the parent's own WhatsApp, never on ${s.childName}'s screen", 15f, Ui.MUTED))
         body.addView(Ui.title(c, WaNames.adminName(s)).apply { textSize = 24f }, Ui.params(c = c, top = 6))
-        body.addView(Ui.text(c, "Send an instruction in this group from your own phone. Family Chat answers in the group, each reply starting with ».", 17f), Ui.params(c = c, top = 12))
+        body.addView(Ui.text(c, "Send an instruction in this group. Family Chat answers in the group, each reply starting with ». Everyone in this group can send instructions, so only add adults you trust. Never add ${s.childName}'s own number.", 17f), Ui.params(c = c, top = 12))
         val ex = Ui.card(c)
         fun you(t: String) = Ui.text(c, t, 17f).apply { setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8)); background = Ui.shape(c, Ui.ACCENT_SOFT, 12) }
         fun reply(t: String) = Ui.text(c, "» $t", 17f).apply { setPadding(Ui.dp(c, 12), Ui.dp(c, 8), Ui.dp(c, 12), Ui.dp(c, 8)); background = Ui.shape(c, Ui.THEIRS, 12) }
         ex.addView(you("add group Cousins")); ex.addView(reply("Added: Cousins"), Ui.params(c = c, top = 6))
+        ex.addView(Ui.text(c, "Dad", 13f, Ui.MUTED, true), Ui.params(c = c, top = 12)); ex.addView(you("remove group Cousins"), Ui.params(c = c, top = 2)); ex.addView(reply("Removed: Cousins"), Ui.params(c = c, top = 6))
         ex.addView(you("groups"), Ui.params(c = c, top = 12)); ex.addView(reply("${s.childName} can use: Family, Cousins"), Ui.params(c = c, top = 6))
         body.addView(ex, Ui.params(c = c, top = 16))
         val cmds = Ui.card(c)
         cmds.addView(Ui.text(c, "Commands", 17f, Ui.INK, true))
         for (line in io.github.durkimat.wacore.WaAcks.commandLines(true)) cmds.addView(Ui.text(c, line, 17f, Ui.INK), Ui.params(c = c, top = 6))
         body.addView(cmds, Ui.params(c = c, top = 16))
+        // for finding out why a command got no answer
+        val seen = (if (s.lastCommand > 0) "Last command accepted: ${Ui.timeText(s.lastCommand * 1000)}\n" else "No command accepted yet\n") + (if (Fc.adminNote.isNotEmpty()) "Last admin message: ${Fc.adminNote}\n" else "") + "Connection: ${if (Fc.isConnected()) "up" else "down"}"
+        body.addView(Ui.text(c, seen, 14f, Ui.MUTED), Ui.params(c = c, top = 16))
         return Ui.screen(c, body, Ui.footer(c, Ui.button(c, "Back", primary = false) { show(Page.MENU) }))
     }
 

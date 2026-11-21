@@ -29,6 +29,7 @@ class WhatsmeowTransport private constructor(private val b: Bridge) : WaTranspor
     override fun setOwnName(name: String) = b.setOwnName(name)
     override fun setAdmin(groupId: String, lastApplied: Long) = b.setAdmin(groupId, lastApplied)
     override fun sendAdmin(text: String) = b.sendAdmin(text)
+    override fun setAdminAnyMember(on: Boolean) = b.setAdminAnyMember(on)
     override fun groups(): String = b.groups()
 
     @Volatile private var child = ""

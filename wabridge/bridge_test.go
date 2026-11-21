@@ -577,3 +577,79 @@ type whoRec struct {
 }
 
 func (w *whoRec) OnMessage(m *Message) { *w.who = append(*w.who, m.Sender) }
+
+func TestAnyMemberOfTheAdminGroupMayGiveCommandsWhenSwitchedOn(t *testing.T) {
+	b, r := bridge()
+	b.SetAdmin("adm", 1000)
+	b.SetAdminAnyMember(true)
+	// another WhatsApp account (Dad): not fromMe, any device
+	b.deliver(adminMsg(b, "adm", false, 0, 2000, "help"), false)
+	// the linked account from another device
+	b.deliver(adminMsg(b, "adm", true, 0, 2001, "groups"), false)
+	if len(r.msgs) != 2 || r.msgs[0] != "cmd:help@2000" || r.msgs[1] != "cmd:groups@2001" {
+		t.Fatalf("got %v", r.msgs)
+	}
+	r.msgs = nil
+	for name, m := range map[string]*events.Message{
+		"our own device":          adminMsg(b, "adm", true, b.ourDevice(), 3000, "help"),
+		"our own acknowledgement": adminMsg(b, "adm", false, 0, 3000, AckPrefix+"Added: x"),
+		"older than the last one": adminMsg(b, "adm", false, 0, 1500, "help"),
+		"empty":                   adminMsg(b, "adm", false, 0, 3000, "  "),
+	} {
+		b.deliver(m, false)
+		if len(r.msgs) != 0 {
+			t.Fatalf("%s was taken as a command: %v", name, r.msgs)
+		}
+	}
+	b.deliver(adminMsg(b, "adm", false, 0, 3000, "help"), true) // history
+	if len(r.msgs) != 0 {
+		t.Fatalf("history was taken as a command: %v", r.msgs)
+	}
+}
+
+func TestOnlyTheLinkedAccountMayGiveCommandsByDefault(t *testing.T) {
+	b, r := bridge()
+	b.SetAdmin("adm", 0) // Phone Guard: the switch is never turned on
+	b.deliver(adminMsg(b, "adm", false, 0, 2000, "help"), false)
+	if len(r.msgs) != 0 {
+		t.Fatalf("another member's message was taken as a command: %v", r.msgs)
+	}
+}
+
+func TestTwoCommandsInTheSameSecondAreBothApplied(t *testing.T) {
+	b, r := bridge()
+	b.SetAdmin("adm", 0)
+	b.SetAdminAnyMember(true)
+	a := adminMsg(b, "adm", false, 0, 2000, "add group Football")
+	a.Info.ID = "A1"
+	c := adminMsg(b, "adm", false, 0, 2000, "2")
+	c.Info.ID = "A2"
+	b.deliver(a, false)
+	b.deliver(c, false)
+	b.deliver(c, false) // a replay of the second is not applied again
+	if len(r.msgs) != 2 {
+		t.Fatalf("got %v", r.msgs)
+	}
+}
+
+func TestAClockAheadNeverSilencesLaterCommands(t *testing.T) {
+	b, r := bridge()
+	b.SetAdmin("adm", 0)
+	b.SetAdminAnyMember(true)
+	future := time.Now().Unix() + 86400
+	f := adminMsg(b, "adm", false, 0, future, "help")
+	f.Info.ID = "F1"
+	b.deliver(f, false)
+	b.mu.Lock()
+	last := b.adminLast
+	b.mu.Unlock()
+	if last > time.Now().Unix() {
+		t.Fatalf("the last-applied mark was put in the future: %d", last)
+	}
+	n := adminMsg(b, "adm", false, 0, time.Now().Unix(), "groups")
+	n.Info.ID = "N1"
+	b.deliver(n, false)
+	if len(r.msgs) != 2 {
+		t.Fatalf("a later command was ignored: %v", r.msgs)
+	}
+}

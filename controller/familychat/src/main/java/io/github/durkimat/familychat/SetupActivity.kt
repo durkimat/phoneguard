@@ -128,7 +128,7 @@ class SetupActivity : Activity() {
         val c = this
         val name = flow.adminGroupName()
         val body = page("Make the admin group", "This is a private group where you send instructions to Family Chat. ${Fc.settings.childName} never sees it.")
-        body.addView(Ui.text(c, "1. In WhatsApp, make a new group with one person you trust.\n2. Name it $name.\n3. You can remove that person afterwards. Only your own account can give instructions.\n4. Never add ${Fc.settings.childName}'s own number.", 17f), Ui.params(c = c, top = 16))
+        body.addView(Ui.text(c, "1. In WhatsApp, make a new group with one person you trust.\n2. Name it $name.\n3. Everyone in this group can send instructions, so only add adults you trust. Never add ${Fc.settings.childName}'s own number.\n4. You can remove the person you started the group with afterwards, if you like.", 17f), Ui.params(c = c, top = 16))
         body.addView(Ui.text(c, "Groups found starting “${io.github.durkimat.wacore.WaCommands.ADMIN_PREFIX}”", 17f, Ui.INK, true), Ui.params(c = c, top = 20))
         val card = Ui.card(c); body.addView(card, Ui.params(c = c, top = 8))
         var picked: String? = null
