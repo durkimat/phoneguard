@@ -1562,3 +1562,10 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 - Bug: holding the power button vibrated but showed no Power off / Restart (found on the J36 by the PC, 2026-11-21). Cause: the image's window manager (patch 0021) starts the app's own power menu with an implicit intent (action io.github.durkimat.phoneguard.POWER_MENU), but the manifest filter had no android.intent.category.DEFAULT, so the start returned -91 (START_INTENT_NOT_RESOLVED). Present in 0.4.78 to 0.4.82. The stock-menu fallback also did not appear after the failed start.
 - Fix: the DEFAULT category in the filter (activity stays unexported; the system uid can start it). Test: `PowerMenuManifestTest`. App-only, no image change.
 - Later, image side (not built): patch 0021 should start the explicit component PowerMenuActivity and fall back to the stock menu at once when the start fails, not on a second long press; check that the failed start really reaches the fallback.
+
+## Media and modularisation (owner go, 2026-11-25): plan in docs/modularisation-plan.md
+- Wanted: render photos and video from WhatsApp and elsewhere, emoji and stickers in WhatsApp and other messages, and a gallery of what is on the phone, in Phone Guard's own Nokia UI. Today the screens show `[photo]` style markers; the Phone Guard camera has a gallery of its own pictures only (Gallery2 is removed from the image).
+- Decisions: no shared look with Family Chat; full sticker library in Phone Guard (13 MB); a bigger image is fine (stickers about 13 MB; the emoji font is probably already in the image, check `ls /system/fonts | grep -i emoji`); no restriction on who may send pictures to the child for now.
+- Slice 1 done (uncommitted, branch refactor/media-modules): `:media` module extracted from Family Chat. Next: slice 2 the gallery, slice 3 media in the WhatsApp screens, slice 4 emoji and sticker tray.
+- Open design: WhatsApp mode 3 (supervised linked parent account with a control group, as Family Chat does) versus the companion; see the plan's last section.
+

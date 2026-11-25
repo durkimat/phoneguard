@@ -1,5 +1,6 @@
 package io.github.durkimat.familychat
 
+import io.github.durkimat.media.Rich
 import android.app.Activity
 import android.content.Context
 import android.graphics.Canvas

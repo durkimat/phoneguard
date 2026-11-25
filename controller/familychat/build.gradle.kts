@@ -30,11 +30,8 @@ android {
 }
 
 dependencies {
-    // the video transcoder (Apache-2.0): H.264/AAC, scaled to 720p, for videos the child sends
-    implementation("androidx.media3:media3-transformer:1.4.1")
-    implementation("androidx.media3:media3-effect:1.4.1")
-    implementation("androidx.media3:media3-common:1.4.1")
     implementation(project(":wa-core"))
+    implementation(project(":media"))
     implementation(files("../../wabridge/out/wabridge.aar"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

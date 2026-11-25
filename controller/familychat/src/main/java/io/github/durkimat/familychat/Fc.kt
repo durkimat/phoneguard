@@ -1,5 +1,9 @@
 package io.github.durkimat.familychat
 
+import io.github.durkimat.media.Rich
+import io.github.durkimat.media.Media
+import io.github.durkimat.media.StickerLibrary
+import io.github.durkimat.media.Sticker
 import android.app.Application
 import android.content.Context
 import android.os.Handler
@@ -62,7 +66,7 @@ object Fc {
                     // this phone's own sends are kept by send(); a message from our own account here comes from the parent's phone, so it shows under the parent's name
                     if (m.fromMe) st.add(m.chat, m.chatName, settings.parentName, "", m.id, m.text, m.ts, mine = false, keep = KEEP, history = m.history, read = true, extra = m.extra)
                     else st.add(m.chat, m.chatName, m.sender, m.senderId, m.id, m.text, m.ts, mine = false, keep = KEEP, history = m.history, extra = m.extra)
-                    if (m.extra.mediaPath.isNotEmpty()) main.post { Thread { Media.cleanup(app) }.start() }
+                    if (m.extra.mediaPath.isNotEmpty()) main.post { Thread { Media.cleanup(app, store().mediaPathsInUse()) }.start() }
                     // a notification only for a live message from someone else, in an allowed group (never the child's own, never the history sync, never the admin group)
                     if (!m.fromMe && !m.history && openChat != m.chat && settings.allowedGroups.any { "g${it.id}" == m.chat }) Notifier.message(app, m.chat, m.chatName.ifBlank { settings.allowedGroups.firstOrNull { "g${it.id}" == m.chat }?.name ?: "" }, m.sender, m.text)
                     if (openChat == m.chat && !m.fromMe) readChat(m.chat)

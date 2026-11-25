@@ -1,4 +1,4 @@
-package io.github.durkimat.familychat
+package io.github.durkimat.media
 
 import io.github.durkimat.wacore.WaMsg
 import io.github.durkimat.wacore.WaReaction

@@ -1,4 +1,4 @@
-package io.github.durkimat.familychat
+package io.github.durkimat.media
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -72,12 +72,11 @@ object Media {
         Triple(out, bmp.width, bmp.height)
     } catch (_: Throwable) { null }
 
-    /** Removes media files no message points at any more, and the oldest ones beyond the size limit (their messages show a plain marker or can be fetched again). */
-    fun cleanup(c: Context) {
+    /** Removes media files not in [used] (the paths messages still point at) and not our own sends, and the oldest ones beyond the size limit (their messages show a plain marker or can be fetched again). */
+    fun cleanup(c: Context, used: Set<String>) {
         try {
-            val dir = File(Fc.store().let { c.filesDir }, "wa/media")
+            val dir = File(c.filesDir, "wa/media")
             if (!dir.isDirectory) return
-            val used = Fc.store().mediaPathsInUse()
             val files = dir.listFiles()?.filter { it.isFile } ?: return
             for (f in files) if (f.absolutePath !in used && !f.name.startsWith("own-")) f.delete()
             var total = dir.listFiles()?.sumOf { it.length() } ?: 0L

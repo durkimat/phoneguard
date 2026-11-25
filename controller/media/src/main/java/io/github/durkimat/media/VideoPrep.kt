@@ -1,4 +1,4 @@
-package io.github.durkimat.familychat
+package io.github.durkimat.media
 
 import android.content.Context
 import android.media.MediaCodec

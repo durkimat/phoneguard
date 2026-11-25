@@ -1,5 +1,7 @@
 package io.github.durkimat.familychat
 
+import io.github.durkimat.media.Media
+import io.github.durkimat.media.VideoPrep
 import android.app.Activity
 import android.net.Uri
 import android.os.Bundle
@@ -59,8 +61,9 @@ class SendActivity : Activity() {
             if (video) {
                 status.text = "Preparing video…"
                 VideoPrep.run(c, uri, Media.dir(c, "outgoing"), { p -> status.text = "Sending video… $p%" }) { d ->
-                    if (d.file == null) { fail(err, status, send, d.error ?: "That video could not be sent.") }
-                    else Thread { val r = Fc.sendVideo(chat, d.file, text, d.seconds, d.width, d.height); runOnUiThread { if (r.isEmpty()) finish() else fail(err, status, send, r) } }.start()
+                    val file = d.file
+                    if (file == null) { fail(err, status, send, d.error ?: "That video could not be sent.") }
+                    else Thread { val r = Fc.sendVideo(chat, file, text, d.seconds, d.width, d.height); runOnUiThread { if (r.isEmpty()) finish() else fail(err, status, send, r) } }.start()
                 }
             } else {
                 status.text = "Sending…"
