@@ -101,14 +101,14 @@ object LauncherData {
         val pkgs = Enforcer.launcherPackages(c) - notInMenu - c.packageName - (if (useRealWhatsApp(c)) emptySet() else setOf(WHATSAPP))
         return pkgs.map { MenuItem(it, if (it == MESSAGES) "Messages" else try { pm.getApplicationLabel(pm.getApplicationInfo(it, 0)).toString() } catch (_: Exception) { it }) }
             .sortedWith(compareBy({ val i = preferred.indexOf(it.pkg); if (i < 0) Int.MAX_VALUE else i }, { it.label.lowercase() })) +
-            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (whereShown(c)) listOf(MenuItem(WHERE_PKG, "Navigate")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(MAIL_PKG, "Email")) else emptyList()) + listOf(MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(CLOCK_PKG, "Clock"))
+            (if (musicShown(c)) listOf(MenuItem(MUSIC_PKG, "Music")) else emptyList()) + (if (whereShown(c)) listOf(MenuItem(WHERE_PKG, "Navigate")) else emptyList()) + (if (notesShown(c)) listOf(MenuItem(NOTES_PKG, "Notifications")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(RUNNING_PKG, "Running Apps")) else emptyList()) + (if (cameraAllowed(c)) listOf(MenuItem(CAMERA_PKG, "Camera"), MenuItem(GALLERY_PKG, "Gallery")) else emptyList()) + (if (WeatherStore.hasLocation(c)) listOf(MenuItem(WEATHER_PKG, "Weather")) else emptyList()) + (if (musicShown(c)) listOf(MenuItem(MAIL_PKG, "Email")) else emptyList()) + listOf(MenuItem(CALENDAR_PKG, "Calendar"), MenuItem(GAMES_PKG, "Classic Games"), MenuItem(CALLLOG_PKG, "Call log"), MenuItem(CALC_PKG, "Calculator"), MenuItem(SETTINGS_PKG, "Settings"), MenuItem(CLOCK_PKG, "Clock"))
     }
 
     /** What the main menu lists: the phone basics, the apps a parent pinned, "Android Apps" if any are left and the mode allows touch, then the built-ins. */
     /** "Navigate" is offered when the phone is paired to the Worker (which does the place and journey lookups), the mode is not locked to one app and the mode allows it (`whereTo` in the synced config, absent = on). It sits after Classic Games so the digit keys of the other items stay where they were. */
     fun whereShown(c: Context): Boolean = musicShown(c) && io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(c) && Engine.whereTo(Store.config(c), Clock.now())
 
-    private val builtIn = setOf(EXTRAS_PKG, WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG, CLOCK_PKG)
+    private val builtIn = setOf(EXTRAS_PKG, WHERE_PKG, MAIL_PKG, CALENDAR_PKG, MUSIC_PKG, NOTES_PKG, RUNNING_PKG, CAMERA_PKG, GALLERY_PKG, WEATHER_PKG, GAMES_PKG, CALLLOG_PKG, CALC_PKG, SETTINGS_PKG, CLOCK_PKG)
 
     /**
      * The main menu (a 3 x 3 grid, nine at most), in the order the numbers 1 to 9 reach: Phone, Messages, Contacts (where the mode allows those apps), Calendar,
@@ -127,7 +127,7 @@ object LauncherData {
         val pins = pinned.mapNotNull { p -> apps.firstOrNull { it.pkg == p && it.pkg !in preferred } }
         val others = apps - preferred.mapNotNull { p -> apps.firstOrNull { it.pkg == p } }.toSet() - pins.toSet()
         fun one(pkg: String) = all.filter { it.pkg == pkg }
-        return one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + pins + one(WHERE_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps")))
+        return one(WEATHER_PKG) + one(GAMES_PKG) + one(CALC_PKG) + one(GALLERY_PKG) + pins + one(WHERE_PKG) + (if (others.isEmpty() || !androidApps) emptyList() else listOf(MenuItem(APPS_PKG, "Android Apps")))
     }
 
     /** The built-in entries that live inside other screens (Messages: Notices and Email; Settings: Running Apps; the Phone screen: Call log), where the mode shows them. */

@@ -1568,4 +1568,5 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 - Decisions: no shared look with Family Chat; full sticker library in Phone Guard (13 MB); a bigger image is fine (stickers about 13 MB; the emoji font is probably already in the image, check `ls /system/fonts | grep -i emoji`); no restriction on who may send pictures to the child for now.
 - Slice 1 done (uncommitted, branch refactor/media-modules): `:media` module extracted from Family Chat. Next: slice 2 the gallery, slice 3 media in the WhatsApp screens, slice 4 emoji and sticker tray.
 - Open design: WhatsApp mode 3 (supervised linked parent account with a control group, as Family Chat does) versus the companion; see the plan's last section.
+- Slice 2 built (uncommitted until reviewed, branch refactor/media-modules): Extras > Gallery, a themed 3-column grid over everything on the phone, opening on the Camera folder; see the plan. Untried on a screen: the PC session or owner should run it (grid look per theme, video play, left key, thumbnail speed).
 

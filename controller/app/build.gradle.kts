@@ -48,6 +48,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
     // the shared WhatsApp code (transport, store, command parser) and the Go bridge under it (built by ../../wabridge/build.sh)
     implementation(project(":wa-core"))
+    implementation(project(":media"))
     implementation(files("../../wabridge/out/wabridge.aar"))
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

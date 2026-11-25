@@ -46,7 +46,11 @@ Why first: it is self-contained, `Rich.kt` and `StickerLibrary` are already pure
 
 Exit test: Family Chat released unchanged to users; no new Phone Guard behaviour yet.
 
-### Slice 2: the gallery (first new feature on the modules)
+### Slice 2: the gallery (first new feature on the modules) — BUILT 2026-11-25 on `refactor/media-modules`, untried on a screen
+
+As built (owner decisions: show everything, open on the photos folder, grid not list): its own activity like the camera (`gallery/`: `GalleryModel` pure keypad logic, `GalleryData` MediaStore query, `GalleryView` themed drawing, `GalleryActivity`), so `LauncherModel` only gained `GALLERY_PKG` and `Action.OpenGallery`. 3-column grid of dithered thumbnails (1 = colour), opens on the "Camera" folder if it exists, otherwise on All; Left soft key = Folders, OK = full view, OK on a video plays it, `*`/`#` page. Menu: Extras > Gallery, shown where the camera is allowed (same per-mode switch). Grid movement is `GridNav` in `:media` (reusable for the sticker tray). Not yet done: the camera's own `1` gallery still uses its single-picture viewer; delete/share; help page. Needs a device or emulator look: tile size, dither look on each theme, video playback (VideoView), thumbnail speed, the left key (it reuses the camera's `LeftKey` hook).
+
+Original plan:
 
 - MediaStore-backed list of images and videos, grouped by source (Camera, WhatsApp, Downloads, Screenshots), newest first, with thumbnails cached.
 - Menu > Gallery in the Nokia skin; D-pad grid, OK opens, Left/Right next and previous, `1` toggles dithered or colour (as the camera gallery does).

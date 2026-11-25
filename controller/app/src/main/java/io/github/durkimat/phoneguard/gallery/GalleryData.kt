@@ -1,0 +1,32 @@
+package io.github.durkimat.phoneguard.gallery
+
+import android.content.ContentUris
+import android.content.Context
+import android.provider.MediaStore
+import android.provider.MediaStore.Files.FileColumns as F
+import io.github.durkimat.phoneguard.Log
+
+/** Reads the phone's pictures and videos from Android's media index (no files are opened here). */
+object GalleryData {
+    /** At most this many are read, newest first; a phone with more shows the newest. */
+    const val LIMIT = 3000
+
+    fun load(c: Context): List<GItem> {
+        val list = ArrayList<GItem>()
+        try {
+            val uri = MediaStore.Files.getContentUri("external")
+            val cols = arrayOf(F._ID, F.MEDIA_TYPE, F.DISPLAY_NAME, F.DATE_ADDED, MediaStore.MediaColumns.BUCKET_DISPLAY_NAME, MediaStore.MediaColumns.DURATION)
+            val sel = "${F.MEDIA_TYPE} IN (${F.MEDIA_TYPE_IMAGE}, ${F.MEDIA_TYPE_VIDEO})"
+            c.contentResolver.query(uri, cols, sel, null, "${F.DATE_ADDED} DESC")?.use { cur ->
+                while (cur.moveToNext() && list.size < LIMIT) {
+                    val video = cur.getInt(1) == F.MEDIA_TYPE_VIDEO
+                    list.add(GItem(ContentUris.withAppendedId(uri, cur.getLong(0)).toString(), video, cur.getString(2) ?: "", cur.getLong(3), cur.getString(4) ?: "", (cur.getLong(5) / 1000).toInt()))
+                }
+            }
+        } catch (e: Exception) { Log.log(c, "gallery: ${e.javaClass.simpleName}") }
+        return list
+    }
+
+    /** "0:24" for a video's length. */
+    fun clock(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
+}

@@ -125,6 +125,7 @@ const val GRID_GAP = 8f
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
 const val CAMERA_PKG = "pg:camera"
+const val GALLERY_PKG = "pg:gallery"
 const val MUSIC_PKG = "pg:music"
 const val WHERE_PKG = "pg:where"
 const val NOTES_PKG = "pg:notes"
@@ -241,6 +242,8 @@ sealed class Action {
     object PowerClose : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
+    /** Open the gallery of the phone's pictures and videos. */
+    object OpenGallery : Action()
     object MusicPlayPause : Action()
     object MusicNext : Action()
     object MusicPrevious : Action()
@@ -1345,6 +1348,7 @@ class LauncherModel(
         item.pkg == CALC_PKG -> { calc.allClear(); enter(Screen.CALC); Action.Redraw }
         item.pkg == CALLLOG_PKG -> openCallLog(Screen.MENU)
         item.pkg == CAMERA_PKG -> Action.OpenCamera
+        item.pkg == GALLERY_PKG -> Action.OpenGallery
         item.pkg == MUSIC_PKG -> { enter(Screen.MUSICMENU); Action.Redraw }
         item.pkg == WHERE_PKG -> whereStart("")
         item.pkg == RUNNING_PKG -> { enter(Screen.RUNNING); Action.Redraw }
@@ -1748,7 +1752,7 @@ class LauncherModel(
     /** The name of the pixel icon that stands for a menu entry; entries without a picture of their own share a plain window. */
     fun iconFor(item: MenuItem): String = when {
         item.pkg == MUSIC_PKG -> "music"
-        item.pkg == CAMERA_PKG || item.pkg in CAMERA_APPS -> "camera"
+        item.pkg == CAMERA_PKG || item.pkg == GALLERY_PKG || item.pkg in CAMERA_APPS -> "camera"
         item.pkg == APPS_PKG || item.pkg == RUNNING_PKG || item.pkg == EXTRAS_PKG -> "apps"
         item.pkg == GAMES_PKG -> "games"
         item.pkg == CALC_PKG -> "calculator"
