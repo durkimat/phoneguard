@@ -21,9 +21,11 @@ fi
 [ -f familychat/src/main/assets/stickers-lib/index.json ] || python3 familychat/stickers/build-stickers.py
 [ -f familychat/src/main/assets/stickers-lib/index.json ] || { echo "FAIL: the sticker library is missing"; exit 1; }
 
-./gradlew --offline -q ${PG_VERSION:+-PpgVersion=$PG_VERSION} testDebugUnitTest assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease 2>&1 | grep -vE "^WARNING" || true
 IN=app/build/outputs/apk/release/app-release-unsigned.apk
 OUT=app/build/outputs/apk/release/phoneguard-release.apk
+rm -f "$IN" "$OUT" # an APK left from an earlier build must never be the one that gets signed
+# a failed test or build stops here (pipefail); only Gradle's WARNING lines are hidden
+./gradlew --offline -q ${PG_VERSION:+-PpgVersion=$PG_VERSION} testDebugUnitTest assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease 2>&1 | { grep -vE "^WARNING" || true; }
 [ -f "$IN" ] || { echo "release build failed"; exit 1; }
 "$BT/zipalign" -f -p 4 "$IN" "$OUT.aligned"
 "$BT/apksigner" sign --ks "$KS" --ks-pass "pass:$(cat "$PASSF")" --ks-key-alias phoneguard --out "$OUT" "$OUT.aligned"
@@ -35,6 +37,7 @@ M=$("$BT/aapt2" dump xmltree --file AndroidManifest.xml "$OUT" 2>/dev/null || "$
 echo "$M" | grep -qi "testOnly" && { echo "FAIL: release is testOnly"; exit 1; } || echo "ok: not testOnly"
 echo "$M" | grep -qi "DebugReceiver" && { echo "FAIL: debug receiver is in the release"; exit 1; } || echo "ok: no debug receiver"
 echo "$M" | grep -qi "usesCleartextTraffic" && echo "NOTE: cleartext setting present" || echo "ok: no cleartext setting"
-unzip -l "$OUT" | grep -q "LabLockdown" && { echo "FAIL: lab code present"; exit 1; } || echo "ok: no lab code"
-unzip -l "$OUT" | grep -q "assets/stickers-lib/index.json" && echo "ok: stickers included" || { echo "FAIL: stickers not in the APK"; exit 1; }
+LIST=$(unzip -l "$OUT") # read once: under pipefail "unzip | grep -q" fails exactly when it finds a match
+grep -q "LabLockdown" <<<"$LIST" && { echo "FAIL: lab code present"; exit 1; } || echo "ok: no lab code"
+grep -q "assets/stickers-lib/index.json" <<<"$LIST" && echo "ok: stickers included" || { echo "FAIL: stickers not in the APK"; exit 1; }
 ls -la "$OUT"
