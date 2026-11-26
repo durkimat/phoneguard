@@ -48,10 +48,14 @@ object RadioPolicy {
         return RadioWanted(wifi, bt, data)
     }
 
-    /** When the next decision could change on its own (window fallback, end of the grace period), or null. */
+    /** How often to look again while something holds the radios on: not every hold (music ending, a download, just booted) announces itself. */
+    const val HOLD_RECHECK_MS = 60_000L
+
+    /** When the next decision could change on its own (end of the grace period, window fallback, a hold running out), or null. */
     fun nextCheckMs(i: RadioInputs): Long? = when {
         !i.inUse && i.sleepEnabled && !i.hold && i.offForMs < i.graceMs -> i.graceMs - i.offForMs
         i.windowOpen && i.windowAgeMs < WIFI_WAIT_MS && !i.wifiConnected -> WIFI_WAIT_MS - i.windowAgeMs
+        !i.inUse && i.sleepEnabled && i.hold -> HOLD_RECHECK_MS
         else -> null
     }
 }

@@ -43,6 +43,8 @@ data class ModeDef(
     val idleMin: Int = 10,
     /** Minutes with the screen off before every app that is not protected, kept, playing or busy is stopped (0 = never). */
     val screenOffMin: Int = 5,
+    /** Seconds the phone must be locked before the radios rest (when [radiosSleep] is on). Its own setting: [screenOffMin] is about closing apps. */
+    val radiosAfterSec: Int = RADIOS_AFTER_SEC,
     /** Internet radio: "off", "presets" (only the parent's list of stations) or "any" (browse and find too). */
     val radio: String = "any",
     /** Wi-Fi, Bluetooth and mobile data go off while the phone is locked and unused, and come back on for check-ins and when it is unlocked. */
@@ -54,6 +56,9 @@ data class ModeDef(
     /** Whether alarms and the timer may ring in this mode (the parent page turns this off in School/work). Absent = on. */
     val alarms: Boolean = true,
 )
+
+/** How long a locked phone waits before its radios rest, when the parent has not chosen. */
+const val RADIOS_AFTER_SEC = 60
 
 /** One internet radio station: a name for the screens and an https stream address. */
 data class RadioStation(val name: String, val url: String)
@@ -172,6 +177,7 @@ data class Config(
                     notes = m.optString("notes", "show"),
                     idleMin = m.optInt("idleMin", 10),
                     screenOffMin = m.optInt("screenOffMin", 5),
+                    radiosAfterSec = m.optInt("radiosAfterSec", RADIOS_AFTER_SEC).coerceIn(30, 3600),
                     radio = m.optString("radio", "any"),
                     radiosSleep = m.optBoolean("radiosSleep", true),
                     dataWidget = m.optBoolean("dataWidget", !m.optBoolean("kiosk", false)), // absent: off where the phone is locked to its apps (School/work), on elsewhere

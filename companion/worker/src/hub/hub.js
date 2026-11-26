@@ -2,6 +2,7 @@
 // Pure functions over two plain objects: `child` (what the parent sets) and `rt` (what the phone reported and short-lived state such as a boost).
 import * as S from "./schedule.js";
 import * as PW from "./power.js";
+import * as RD from "./radios.js";
 import { validPkg, isNewer } from "./store.js";
 
 // The one app store a parent can install from here. The address and checksum are pinned in this file: a caller can never choose them.
@@ -41,7 +42,7 @@ export function cleanWaSetup(v, prev, nowMs) {
   return out;
 }
 
-export function newRuntime() { return { apps: [], state: {}, cfgh: "", usage: {}, power: [], reaped: [], labels: {}, fix: null, boost: null, release: false, last_seen: null }; }
+export function newRuntime() { return { apps: [], state: {}, cfgh: "", usage: {}, power: [], reaped: [], radios: [], labels: {}, fix: null, boost: null, release: false, last_seen: null }; }
 
 // ---- editing a phone's settings ----------------------------------------------------------------------------
 
@@ -126,6 +127,7 @@ export function validateChild(ch, nowMs, options = null) {
     if (!S.WA_CHECKS.includes(m.wa ?? "open")) fail(`mode '${mid}' has an unknown WhatsApp check setting '${m.wa}'`);
     if (!S.WA_APPS.includes(m.wa_app ?? "auto")) fail(`mode '${mid}' has an unknown WhatsApp app setting '${m.wa_app}'`);
     if ("radios_sleep" in m && typeof m.radios_sleep !== "boolean") fail(`mode '${mid}': radios_sleep must be true or false`);
+    if (!intIn(m.radios_after_sec ?? 60, 30, 3600)) fail(`mode '${mid}' needs a radio delay between 30 seconds and an hour`);
     if ("data_widget" in m && typeof m.data_widget !== "boolean") fail(`mode '${mid}': data_widget must be true or false`);
     for (const k of ["voice_typing", "voice_cmds", "where_to", "alarms"]) if (k in m && typeof m[k] !== "boolean") fail(`mode '${mid}': ${k} must be true or false`);
     if (!S.RADIO_MODES.includes(m.radio ?? "any")) fail(`mode '${mid}' has an unknown radio setting '${m.radio}'`);
@@ -317,6 +319,7 @@ export function mergeSync(ch, rt, payload, nowMs) {
   mergeUsage(rt, payload.usage);
   rt.power = PW.merge(rt.power ?? [], payload.power, nowMs);
   rt.reaped = PW.mergeReaped(rt.reaped ?? [], payload.reaped);
+  rt.radios = RD.merge(rt.radios ?? [], payload.radios, nowMs);
   mergeAppResults(ch, payload.appResults);
   mergeFix(rt, payload.loc);
   if (payload.labels && typeof payload.labels === "object") for (const [k, v] of Object.entries(payload.labels)) if (typeof v === "string") (rt.labels ??= {})[k] = v.slice(0, 80);
@@ -364,7 +367,7 @@ export function view(ch, rt, options, latest, nowMs) {
     usage: rt.usage ?? {}, labels: rt.labels ?? {},
     app_commands: (ch.commands ?? []).map((c) => ({ id: c.id, kind: c.kind, pkg: c.pkg, name: c.name, progress: updateProgress(c, rt.state) })), app_log: [...(ch.app_log ?? [])].reverse().slice(0, 8),
     update: updateFor(rt, latest, options),
-    power: PW.summarize(rt.power ?? [], nowMs), reaped: PW.summarizeReaped(rt.reaped ?? [], nowMs),
+    power: PW.summarize(rt.power ?? [], nowMs), reaped: PW.summarizeReaped(rt.reaped ?? [], nowMs), radios: RD.summarize(rt.radios ?? [], rt.last_seen, nowMs),
     lock: { sent: ch.lock ?? null, phone: rt.state?.lock ?? null },
     store: { name: STORE_APPS["com.aurora.store"].name, version: STORE_APPS["com.aurora.store"].version, installed: rt.apps.some((a) => a.pkg === "com.aurora.store"), waiting: (ch.commands ?? []).some((c) => c.kind === "install" && c.pkg === "com.aurora.store"), auto: options?.app_store_auto !== false },
     spotify: spotifyView(ch, rt, options),

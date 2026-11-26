@@ -19,7 +19,9 @@ import io.github.durkimat.phoneguard.Log
 import io.github.durkimat.phoneguard.Store
 import io.github.durkimat.phoneguard.core.Engine
 import io.github.durkimat.phoneguard.core.RadioInputs
+import io.github.durkimat.phoneguard.core.RadioEntry
 import io.github.durkimat.phoneguard.core.RadioIntent
+import io.github.durkimat.phoneguard.core.RadioLog
 import io.github.durkimat.phoneguard.core.RadioPolicy
 import io.github.durkimat.phoneguard.core.RadioWanted
 import io.github.durkimat.phoneguard.incall.CallState
@@ -39,6 +41,7 @@ object RadioManager {
     private val jobs = AtomicInteger(0)
     @Volatile private var windowStart = 0L
     @Volatile private var windowUntil = 0L
+    @Volatile private var windowJob = ""
     @Volatile private var screenOffAt = 0L
     /** The last moment the phone was seen unlocked and in use; the rest period counts from the later of this and the screen going off, so a delayed screen-off broadcast cannot restart it. */
     @Volatile private var lastUseAt = 0L
@@ -69,7 +72,8 @@ object RadioManager {
     fun onExternalState(c: Context, radio: String, on: Boolean) {
         // only a person using the phone can have done it: while it is locked or just started, a change is ours or the system's
         val pm = c.getSystemService(PowerManager::class.java); val kg = c.getSystemService(KeyguardManager::class.java)
-        if (!pm.isInteractive || kg.isKeyguardLocked || SystemClock.elapsedRealtime() - bootAt < 60_000L) return
+        if (!pm.isInteractive || kg.isKeyguardLocked) { evaluate(c, "radio changed"); return } // a radio that came back by itself is rested again, and the diary sees it
+        if (SystemClock.elapsedRealtime() - bootAt < 60_000L) return
         val mine = cmdAt[radio]
         if (mine != null && System.currentTimeMillis() - mine.second < 20_000) return // within a moment of our own change, either way
         if (intent(c).let { if (radio == "wifi") it.wifi else if (radio == "bt") it.bt else it.data } != on) {
@@ -92,6 +96,7 @@ object RadioManager {
         jobs.incrementAndGet()
         if (now >= windowUntil) windowStart = now
         windowUntil = maxOf(windowUntil, now + WINDOW_MS)
+        windowJob = why
         evaluate(c, "window: $why")
     }
 
@@ -128,7 +133,10 @@ object RadioManager {
         try { Settings.Global.getInt(c.contentResolver, "mobile_data", 1) == 1 } catch (_: Exception) { true }
     }
 
-    private fun inputs(c: Context, now: Long): RadioInputs {
+    /** What the phone looks like now: the decision's inputs, and what the diary needs to explain the answer. */
+    private data class Seen(val inputs: RadioInputs, val modeRests: Boolean, val live: Boolean, val heldBy: String?)
+
+    private fun look(c: Context, now: Long): Seen {
         val cfg = Store.config(c)
         val eff = Engine.effective(cfg, Store.boost(c), Clock.now())
         val pm = c.getSystemService(PowerManager::class.java)
@@ -140,29 +148,49 @@ object RadioManager {
         val call = CallState.info != null || try { c.getSystemService(TelephonyManager::class.java).callState != TelephonyManager.CALL_STATE_IDLE } catch (_: Exception) { false }
         val music = Radio.playing || try { c.getSystemService(android.media.AudioManager::class.java).isMusicActive } catch (_: Exception) { false }
         holds.entries.removeIf { it.value < now }
-        val hold = charging || call || music || holds.isNotEmpty() || SystemClock.elapsedRealtime() - bootAt < 60_000L
-        val grace = maxOf(1, Engine.modeDef(cfg, eff.modeId).screenOffMin) * 60_000L
+        val heldBy = when {
+            charging -> "charging"
+            call -> "a call"
+            music -> "music or sound playing"
+            holds.isNotEmpty() -> holds.keys.sorted().joinToString(", ")
+            SystemClock.elapsedRealtime() - bootAt < 60_000L -> "just started"
+            else -> null
+        }
+        val grace = Engine.modeDef(cfg, eff.modeId).radiosAfterSec * 1000L
         val cm = c.getSystemService(ConnectivityManager::class.java)
         val wifiConnected = try { cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true } catch (_: Exception) { false }
         if (inUse) lastUseAt = now
         val since = maxOf(screenOffAt, lastUseAt)
         val off = if (inUse) 0L else if (since == 0L) grace else now - since
-        return RadioInputs(
-            sleepEnabled = eff.radiosSleep && !live, inUse = inUse, offForMs = off, graceMs = grace, hold = hold,
+        val i = RadioInputs(
+            sleepEnabled = eff.radiosSleep && !live, inUse = inUse, offForMs = off, graceMs = grace, hold = heldBy != null,
             windowOpen = now < windowUntil, windowAgeMs = now - windowStart, wifiConnected = wifiConnected,
             locationReporting = eff.location != "off", dataSupported = dataSupported(c), intent = intent(c),
         )
+        return Seen(i, eff.radiosSleep, live, heldBy)
     }
 
     // ---- deciding and applying -----------------------------------------------------------------
 
-    fun evaluate(c: Context, why: String) { val app = c.applicationContext; worker.execute { try { evaluateNow(app, why) } catch (e: Exception) { Log.log(app, "radios: ${e.javaClass.simpleName} ${e.message}") } } }
+    fun evaluate(c: Context, why: String) {
+        val app = c.applicationContext
+        // an alarm only keeps the phone awake until its receiver returns: hold it until the radios have been switched and noted
+        val awake = app.getSystemService(PowerManager::class.java).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "phoneguard:radios").apply { setReferenceCounted(false); acquire(15_000L) }
+        worker.execute {
+            try { evaluateNow(app, why) } catch (e: Exception) { Log.log(app, "radios: ${e.javaClass.simpleName} ${e.message}") }
+            finally { if (awake.isHeld) awake.release() }
+        }
+    }
+
+    /** How long a switched radio takes to reach its new state, before the diary reads it back. */
+    private const val SETTLE_MS = 3_000L
 
     private var lastLine = ""
 
     private fun evaluateNow(c: Context, why: String) {
         val now = System.currentTimeMillis()
-        val i = inputs(c, now)
+        val seen = look(c, now)
+        val i = seen.inputs
         val want = RadioPolicy.decide(i)
         val dry = Store.config(c)?.idleDryRun == true
         val wifi = WifiControl.enabled(c); val bt = BluetoothControl.enabled(c); val data = dataOn(c)
@@ -176,6 +204,11 @@ object RadioManager {
             if (data != want.data && i.dataSupported) apply(c, "data", want.data, why)
         }
         scheduleNext(c, i, now)
+        val changed = !dry && (wifi != want.wifi || bt != want.bt || dataNow != want.data)
+        if (changed) try { Thread.sleep(SETTLE_MS) } catch (_: InterruptedException) { }
+        val dataSeen = if (!i.dataSupported) -1 else if (dataOn(c)) 1 else 0
+        RadioDiary.note(c, RadioEntry(System.currentTimeMillis(), !i.inUse, WifiControl.enabled(c), BluetoothControl.enabled(c), dataSeen,
+            RadioLog.why(i, seen.modeRests, seen.live, dry, seen.heldBy, windowJob)))
     }
 
     private fun apply(c: Context, radio: String, on: Boolean, why: String) {
@@ -197,11 +230,14 @@ object RadioManager {
         val am = c.getSystemService(AlarmManager::class.java)
         val pi = PendingIntent.getBroadcast(c, 9, Intent(c, AlarmReceiver::class.java).putExtra("kind", "radio"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         if (after == null) { am.cancel(pi); return }
-        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, now + maxOf(after, 1_000L), pi)
+        val at = now + maxOf(after, 1_000L) + 250 // a little past the moment, so the wait is over when it is checked
+        // an inexact alarm can be minutes late, too late for a delay of seconds; a recheck on something holding the radios on may drift
+        if (!i.hold) try { am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi); return } catch (_: SecurityException) { }
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
     }
 
     /** What the decision sees right now, for a test (debug builds). */
-    fun describe(c: Context): String { val i = inputs(c, System.currentTimeMillis()); return "$i => ${RadioPolicy.decide(i)} sleeping=${RadioPolicy.sleeping(i)}" }
+    fun describe(c: Context): String { val i = look(c, System.currentTimeMillis()).inputs; return "$i => ${RadioPolicy.decide(i)} sleeping=${RadioPolicy.sleeping(i)}" }
 
     /** Registered once by the guard service: Android's own radio changes and the things that may start or stop a hold. */
     val stateReceiver = object : BroadcastReceiver() {

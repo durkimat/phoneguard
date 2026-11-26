@@ -22,10 +22,10 @@ const MODE_ROWS = [
   ["Grey screen", "gray", "bool"], ["Home screen", "launcher", [["default", "Normal"], ["nokia", "Nokia screens"]]], ["Touchscreen works", "touch", "bool"], ["Pull-down shade works", "shade", "bool"],
   ["Sound", "sound", [["normal", "Normal"], ["vibrate", "Vibrate"], ["silent", "Silent"]]], ["WhatsApp checks", "wa", [["off", "Off"], ["open", "When opened"], ["30", "Every 30 min"], ["60", "Hourly"]]],
   ["WhatsApp app", "wa_app", [["auto", "Auto"], ["simple", "Our screens"], ["full", "Real app"]]], ["Internet radio", "radio", [["any", "Any station"], ["presets", "My list only"], ["off", "Off"]]],
-  ["Radios sleep when locked", "radios_sleep", "bool"], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"], ["Voice typing (microphone in text boxes)", "voice_typing", "bool"], ["Voice commands", "voice_cmds", "bool"], ["Navigate (maps and journeys; also keeps GPS on in this mode)", "where_to", "bool"], ["Alarms and timer allowed (they stay silent when off)", "alarms", "bool"],
+  ["Radios sleep when locked", "radios_sleep", "bool"], ["Radios go off after the phone is locked", "radios_after_sec", [[30, "30 sec"], [60, "1 min"], [120, "2 min"], [300, "5 min"], [600, "10 min"]]], ["Mobile data left on the home screen", "data_widget", "bool"], ["Incoming calls allowed", "inbound", "bool"], ["Camera offered", "camera", "bool"], ["Voice typing (microphone in text boxes)", "voice_typing", "bool"], ["Voice commands", "voice_cmds", "bool"], ["Navigate (maps and journeys; also keeps GPS on in this mode)", "where_to", "bool"], ["Alarms and timer allowed (they stay silent when off)", "alarms", "bool"],
   ["Location", "location", [["off", "Off"], ["network", "Low accuracy"], ["gps", "GPS"]]], ["Location every", "loc_every", LOC_EVERY],
   ["Notifications", "notes", [["show", "Listed"], ["off", "Cleared"]]], ["Locked to allowed apps", "kiosk", "bool"],
-  ["Screen off after", "screen_off_min", [[1, "1 min"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [0, "Never"]]], ["Close idle apps after", "idle_min", [[0, "Never"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]],
+  ["Close apps once the screen has been off", "screen_off_min", [[1, "1 min"], [2, "2 min"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [0, "Never"]]], ["Close idle apps after", "idle_min", [[0, "Never"], [5, "5 min"], [10, "10 min"], [30, "30 min"], [60, "1 hour"]]],
   ["Allow new apps automatically", "auto_new", "bool"],
 ];
 const closedSet = new Set();   // sections the parent closed stay closed after a redraw (everything else is open)
@@ -167,7 +167,7 @@ export async function phoneScreen(ctx, did) {
     h("label", { class: "fld chk" }, check(store.auto, async (c) => { try { await api("/options", "POST", { app_store_auto: c }); stStore("ok", "Saved."); } catch (e) { stStore("bad", e.message); } }), h("span", {}, "Install it automatically on new phones")),
     h("p", { class: "mut" }, "First time only: once Aurora is allowed, open it on the phone (in a mode with touch) and follow its welcome screens: pick the session installer, allow notifications, then choose Anonymous to sign in."), stStore.el);
   const nokia = sec("Apps on the Nokia menu", pick("Shown in the main menu", "pinned", v.pinned, "The other allowed apps are under Android Apps."), pick("Notifications cleared as they arrive", "notes_hide", v.notes_hide), pick("Power saver never closes", "keep_running", keepDefault, "Apps that must stay ready to ring, deliver or sync."),
-    h("label", { class: "fld chk" }, check(v.idle_dry_run, (c) => patchChild({ idle_dry_run: c }, stDry, "Saved.")), h("span", {}, "Power saver: only report, do not close", h("small", {}, "Shows what it would have closed without closing anything."))), stDry.el,
+    h("label", { class: "fld chk" }, check(v.idle_dry_run, (c) => patchChild({ idle_dry_run: c }, stDry, "Saved.")), h("span", {}, "Power saver: only report, do not act", h("small", {}, "Shows what it would have closed without closing anything. While this is ticked the radios do not go off either."))), stDry.el,
     h("label", { class: "fld" }, h("span", {}, "Alarm volume on the phone"), select([["", "Phone chooses"], ...[1, 2, 3, 4, 5, 6, 7].map((n) => [n, String(n)])], v.alarm_volume ?? "", (x) => patchChild({ alarm_volume: x === "" ? null : Number(x) }, stDry, "Saved."))),
     h("label", { class: "fld chk" }, check(v.time_local, (c) => patchChild({ time_local: c }, stDry, "Saved.")), h("span", {}, "Time can be set on the phone", h("small", {}, "Adds a Set time screen to the phone's Clock app. Off keeps the time from the network."))));
 
@@ -270,7 +270,17 @@ export async function phoneScreen(ctx, did) {
   if (P.on_battery?.mah_per_h != null) bat.push(h("div", { class: "mut" }, `Last 24 h on battery: ${P.on_battery.mah_per_h} mAh an hour over ${P.on_battery.hours} h.`));
   for (const [title, obj] of [["By screen", P.by_screen], ["By mode", P.by_mode], ["By location", P.by_location], ["By Wi-Fi", P.by_wifi]]) { const es = Object.entries(obj ?? {}).filter(([, x]) => x.mah_per_h != null); if (es.length) bat.push(h("div", { class: "mut" }, `${title}: `, es.map(([k, x]) => `${k} ${x.mah_per_h} mAh/h`).join(" · "))); }
   const R = v.reaped; if (R.closed || R.would) bat.push(h("div", { class: "mut" }, `Power saver, last 24 h: ${R.closed} closed${R.would ? `, ${R.would} would have been closed` : ""}. `, R.top.map(([n, c]) => `${n} ×${c}`).join(", ")));
-  const battery = sec("Battery and power saver", ...(bat.length ? bat : [h("p", { class: "mut" }, "Nothing reported yet.")]));
+  const D = v.radios ?? {}, span = (x) => x >= 1 ? `${x} h` : `${Math.round(x * 60)} min`;
+  const radioLine = (e) => `${new Date(e[0]).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}  ${e[1] ? "locked" : "unlocked"} · Wi-Fi ${e[2] ? "on" : "off"} · Bluetooth ${e[3] ? "on" : "off"}${e[4] < 0 ? "" : ` · mobile data ${e[4] ? "on" : "off"}`} · ${e[5]}`;
+  bat.push(h("h3", {}, "Radios while locked"));
+  if (!D.lines) bat.push(h("p", { class: "mut" }, "No radio log yet. The phone sends it from Phone Guard 0.5.2."));
+  else {
+    bat.push(D.locked_h ? h("div", {}, `Last ${D.window_hours} h: locked for ${span(D.locked_h)}, with every radio off for ${span(D.off_h)} of that.`) : h("div", { class: "mut" }, `Not locked in the last ${D.window_hours} h.`));
+    if (D.on_why.length) bat.push(h("div", { class: "mut" }, "A radio was on while locked: ", D.on_why.map(([k, x]) => `${k} ${span(x)}`).join(" · ")));
+    if (D.faults) bat.push(h("div", { class: "bad" }, `A radio was on when it should have been off, ${D.faults} time${D.faults > 1 ? "s" : ""}. Last: ${radioLine(D.last_fault)}`));
+    bat.push(h("details", {}, h("summary", {}, "Radio log (newest first)"), ...D.latest.map((e) => h("div", { class: "mut" }, radioLine(e))), h("p", { class: "mut" }, "A line is added when something changes, with the radios as the phone read them back. It arrives with the next check-in, so the latest lines are usually from the check-in before.")));
+  }
+  const battery = sec("Battery and power saver", ...bat);
 
   // ---- updates and removals ------------------------------------------------------------------------------------------------
   const stUp = status(), U = v.update;

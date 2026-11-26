@@ -3,13 +3,14 @@
 import { zonedToUtc } from "../page/timetable.js";
 
 export const WINDOW_DAYS = 14;
-export const LOCKDOWN_KEYS = ["launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes", "idle_min", "screen_off_min", "radio", "radios_sleep", "voice_typing", "voice_cmds", "where_to", "alarms"];
+export const LOCKDOWN_KEYS = ["launcher", "touch", "shade", "kiosk", "sound", "inbound", "wa", "wa_app", "camera", "location", "loc_every", "notes", "idle_min", "screen_off_min", "radio", "radios_sleep", "radios_after_sec", "voice_typing", "voice_cmds", "where_to", "alarms"];
 export const NOTE_MODES = ["show", "off"];
 export const LOC_MODES = ["off", "network", "gps"];
 export const SOUNDS = ["normal", "vibrate", "silent"];
 export const WA_CHECKS = ["off", "open", "30", "60"];
 export const WA_APPS = ["auto", "simple", "full"];
 export const RADIO_MODES = ["off", "presets", "any"];
+export const RADIOS_AFTER_SEC = 60; // what the phone does when it is not told
 export const CLOCK = "com.android.deskclock";
 export const DEFAULT_KEEP_RUNNING = ["com.android.deskclock", "com.dumbermini.davx", "com.whatsapp"];
 
@@ -23,8 +24,14 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const sortedUnique = (a) => [...new Set(a)].sort();
 
 export function lockdownDefaults(modeId) {
-  if (modeId === "school") return { launcher: "nokia", touch: false, shade: false, kiosk: true, sound: "silent", inbound: false, wa: "open", wa_app: "simple", camera: true, location: "off", loc_every: 30, notes: "off", idle_min: 10, screen_off_min: 5, radio: "any", radios_sleep: true, voice_typing: false, voice_cmds: false, where_to: false, alarms: false };
-  return { launcher: "nokia", touch: true, shade: true, kiosk: false, sound: "normal", inbound: true, wa: "30", wa_app: "auto", camera: true, location: "off", loc_every: 30, notes: "show", idle_min: 10, screen_off_min: 5, radio: "any", radios_sleep: true, voice_typing: true, voice_cmds: true, where_to: modeId !== "night", alarms: true };
+  if (modeId === "school") return { launcher: "nokia", touch: false, shade: false, kiosk: true, sound: "silent", inbound: false, wa: "open", wa_app: "simple", camera: true, location: "off", loc_every: 30, notes: "off", idle_min: 10, screen_off_min: 5, radios_after_sec: RADIOS_AFTER_SEC, radio: "any", radios_sleep: true, voice_typing: false, voice_cmds: false, where_to: false, alarms: false };
+  return { launcher: "nokia", touch: true, shade: true, kiosk: false, sound: "normal", inbound: true, wa: "30", wa_app: "auto", camera: true, location: "off", loc_every: 30, notes: "show", idle_min: 10, screen_off_min: 5, radios_after_sec: RADIOS_AFTER_SEC, radio: "any", radios_sleep: true, voice_typing: true, voice_cmds: true, where_to: modeId !== "night", alarms: true };
+}
+
+// sent only when it differs from the phone's own default: an unchanged phone keeps its config
+function radiosAfter(x) {
+  const s = Number.isInteger(x) ? Math.max(30, Math.min(x, 3600)) : RADIOS_AFTER_SEC;
+  return s === RADIOS_AFTER_SEC ? {} : { radiosAfterSec: s };
 }
 
 export function modeWithDefaults(modeId, mode) {
@@ -105,7 +112,7 @@ export function buildConfig(child, nowMs, options = null) {
       launcher: m.launcher === "nokia" ? "nokia" : "default", touch: Boolean(m.touch), shade: Boolean(m.shade), kiosk: Boolean(m.kiosk),
       sound: SOUNDS.includes(m.sound) ? m.sound : "normal", inbound: Boolean(m.inbound),
       wa: WA_CHECKS.includes(m.wa) ? m.wa : "open", waApp: WA_APPS.includes(m.wa_app) ? m.wa_app : "auto", camera: Boolean(m.camera),
-      radio: RADIO_MODES.includes(m.radio) ? m.radio : "any", radiosSleep: Boolean(m.radios_sleep), ...(m.data_widget === false ? { dataWidget: false } : {}), voiceTyping: Boolean(m.voice_typing), voiceCmds: Boolean(m.voice_cmds), whereTo: Boolean(m.where_to), ...(m.alarms === false ? { alarms: false } : {}),
+      radio: RADIO_MODES.includes(m.radio) ? m.radio : "any", radiosSleep: Boolean(m.radios_sleep), ...radiosAfter(m.radios_after_sec), ...(m.data_widget === false ? { dataWidget: false } : {}), voiceTyping: Boolean(m.voice_typing), voiceCmds: Boolean(m.voice_cmds), whereTo: Boolean(m.where_to), ...(m.alarms === false ? { alarms: false } : {}),
       location: m.where_to ? "gps" : LOC_MODES.includes(m.location) ? m.location : "off", locEvery: Math.max(0, intOr(m.loc_every, 30)),
       notes: NOTE_MODES.includes(m.notes) ? m.notes : "show",
       idleMin: Math.max(0, Math.min(intOr(m.idle_min, 10), 1440)), screenOffMin: Math.max(0, Math.min(intOr(m.screen_off_min, 5), 1440)),

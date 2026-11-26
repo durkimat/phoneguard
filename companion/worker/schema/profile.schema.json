@@ -369,6 +369,11 @@
           "default": "any",
           "description": "Internet radio: off, only the parent's presets, or any station."
         },
+        "radiosAfterSec": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3600
+        },
         "radiosSleep": {
           "type": "boolean",
           "default": true

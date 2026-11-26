@@ -54,4 +54,19 @@ class RadioPolicyTest {
         assertEquals(3 * min, RadioPolicy.nextCheckMs(i(off = 2 * min)))
         assertNull(RadioPolicy.nextCheckMs(i()))
     }
+
+    @Test fun aHoldIsLookedAtAgainBecauseItMayEndQuietly() {
+        assertEquals(RadioPolicy.HOLD_RECHECK_MS, RadioPolicy.nextCheckMs(i(hold = true)))
+        assertEquals(19_000L, RadioPolicy.nextCheckMs(i(hold = true, window = true, age = 1_000))) // the window's Wi-Fi wait comes sooner
+        assertNull(RadioPolicy.nextCheckMs(i(hold = true, sleep = false)))
+        assertNull(RadioPolicy.nextCheckMs(i(hold = true, inUse = true, off = 0)))
+    }
+
+    @Test fun theRadiosHaveTheirOwnDelayApartFromClosingApps() {
+        fun mode(extra: String) = Config.parse("""{"modes":{"day":{"screenOffMin":0$extra}},"base":"day"}""").modes.getValue("day")
+        assertEquals(60, mode("").radiosAfterSec)
+        assertEquals(30, mode(""","radiosAfterSec":30""").radiosAfterSec)
+        assertEquals(30, mode(""","radiosAfterSec":0""").radiosAfterSec)
+        assertEquals(0, mode(""","radiosAfterSec":300""").screenOffMin)
+    }
 }

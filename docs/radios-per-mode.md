@@ -17,6 +17,10 @@ One new setting: **Radios sleep when locked**: off or on. Nothing else.
   - Shortest interval 15 minutes (Doze lets allow-while-idle alarms through about once per 9 minutes).
 - Default: on in every mode, including Day (parents can switch any mode off). A locked, silent phone gains nothing from live radios. The cost is that WhatsApp and "sync now" wait for the next window, as with the existing 30 and 60 minute settings.
 
+**Changed 2026-11-26 (app 0.5.2, companion 0.8.13):** the delay no longer reuses `screen_off_min`, which also decides when apps are closed. It is its own
+mode setting, `radios_after_sec` (phone: `radiosAfterSec`), 1 minute by default and 30 seconds at the shortest, and is sent to the phone only when it differs.
+The Home Assistant edition has no control for it yet, so its phones use 1 minute.
+
 ## The child's own settings are the "intent"
 The phone remembers what the child wants for each radio: **intent** (on or off). Sleeping never changes intent; it only suspends the radio.
 - Intent changes when the child toggles a radio in our screens, or Android's own settings change a radio while we are not sleeping it. We keep a flag for "we switched it", so our own switching is never mistaken for the child's choice.
@@ -132,3 +136,18 @@ Consequences for the design:
 - Not verified: restore at unlock (the phone was locked), the new symbols and Connections screen on the phone itself, mobile data (needs a SIM phone), hotspot as a keep-on reason (not implemented), "Radios rest while locked" footer (not implemented), a diary of radio on-time in PowerLog (only log lines so far), Bluetooth audio held only while playing (music rule covers it).
 - Verified later the same day with the phone unlocked: the new symbols (Bluetooth slashed when off), Connections, tapping the Bluetooth symbol, Browse (Popular in the UK) and playing a result with the station's own "now playing" text; the radios rest after the grace period and come back at unlock (`unlock; inUse=true` in the log) with Bluetooth staying off as the child had it.
 - Two fixes found by testing: the rest period now counts from the later of the screen going off and the last time the phone was seen in use (a late screen-off broadcast had restarted it), and a change of radio state only counts as the child's choice when the phone is unlocked in use, not just started, and not within 20 s of our own change (a stray event had wrongly recorded Wi-Fi as switched off for good).
+
+## The radio log (2026-11-26)
+So a parent can check that the radios do go off. `core/RadioLog.kt` and `net/RadioDiary.kt`: a line whenever the lock, a radio or the reason changes, with
+Wi-Fi, Bluetooth and mobile data **read back from the phone** 3 s after any switch. It goes with each sync (`radios` in the payload; kept 3 days) to the
+companion, which shows it under Battery and power saver (`hub/radios.js`): time locked, time with everything off, what kept a radio on, and a warning if
+one was on while the reason was `resting`. A line usually arrives one check-in late, because the sync itself wakes the radios. The page cannot see a
+radio that changes without Android telling us, and a silence of over 6 hours (phone off) is not counted.
+
+Also fixed then: nothing looked again when a quiet hold ended (music stopping, a download, the first minute after start), so the radios could stay on until
+the next check-in. While held and locked they are now checked every minute. The wait itself uses an exact alarm, and a short wake lock covers the switching.
+A radio that comes back on while the phone is locked is now rested again.
+
+Checked on the emulator, 30 s delay, unplugged, PIN set: off between 30 and 35 s after the screen went off, still off 90 s on, back at unlock, and the log
+said so. Not checked on the J36, nor with mobile data (the emulator run had no SIM).
+
