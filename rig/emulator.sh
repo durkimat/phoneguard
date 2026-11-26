@@ -22,6 +22,10 @@ create)
   echo "created $AVD" ;;
 start)
   opts=(-avd $AVD -no-boot-anim -no-audio -no-snapshot-save -netdelay none -netspeed full)
+  # a container or sandbox without root: unpack the few libraries the emulator needs (see emulator-libs.sh) and, with no /dev/kvm, run in
+  # software (about 2.5 minutes to boot, and slow: wait for the system to settle after each step). With KVM none of this is needed.
+  if ! "$EMU" -version >/dev/null 2>&1; then eval "$("$(dirname "$0")/emulator-libs.sh")"; fi
+  [ -e /dev/kvm ] || opts+=(-accel off -cores 8 -gpu swiftshader_indirect)
   [ "${2:-}" = "window" ] || opts+=(-no-window)
   nohup "$EMU" "${opts[@]}" > /tmp/pg-emulator.log 2>&1 &
   "$ADB" wait-for-device

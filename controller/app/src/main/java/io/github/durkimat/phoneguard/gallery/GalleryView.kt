@@ -24,7 +24,7 @@ class GalleryView(context: Context, private val model: GalleryModel, themeId: St
         const val TOP = 58f
         /** The viewer's picture box (design pixels) and its size in 3-pixel cells. */
         const val CELL = 3
-        const val BOX_L = 6f; const val BOX_T = 58f; const val BOX_W = 468f; const val BOX_H = 492f
+        const val BOX_L = 6f; const val BOX_T = 58f; const val BOX_W = 468f; const val BOX_H = 480f
     }
 
     private val theme = Themes.byId(themeId)

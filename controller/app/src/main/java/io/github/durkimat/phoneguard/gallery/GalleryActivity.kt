@@ -110,7 +110,7 @@ class GalleryActivity : AppCompatActivity() {
             try {
                 val b = contentResolver.loadThumbnail(Uri.parse(item.uri), Size(960, 960), null)
                 val shown = if (colour) b else {
-                    val k = minOf(156f / b.width, 164f / b.height)
+                    val k = minOf(156f / b.width, 160f / b.height)
                     dithered(b, (b.width * k).toInt().coerceAtLeast(1), (b.height * k).toInt().coerceAtLeast(1), square = false)
                 }
                 if (token != bigToken) return@execute
