@@ -26,3 +26,17 @@ export const check = (on, onchange, attrs = {}) => h("input", { type: "checkbox"
 
 /** Compares x.y.z version strings: negative if a is older than b, 0 if equal, positive if newer. */
 export const cmpVer = (a, b) => { const p = (v) => String(v ?? "0").replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0); const x = p(a), y = p(b); for (let i = 0; i < Math.max(x.length, y.length, 3); i++) { const d = (x[i] ?? 0) - (y[i] ?? 0); if (d) return d; } return 0; };
+
+// What the "Updates and removals" section says about versions. [newest] is what GitHub said at the last check, which may be hours
+// old (it is asked again after 12 hours, or by "Check for updates") and so may even be OLDER than what is running.
+export function companionLine(mine, newest, checked) {
+  const have = `Companion version ${mine || "unknown"}`;
+  if (!newest || !mine) return `${have}. Press Check for updates to look for a newer one.`;
+  if (cmpVer(newest, mine) > 0) return `${have}. Version ${newest} is available: to update, run the setup tool and choose Update my companion.`;
+  return `${have}: no newer one found${checked ? ` (checked ${checked})` : ""}.`;
+}
+export function phoneAppLine(installed, newest, available, checked) {
+  const have = `This phone has Phone Guard ${installed || "(version not yet reported)"}`;
+  if (available) return `${have}. Version ${newest} is available.`;
+  return `${have}: no newer version found${checked ? ` (checked ${checked})` : ""}.`;
+}

@@ -1,6 +1,6 @@
 // One phone's screen: what is happening now, the controls, the timetable, apps and modes, settings, Spotify, reports and phone management.
 // Every control calls one Worker endpoint and then redraws from the server's answer, so what is shown is always what the phone will be told.
-import { h, ago, hm, toMin, left, status, section, field, select, check } from "/ui.js";
+import { h, ago, hm, toMin, left, status, section, field, select, check, companionLine, phoneAppLine } from "/ui.js";
 import { checkPattern } from "/timetable.js";
 import { LOOK } from "/look-options.js";
 import { makePkce, authorizeUrl, redirectUri } from "/spotify.js";
@@ -276,8 +276,8 @@ export async function phoneScreen(ctx, did) {
   const stUp = status(), U = v.update;
   const jobs = h("div", {}, ...v.app_commands.map((c) => h("div", { class: "row" }, `${c.kind === "remove" ? "Remove" : "Update"} ${c.name}: ${c.progress ? `${c.progress} (as of ${ago(v.device.last_seen)})` : "waiting for the phone (it checks in about every 15 minutes)"}`, h("button", { on: { click: () => act("/apps/command/cancel", { id: c.id }, stUp).then(redraw, () => {}) } }, "Cancel"))), ...v.app_log.map((e) => h("div", { class: e[3] === "done" ? "ok" : "bad" }, `${new Date(e[0]).toLocaleString()}: ${e[2]} ${e[1]}: ${e[3]}${e[4] ? " (" + e[4] + ")" : ""}`)));
   const updates = sec("Updates and removals", h("label", { class: "fld chk" }, check(fam.updates_enabled, async (c) => { try { await api("/options", "POST", { updates_enabled: c }); redraw(); } catch (e) { stUp("bad", e.message); } }), h("span", {}, "Allow updating Phone Guard from here", h("small", {}, "Off until you switch it on, so nobody presses it by accident."))),
-    h("p", { class: "mut" }, `Companion version ${fam.companion?.version ?? "unknown"}`, fam.latest?.companion ? `; newest release ${fam.latest.companion.version}` : "", ". To update the companion, run the setup tool and choose Update my companion."),
-    U ? h("p", {}, `Newest release ${U.version}; this phone has ${U.installed || "unknown"}. `, U.available ? (U.ready ? h("button", { class: "pri", disabled: !U.enabled, on: { click: () => { if (confirm(`Update Phone Guard to ${U.version} on this phone?`)) act("/update", {}, stUp, "Update queued for the phone.").then(redraw, () => {}); } } }, "Update this phone") : "(no checksum published yet)") : "Up to date.") : h("p", { class: "mut" }, "Press Check for updates to see the newest release."),
+    h("p", { class: "mut" }, companionLine(fam.companion?.version, fam.latest?.companion?.version, fam.latest?.checked ? ago(fam.latest.checked) : "")),
+    U ? h("p", {}, phoneAppLine(U.installed, U.version, U.available, fam.latest?.checked ? ago(fam.latest.checked) : "") + " ", U.available ? (U.ready ? h("button", { class: "pri", disabled: !U.enabled, on: { click: () => { if (confirm(`Update Phone Guard to ${U.version} on this phone?`)) act("/update", {}, stUp, "Update queued for the phone.").then(redraw, () => {}); } } }, "Update this phone") : "(no checksum published yet)") : null) : h("p", { class: "mut" }, "Press Check for updates to see the newest release."),
     h("div", { class: "row" }, h("button", { on: { click: async () => { stUp("mut", "Asking GitHub..."); try { await api("/check-updates", "POST", {}); redraw(); } catch (e) { stUp("bad", e.message); } } } }, "Check for updates")), jobs, stUp.el);
 
   // ---- managing the phone ------------------------------------------------------------------------------------------------

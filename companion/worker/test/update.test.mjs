@@ -29,4 +29,13 @@ assert.ok(cmpVer("0.5.1", "0.5.0") > 0 && cmpVer("0.5.0", "0.5.1") < 0 && cmpVer
 { const sha = "a".repeat(64), repo = "https://github.com/durkimat/phoneguard/", good = { tag: "v0.4.3", html_url: repo + "releases/tag/v0.4.3", notes: "n", apk: { name: "p.apk", size: 9, url: repo + "releases/download/v0.4.3/p.apk", sha256: sha }, companion: { version: "0.5.0", schema: 3, protocol: 1, sha256: sha, size: 5 } };
   const r = parseReleaseJson(good); assert.deepEqual([r.version, r.url, r.sha256, r.companion.version, r.html_url], ["0.4.3", good.apk.url, sha, "0.5.0", good.html_url]);
   assert.equal(parseReleaseJson({ ...good, apk: { ...good.apk, url: "https://evil.example/p.apk" } }).url, ""); assert.equal(parseReleaseJson({ ...good, html_url: "https://evil.example/" }).html_url, ""); assert.equal(parseReleaseJson({ ...good, apk: null }).companion.version, "0.5.0"); assert.equal(parseReleaseJson({ ...good, apk: null, companion: null }), null); assert.equal(parseReleaseJson({ ...good, tag: "latest" }), null); assert.equal(parseReleaseJson({ ...good, apk: { ...good.apk, sha256: "zz" }, companion: null }), null); assert.equal(parseReleaseJson(null), null); ok("release.json is read as one small file; an app link outside this project's GitHub, or a bad checksum, is dropped"); }
+{ const { companionLine, phoneAppLine } = await import("../src/page/ui.js");
+  assert.equal(companionLine("0.8.12", "0.8.11", "3 h ago"), "Companion version 0.8.12: no newer one found (checked 3 h ago).");   // a stale answer older than what is running
+  assert.equal(companionLine("0.8.12", "0.8.12", ""), "Companion version 0.8.12: no newer one found.");
+  assert.equal(companionLine("0.8.12", "0.8.13", "now"), "Companion version 0.8.12. Version 0.8.13 is available: to update, run the setup tool and choose Update my companion.");
+  assert.equal(companionLine("0.8.12", undefined, ""), "Companion version 0.8.12. Press Check for updates to look for a newer one.");
+  assert.equal(phoneAppLine("0.5.1", "0.5.0", false, "3 h ago"), "This phone has Phone Guard 0.5.1: no newer version found (checked 3 h ago).");
+  assert.equal(phoneAppLine("0.5.0", "0.5.1", true, "now"), "This phone has Phone Guard 0.5.0. Version 0.5.1 is available.");
+  console.log("  ok  the parent page does not call an older answer from GitHub the newest, nor ask for an update there is none of"); }
+
 console.log(`\n${n} checks passed`);
