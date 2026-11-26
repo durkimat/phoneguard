@@ -1589,3 +1589,15 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 ## Media slice 4 built (2026-11-26, branch refactor/media-modules)
 - Emoji and stickers in Phone Guard (details and the J36 checks: docs/modularisation-plan.md, slice 4). Open: retry for a sticker that failed to send; sending reactions; whether emoji by SMS need a warning about cost.
 
+
+## About phone, check for updates, and update visibility (owner, 2026-11-26): not started
+- Wanted (owner, after a queued update sat at "waiting" on the J36): an About phone section showing the current version, with a "check now" that makes the phone check in from its own screen.
+- Proposed place and contents (to agree): Settings > This phone > About phone: version, last check-in and its result, a waiting update with the reason it waits, and Check now. An Open phone (no companion) shows the version only.
+- Related faults in the update route (0.4.83 and 0.5.0): the reason for waiting is only in the phone's log; a failed attempt is not reported until the next scheduled check-in; the phone reports "done" for its own update before Android has installed it. Showing the reason on the parent page needs a companion change too.
+- Open: whether the J36's queued 0.5.0 update went through, and if not why (no adb on that phone).
+
+## BUG (owner, J36, 2026-11-26): Android's status bar and location mark appear around the Wi-Fi screen: not fixed
+- Seen: Home > Wi-Fi symbol > into a menu > Back: Android's white top bar reappeared, and again on going back into Wi-Fi; location seemed to pop up.
+- Likely cause, from the code, not yet reproduced: Android only lists Wi-Fi networks with its location switch on, so the Wi-Fi screen switches location on (`LocationLock.borrow`) and leaving the Wi-Fi/Bluetooth screens switches it off again (`giveBack`, in modes with location off). That brings back what switching location off was meant to stop. The code is the same in 0.4.83 and 0.5.0. ims52's patch 0020 blocks only bars revealed by a swipe; whether `setStatusBarDisabled` should hide this one is unclear (earlier note: no effect in lock-task).
+- To confirm: the Bluetooth screen does not switch location on, so the bar should not appear going in and out of Bluetooth.
+- Options: show saved networks without switching location on and scan only when asked (the bar may still show then; check what Android still lists with location off); keep the bar hidden more firmly from the app (not certain to beat a system-drawn mark); or an image change (needs a flash).
