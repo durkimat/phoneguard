@@ -1578,3 +1578,10 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 - Pictures, stickers, GIFs and videos on Phone Guard's WhatsApp message pages; delete-for-everyone and edits now apply (before, Phone Guard ignored both). Emulator only, with made-up messages: the real-phone checks are in docs/modularisation-plan.md, slice 3.
 - Next: slice 4, emoji and the sticker tray (spike the emoji font first).
 
+
+## WhatsApp mode 3 (supervised linked parent account), Family Chat and Phone Guard: group tags to show who is sending (owner idea, 2026-11-26): not started
+- Idea: use group tags carrying the child's name, so people in a group can see that the child, not the parent, is sending. Today the name travels in the messages themselves (the bridge's tag in front of text, "<child>: caption" on photos and videos, a "Sent by <child>" line before a sticker).
+- I have read "group tags" as WhatsApp's per-group member tag (a label shown beside a member's name): to confirm with the owner.
+- To find out first (none of this is checked): whether our bridge library (whatsmeow) can read or set a member tag from a linked device; whether it shows on every recipient's WhatsApp version; and, since a member tag belongs to the account and the account is the parent's, whether it would also label the parent's own messages from their phone. If it does, a fixed tag cannot say who sent each message, and changing it per message may not update older ones correctly.
+- Then decide: replace the text prefix and the sticker line, or keep them alongside the tag.
+- Related: the mode 3 design questions in docs/modularisation-plan.md (companion, control channel).
