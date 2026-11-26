@@ -167,7 +167,7 @@ class GalleryActivity : AppCompatActivity() {
             when {
                 key == Key.OK || (key == Key.DIGIT && digit == 5) -> if (paused) { video.start(); paused = false } else { video.pause(); paused = true }
                 key == Key.SOFT_RIGHT -> stopPlay()
-                key == Key.END -> { stopPlay(); finish() }
+                key == Key.END -> { stopPlay(); goHome() }
             }
             return true
         }
@@ -175,12 +175,17 @@ class GalleryActivity : AppCompatActivity() {
         return true
     }
 
+    private fun goHome() {
+        startActivity(io.github.durkimat.phoneguard.launcher.LauncherActivity.homeIntent(this)); finish()
+    }
+
     private fun perform(a: GAction) {
         when (a) {
             GAction.None -> {}
             GAction.Redraw, GAction.ShowItem -> refresh()
             is GAction.Play -> play(a.item)
-            GAction.Exit, GAction.Home -> finish()
+            GAction.Exit -> finish()
+            GAction.Home -> goHome()
         }
     }
 

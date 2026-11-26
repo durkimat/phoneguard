@@ -25,6 +25,13 @@ import io.github.durkimat.phoneguard.whatsapp.WhatsApp
  */
 class LauncherActivity : Activity() {
     companion object {
+        /** Our own screen is about to open from outside the launcher's keys (the side button): if the launcher is in front, Back returns to it as it is. */
+        fun openingOwnScreen() { current?.keepPlaceForOwnScreen() }
+
+        /** A request for the idle screen, as the Home and hang-up keys send it: our own screens use it for their End key. */
+        fun homeIntent(c: Context): Intent = Intent(c, LauncherActivity::class.java).setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
         @Volatile private var words: WordList? = null
         const val EXTRA_DIAL = "dial"
         /** A spoken command (the Worker's checked JSON) for the launcher to act on, see [io.github.durkimat.phoneguard.voice.VoiceCommands]. */
@@ -112,6 +119,13 @@ class LauncherActivity : Activity() {
     }
     private var leftKeyPending = false
     private var cameBack = true
+    /** Set when one of our own full screens (camera, gallery) is opened over the launcher: coming back from it keeps the screen we were on. */
+    private var keepPlace = false
+
+    /** Opens one of our own full screens so that its Back returns here, to the screen and row it was opened from. */
+    private fun openOwn(c: Class<*>) { if (start(Intent(this, c))) keepPlace = true }
+    /** Something else (the side button) is about to open one of our own screens while the launcher is in front. */
+    fun keepPlaceForOwnScreen() { keepPlace = true }
 
     override fun onStop() { cameBack = true; super.onStop() }
 
@@ -122,8 +136,9 @@ class LauncherActivity : Activity() {
         if (model.lockSet && !model.lockParentReady) lockPush() // back from confirming the PIN: the token may be active now
         try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
-        // coming back from another app shows the home screen; a key press while we are in front must not reset it
-        if (cameBack) { if (!jobKeepsScreen) model.goHome(); cameBack = false }
+        // coming back from another app shows the home screen; a key press while we are in front must not reset it. Back from our own
+        // camera or gallery retraces the way there instead (their Home key asks for home itself, see [homeIntent])
+        if (cameBack) { if (!jobKeepsScreen && !keepPlace) model.goHome(); cameBack = false; keepPlace = false }
         model.voiceOn = voiceAllowed()
         loadClock()
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
@@ -1050,8 +1065,8 @@ class LauncherActivity : Activity() {
             is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); if (model.spOfflineOnly) playOffline(a.uri) else playOnTarget(a.uri); pollAfterPlay() }.start()
             is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
-            Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
-            Action.OpenGallery -> start(Intent(this, io.github.durkimat.phoneguard.gallery.GalleryActivity::class.java))
+            Action.OpenCamera -> openOwn(io.github.durkimat.phoneguard.camera.CameraActivity::class.java)
+            Action.OpenGallery -> openOwn(io.github.durkimat.phoneguard.gallery.GalleryActivity::class.java)
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)
             // "Call" on a contact or in the call log opens our own dial screen with the number typed; one more press rings
@@ -1359,7 +1374,6 @@ class LauncherActivity : Activity() {
         }.start()
     }
 
-    private fun start(i: Intent) {
-        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { Log.log(this, "launcher: could not start ${i.action}: ${e.javaClass.simpleName}") }
-    }
+    private fun start(i: Intent): Boolean =
+        try { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true } catch (e: Exception) { Log.log(this, "launcher: could not start ${i.action}: ${e.javaClass.simpleName}"); false }
 }

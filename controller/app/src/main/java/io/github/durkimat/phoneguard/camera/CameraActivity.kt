@@ -231,7 +231,8 @@ class CameraActivity : AppCompatActivity() {
             CamAction.Rebind -> { bind(); view.invalidate() }
             CamAction.OpenGallery -> openGallery()
             CamAction.ShowItem -> showItem()
-            CamAction.Exit, CamAction.Home -> finish()
+            CamAction.Exit -> finish()
+            CamAction.Home -> { startActivity(io.github.durkimat.phoneguard.launcher.LauncherActivity.homeIntent(this)); finish() }
         }
     }
 

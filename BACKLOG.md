@@ -1570,3 +1570,7 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 - Open design: WhatsApp mode 3 (supervised linked parent account with a control group, as Family Chat does) versus the companion; see the plan's last section.
 - Slice 2 built (uncommitted until reviewed, branch refactor/media-modules): Extras > Gallery, a themed 3-column grid over everything on the phone, opening on the Camera folder; see the plan. Checked in the NAS emulator 2026-11-26 (menu route, scrolling, colour, folders, full view, video). Still to check on the J36: look per theme, the left key, thumbnail speed with real photos. Open: Back from the gallery lands on Home (the launcher's rule on returning from another screen, as with the camera); pictures are ordered by date added, not date taken.
 
+## Back retraces the way in (owner rule, 2026-11-26)
+- Done: camera and gallery return to where they were opened from. Gallery order is date taken, else date added (Android only records date taken for photos that store a time zone, or whose file time agrees).
+- To discuss: the other breaks found, in docs/back-navigation-audit.md (nothing changed).
+
