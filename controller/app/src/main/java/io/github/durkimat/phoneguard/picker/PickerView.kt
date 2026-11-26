@@ -20,8 +20,8 @@ class PickerView(context: Context, private val model: PickerModel, themeId: Stri
 
     override fun onDraw(c: Canvas) {
         val u = width / 480f
-        val n = model.items.size
-        background(c, if (model.view == PView.GROUPS) "Groups" else fit(model.group.name, 30f, 300f, u) + if (n > 0) "  ${model.sel + 1}/$n" else "", u)
+        val n = model.group.items.size
+        background(c, if (model.view == PView.GROUPS) "Groups" else fit(model.group.name, 30f, 300f, u) + if (n > 0) "  ${model.position}/$n" else "", u)
         when (model.view) {
             PView.GROUPS -> countedList(c, model.groups.map { it.name to it.items.size }, model.groupSel, u)
             PView.PREVIEW -> drawPreview(c, u)
@@ -33,9 +33,12 @@ class PickerView(context: Context, private val model: PickerModel, themeId: Stri
     private fun grid(c: Canvas, u: Float) {
         val tile = 462f / model.cols
         val emoji = model.kind == PickKind.EMOJI
+        for (r in 0 until model.visibleRows) if (r > 0 && model.startsGroup(model.top + r)) { // a line between one group and the next
+            stroke.strokeWidth = 2 * u; c.drawLine(9f * u, (60f + r * tile - 1f) * u, 471f * u, (60f + r * tile - 1f) * u, stroke)
+        }
         for (r in 0 until model.visibleRows) for (col in 0 until model.cols) {
             val i = (model.top + r) * model.cols + col
-            val item = model.items.getOrNull(i) ?: continue
+            val item = model.cells.getOrNull(i) ?: continue
             val x = 9f + col * tile; val y = 60f + r * tile
             if (emoji) text(c, item.value, x + tile / 2, y + tile * 0.7f, tile * 0.56f, u, align = Paint.Align.CENTER)
             else {

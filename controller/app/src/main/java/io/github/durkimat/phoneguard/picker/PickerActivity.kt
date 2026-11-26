@@ -63,9 +63,8 @@ class PickerActivity : AppCompatActivity() {
     }
 
     private fun loadThumbs() {
-        val items = model.items
         for (i in model.visible(margin = 1)) {
-            val item = items.getOrNull(i) ?: continue
+            val item = model.cells.getOrNull(i) ?: continue
             if (thumbs.get(item.value) != null || !pending.add(item.value)) continue
             loader.execute {
                 try {

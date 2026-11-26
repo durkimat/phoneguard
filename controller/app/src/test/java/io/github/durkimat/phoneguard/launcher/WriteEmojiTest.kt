@@ -28,11 +28,26 @@ class WriteEmojiTest {
 
     @Test fun leftAndRightMoveAlongTheButtonsAndOkOpensThePicker() {
         val m = chat(true, voice = true)
-        m.onKey(Key.DOWN); assertEquals(WriteButton.MIC, m.writeButton); assertEquals("Speak" to "Clear", m.softKeys) // the microphone is still one press away
-        m.onKey(Key.RIGHT); assertEquals("Emoji", m.softKeys.first); assertEquals(Action.PickEmoji, m.onKey(Key.OK))
-        m.onKey(Key.RIGHT); m.onKey(Key.RIGHT); assertEquals(WriteButton.STICKER, m.writeButton); assertEquals(Action.PickSticker, m.onKey(Key.SOFT_LEFT))
-        m.onKey(Key.UP); assertEquals(1, m.writeField); assertNull(m.writeButton)
+        m.onKey(Key.DOWN); assertEquals(WriteButton.MIC, m.writeButton); assertEquals("Speak" to "Back", m.softKeys) // the microphone is still one press away
+        m.onKey(Key.RIGHT); assertEquals("Emoji" to "Back", m.softKeys); assertEquals(Action.PickEmoji, m.onKey(Key.OK))
+        m.onKey(Key.DOWN); m.onKey(Key.RIGHT); m.onKey(Key.RIGHT); m.onKey(Key.RIGHT); assertEquals(WriteButton.STICKER, m.writeButton); assertEquals(Action.PickSticker, m.onKey(Key.SOFT_LEFT))
+        m.onKey(Key.DOWN); m.onKey(Key.UP); assertEquals(1, m.writeField); assertNull(m.writeButton)
         m.onKey(Key.DOWN); assertEquals(WriteButton.MIC, m.writeButton) // and starts at the left again
+    }
+
+    @Test fun leavingAPickerWithoutChoosingStillLeavesSendThere() {
+        for ((rights, action) in listOf(0 to Action.PickEmoji, 1 to Action.PickSticker)) {
+            val m = chat(true); m.onKey(Key.DIGIT, 4)
+            m.onKey(Key.DOWN); repeat(rights) { m.onKey(Key.RIGHT) }
+            assertEquals(action, m.onKey(Key.OK)) // the picker opens over this screen; nothing is chosen there
+            assertEquals(1, m.writeField); assertNull(m.writeButton); assertEquals("Send" to "Clear", m.softKeys)
+        }
+    }
+
+    @Test fun onTheButtonRowTheRightKeyIsCalledBackAndLosesNothing() {
+        val m = chat(true); m.onKey(Key.DIGIT, 4); val typed = m.writeText
+        m.onKey(Key.DOWN); assertEquals("Back", m.softKeys.second)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(typed, m.writeText); assertEquals("Send" to "Clear", m.softKeys); assertEquals(Screen.WRITE, m.screen)
     }
 
     @Test fun anEmojiGoesInAtTheCursorAndIsDeletedAndSteppedOverWhole() {

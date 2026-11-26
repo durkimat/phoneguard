@@ -798,7 +798,7 @@ class LauncherModel(
         Screen.WAPAIR -> (if (waLinked) "" else if (waCode != null) "New code" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
         Screen.CHAT -> (if (selected == 0) "Reply" else "Read") to "Back"
-        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeField == 2) writeButton?.label.orEmpty() else if (writeHead != null) "Done" else "Send") to "Clear"
+        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeField == 2) writeButton?.label.orEmpty() else if (writeHead != null) "Done" else "Send") to (if (writeField == 2) "Back" else "Clear") // on the button row the right key only goes back to the text
         else -> "Select" to "Back"
     }
 
@@ -1275,8 +1275,9 @@ class LauncherModel(
         Key.LEFT -> { writeButtonIndex = (writeButtonIndex - 1).coerceAtLeast(0); Action.Redraw }
         Key.RIGHT -> { writeButtonIndex = (writeButtonIndex + 1).coerceAtMost(writeButtons.size - 1); Action.Redraw }
         Key.OK, Key.SOFT_LEFT -> when (writeButton) {
-            WriteButton.EMOJI -> Action.PickEmoji
-            WriteButton.STICKER -> Action.PickSticker
+            // the focus goes back to the text as the picker opens: leaving it without choosing must not strand it on the button, with no Send
+            WriteButton.EMOJI -> { writeField = 1; Action.PickEmoji }
+            WriteButton.STICKER -> { writeField = 1; Action.PickSticker }
             WriteButton.MIC -> if (key == Key.OK) { notice = "Hold OK and speak"; Action.Redraw } else Action.None
             null -> Action.None
         }
