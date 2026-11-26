@@ -22,6 +22,7 @@ class BootReceiver : BroadcastReceiver() {
                 if (i.action == Intent.ACTION_BOOT_COMPLETED || i.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
                     StoreInstall.cleanup(c) // a store job that a restart cut short left the store shown
                     StoreApp.ensureGrants(c) // the app store keeps what it needs to download and install, after every boot and update
+                    if (i.action == Intent.ACTION_MY_PACKAGE_REPLACED) AppInstaller.afterReplaced(c) else AppInstaller.confirmSelfInstall(c)
                     Link.schedulePoll(c, 30_000) // soon after boot, once the network is up
                     io.github.durkimat.phoneguard.companion.WorkerLink.schedulePoll(c, 45_000)
                 }

@@ -116,6 +116,7 @@ object WorkerLink {
         val s = sp(c)
         if (!isPaired(c)) return "not paired"
         val did = s.getString("did", "")!!; val host = host(c)
+        s.edit().putLong("lastTry", System.currentTimeMillis()).apply()
         val ctr = nextCtr(c) // persisted first: a counter is never reused, even if the reply is lost
         val n = Wire.nonce()
         val p = payloadWithExtras(c, s.getString("cfgh", "").orEmpty()).toString()
@@ -375,6 +376,25 @@ object WorkerLink {
             if (code >= 400) throw IllegalStateException("HTTP $code ${runCatching { JSONObject(text).optString("error") }.getOrDefault("")}".trim())
             return text
         } finally { h.disconnect() }
+    }
+
+    /** When the last check-in was tried and how it went ("" when it worked). */
+    fun lastCheck(c: Context): Pair<Long, String> {
+        val s = sp(c)
+        val failed = s.getString("lastResult", "").orEmpty().let { if (it.startsWith("FAILED ")) it.removePrefix("FAILED ") else "" }
+        return maxOf(s.getLong("lastTry", 0), s.getLong("lastSync", 0)) to failed
+    }
+
+    /** A check-in asked for on the phone; [done] gets the result, on the sync thread. */
+    fun checkNow(c: Context, done: (String) -> Unit) {
+        val app = c.applicationContext
+        pool.execute {
+            io.github.durkimat.phoneguard.net.RadioManager.begin(app, "check now")
+            val r = try { io.github.durkimat.phoneguard.net.RadioManager.awaitNetwork(app, 20_000); sync(app, "check now") }
+            catch (e: Exception) { "failed: ${e.message}" }
+            finally { io.github.durkimat.phoneguard.net.RadioManager.end(app, "check now") }
+            done(r)
+        }
     }
 
     fun runAsync(c: Context, reason: String, pending: android.content.BroadcastReceiver.PendingResult? = null) {

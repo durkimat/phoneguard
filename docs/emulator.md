@@ -20,6 +20,9 @@ rig/emulator.sh stop
 ## Made-up WhatsApp chats (debug builds)
 The bridge cannot run here, but the screens can be tried: `adb shell am start -n io.github.durkimat.phoneguard/.launcher.LauncherActivity -f 0x20000000 --es pg_wa_demo 1` links a made-up account and loads a family chat with a photo, a sticker, a video entry, a photo "not yet fetched" and a deletable message. For the video and an animated sticker, first put `demo-video.mp4` (for example from `adb shell screenrecord`) and `demo-anim.webp` into the app's `files/wa/media` (`adb root`, then give them the app's owner). `--es pg_wa_revoke D7` deletes message D7 for everyone. Fetching always ends in "Not connected" here.
 
+## Trying an app update (debug builds)
+`am start ... -f 0x20000000 --es pg_update_demo '<job id>;<https address>;<sha256>;<size>;Phone Guard X.Y.Z'` (quote it for the device shell) runs one update job as if the companion had sent it. A published release APK is refused by a debug install (different key), which exercises download, progress and the failure report; `adb shell svc wifi disable` exercises waiting. A successful self-update needs a matching, higher build at an HTTPS address, so it has only been checked by writing the pending-install record by hand and replacing the app with `adb install -r`.
+
 ## What works (tried 2026-11-09)
 - Boot in 25 s, device owner provisioning, the whole app, restrictions, mode switching, grey screen, the ten-minute warning, newly installed apps hidden. `rig/run_controller.sh`: 37 passed, 8 failed.
 - No lock screen to get past, and no owner needed for screen-off tests.

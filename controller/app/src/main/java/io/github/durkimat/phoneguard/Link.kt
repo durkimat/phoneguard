@@ -188,6 +188,7 @@ object Link {
             .put("version", BuildConfig.VERSION_NAME).put("tz", TimeZone.getDefault().id).put("clock", now)
             .put("wa", JSONObject().put("linked", io.github.durkimat.phoneguard.whatsapp.WhatsApp.linked(c)).put("status", io.github.durkimat.phoneguard.whatsapp.WhatsApp.status).put("setup", io.github.durkimat.phoneguard.whatsapp.SetupRunner.report(c)))
         state.put("updates", UpdateRunner.report(c))
+        AppInstaller.status(c)?.let { state.put("update", it.toJson()) } // where an update of Phone Guard has got to
         state.put("usageAllowed", Usage.allowed(c)).put("canOverlay", TouchBlocker.canDraw(c)).put("canSilence", SoundEnforcer.canSilence(c))
             .put("lockdown", JSONObject().put("launcher", eff.lockdown.launcher).put("touch", eff.lockdown.touch)
                 .put("shade", eff.lockdown.shade).put("kiosk", eff.lockdown.kiosk).put("touchBlocked", TouchBlocker.isOn()).put("locked", Kiosk.locked(c)))
@@ -220,6 +221,19 @@ object Link {
     }
 
     // ---- scheduling --------------------------------------------------------------------------
+
+    /** When this phone last checked in and how it went ("" when it worked). */
+    fun lastCheck(c: Context): Pair<Long, String> {
+        val r = rec(c)
+        val failed = r.optString("lastResult").let { if (it.startsWith("FAILED ")) it.removePrefix("FAILED ") else "" }
+        return r.optLong("lastSync", 0) to failed
+    }
+
+    /** A check-in asked for on the phone; [done] gets the result, on the sync thread. */
+    fun checkNow(c: Context, done: (String) -> Unit) {
+        val app = c.applicationContext
+        pool.execute { done(try { sync(app, "check now") } catch (e: Exception) { "failed: ${e.message}" }) }
+    }
 
     fun runAsync(c: Context, reason: String, pending: BroadcastReceiver.PendingResult? = null) {
         val app = c.applicationContext

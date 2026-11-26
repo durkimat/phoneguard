@@ -46,9 +46,9 @@ class MenuRestructureTest {
 
     @Test fun thisPhoneListsBatteryFirstAndFollowsTheEdition() {
         val open = phone("open"); open.onKey(Key.OK); open.onKey(Key.DIGIT, 7); open.onKey(Key.DIGIT, 4)
-        assertEquals(listOf("Battery", "Screen lock", "Time zone", "Language", "Typing", "Phone options", "Phone type"), open.rows)
+        assertEquals(listOf("Battery", "Screen lock", "Time zone", "Language", "Typing", "Phone options", "Phone type", "About phone"), open.rows)
         val fam = phone(); fam.androidSettings = true; fam.onKey(Key.OK); fam.onKey(Key.DIGIT, 7); fam.onKey(Key.DIGIT, 4)
-        assertEquals(listOf("Battery", "Screen lock", "Time zone", "Language", "Typing", "Phone type", "Android settings"), fam.rows)
+        assertEquals(listOf("Battery", "Screen lock", "Time zone", "Language", "Typing", "Phone type", "Android settings", "About phone"), fam.rows)
     }
 
     @Test fun aListOpensWhereItWasLeftUntilTheNextTimeHome() {

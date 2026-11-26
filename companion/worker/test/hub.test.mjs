@@ -158,4 +158,18 @@ const fresh = () => ({ ch: S.defaultChild("Her"), rt: newRuntime() });
   throwsMsg(() => H.updateChild(ch, { alarm_volume: 9 }, T0), /1 to 7/); throwsMsg(() => H.updateChild(ch, { modes: { ...ch.modes, day: { ...ch.modes.day, alarms: "no" } } }, T0), /alarms must be true or false/);
   ok("alarms are a per-mode setting (off in School by default, sent only when off), with an alarm volume and a 'time can be set on the phone' option"); }
 
+{ const cmd = { id: "u1", kind: "update", pkg: "io.github.durkimat.phoneguard" }, say = (update, c = cmd) => H.updateProgress(c, { update });
+  assert.equal(say({ job: "u1", phase: "waiting", detail: "no Wi-Fi" }), "the phone is waiting for Wi-Fi");
+  assert.equal(say({ job: "u1", phase: "waiting", detail: "battery 20%" }), "the phone is waiting: battery 20% (it needs 25% or charging)");
+  assert.equal(say({ job: "u1", phase: "waiting", detail: "storage" }), "the phone is waiting: not enough free space");
+  assert.equal(say({ job: "u1", phase: "downloading", percent: 40 }), "the phone is downloading it");
+  assert.equal(say({ job: "u1", phase: "installing" }), "the phone is installing it");
+  assert.equal(say({ job: "an older job", phase: "downloading" }), ""); assert.equal(H.updateProgress(cmd, {}), ""); assert.equal(H.updateProgress(cmd, undefined), "");
+  assert.equal(say({ job: "u1", phase: "downloading" }, { id: "u1", kind: "remove", pkg: "a.b" }), "");
+  assert.equal(say({ job: "u1", phase: "waiting", detail: "x\n".repeat(200) }).includes("\n"), false);
+  const { ch, rt } = fresh(); H.queueUpdate(ch, rt, { version: "9.0.0", url: "https://x/a.apk", sha256: "a".repeat(64) }, { updates_enabled: true }, T0, { url: "https://x/a.apk", sha256: "a".repeat(64), version: "9.0.0" });
+  mergeSync(ch, rt, { state: { version: "0.5.1", update: { job: ch.commands[0].id, phase: "waiting", detail: "no Wi-Fi" } } }, T0);
+  assert.equal(H.view(ch, rt, {}, null, T0).app_commands[0].progress, "the phone is waiting for Wi-Fi");
+  ok("the parent page can say what a waiting update is waiting for, from what the phone last reported"); }
+
 console.log(`\n${n} checks passed`);

@@ -43,6 +43,8 @@ Download the newest Phone Guard ZIP again (the same steps as the install), run `
 3. Press **Check for updates**. If there is a newer app, it shows the version and **Update this phone**.
 4. Press it and confirm. The phone downloads the app from GitHub (about 34 MB), checks it against its published checksum, and installs it. **It waits until the phone is on Wi-Fi**, so it does not use the child's mobile data; until then the phone's entry in **Updates and removals** says it is waiting. If a phone is never on Wi-Fi, connect it to your Wi-Fi once (Settings, Connections, Wi-Fi).
 
+**Watching it happen (from app 0.5.1).** On the phone, **Settings > This phone > About phone** shows the version, the last check-in and where an update has got to (waiting and why, downloading with a percentage, installing, failed and why, or done). **Check now** checks in at once, which also tries a waiting update. A short notice appears when an update starts, fails or finishes. The phone reports "done" only once the new version is really installed, and reports failures straight away. With companion 0.8.12 or later, the parent page also says what a waiting update is waiting for. An update **from** 0.5.0 or earlier is done by the older app, which shows none of this and says "done" before it has happened: check the version.
+
 An Open phone has no companion, so it has no remote update. Update it by flashing the newest image over the old one (below), which keeps its data.
 
 ## Update the phone's system image

@@ -25,6 +25,9 @@ import io.github.durkimat.phoneguard.whatsapp.WhatsApp
  */
 class LauncherActivity : Activity() {
     companion object {
+        /** There is a new notice about an update: show it now if the launcher is in front (otherwise when it next is). */
+        fun showAnnouncement() { current?.let { l -> l.runOnUiThread { l.showAnnouncementNow() } } }
+
         /** A request for the idle screen, as the Home and hang-up keys send it: our own screens use it for their End key. */
         fun homeIntent(c: Context): Intent = Intent(c, LauncherActivity::class.java).setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -139,6 +142,7 @@ class LauncherActivity : Activity() {
         // were hidden (the screen we were on may not be allowed now), and the left key pressed in another app (it means "our menu").
         if (wasStopped) { if (modeNow() != modeWhenLeft || leftKeyPending) model.goHome(); wasStopped = false }
         takePicked()
+        showAnnouncementNow()
         model.stickersAvailable = !assets.list("stickers").isNullOrEmpty()
         model.voiceOn = voiceAllowed()
         loadClock()
@@ -156,6 +160,7 @@ class LauncherActivity : Activity() {
             Thread { io.github.durkimat.phoneguard.mail.Mail.setup(this, io.github.durkimat.phoneguard.mail.MailAccount("demo@demo.local", imapHost = "demo", smtpHost = "demo"), ""); ui.post { mailPush(); refresh() } }.start()
         }
         if (leftKeyPending) { leftKeyPending = false; perform(model.onKey(Key.SOFT_LEFT, -1)) }
+        if (model.screen == Screen.ABOUT) ui.post(aboutTick)
         registerReceiver(changes, IntentFilter().apply {
             addAction(android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED); addAction(android.bluetooth.BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED); addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
             addAction(Intent.ACTION_BATTERY_CHANGED); addAction(Intent.ACTION_TIME_TICK); addAction(Intent.ACTION_PACKAGE_ADDED)
@@ -393,7 +398,7 @@ class LauncherActivity : Activity() {
         if (model.pairsBest > 0 && (p.getInt("pairs_best", 0) == 0 || model.pairsBest < p.getInt("pairs_best", 0))) p.edit().putInt("pairs_best", model.pairsBest).apply()
     }
 
-    private val hideNotice = Runnable { model.clearNotice(); redraw() }
+    private val hideNotice = Runnable { if (model.notice == announced) announcementSeen(); model.clearNotice(); redraw() } // shown its full time: read
 
     /*
      * Data for the screens is read once and kept: reading contacts, messages, the call log, WhatsApp and the app list took a quarter of a
@@ -417,7 +422,7 @@ class LauncherActivity : Activity() {
     private fun redraw() {
         ui.removeCallbacks(hideNotice)
         scheduleGame()
-        if (model.notice != null) ui.postDelayed(hideNotice, 1_500)
+        if (model.notice != null) ui.postDelayed(hideNotice, if (model.notice == announced) 6_000 else 1_500) // news about an update takes longer to read
         lastInfo?.let { skin.render(model, it) }
     }
 
@@ -426,6 +431,10 @@ class LauncherActivity : Activity() {
     private var demoDot: Triple<Double?, Double?, Float?>? = null
     private fun debugExtras(i: Intent?) {
         i ?: return
+        i.getStringExtra("pg_update_demo")?.let { v -> // "id;address;sha256;size;name"
+            i.removeExtra("pg_update_demo"); val p = v.split(';')
+            if (p.size == 5) io.github.durkimat.phoneguard.AppInstaller.debugRun(this, io.github.durkimat.phoneguard.core.AppCmd(p[0], "update", packageName, p[4], p[1], p[2], p[3].toLongOrNull() ?: 0))
+        }
         if (i.getStringExtra("pg_wa_demo") != null) { i.removeExtra("pg_wa_demo"); WhatsApp.loadDemo(this); invalidate(D.WA or D.INFO) }
         i.getStringExtra("pg_wa_revoke")?.let { i.removeExtra("pg_wa_revoke"); WhatsApp.revoke(this, "gdemo", it); invalidate(D.WA or D.INFO) }
         if (i.getStringExtra("pg_where_demo") != null) { i.removeExtra("pg_where_demo"); demoDot = null; model.loadWhereDemo() }
@@ -735,6 +744,7 @@ class LauncherActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(ev: KeyEvent): Boolean {
+        if (ev.action == android.view.KeyEvent.ACTION_DOWN && announced != null) announcementSeen()
         // the side button of the J36 sends F2 (from the pmic key input, next to power): two quick presses open the camera, unless a call is on or the mode has no camera
         if (ev.keyCode == KeyEvent.KEYCODE_F2) {
             // the same gesture machine as the accessibility service (this only runs when the service is off): one press camera, two torch
@@ -889,6 +899,8 @@ class LauncherActivity : Activity() {
                     ui.post { model.waFetching = model.waFetching - a.mid; if (why.isNotEmpty()) model.notify(why); invalidate(D.WA); refresh() }
                 }.start()
             }
+            Action.AboutLoad -> { ui.removeCallbacks(aboutTick); ui.post(aboutTick); refresh() }
+            Action.CheckNow -> { refresh(); checkNow() }
             Action.PickEmoji -> openPicker(io.github.durkimat.phoneguard.picker.PickKind.EMOJI)
             Action.PickSticker -> openPicker(io.github.durkimat.phoneguard.picker.PickKind.STICKER)
             Action.WaOpen -> { WhatsApp.touch(this); invalidate(D.WA or D.INFO); refresh() }
@@ -1399,6 +1411,48 @@ class LauncherActivity : Activity() {
             ui.post { model.notify(if (r == "sent") "Sticker sent" else "Not sent: $r"); invalidate(D.WA or D.INFO); refresh() }
         }.start()
     }
+
+    // ---- About phone, and notices about updates
+
+    private var checkingNow = false
+
+    private fun aboutInfo(): AboutInfo {
+        val version = io.github.durkimat.phoneguard.BuildConfig.VERSION_NAME
+        val worker = io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(this)
+        if (!worker && !io.github.durkimat.phoneguard.Link.isPaired(this)) return AboutInfo(version, canCheck = false)
+        val (at, failed) = if (worker) io.github.durkimat.phoneguard.companion.WorkerLink.lastCheck(this) else io.github.durkimat.phoneguard.Link.lastCheck(this)
+        val last = if (at == 0L) "" else java.text.SimpleDateFormat(if (android.text.format.DateUtils.isToday(at)) "HH:mm" else "d MMM HH:mm", java.util.Locale.UK).format(java.util.Date(at)) +
+            if (failed.isEmpty()) ", worked" else ", failed: " + io.github.durkimat.phoneguard.update.UpdateStatus.plainError(failed)
+        return AboutInfo(version, true, last, io.github.durkimat.phoneguard.AppInstaller.status(this)?.words.orEmpty(), checkingNow)
+    }
+
+    /** Keeps About phone up to date while it is on screen. */
+    private val aboutTick: Runnable = object : Runnable {
+        override fun run() {
+            if (model.screen != Screen.ABOUT || !inFront) return
+            model.showAbout(aboutInfo())
+            lastInfo?.let { skin.render(model, it) }
+            ui.postDelayed(this, 1_500)
+        }
+    }
+
+    private fun checkNow() {
+        checkingNow = true
+        val done = { _: String -> ui.post { checkingNow = false; ui.removeCallbacks(aboutTick); ui.post(aboutTick) }; Unit }
+        if (io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(this)) io.github.durkimat.phoneguard.companion.WorkerLink.checkNow(this, done)
+        else io.github.durkimat.phoneguard.Link.checkNow(this, done)
+    }
+
+    /** The update notice on screen. It counts as read once it has had its full time there, or a key is pressed while it shows. */
+    private var announced: String? = null
+
+    /** Shows a waiting notice about an update, if the screen is on to be read. It goes after a few seconds or at a key press. */
+    private fun showAnnouncementNow() {
+        if (!getSystemService(android.os.PowerManager::class.java).isInteractive) return
+        io.github.durkimat.phoneguard.AppInstaller.announcement(this)?.let { announced = it; model.notify(it); redraw(); refresh() }
+    }
+
+    private fun announcementSeen() { announced?.let { io.github.durkimat.phoneguard.AppInstaller.announcementRead(this, it); announced = null } }
 
     /** A message page with a picture on the phone: have it ready to draw, and redraw when it is. */
     private fun loadMessagePicture() {

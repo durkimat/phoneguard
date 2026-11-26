@@ -332,6 +332,23 @@ function spotifyView(ch, rt, options) {
     store: rt.apps.some((a) => a.pkg === "com.aurora.store"), can: rt.state?.storeInstall === true, auto: options?.spotify_app_auto !== false, last: last ? { ok: last[3] === "done", detail: last[4], at: last[0] } : null };
 }
 
+// What the phone last said about a waiting update of Phone Guard (state.update, from app 0.5.1), as a line for the parent page.
+// "" when it has said nothing about this job: an older app, or it has not checked in since the update was asked for.
+export function updateProgress(cmd, state) {
+  const u = state?.update;
+  if (cmd.kind !== "update" || cmd.pkg !== OWN_PACKAGE || !u || typeof u !== "object" || u.job !== cmd.id) return "";
+  const why = String(u.detail ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 90);
+  if (u.phase === "waiting") {
+    if (why === "no Wi-Fi") return "the phone is waiting for Wi-Fi";
+    if (why.startsWith("battery")) return `the phone is waiting: ${why} (it needs 25% or charging)`;
+    if (why === "storage") return "the phone is waiting: not enough free space";
+    return "the phone is waiting" + (why ? `: ${why}` : "");
+  }
+  if (u.phase === "downloading") return "the phone is downloading it";
+  if (u.phase === "installing") return "the phone is installing it";
+  return "";
+}
+
 export function view(ch, rt, options, latest, nowMs) {
   const cfg = S.buildConfig(ch, nowMs, options), b = activeBoost(rt, nowMs), known = new Set(ch.known ?? []);
   return {
@@ -345,7 +362,7 @@ export function view(ch, rt, options, latest, nowMs) {
     device: { last_seen: rt.last_seen, state: rt.state, cfgh: rt.cfgh, version: rt.state?.version ?? "", fix: rt.fix },
     apps: rt.apps.map((a) => ({ ...a })), pending_apps: rt.apps.filter((a) => !known.has(a.pkg)).map((a) => ({ ...a })),
     usage: rt.usage ?? {}, labels: rt.labels ?? {},
-    app_commands: (ch.commands ?? []).map((c) => ({ id: c.id, kind: c.kind, pkg: c.pkg, name: c.name })), app_log: [...(ch.app_log ?? [])].reverse().slice(0, 8),
+    app_commands: (ch.commands ?? []).map((c) => ({ id: c.id, kind: c.kind, pkg: c.pkg, name: c.name, progress: updateProgress(c, rt.state) })), app_log: [...(ch.app_log ?? [])].reverse().slice(0, 8),
     update: updateFor(rt, latest, options),
     power: PW.summarize(rt.power ?? [], nowMs), reaped: PW.summarizeReaped(rt.reaped ?? [], nowMs),
     lock: { sent: ch.lock ?? null, phone: rt.state?.lock ?? null },

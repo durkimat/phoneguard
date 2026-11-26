@@ -26,7 +26,7 @@ import io.github.durkimat.phoneguard.mail.Presets as MailPresets
 /** A music provider: each has its own Now playing screen and menu. */
 enum class Provider { RADIO, SPOTIFY }
 
-enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU, SPMARKS }
+enum class Screen { HOME, MENU, SETTINGS, THEME, FONT, MENUSTYLE, APPEARANCE, CHOICE, CONTACTS, CONTACT, MESSAGES, INBOX, THREAD, WRITE, TYPING, CALC, CALLLOG, DIAL, CALL, CALLMENU, WHATSAPP, WAPAIR, WASET, WASETUP, WAREMOVE, CHAT, WANAMES, APPS, GAMES, SNAKE, PAIRS, SHOOTER, SEEDS, GAMEHELP, WEATHER, BATTERY, NOTES, NOTE, MUSIC, MUSICMENU, PLAYLISTS, DEVICES, SEARCHRES, SOUNDTEST, RUNNING, WIFI, WIFINET, BT, BTDEV, RADIO, RADIOBROWSE, RADIORES, CONNECTIONS, RADIOMENU, SPOTIFYMENU, CALENDAR, CALMENU, CALMONTH, EVENT, EVMENU, FORM, MAILBOX, MAILLIST, MAILMSG, MAILMENU, FIRSTRUN, PHONETYPE, OPENOPTS, TIMEZONE, LANGUAGE, DATA, LOOK, SOUNDSET, THISPHONE, WHEREPLACES, WHEREDETAIL, WHEREJOURNEYS, WHERELEGS, WHEREMAP, DATAAPPS, CLOCK, ALARMS, TIMER, STOPWATCH, RING, POWERMENU, EXTRAS, PHONEMENU, SPMARKS, ABOUT }
 
 data class Contact(val name: String, val numbers: List<String>)
 
@@ -126,6 +126,15 @@ const val GRID_GAP = 8f
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+/**
+ * What About phone shows: the [version] running; whether this phone has a parent to check in with; when it [lastCheck]ed and how
+ * that went; the latest [update] of Phone Guard in words ("" for none); and whether a check asked for here is under way.
+ */
+data class AboutInfo(val version: String, val canCheck: Boolean, val lastCheck: String = "", val update: String = "", val checking: Boolean = false) {
+    val body: String get() = if (!canCheck) "This phone is not managed by a parent, so there is nothing to check in with." else
+        "Last check-in: " + (if (checking) "checking now..." else lastCheck.ifEmpty { "not yet" }) +
+            "\n\nUpdate: " + update.ifEmpty { if (checking) "..." else "none waiting" }
+}
 /** A button under the write screen's text box; [label] is what the left soft key says while it has the focus. */
 enum class WriteButton(val label: String) { MIC("Speak"), EMOJI("Emoji"), STICKER("Stickers") }
 /** How many text lines of a message page its picture takes. */
@@ -253,6 +262,10 @@ sealed class Action {
     /** The emoji picker, or the sticker picker, opened from the write screen. */
     object PickEmoji : Action()
     object PickSticker : Action()
+    /** About phone is open: gather its facts. */
+    object AboutLoad : Action()
+    /** About phone's "Check now": check in with the parent, which also tries a waiting update. */
+    object CheckNow : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
     /** Open the gallery of the phone's pictures and videos. */
@@ -423,7 +436,7 @@ class LauncherModel(
         Screen.LOOK -> listOf("Theme", "Font", "Menu style", "Appearance")
         Screen.SOUNDSET -> listOf("Ringer mode", "Calls", "Messages", "Media volume", "Call volume", "Sound test")
         Screen.THISPHONE -> listOf("Battery", "Screen lock", "Time zone", "Language", "Typing") + (if (edition == "open") listOf("Phone options") else emptyList()) + (if (edition.isNotEmpty()) listOf("Phone type") else emptyList()) +
-            (if (androidSettings) listOf("Android settings") else emptyList())
+            (if (androidSettings) listOf("Android settings") else emptyList()) + "About phone" // last, so the numbers before it do not move
         else -> listOf("Sound", "Look", "Connections", "This phone") + extraItems.filter { it.pkg == RUNNING_PKG }.map { "Running Apps" }
     }
 
@@ -667,6 +680,7 @@ class LauncherModel(
         Screen.GAMEHELP -> gameNames[helpGame]
         Screen.WEATHER -> "Weather"
         Screen.BATTERY -> "Battery"
+        Screen.ABOUT -> "About phone"
         Screen.MUSIC -> if (provider == Provider.RADIO) "Internet Radio" else "Spotify"
         Screen.RADIO -> "Presets"
         Screen.RADIOMENU -> "Radio menu"
@@ -740,6 +754,7 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
+        Screen.ABOUT -> (if (about?.canCheck == true && about?.checking != true) "Check now" else "") to "Back"
         Screen.PLAYLISTS -> "Options" to "Back"
         Screen.MUSICMENU, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.WHEREPLACES -> "Select" to "Back"
         Screen.WHEREDETAIL -> "Go" to "Back"
@@ -792,7 +807,7 @@ class LauncherModel(
         Screen.MENU -> items.map { it.label }
         Screen.APPS -> apps.map { it.label }
         Screen.GAMES -> listOf("Snake", "Pairs", "Blaster", "Seeds")
-        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC -> emptyList()
+        Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.GAMEHELP, Screen.WEATHER, Screen.BATTERY, Screen.ABOUT, Screen.NOTE, Screen.MUSIC -> emptyList()
         Screen.MUSICMENU -> musicMenuRows
         Screen.RADIO -> radioRows
         Screen.RADIOBROWSE -> radioBrowseRows
@@ -886,6 +901,7 @@ class LauncherModel(
         Screen.GAMEHELP -> gameHelp(key, digit)
         Screen.WEATHER -> weatherKey(key)
         Screen.BATTERY -> batteryKey(key)
+        Screen.ABOUT -> aboutKey(key)
         Screen.MUSIC -> musicKey(key, digit)
         Screen.MUSICMENU -> musicMenuKey(key)
         Screen.RADIO -> radioKey(key)
@@ -1592,6 +1608,7 @@ class LauncherModel(
                 "Look" -> enter(Screen.LOOK)
                 "Sound" -> enter(Screen.SOUNDSET)
                 "Battery" -> { enter(Screen.BATTERY); out = Action.Redraw }
+                "About phone" -> { enter(Screen.ABOUT); scroll = 0; showAbout(); out = Action.AboutLoad }
                 "Typing" -> enter(Screen.TYPING, if (predictiveOn) 0 else 1)
                 "Calls" -> { pushForm(callsForm()); out = Action.Redraw }
                 "Messages" -> { pushForm(messagesForm()); out = Action.Redraw }
@@ -1854,7 +1871,7 @@ class LauncherModel(
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
     /** The screens a skin draws by hand; everything else is a list of rows. */
-    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL, Screen.CALMONTH, Screen.EVENT, Screen.MAILMSG)
+    private val customScreens = setOf(Screen.HOME, Screen.WEATHER, Screen.BATTERY, Screen.ABOUT, Screen.NOTE, Screen.MUSIC, Screen.THREAD, Screen.WRITE, Screen.CALC, Screen.GAMEHELP, Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS, Screen.WAPAIR, Screen.DIAL, Screen.CALL, Screen.CALMONTH, Screen.EVENT, Screen.MAILMSG)
 
     /** How the current screen is laid out. On a grid the D-pad moves in four directions, so Left and Right stop being soft-key aliases. */
     val layout: Layout get() = when {
@@ -2808,6 +2825,34 @@ class LauncherModel(
                 }
             } ?: Action.None
             Key.POUND -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { offlineAction(it) } ?: Action.None
+            Key.END -> { goHome(); Action.Redraw }
+            else -> Action.None
+        }
+    }
+
+    /** About phone, as the activity last saw it. */
+    var about: AboutInfo? = null
+        private set
+
+    /** The activity's latest facts for About phone (again while the screen is up, so a download's progress moves). */
+    fun showAbout(info: AboutInfo? = about) {
+        about = info
+        if (screen != Screen.ABOUT) return
+        pageHead = if (info == null) "Phone Guard" else "Phone Guard ${info.version}"
+        pageBody = info?.body.orEmpty()
+        if (scroll > 0 && scroll >= wrapper(pageBody).size) scroll = 0
+    }
+
+    private fun aboutKey(key: Key): Action {
+        val lines = wrapper(pageBody).size
+        return when (key) {
+            Key.DOWN -> if (scroll + pageLines < lines) { scroll += pageLines; Action.Redraw } else Action.None
+            Key.UP -> if (scroll > 0) { scroll = (scroll - pageLines).coerceAtLeast(0); Action.Redraw } else Action.None
+            Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
+                val a = about
+                if (a == null || !a.canCheck || a.checking) Action.None else { showAbout(a.copy(checking = true)); scroll = 0; Action.CheckNow }
+            }
+            Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }

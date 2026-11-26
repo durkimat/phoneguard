@@ -1,5 +1,8 @@
 package io.github.durkimat.phoneguard
 
+import io.github.durkimat.phoneguard.update.Phase
+import io.github.durkimat.phoneguard.update.SelfInstall
+import io.github.durkimat.phoneguard.update.UpdateStatus
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -23,7 +26,7 @@ import java.util.concurrent.TimeUnit
  * Two jobs for a parent, sent in the settings from HA: updating Phone Guard itself ("Update this phone") and removing an app the parent does
  * not want ("Remove" on the app's row). As device owner it does both silently. It waits for Wi-Fi, enough battery and storage; downloads over https; checks the SHA-256 HA sent; and installs through the
  * package installer (Android itself refuses an update signed by a different key). Each job is done once and its result goes back to
- * HA with the next sync. The one other app it installs is the Aurora Store, pinned by address and checksum in [StoreApp] (owner decision 2026-11-15); any other app is refused, and people install their own apps with Aurora while HA only decides who sees them.
+ * the parent: the phone checks in as soon as there is one, and as soon as an update of itself changes stage ([UpdateStatus]). The one other app it installs is the Aurora Store, pinned by address and checksum in [StoreApp] (owner decision 2026-11-15); any other app is refused, and people install their own apps with Aurora while HA only decides who sees them.
  * Protected apps (phone, messages, settings, Home Assistant and Phone Guard itself) can never be removed.
  */
 object AppInstaller {
@@ -46,10 +49,79 @@ object AppInstaller {
             file(c).appendText(JSONArray().put(id).put(status).put(detail.take(120)).put(System.currentTimeMillis()).toString() + "\n")
             Log.log(c, "app job $id: $status ${detail.take(80)}")
         } catch (_: Exception) { }
+        val s = status(c)
+        if (s?.job == id) {
+            val done = status == "done"
+            save(c, s.copy(phase = if (done) Phase.DONE else Phase.FAILED, detail = detail.take(120), percent = -1, at = System.currentTimeMillis()))
+            if (!done) announce(c, "Update failed. See Settings, This phone, About phone")
+        }
+        report(c) // now, not at the next check-in: otherwise the parent's page goes on saying "waiting"
+    }
+
+    // ---- the update of Phone Guard itself: where it has got to
+
+    fun status(c: Context): UpdateStatus? = prefs(c).getString("status", null)?.let { try { UpdateStatus.fromJson(JSONObject(it)) } catch (_: Exception) { null } }
+
+    private fun save(c: Context, s: UpdateStatus?) {
+        prefs(c).edit().apply { if (s == null) remove("status") else putString("status", s.toJson().toString()) }.apply()
+    }
+
+    /** Keeps the new stage, and checks in when there is something new for the parent to see (see [UpdateStatus.reportKey]). */
+    private fun moveTo(c: Context, s: UpdateStatus) {
+        save(c, s)
+        if (prefs(c).getString("reported", null) != s.reportKey) {
+            prefs(c).edit().putString("reported", s.reportKey).apply()
+            Log.log(c, "update: ${s.words}")
+            report(c)
+        }
+    }
+
+    /** Asks for a check-in, which carries the results and the status. */
+    private fun report(c: Context) {
+        val app = c.applicationContext
+        if (io.github.durkimat.phoneguard.companion.WorkerLink.isPaired(app)) io.github.durkimat.phoneguard.companion.WorkerLink.runAsync(app, "update status")
+        else if (Link.isPaired(app)) Link.runAsync(app, "update status")
+    }
+
+    /** A line for the home screen about an update, shown once; it needs nothing pressed. */
+    private fun announce(c: Context, text: String) {
+        prefs(c).edit().putString("announce", text).apply()
+        io.github.durkimat.phoneguard.launcher.LauncherActivity.showAnnouncement()
+    }
+
+    /** The notice waiting to be read. It stays until [announcementRead]: a screen that is rebuilt or asleep must not swallow it. */
+    fun announcement(c: Context): String? = prefs(c).getString("announce", null)
+    fun announcementRead(c: Context, text: String) { if (announcement(c) == text) prefs(c).edit().remove("announce").apply() }
+
+    private fun selfInstall(c: Context): SelfInstall? = prefs(c).getString("self", null)?.let { try { SelfInstall.fromJson(JSONObject(it)) } catch (_: Exception) { null } }
+    private fun forgetSelfInstall(c: Context) { prefs(c).edit().remove("self").commit() }
+    private fun ownPackage(c: Context) = c.packageManager.getPackageInfo(c.packageName, 0)
+
+    /** Looks at what is installed to see whether an update handed to Android has happened. Cheap when none has. */
+    @Synchronized
+    fun confirmSelfInstall(c: Context) {
+        val s = selfInstall(c) ?: return
+        val now = try { ownPackage(c) } catch (_: Exception) { return }
+        when (s.outcome(now.longVersionCode, now.lastUpdateTime, System.currentTimeMillis())) {
+            SelfInstall.Outcome.INSTALLED -> {
+                forgetSelfInstall(c)
+                val asked = if (s.version.isNotEmpty() && s.version != now.versionName) " (asked for ${s.version})" else ""
+                record(c, s.job, "done", "now running ${now.versionName}$asked")
+            }
+            SelfInstall.Outcome.NOT_INSTALLED -> { forgetSelfInstall(c); record(c, s.job, "failed", "Android did not install it") }
+            SelfInstall.Outcome.STILL_GOING -> { }
+        }
+    }
+
+    /** The app has just been replaced, by whatever route: confirm the job if there was one, and say which version is now running. */
+    fun afterReplaced(c: Context) {
+        confirmSelfInstall(c)
+        announce(c, "Phone Guard updated to ${io.github.durkimat.phoneguard.BuildConfig.VERSION_NAME}")
     }
 
     @Synchronized
     fun pending(c: Context): JSONArray {
+        confirmSelfInstall(c) // so a check-in after an update carries its result
         val out = JSONArray()
         try {
             val p = prefs(c); val since = p.getLong("uploaded", 0); var last = since
@@ -66,23 +138,44 @@ object AppInstaller {
     /** Start the jobs on their own thread (one at a time); called after each settings update. */
     fun processSoon(c: Context) {
         val app = c.applicationContext
-        if (Store.config(app)?.appCommands.isNullOrEmpty() || !running.compareAndSet(false, true)) return
+        val jobs = Store.config(app)?.appCommands.orEmpty()
+        // an update that was waiting and is no longer asked for (the parent cancelled it) is not waiting any more
+        status(app)?.let { s -> if ((s.phase == Phase.WAITING || s.phase == Phase.DOWNLOADING) && jobs.none { it.id == s.job } && !running.get()) save(app, null) }
+        if (jobs.isEmpty() || !running.compareAndSet(false, true)) return
         Thread { try { process(app) } catch (e: Exception) { Log.log(app, "app jobs: ${e.javaClass.simpleName}") } finally { running.set(false) } }.start()
+    }
+
+    /** Debug builds only, for the emulator: runs one job as if the companion had sent it (there is none there to send it). */
+    fun debugRun(c: Context, cmd: AppCmd) {
+        if (!io.github.durkimat.phoneguard.BuildConfig.DEBUG || !running.compareAndSet(false, true)) return
+        val app = c.applicationContext
+        Thread { try { process(app, listOf(cmd), Store.config(app)) } catch (e: Exception) { Log.log(app, "app jobs: ${e.javaClass.simpleName}") } finally { running.set(false) } }.start()
     }
 
     private fun process(c: Context) {
         val cfg = Store.config(c) ?: return
+        process(c, cfg.appCommands, cfg)
+    }
+
+    private fun process(c: Context, jobs: List<AppCmd>, cfg: io.github.durkimat.phoneguard.core.Config?) {
         val p = prefs(c)
         StoreInstall.cleanup(c)
-        for (cmd in cfg.appCommands) {
+        confirmSelfInstall(c)
+        for (cmd in jobs) {
             if (cmd.id.isEmpty() || p.getString("r_${cmd.id}", null) != null) continue // done already
+            if (selfInstall(c)?.job == cmd.id) continue // handed to Android: waiting to see it
+            val ownUpdate = cmd.kind == "update" && cmd.pkg == c.packageName
             val wait = whyWait(c, cmd) ?: if (cmd.kind == "storeinstall") StoreInstall.whyWait(c) else null
-            if (wait != null) { Log.log(c, "app job ${cmd.id} waits: $wait"); continue }
+            if (wait != null) {
+                Log.log(c, "app job ${cmd.id} waits: $wait")
+                if (ownUpdate) moveTo(c, UpdateStatus(cmd.id, UpdateStatus.versionIn(cmd.name), Phase.WAITING, wait, at = System.currentTimeMillis()))
+                continue
+            }
             when {
                 cmd.kind == "update" && cmd.pkg == c.packageName -> install(c, cmd)
                 cmd.kind == "install" -> installStore(c, cmd)
                 cmd.kind == "storeinstall" -> StoreInstall.run(c, cmd) { status, detail -> record(c, cmd.id, status, detail) }
-                cmd.kind == "remove" && (cmd.pkg in Protected.all(c, cfg) || cmd.pkg == c.packageName) -> record(c, cmd.id, "failed", "protected app")
+                cmd.kind == "remove" && (cfg == null || cmd.pkg in Protected.all(c, cfg) || cmd.pkg == c.packageName) -> record(c, cmd.id, "failed", "protected app")
                 cmd.kind == "remove" -> remove(c, cmd)
                 else -> record(c, cmd.id, "failed", "not a job this phone does")
             }
@@ -103,7 +196,7 @@ object AppInstaller {
         return null
     }
 
-    private fun download(c: Context, cmd: AppCmd): File? {
+    private fun download(c: Context, cmd: AppCmd, progress: (Int) -> Unit = {}): File? {
         if (!cmd.url.startsWith("https://")) { record(c, cmd.id, "failed", "address is not https"); return null }
         val dir = File(c.cacheDir, "apks").apply { mkdirs() }
         val out = File(dir, "${cmd.id}.apk")
@@ -119,6 +212,7 @@ object AppInstaller {
                     val n = ins.read(buf); if (n < 0) break
                     total += n; if (total > MAX_BYTES) { record(c, cmd.id, "failed", "too large"); out.delete(); return null }
                     md.update(buf, 0, n); os.write(buf, 0, n)
+                    if (cmd.size > 0) progress((total * 100 / cmd.size).toInt().coerceIn(0, 100))
                 }
             } }
             val got = md.digest().joinToString("") { "%02x".format(it) }
@@ -132,7 +226,15 @@ object AppInstaller {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE).intentSender
 
     private fun install(c: Context, cmd: AppCmd) {
-        val apk = download(c, cmd) ?: return
+        val ownUpdate = cmd.pkg == c.packageName
+        var following: UpdateStatus? = null
+        if (ownUpdate) {
+            following = UpdateStatus(cmd.id, UpdateStatus.versionIn(cmd.name), Phase.DOWNLOADING, percent = 0, at = System.currentTimeMillis())
+            moveTo(c, following)
+            announce(c, "Updating Phone Guard...")
+        }
+        var shown = 0
+        val apk = download(c, cmd) { pct -> following?.let { if (pct >= shown + 5 || (pct == 100 && shown != 100)) { shown = pct; save(c, it.copy(percent = pct)) } } } ?: return
         try {
             val pi = c.packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
@@ -142,13 +244,19 @@ object AppInstaller {
             val session = pi.openSession(sid)
             apk.inputStream().use { ins -> session.openWrite("app.apk", 0, apk.length()).use { os -> ins.copyTo(os); session.fsync(os) } }
             val latch = CountDownLatch(1); waiting[cmd.id] = latch
+            if (ownUpdate) {
+                // this process is replaced, so nothing is "done" yet: note what is installed now, and look again afterwards (confirmSelfInstall)
+                val now = ownPackage(c)
+                prefs(c).edit().putString("self", SelfInstall(cmd.id, UpdateStatus.versionIn(cmd.name), now.longVersionCode, now.lastUpdateTime, System.currentTimeMillis()).toJson().toString()).commit()
+                following?.let { moveTo(c, it.copy(phase = Phase.INSTALLING, percent = -1)) }
+            }
             session.commit(sender(c, cmd.id))
             session.close()
-            if (cmd.pkg == c.packageName) { record(c, cmd.id, "done", "installing the new version"); return } // this process is replaced
+            if (ownUpdate) return
             if (!latch.await(180, TimeUnit.SECONDS)) { record(c, cmd.id, "failed", "no answer from Android"); return }
             val r = results.remove(cmd.id)
             if (r?.status == PackageInstaller.STATUS_SUCCESS) record(c, cmd.id, "done", "installed ${cmd.name}") else record(c, cmd.id, "failed", r?.message ?: "install failed")
-        } catch (e: Exception) { record(c, cmd.id, "failed", "install: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
+        } catch (e: Exception) { if (ownUpdate) forgetSelfInstall(c); record(c, cmd.id, "failed", "install: ${e.javaClass.simpleName} ${e.message?.take(60)}") }
         finally { waiting.remove(cmd.id); apk.delete() }
     }
 
@@ -187,6 +295,11 @@ object AppInstaller {
             val job = i.getStringExtra("job") ?: return
             val status = i.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
             val msg = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE).orEmpty()
+            if (selfInstall(c)?.job == job) { // Android's answer about our own update: only a refusal needs saying here
+                if (status == PackageInstaller.STATUS_SUCCESS) confirmSelfInstall(c)
+                else { forgetSelfInstall(c); record(c, job, "failed", if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) "Android wanted a confirmation" else "Android refused it: ${msg.take(80)}") }
+                return
+            }
             if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) { results[job] = Result(status, "Android wanted a confirmation"); waiting[job]?.countDown(); return }
             results[job] = Result(status, msg)
             waiting[job]?.countDown()
