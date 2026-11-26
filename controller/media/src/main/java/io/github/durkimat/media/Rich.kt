@@ -62,7 +62,7 @@ object Rich {
             m.kind in kinds && c.isNotEmpty() -> "${marker(m)} $c"
             m.kind in kinds -> marker(m)
             else -> c
-        }.take(200)
+        }.let { Graphemes.take(it, 200) }
     }
 
     /** Reactions grouped as emoji with a count, most used first (ties in the order first seen). */

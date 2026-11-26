@@ -30,6 +30,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // the sticker library is shared with Family Chat: one copy of the files, packaged into both apps (stickers-lib is generated, see release.sh)
+    sourceSets { getByName("main") { assets.srcDir("../familychat/src/main/assets") } }
     kotlinOptions { jvmTarget = "17" }
 }
 

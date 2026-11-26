@@ -138,6 +138,8 @@ class LauncherActivity : Activity() {
         // by name (the Home and hang-up keys, see onNewIntent). Two documented exceptions go Home here: the mode changed while we
         // were hidden (the screen we were on may not be allowed now), and the left key pressed in another app (it means "our menu").
         if (wasStopped) { if (modeNow() != modeWhenLeft || leftKeyPending) model.goHome(); wasStopped = false }
+        takePicked()
+        model.stickersAvailable = !assets.list("stickers").isNullOrEmpty()
         model.voiceOn = voiceAllowed()
         loadClock()
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
@@ -752,7 +754,7 @@ class LauncherActivity : Activity() {
             else -> true
         }
         if (ev.action == KeyEvent.ACTION_UP && k.first == Key.SOFT_RIGHT) ui.removeCallbacks(homeRightHold) // a hold that was armed on another screen must not fire later
-        if (model.screen == Screen.WRITE && (model.writeField == 2 || model.voiceState != 0) && voiceKey(k.first, ev)) return true
+        if (model.screen == Screen.WRITE && (model.writeButton == WriteButton.MIC || model.voiceState != 0) && voiceKey(k.first, ev)) return true
         // Now playing: a long press of OK is a real Stop (the music is stopped and dropped, the app closed); a short press is play/pause when the key comes up
         if (model.screen == Screen.MUSIC && model.music.active && k.first == Key.OK) {
             when (ev.action) {
@@ -887,6 +889,8 @@ class LauncherActivity : Activity() {
                     ui.post { model.waFetching = model.waFetching - a.mid; if (why.isNotEmpty()) model.notify(why); invalidate(D.WA); refresh() }
                 }.start()
             }
+            Action.PickEmoji -> openPicker(io.github.durkimat.phoneguard.picker.PickKind.EMOJI)
+            Action.PickSticker -> openPicker(io.github.durkimat.phoneguard.picker.PickKind.STICKER)
             Action.WaOpen -> { WhatsApp.touch(this); invalidate(D.WA or D.INFO); refresh() }
             is Action.WaRead -> { WhatsApp.readChat(this, a.chat); WhatsApp.store(this).markRead(a.chat); invalidate(D.WA or D.INFO); refresh() }
             is Action.SendWa -> Thread {
@@ -1376,6 +1380,23 @@ class LauncherActivity : Activity() {
             val ready = io.github.durkimat.phoneguard.ScreenLock.tokenReady(this); val by = io.github.durkimat.phoneguard.ScreenLock.state(this).optString("by", "")
             val note = io.github.durkimat.phoneguard.ScreenLock.takeParentNote(this)
             ui.post { model.lockSet = set; model.lockKnown = known; model.lockParentReady = ready; model.lockBy = if (by == "null") "" else by; if (note) model.notify("Your parent changed your PIN"); refresh() }
+        }.start()
+    }
+
+    private fun openPicker(kind: io.github.durkimat.phoneguard.picker.PickKind) {
+        io.github.durkimat.phoneguard.picker.PickerResult.take() // nothing stale
+        start(io.github.durkimat.phoneguard.picker.PickerActivity.intent(this, kind))
+    }
+
+    /** What a picker chose goes to the write screen it was opened from (if we are still on it: a mode change goes Home and drops it). */
+    private fun takePicked() {
+        val (kind, item) = io.github.durkimat.phoneguard.picker.PickerResult.take() ?: return
+        if (kind == io.github.durkimat.phoneguard.picker.PickKind.EMOJI) { model.insertEmoji(item.value); return }
+        val chat = model.stickerChosen() ?: return
+        model.notify("Sending sticker...")
+        Thread {
+            val r = WhatsApp.sendSticker(this, chat, item.id)
+            ui.post { model.notify(if (r == "sent") "Sticker sent" else "Not sent: $r"); invalidate(D.WA or D.INFO); refresh() }
         }.start()
     }
 

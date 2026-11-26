@@ -1585,3 +1585,7 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 - To find out first (none of this is checked): whether our bridge library (whatsmeow) can read or set a member tag from a linked device; whether it shows on every recipient's WhatsApp version; and, since a member tag belongs to the account and the account is the parent's, whether it would also label the parent's own messages from their phone. If it does, a fixed tag cannot say who sent each message, and changing it per message may not update older ones correctly.
 - Then decide: replace the text prefix and the sticker line, or keep them alongside the tag.
 - Related: the mode 3 design questions in docs/modularisation-plan.md (companion, control channel).
+
+## Media slice 4 built (2026-11-26, branch refactor/media-modules)
+- Emoji and stickers in Phone Guard (details and the J36 checks: docs/modularisation-plan.md, slice 4). Open: retry for a sticker that failed to send; sending reactions; whether emoji by SMS need a warning about cost.
+

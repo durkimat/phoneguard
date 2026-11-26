@@ -17,6 +17,10 @@ if [ ! -f "$KS" ]; then
   chmod 600 "$KS"
 fi
 
+# the sticker library (shared with Family Chat) is generated, not committed: build it if missing, and never release without it
+[ -f familychat/src/main/assets/stickers-lib/index.json ] || python3 familychat/stickers/build-stickers.py
+[ -f familychat/src/main/assets/stickers-lib/index.json ] || { echo "FAIL: the sticker library is missing"; exit 1; }
+
 ./gradlew --offline -q ${PG_VERSION:+-PpgVersion=$PG_VERSION} testDebugUnitTest assembleRelease -x lintVitalRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease 2>&1 | grep -vE "^WARNING" || true
 IN=app/build/outputs/apk/release/app-release-unsigned.apk
 OUT=app/build/outputs/apk/release/phoneguard-release.apk
@@ -32,4 +36,5 @@ echo "$M" | grep -qi "testOnly" && { echo "FAIL: release is testOnly"; exit 1; }
 echo "$M" | grep -qi "DebugReceiver" && { echo "FAIL: debug receiver is in the release"; exit 1; } || echo "ok: no debug receiver"
 echo "$M" | grep -qi "usesCleartextTraffic" && echo "NOTE: cleartext setting present" || echo "ok: no cleartext setting"
 unzip -l "$OUT" | grep -q "LabLockdown" && { echo "FAIL: lab code present"; exit 1; } || echo "ok: no lab code"
+unzip -l "$OUT" | grep -q "assets/stickers-lib/index.json" && echo "ok: stickers included" || { echo "FAIL: stickers not in the APK"; exit 1; }
 ls -la "$OUT"

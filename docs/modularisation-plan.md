@@ -69,7 +69,13 @@ Original plan:
 - Per-mode switch and limits through the existing `SetMedia` bridge call; downloads on request over Wi-Fi only (reuse `Media.unmetered`).
 - Decide the safety question first: who may send pictures to the child, per mode.
 
-### Slice 4: emoji and stickers in the Nokia UI
+### Slice 4: emoji and stickers in the Nokia UI — BUILT 2026-11-26, checked in the emulator; NOT yet run on the J36 or against real WhatsApp
+
+As built: emoji show in colour in messages in the monospace, VT323, Pixelify and Silkscreen fonts (checked on the emulator image, which has NotoColorEmoji; VT323 rows made mostly of emoji touch slightly). Text is wrapped, shortened, stepped through and deleted a whole emoji at a time (`Graphemes` in `:media`). On the write screen Down reaches a button row: microphone, emoji, and on WhatsApp stickers. One picker (`picker/`, its own activity) serves both: the gallery's keys, Recent first; an emoji goes in at the cursor, a sticker is previewed before it is sent. A sent sticker closes an empty message and leaves typed words alone; "Sent by <child>" goes before it when the name tag is on (the existing `WaLabels` rule), so it counts as two sends against the limits. A failed send is not kept for retry. Received reactions show under the message (sending reactions: not done). The picker and gallery share `LcdView`, a first piece of shared drawing. Phone Guard packages Family Chat's sticker folder directly (`assets.srcDir`), so there is no separate `:media-assets` module; `release.sh` generates the library if missing and fails if it is not in the APK. Debug APK 38.5 MB -> 51.6 MB.
+
+To check on the J36: `adb shell ls -l /system/fonts | grep -i emoji` and how emoji look; sticker picker speed and memory; sending a still and an animated sticker to a real group, with and without the name tag; a received reaction. Emoji in a text message makes each SMS part hold 70 characters instead of 160, which may cost more.
+
+Original plan:
 
 - Emoji rendering needs a font decision on the J36's image (does it carry a colour emoji font?), plus T9 entry for emoji. Spike before committing.
 - Sticker tray as a keypad grid reusing `StickerLibrary` and the assets module. Animated stickers need a battery and memory check on the device.

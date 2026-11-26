@@ -107,6 +107,9 @@ object WhatsApp {
                 // "delete for everyone" must take the picture with it; an edit changes the words
                 override fun onRevoke(chat: String, targetId: String) { revoke(app, chat, targetId) }
                 override fun onEdit(chat: String, targetId: String, text: String, ts: Long) { if (st.applyEdit(chat, targetId, text)) fire() }
+                override fun onReaction(chat: String, targetId: String, senderId: String, sender: String, emoji: String, ts: Long, fromMe: Boolean) {
+                    st.setReaction(chat, targetId, senderId, if (fromMe) "Me" else nameFor(app, senderId, sender), emoji, ts); fire()
+                }
                 override fun onCommand(text: String, ts: Long, id: String) { WaAdmin.onCommand(app, text, ts) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
@@ -306,7 +309,10 @@ object WhatsApp {
         add(3, "Nan", "[video] The garden", media("video", java.io.File(dir, "demo-video.mp4").absolutePath, size = 1_400_000, seconds = 4))
         java.io.File(dir, "demo-anim.webp").takeIf { it.isFile }?.let { add(4, "Dad", "[sticker]", media("sticker", it.absolutePath, animated = true, mime = "image/webp")) }
         add(5, "Mum", "[sticker]", media("sticker", still, mime = "image/webp"))
-        add(6, "Dad", "A message to delete")
+        fun e(vararg cp: Int) = cp.joinToString("") { String(Character.toChars(it)) }
+        add(6, "Dad", "Emoji: " + e(0x1F600, 0x1F60D, 0x1F44D, 0x1F3FD) + " " + e(0x2764, 0xFE0F) + " family " + e(0x1F468, 0x200D, 0x1F469, 0x200D, 0x1F467) + " flag " + e(0x1F1EC, 0x1F1E7) +
+            " and a long row " + e(0x1F389).repeat(24))
+        st.setReaction("gdemo", "D6", "1", "Mum", e(0x1F44D), now); st.setReaction("gdemo", "D6", "2", "Nan", e(0x1F44D), now); st.setReaction("gdemo", "D6", "3", "Me", e(0x2764, 0xFE0F), now)
         add(7, "Mum", "[photo] Look at our house on the hill, taken this morning before the rain came in", media("image", photo, mime = "image/jpeg"))
         io.github.durkimat.phoneguard.gallery.ChatPictures.clear()
         fire()
@@ -492,6 +498,30 @@ object WhatsApp {
 
     /** What is actually sent: with the tag on, the child's name goes in front so a group can tell who wrote it. Our own copy keeps the plain text. */
     fun tagged(c: Context, text: String): String = text // the bridge puts the child's name in front itself (setTag), so no screen can skip it
+    /** Sends one of the app's stickers, connecting first if needed. Returns "sent" or the reason it was not. Blocks: call off the main thread. */
+    fun sendSticker(c: Context, chat: String, stickerId: String): String {
+        val sticker = io.github.durkimat.media.StickerLibrary.all(c).firstOrNull { it.id == stickerId } ?: return "that sticker is missing"
+        main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
+        if (!isConnected()) { connect(c); for (i in 1..20) { if (isConnected()) break; Thread.sleep(500) } }
+        val b = open(c)
+        if (b == null || !isConnected()) return "not connected"
+        // our own copy, in the media folder, so that the message page can show what was sent
+        val own = java.io.File(io.github.durkimat.media.Media.dir(c, "wa/media"), "own-${System.nanoTime()}.webp")
+        return try {
+            c.assets.open(sticker.asset).use { i -> own.outputStream().use { i.copyTo(it) } }
+            val st = store(c)
+            // the group is told who sent it ("Sent by <child>", when the name tag is on) unless a sticker of theirs has only just gone
+            val label = io.github.durkimat.wacore.WaLabels.needsLabel(st.messages(chat).lastOrNull(), st.lastReactionMs(chat), System.currentTimeMillis())
+            val id = b.sendSticker(chat, own.absolutePath, sticker.animated, label)
+            st.add(chat, "", "Me", "", id, "[sticker]", System.currentTimeMillis() / 1000, true,
+                extra = io.github.durkimat.wacore.WaExtra(kind = "sticker", mediaPath = own.absolutePath, mime = "image/webp", width = 512, height = 512, animated = sticker.animated))
+            fire(); "sent"
+        } catch (e: Throwable) {
+            own.delete()
+            Log.log(c, "whatsapp: sticker not sent: ${e.javaClass.simpleName}")
+            e.message ?: "error"
+        }
+    }
     fun send(c: Context, chat: String, text: String): String = try { open(c)?.send(chat, tagged(c, text)); "sent" } catch (e: Throwable) { e.message ?: "error" }
     /**
      * Pulls names and gaps back in without unlinking: asks WhatsApp again for the address-book names and the groups, gives

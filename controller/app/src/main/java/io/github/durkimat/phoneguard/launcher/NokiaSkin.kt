@@ -1,5 +1,6 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.media.Graphemes
 import io.github.durkimat.media.Rich
 import io.github.durkimat.phoneguard.gallery.ChatPictures
 import android.content.Context
@@ -968,12 +969,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                     val ch = text[j]
                     if (ch == '\n') { out.add(i until j); i = j + 1; done = true; break }
                     if (ch == ' ') lastSpace = j
-                    if (paint.measureText(text, i, j + 1) > max) {
+                    val after = Graphemes.next(text, j) // an emoji is measured and kept whole
+                    if (paint.measureText(text, i, after) > max) {
                         if (lastSpace > i) { out.add(i until lastSpace); i = lastSpace + 1 }
-                        else { val end = if (j > i) j else j + 1; out.add(i until end); i = end }
+                        else { val end = if (j > i) j else after; out.add(i until end); i = end }
                         done = true; break
                     }
-                    j++
+                    j = after
                 }
                 if (!done) { out.add(i until text.length); break }
             }
@@ -1072,7 +1074,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val fits = paint.measureText(s) <= room
             if (fits) { paint.isFakeBoldText = false; return s }
             var t = s
-            while (t.length > 1 && paint.measureText("$t...") > room) t = t.dropLast(1)
+            while (t.length > 1 && paint.measureText("$t...") > room) t = Graphemes.dropLast(t)
             paint.isFakeBoldText = false
             return "$t..."
         }
@@ -1088,7 +1090,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             if (measureBold(s, size) <= room) return s
             val number = s.firstOrNull()?.let { it.isDigit() || it == '+' } == true
             var t = s
-            while (t.length > 1 && measureBold((if (number) "…$t" else "$t…"), size) > room) t = if (number) t.drop(1) else t.dropLast(1)
+            while (t.length > 1 && measureBold((if (number) "…$t" else "$t…"), size) > room) t = if (number) t.drop(1) else Graphemes.dropLast(t)
             return if (number) "…$t" else "$t…"
         }
 
@@ -1143,6 +1145,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             }
             if (lines.isEmpty() && m.writeField == 1) c.drawRect(16 * u, 116 * u, 19 * u, 147 * u, fill)
             if (m.voiceShown) voiceButton(c, m, u)
+            pickButtons(c, m, u)
             if (m.voiceState == 0) text(c, m.modeName, 16f, 560f, 24f, u, bold = true)
             if (m.writeWa) text(c, "WhatsApp", 240f, 560f, 24f, u, align = Paint.Align.CENTER)
             text(c, "" + m.writeText.length, 464f, 560f, 24f, u, align = Paint.Align.RIGHT)
@@ -1151,8 +1154,8 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         /** A small plain microphone in the footer, left of the character counter; a thin outline shows it has the focus. Also shows the state of a recording. */
         private fun voiceButton(c: Canvas, m: LauncherModel, u: Float) {
-            val focused = m.writeField == 2 || m.voiceState != 0
-            val cx = 396f
+            val focused = m.writeButton == WriteButton.MIC || m.voiceState != 0
+            val cx = buttonX(m, WriteButton.MIC)
             if (focused) { stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect((cx - 15) * u, 534 * u, (cx + 15) * u, 566 * u, stroke) }
             fill.color = ink; stroke.color = ink; stroke.strokeWidth = 2 * u
             c.drawRoundRect(android.graphics.RectF((cx - 4) * u, 538 * u, (cx + 4) * u, 553 * u), 4 * u, 4 * u, fill)
@@ -1166,7 +1169,36 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 }
                 2 -> text(c, "Sending...", 16f, 560f, 24f, u, bold = true)
             }
-            if (m.voiceState == 0 && m.writeField == 2) text(c, "hold OK and speak", 240f, 530f, 24f, u, align = Paint.Align.CENTER)
+            if (m.voiceState == 0 && m.writeButton == WriteButton.MIC) text(c, "hold OK and speak", 240f, 530f, 24f, u, align = Paint.Align.CENTER)
+        }
+
+        /** Where each button under the text sits: they end just left of the character count, in the order of [LauncherModel.writeButtons]. */
+        private fun buttonX(m: LauncherModel, b: WriteButton): Float {
+            val shown = m.writeButtons
+            val i = shown.indexOf(b)
+            return if (i < 0) 396f else 396f - (shown.size - 1 - i) * 38f
+        }
+
+        /** The emoji button (a little face) and the sticker button (a square with a turned-up corner), framed when chosen. */
+        private fun pickButtons(c: Canvas, m: LauncherModel, u: Float) {
+            if (m.voiceState != 0) return
+            for (b in m.writeButtons) {
+                if (b == WriteButton.MIC) continue
+                val cx = buttonX(m, b)
+                if (m.writeButton == b) { stroke.strokeWidth = 1.5f * u; stroke.color = ink; c.drawRect((cx - 16) * u, 534 * u, (cx + 16) * u, 566 * u, stroke) }
+                stroke.color = ink; stroke.strokeWidth = 2 * u; fill.color = ink
+                if (b == WriteButton.EMOJI) {
+                    c.drawCircle(cx * u, 550 * u, 11 * u, stroke)
+                    c.drawCircle((cx - 4) * u, 547 * u, 1.8f * u, fill); c.drawCircle((cx + 4) * u, 547 * u, 1.8f * u, fill)
+                    c.drawArc(android.graphics.RectF((cx - 6) * u, 545 * u, (cx + 6) * u, 557 * u), 20f, 140f, false, stroke)
+                } else {
+                    val p = android.graphics.Path().apply {
+                        moveTo((cx - 10) * u, 540 * u); lineTo((cx + 10) * u, 540 * u); lineTo((cx + 10) * u, 552 * u); lineTo((cx + 2) * u, 560 * u); lineTo((cx - 10) * u, 560 * u); close()
+                        moveTo((cx + 10) * u, 552 * u); lineTo((cx + 2) * u, 552 * u); lineTo((cx + 2) * u, 560 * u)
+                    }
+                    c.drawPath(p, stroke)
+                }
+            }
         }
 
         /** The route drawn on a plain background (no map tiles): walking dotted, vehicles solid, the leg in focus thick, a dot at the start, a square at the end. */

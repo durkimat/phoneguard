@@ -1,5 +1,6 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.media.Graphemes
 import io.github.durkimat.media.Rich
 import io.github.durkimat.phoneguard.alarm.Alarm
 import io.github.durkimat.phoneguard.alarm.AlarmMath
@@ -125,6 +126,8 @@ const val GRID_GAP = 8f
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+/** A button under the write screen's text box; [label] is what the left soft key says while it has the focus. */
+enum class WriteButton(val label: String) { MIC("Speak"), EMOJI("Emoji"), STICKER("Stickers") }
 /** How many text lines of a message page its picture takes. */
 const val PICTURE_LINES = 8
 const val CAMERA_PKG = "pg:camera"
@@ -247,6 +250,9 @@ sealed class Action {
     data class WaViewMedia(val path: String, val kind: String, val animated: Boolean, val seconds: Int, val who: String, val caption: String) : Action()
     /** Fetch a message's media: the child pressed OK on one that is not on the phone yet. */
     data class WaGetMedia(val chat: String, val mid: String) : Action()
+    /** The emoji picker, or the sticker picker, opened from the write screen. */
+    object PickEmoji : Action()
+    object PickSticker : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
     /** Open the gallery of the phone's pictures and videos. */
@@ -529,7 +535,12 @@ class LauncherModel(
         m.deleted -> wrapper("This message was deleted")
         pictureOf(m) != Rich.Picture.NONE -> Rich.caption(m).trim().let { c -> List(PICTURE_LINES) { "" } + (if (c.isEmpty()) emptyList() else wrapper(c)) }
         else -> wrapper(m.body)
-    }
+    } + reactionLines(m)
+
+    /** The reactions to a message on its own line under it: each emoji once, with a count when more than one person sent it. */
+    private fun reactionLines(m: Msg): List<String> =
+        if (m.deleted || m.reactions.isEmpty()) emptyList()
+        else wrapper(Rich.groupReactions(m.reactions).joinToString("  ") { (e, n) -> if (n > 1) "$e $n" else e })
 
     /** What OK does on the message being read, in the words drawn on its picture; null for a message with none. */
     val pictureHint: String? get() {
@@ -772,7 +783,7 @@ class LauncherModel(
         Screen.WAPAIR -> (if (waLinked) "" else if (waCode != null) "New code" else "Get code") to (if (waCode != null || waLinked) "Back" else "Clear")
         Screen.THREAD -> "Reply" to "Back"
         Screen.CHAT -> (if (selected == 0) "Reply" else "Read") to "Back"
-        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeField == 2) "Speak" else if (writeHead != null) "Done" else "Send") to "Clear"
+        Screen.WRITE -> (if (writeField == 0) (if (writeTo.isEmpty()) "Contacts" else "Next") else if (writeField == 2) writeButton?.label.orEmpty() else if (writeHead != null) "Done" else "Send") to "Clear"
         else -> "Select" to "Back"
     }
 
@@ -1225,15 +1236,54 @@ class LauncherModel(
     private fun leaveWrite(): Action { leave(); return Action.Redraw }
 
     private fun write(key: Key, digit: Int, now: Long): Action =
-        if (writeField == 0) writeToField(key, digit) else if (writeField == 2) writeMic(key, digit, now) else writeBody(key, digit, now)
+        if (writeField == 0) writeToField(key, digit) else if (writeField == 2) writeBar(key, digit, now) else writeBody(key, digit, now)
 
-    /** The microphone button has the focus: hold OK (handled by the activity) speaks; every other key goes back to the text. */
-    private fun writeMic(key: Key, digit: Int, now: Long): Action = when (key) {
+    /** The buttons under the text box, left to right: the microphone, then emoji and, writing on WhatsApp, stickers. */
+    val writeButtons: List<WriteButton> get() {
+        val message = writeHead == null && !writeSearch && writeWifi == null && !writeExact // emoji belong in messages, not in names, searches or passwords
+        return (if (voiceShown) listOf(WriteButton.MIC) else emptyList()) + (if (message) listOf(WriteButton.EMOJI) else emptyList()) +
+            (if (message && writeWa && stickersAvailable) listOf(WriteButton.STICKER) else emptyList())
+    }
+    private var writeButtonIndex = 0
+    /** The button with the focus, while the row has it. */
+    val writeButton: WriteButton? get() = if (writeField == 2) writeButtons.let { it.getOrNull(writeButtonIndex.coerceIn(0, (it.size - 1).coerceAtLeast(0))) } else null
+    /** Whether the app carries the sticker library. */
+    var stickersAvailable = true
+
+    /**
+     * The button row has the focus: Left and Right move along it, OK uses a button (the microphone is held, which the activity
+     * handles), Up or the right key goes back to the text, and any other key goes back and types.
+     */
+    private fun writeBar(key: Key, digit: Int, now: Long): Action = when (key) {
         Key.UP, Key.SOFT_RIGHT -> { writeField = 1; Action.Redraw }
-        Key.OK -> { notice = "Hold OK and speak"; Action.Redraw }
-        Key.DOWN, Key.SOFT_LEFT -> Action.None
+        Key.LEFT -> { writeButtonIndex = (writeButtonIndex - 1).coerceAtLeast(0); Action.Redraw }
+        Key.RIGHT -> { writeButtonIndex = (writeButtonIndex + 1).coerceAtMost(writeButtons.size - 1); Action.Redraw }
+        Key.OK, Key.SOFT_LEFT -> when (writeButton) {
+            WriteButton.EMOJI -> Action.PickEmoji
+            WriteButton.STICKER -> Action.PickSticker
+            WriteButton.MIC -> if (key == Key.OK) { notice = "Hold OK and speak"; Action.Redraw } else Action.None
+            null -> Action.None
+        }
+        Key.DOWN -> Action.None
         Key.END -> { goHome(); Action.Redraw }
         else -> { writeField = 1; writeBody(key, digit, now) }
+    }
+
+    /** An emoji chosen in the picker goes in at the cursor, and typing carries on. */
+    fun insertEmoji(emoji: String) {
+        if (screen != Screen.WRITE || writeText.length + emoji.length > 480) return
+        commit(); insert(emoji); lastDigit = -1; writeField = 1
+    }
+
+    /**
+     * A sticker chosen in the picker is going to the chat being written to. With nothing typed the write screen has done its job and
+     * closes; typed words stay where they are. Returns the chat, or null when we are no longer writing on WhatsApp.
+     */
+    fun stickerChosen(): String? {
+        if (screen != Screen.WRITE || !writeWa || writeTo.isBlank()) return null
+        val chat = writeTo
+        if (writeText.isEmpty()) leave() else writeField = 1
+        return chat
     }
 
     private fun writeToField(key: Key, digit: Int): Action = when (key) {
@@ -1256,9 +1306,9 @@ class LauncherModel(
         Key.STAR -> { if (t9 && seq.isNotEmpty()) nextWord() else { commit(); typeKey(10, now) }; Action.Redraw }
         Key.POUND -> { commit(); writeMode = (writeMode + 1) % modes.size; lastDigit = -1; Action.Redraw }
         Key.UP -> { commit(); writeField = 0; Action.Redraw }
-        Key.DOWN -> if (voiceShown) { commit(); writeField = 2; Action.Redraw } else Action.None
-        Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
-        Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
+        Key.DOWN -> if (writeButtons.isNotEmpty()) { commit(); writeField = 2; writeButtonIndex = 0; Action.Redraw } else Action.None
+        Key.LEFT -> { commit(); cursor = Graphemes.previous(writeText, cursor); lastDigit = -1; Action.Redraw }
+        Key.RIGHT -> { commit(); cursor = Graphemes.after(writeText, cursor); lastDigit = -1; Action.Redraw }
         Key.OK, Key.SOFT_LEFT -> { commit(); writeDone?.let { f -> writeDone = null; writeHead = null; leave(); return f(writeText.trim()) }; if (writeWifi != null) { val n = writeWifi!!; leaveTo(Screen.WIFI, 0); writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; leave(); goTo(Screen.RADIORES); Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); leave(); goTo(Screen.SEARCHRES); spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = if (writeWa) Action.SendWa(writeTo, writeText.trim()) else Action.Send(writeTo, writeText.trim())
             leaveTo(Screen.MESSAGES, 0); notice = "Message sent"
@@ -1266,7 +1316,7 @@ class LauncherModel(
         } }
         Key.SOFT_RIGHT -> when {
             seq.isNotEmpty() -> { unpress(); Action.Redraw }
-            cursor > 0 -> { writeText = writeText.removeRange(cursor - 1, cursor); cursor--; lastDigit = -1; Action.Redraw }
+            cursor > 0 -> { val from = Graphemes.previous(writeText, cursor); writeText = writeText.removeRange(from, cursor); cursor = from; lastDigit = -1; Action.Redraw }
             writeText.isEmpty() -> leaveWrite()
             else -> Action.None
         }
