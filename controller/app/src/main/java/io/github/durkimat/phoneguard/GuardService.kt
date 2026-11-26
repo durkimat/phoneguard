@@ -52,7 +52,7 @@ class GuardService : Service() {
         override fun onReceive(c: Context, i: Intent) { SoundEnforcer.reassert(this@GuardService) }
     }
 
-    /** After the screen is unlocked the phone shows our home screen, like a Nokia waking up (not whatever app, or the old stock launcher, was last in front). */
+    /** After the screen is unlocked our launcher comes to the front, on the screen it was left on (not whatever app, or the old stock launcher, was last in front). */
     private val unlocked = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             io.github.durkimat.phoneguard.net.RadioManager.onUnlock(c) // the child is here: radios go back to how they chose them

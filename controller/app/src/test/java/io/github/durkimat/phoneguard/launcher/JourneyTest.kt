@@ -156,11 +156,70 @@ class JourneyTest {
             val m = replay(s, path); m.press(p)
             if (m.depth != snap.depth + 1) continue // not a step into a new screen (a setting was chosen, a game started, a key typed...)
             val into = m.screen
+            if (m.softKeys.second != "Back") continue // e.g. a text box with words in it, where the right key deletes
             m.press(Press(Key.SOFT_RIGHT))
             val ok = if (p.key == Key.OK) m.snap() == snap else m.screen == snap.screen && m.depth == snap.depth
             if (!ok) bad += "$s: ${fmt(path)} (${snap.screen}/${snap.selected}) -$p-> $into, Back -> ${m.screen}/${m.selected}"
         }
         assertTrue("Back does not undo the step in:\n" + bad.take(30).joinToString("\n"), bad.isEmpty())
+    }
+
+    /** A place where Back is deliberately not the way you came. The same list, with the reasons, is in docs/navigation-rules.md. */
+    private data class Exception_(val from: Screen, val into: Screen, val why: String)
+    private val exceptions = listOf(
+        Exception_(Screen.WRITE, Screen.SEARCHRES, "a finished search box is not a stop: Back goes to where the search was started"),
+        Exception_(Screen.WRITE, Screen.RADIORES, "a finished search box is not a stop: Back goes to where the search was started"),
+        Exception_(Screen.NOTE, Screen.INBOX, "opening a text notification clears it, so its page is gone: Back goes to the list"),
+    )
+
+    /**
+     * The owner's rule: Back retraces the way you came. Every key and home-screen shortcut, from every state found. A key either
+     * adds a step to the way (then one Back must return to where it was pressed, on the same row for OK) or returns to a screen
+     * already on the way. Moving anywhere else without adding a step is a sideways jump, and Back would then skip a screen.
+     */
+    @Test fun backRetracesTheWayInByEveryKeyAndShortcut() {
+        class Step(val name: String, val run: (LauncherModel) -> Unit)
+        val steps = presses.filter { it.key != Key.SOFT_RIGHT && it.key != Key.END && it.key != Key.CALL }.map { p -> Step(p.toString()) { m -> m.press(p); Unit } } +
+            // the green key: from many screens the activity answers Action.CallKey by opening the dial pad
+            Step("CALL") { m -> if (m.press(Press(Key.CALL)) == Action.CallKey) m.startDial("") } +
+            Step("RIGHT_SOFT_when_not_Back") { m -> if (m.softKeys.second != "Back") m.press(Press(Key.SOFT_RIGHT)) } +
+            Step("holdMusic") { m -> m.openMusicFromHome() } + Step("tapWeather") { m -> m.openWeather() } +
+            Step("textNotification") { m -> if (m.screen == Screen.NOTE) m.openInbox() }
+        val overlays = setOf(Screen.CALL, Screen.CALLMENU, Screen.RING, Screen.POWERMENU, Screen.FIRSTRUN)
+        val bad = java.util.TreeMap<String, String>()
+        for (s0 in setups) {
+            fun mk() = phone(s0).also { m -> m.badges = BadgeKind.values().map { Badge(it, 1) }; m.weather = WeatherData(14, 2, true, emptyList(), emptyList(), 0L) }
+            fun play(path: List<Step>) = mk().also { m -> path.forEach { it.run(m) } }
+            val seen = HashSet<String>(); var frontier = listOf(emptyList<Step>())
+            repeat(7) {
+                val next = ArrayList<List<Step>>()
+                for (path in frontier) for (st in steps) {
+                    val m = play(path)
+                    val from = m.screen; val row = m.selected; val before = m.wayHere + from
+                    // on a list the D-pad's right key is another Back: not a step forward
+                    if (st.name == "RIGHT" && m.layout == Layout.LIST && m.softKeys.second == "Back") continue
+                    st.run(m)
+                    val into = m.screen
+                    if (seen.size < 12000 && seen.add("$into ${m.selected} ${m.wayHere} $from")) next.add(path + st)
+                    if (into == from || into == Screen.HOME || into in overlays || from in overlays) continue
+                    val added = m.wayHere == before
+                    val returned = !added && into in before && m.wayHere == before.subList(0, m.wayHere.size)
+                    if (returned || exceptions.any { it.from == from && it.into == into }) continue
+                    if (added && m.softKeys.second != "Back") continue // e.g. a text box with words in it, where the right key deletes
+                    var wrong = !added
+                    if (added) {
+                        m.press(Press(Key.SOFT_RIGHT))
+                        wrong = m.screen != from || (st.name == "OK" && m.layout == Layout.LIST && m.selected != row)
+                    }
+                    if (wrong) {
+                        val k = "$from/$row -${st.name}-> $into" + (if (added) ", Back -> ${m.screen}/${m.selected}" else " without adding a step (way before $before, after ${m.wayHere})")
+                        bad.getOrPut("$from > $into > ${m.screen} $added") { k + "   path: " + (path + st).joinToString(" ") { x -> x.name } + "  [$s0]" }
+                    }
+                }
+                frontier = next
+            }
+        }
+        assertTrue("Back does not retrace the way in:\n" + bad.values.joinToString("\n"), bad.isEmpty())
     }
 
     @Test fun aNumberKeyDoesWhatMovingThereAndPressingOkDoes() {

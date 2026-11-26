@@ -52,7 +52,8 @@ class SnakeTest {
         assertEquals(Screen.GAMES, m.screen)
         m.onKey(Key.OK); assertEquals(Screen.GAMEHELP, m.screen); m.onKey(Key.OK); assertEquals(Screen.SNAKE, m.screen)
         m.onKey(Key.OK); assertEquals(Action.Redraw, m.gameTick())
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.GAMES, m.screen)
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.GAMEHELP, m.screen)
         assertEquals(Action.None, m.gameTick())
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.GAMES, m.screen)
     }
 }

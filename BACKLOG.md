@@ -1572,5 +1572,5 @@ The right soft key on Home is always "Contacts" in every mode. Music is reached 
 
 ## Back retraces the way in (owner rule, 2026-11-26)
 - Done: camera and gallery return to where they were opened from. Gallery order is date taken, else date added (Android only records date taken for photos that store a time zone, or whose file time agrees).
-- To discuss: the other breaks found, in docs/back-navigation-audit.md (nothing changed).
+- Done 2026-11-26 (owner: fix them all, default consistent, document exceptions): see docs/navigation-rules.md. Waiting on the owner's phone checks T1 to T9 there, and confirmation of exception E2.
 

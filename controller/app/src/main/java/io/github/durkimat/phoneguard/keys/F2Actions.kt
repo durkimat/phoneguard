@@ -26,7 +26,7 @@ object F2Actions {
 
     fun run(c: Context, out: F2Gesture.Out) {
         when (out) {
-            F2Gesture.Out.Camera -> try { io.github.durkimat.phoneguard.launcher.LauncherActivity.openingOwnScreen(); c.startActivity(Intent(c, CameraActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { Log.log(c, "side button: ${e.javaClass.simpleName}") }
+            F2Gesture.Out.Camera -> try { c.startActivity(Intent(c, CameraActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { Log.log(c, "side button: ${e.javaClass.simpleName}") }
             F2Gesture.Out.Torch -> Torch.toggle(c)
             F2Gesture.Out.SpeakStart -> F2Speak.start(c)
             F2Gesture.Out.SpeakStop -> F2Speak.stop()

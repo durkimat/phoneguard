@@ -25,9 +25,6 @@ import io.github.durkimat.phoneguard.whatsapp.WhatsApp
  */
 class LauncherActivity : Activity() {
     companion object {
-        /** Our own screen is about to open from outside the launcher's keys (the side button): if the launcher is in front, Back returns to it as it is. */
-        fun openingOwnScreen() { current?.keepPlaceForOwnScreen() }
-
         /** A request for the idle screen, as the Home and hang-up keys send it: our own screens use it for their End key. */
         fun homeIntent(c: Context): Intent = Intent(c, LauncherActivity::class.java).setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -118,16 +115,17 @@ class LauncherActivity : Activity() {
         if (d >= 0) ui.postDelayed(f2Timer, (d - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0)) else io.github.durkimat.phoneguard.keys.Proximity.release(this)
     }
     private var leftKeyPending = false
-    private var cameBack = true
-    /** Set when one of our own full screens (camera, gallery) is opened over the launcher: coming back from it keeps the screen we were on. */
-    private var keepPlace = false
+    /** True from the moment the launcher is hidden (another app, one of our own screens, a call, the screen off) until it shows again. */
+    private var wasStopped = false
+    /** The mode in force when the launcher was hidden. */
+    private var modeWhenLeft: io.github.durkimat.phoneguard.core.Effective? = null
+    private fun modeNow() = io.github.durkimat.phoneguard.core.Engine.effective(Store.config(this), Store.boost(this), io.github.durkimat.phoneguard.Clock.now())
 
-    /** Opens one of our own full screens so that its Back returns here, to the screen and row it was opened from. */
-    private fun openOwn(c: Class<*>) { if (start(Intent(this, c))) keepPlace = true }
-    /** Something else (the side button) is about to open one of our own screens while the launcher is in front. */
-    fun keepPlaceForOwnScreen() { keepPlace = true }
-
-    override fun onStop() { cameBack = true; super.onStop() }
+    override fun onStop() {
+        wasStopped = true; modeWhenLeft = modeNow()
+        model.pauseGames() // coming back lands on the game: it must wait for the player
+        super.onStop()
+    }
 
     override fun onResume() {
         super.onResume()
@@ -136,9 +134,10 @@ class LauncherActivity : Activity() {
         if (model.lockSet && !model.lockParentReady) lockPush() // back from confirming the PIN: the token may be active now
         try { getSystemService(android.net.ConnectivityManager::class.java).registerDefaultNetworkCallback(netWatch) } catch (_: Exception) { }
         remoteVolume = { up -> remoteVolumeStep(up) }
-        // coming back from another app shows the home screen; a key press while we are in front must not reset it. Back from our own
-        // camera or gallery retraces the way there instead (their Home key asks for home itself, see [homeIntent])
-        if (cameBack) { if (!jobKeepsScreen && !keepPlace) model.goHome(); cameBack = false; keepPlace = false }
+        // The launcher keeps its place while it is hidden, so Back retraces the way (docs/navigation-rules.md). Home is asked for
+        // by name (the Home and hang-up keys, see onNewIntent). Two documented exceptions go Home here: the mode changed while we
+        // were hidden (the screen we were on may not be allowed now), and the left key pressed in another app (it means "our menu").
+        if (wasStopped) { if (modeNow() != modeWhenLeft || leftKeyPending) model.goHome(); wasStopped = false }
         model.voiceOn = voiceAllowed()
         loadClock()
         dirty.getAndUpdate { it or D.INFO or D.APPS } // the mode, packages and connections may have changed while another app was in front
@@ -430,7 +429,6 @@ class LauncherActivity : Activity() {
             i.removeExtra("pg_where_dot"); val p = v.split(',')
             if (p.size >= 2) demoDot = Triple(p[0].trim().toDoubleOrNull(), p[1].trim().toDoubleOrNull(), p.getOrNull(2)?.trim()?.toFloatOrNull())
         }
-        jobKeepsScreen = true; ui.postDelayed({ jobKeepsScreen = false }, 3_000) // coming back to the front must not drop to Home and lose the demo
         refresh()
     }
 
@@ -923,7 +921,7 @@ class LauncherActivity : Activity() {
                 val text = n?.pkg == LauncherData.MESSAGES
                 if (!text) try { n?.intent?.send() } catch (e: Exception) { Log.log(this, "open note: ${e.javaClass.simpleName}") }
                 io.github.durkimat.phoneguard.notes.NoteService.instance?.clearKey(a.key)
-                if (text) model.openInbox() else model.goHome()
+                if (text) model.openInbox() else model.noteOpened() // the other app comes to the front; Back from it retraces to the list
                 refresh()
             }
             is Action.SmsRead -> { Thread { LauncherData.markSmsSeen(this, a.address); ui.post { invalidate(D.INFO or D.CONVOS or D.SCREEN); refresh() } }.start() }
@@ -1065,8 +1063,8 @@ class LauncherActivity : Activity() {
             is Action.SpPlay -> Thread { io.github.durkimat.phoneguard.music.PlaylistMemory.markPlayed(this, a.uri); io.github.durkimat.phoneguard.music.Radio.release(this); if (model.spOfflineOnly) playOffline(a.uri) else playOnTarget(a.uri); pollAfterPlay() }.start()
             is Action.SpTransfer -> Thread { io.github.durkimat.phoneguard.music.Radio.release(this); sp.transfer(this, a.id); getSharedPreferences("music", MODE_PRIVATE).edit().putString("target", a.id).apply(); spPolledAt = 0; ui.postDelayed({ invalidate(D.SCREEN); refresh() }, 800) }.start()
 
-            Action.OpenCamera -> openOwn(io.github.durkimat.phoneguard.camera.CameraActivity::class.java)
-            Action.OpenGallery -> openOwn(io.github.durkimat.phoneguard.gallery.GalleryActivity::class.java)
+            Action.OpenCamera -> start(Intent(this, io.github.durkimat.phoneguard.camera.CameraActivity::class.java))
+            Action.OpenGallery -> start(Intent(this, io.github.durkimat.phoneguard.gallery.GalleryActivity::class.java))
             is Action.Launch -> launch(a.pkg)
             is Action.PlaceCall -> placeCall(a.number)
             // "Call" on a contact or in the call log opens our own dial screen with the number typed; one more press rings
@@ -1250,15 +1248,12 @@ class LauncherActivity : Activity() {
         }.start()
     }
 
-    /** True while a playlist download job has Spotify in front: the launcher keeps its screen when it comes back (otherwise coming back from an app shows the home screen). */
-    @Volatile private var jobKeepsScreen = false
 
     /** The `#` key: download the playlist for offline listening, or remove the download. Runs on a worker thread; the outcome is a notice on the Playlists screen. */
     private fun offlineJob(a: Action.SpOffline) {
         val mem = io.github.durkimat.phoneguard.music.PlaylistMemory; val off = io.github.durkimat.phoneguard.music.PlaylistOffline
         val why = io.github.durkimat.phoneguard.music.PlaylistJob.whyNot(this, a.remove)
         if (why != null) { ui.post { model.notify(why); refresh() }; return }
-        jobKeepsScreen = true
         if (!a.remove) ui.post { model.spBusy = model.spBusy + a.uri; model.setPlaylists(if (model.spOfflineOnly) off.offlineList(model.spOffline) else model.spRaw); refresh() }
         val r = io.github.durkimat.phoneguard.music.PlaylistJob.run(this, a.uri, a.remove)
         // what the playlist's own button said corrects the phone's record, since Spotify never tells us later
@@ -1278,7 +1273,6 @@ class LauncherActivity : Activity() {
             model.notify(if (r.ok) (if (a.remove) "Download removed" else "Downloaded") else r.detail.replaceFirstChar { it.uppercase() })
             refresh()
         }
-        ui.postDelayed({ jobKeepsScreen = false }, 4_000)
     }
 
     /** Spotify's own offline playback of a downloaded playlist (no internet, so not the Web API player). */
@@ -1287,11 +1281,10 @@ class LauncherActivity : Activity() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("spotify:playlist:$id:play")).setPackage("com.spotify.music").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             Log.log(this, "spotify offline play: sent spotify:playlist:$id:play")
-            // Spotify came to the front: bring our Now Playing screen back after a moment instead of dropping to the home screen
-            jobKeepsScreen = true
+            // Spotify came to the front: bring our Now Playing screen back after a moment
             Thread.sleep(1500)
             ui.post { start(Intent(this, LauncherActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)); spPolledAt = 0; refresh() }
-            ui.postDelayed({ jobKeepsScreen = false; spPolledAt = 0; invalidate(D.SCREEN); refresh() }, 4_000)
+            ui.postDelayed({ spPolledAt = 0; invalidate(D.SCREEN); refresh() }, 4_000)
         } catch (e: Exception) {
             Log.log(this, "spotify offline play: ${e.javaClass.simpleName}")
             val why = if (e is android.content.ActivityNotFoundException) "Spotify is not installed" else "Could not start Spotify"

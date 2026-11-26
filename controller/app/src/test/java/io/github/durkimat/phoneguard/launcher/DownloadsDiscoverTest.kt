@@ -24,7 +24,7 @@ class DownloadsDiscoverTest {
 
     @Test fun theSpotifyMenuOpenedFromPlaylistsEndsWithADownloadOrRemoveRowForThatPlaylist() {
         val m = playlists()
-        m.onKey(Key.RIGHT); assertEquals(Screen.SPOTIFYMENU, m.screen)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
         assertEquals("Download playlist", m.rows.last())
         val a = m.onKey(Key.DIGIT, m.rows.size); assertEquals(Action.SpOffline("spotify:playlist:a", "a", false), a)
         m.spOffline = mapOf("spotify:playlist:a" to PlaylistOffline.Offline("a", false, 1L)); assertEquals("Remove download", m.rows.last())
@@ -32,7 +32,7 @@ class DownloadsDiscoverTest {
     }
 
     @Test fun theMenuOpenedFromNowPlayingHasNoPlaylistRowAndTheMarksHelpExplainsTheMarks() {
-        val m = playlists(); m.onKey(Key.SOFT_RIGHT); m.onKey(Key.SOFT_RIGHT) // list menu, Now playing
+        val m = playlists(); m.onKey(Key.OK) // play one: Now playing
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
         assertEquals(false, m.rows.contains("Download playlist")); assertEquals(true, m.rows.contains("What the marks mean"))
         m.onKey(Key.DIGIT, m.rows.indexOf("What the marks mean") + 1)

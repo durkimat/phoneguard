@@ -341,10 +341,11 @@ class LauncherModelTest {
         assertEquals(Screen.CALLLOG, m.screen); assertEquals(listOf("< Mum", "> Dad", "! 0999"), m.rows)
         assertEquals(Action.Call("0222"), m.onKey(Key.CALL)) // green key again rings the highlighted one
         m.onKey(Key.DOWN); assertEquals(Action.Call("0111"), m.onKey(Key.OK))
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // Back leaves the dialler
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.DIAL, m.screen) // back the way in: the dial pad, then home
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
     }
 
-    @Test fun theDiallerCyclesWithLeftAndBackAlwaysLeaves() {
+    @Test fun theDiallerCyclesWithLeftAndBackRetracesWithoutLooping() {
         val m = withTools(); m.onKey(Key.CALL)
         assertEquals(Screen.DIAL, m.screen); assertEquals("Options" to "Back", m.softKeys)
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.PHONEMENU, m.screen); assertEquals(listOf("Call log", "Contacts"), m.rows)
@@ -353,10 +354,9 @@ class LauncherModelTest {
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.DIAL, m.screen)
         m.onKey(Key.DIGIT, 7); assertEquals("7", m.dialNumber); assertEquals("Options" to "Clear", m.softKeys)
         m.onKey(Key.SOFT_RIGHT); assertEquals("", m.dialNumber); assertEquals(Screen.DIAL, m.screen)
-        for (tab in 0..2) { // Back leaves from the pad, the calls and the contacts alike
-            m.goHome(); m.onKey(Key.CALL); if (tab >= 1) { m.onKey(Key.SOFT_LEFT); m.onKey(Key.DIGIT, 1) }; if (tab == 2) m.onKey(Key.SOFT_LEFT)
-            m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen)
-        }
+        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.HOME, m.screen) // cycling back to the pad did not pile up a loop
+        m.onKey(Key.CALL); m.onKey(Key.SOFT_LEFT); m.onKey(Key.DIGIT, 1); m.onKey(Key.SOFT_LEFT); assertEquals(Screen.CONTACTS, m.screen)
+        for (back in listOf(Screen.CALLLOG, Screen.PHONEMENU, Screen.DIAL, Screen.HOME)) { m.onKey(Key.SOFT_RIGHT); assertEquals(back, m.screen) }
     }
     @Test fun callLogFromTheMenuReturnsToTheMenu() {
         val m = withTools(); m.onKey(Key.OK); m.onKey(Key.OK)

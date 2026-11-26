@@ -336,16 +336,33 @@ class LauncherModel(
     private val trail = ArrayDeque<Frame>()
     /** How many screens sit behind this one (a stacked-window skin draws a close box when there is something to close back to). */
     val depth: Int get() = trail.size
+    /** The screens Back will walk through, oldest first (the navigation tests check the rule against it). */
+    internal val wayHere: List<Screen> get() = trail.map { it.screen }
     /** Opens [to] (on row [row]) on top of the current screen, remembering where we are so Back comes back to the same row. */
-    /** From a text-message notification: our own Inbox, never the phone's Messages app. */
-    fun openInbox() { goHome(); enter(Screen.INBOX) }
-
     private fun enter(to: Screen, row: Int = 0) {
         remember()
         trail.addLast(Frame(screen, selected)); screen = to; selected = row
         if (row == 0 && to in rememberRow) selected = (positions[to] ?: 0).coerceIn(0, (rows.size - 1).coerceAtLeast(0))
     }
     /** The lists that open again where the person left them (until the phone goes home): the menu, Settings and its groups. */
+    /**
+     * A step forward to [to]. Back retraces the way the person came (the owner's rule, docs/navigation-rules.md), so the way here
+     * is remembered. The one thing not kept twice is a [tabs] screen: arriving at one that is already on the way here drops back
+     * to it, so that cycling the dialler or returning to Now playing cannot pile up a loop for Back to walk round.
+     * Use this for every move to another screen and [leave] for Back. Do not assign [screen] directly.
+     */
+    private fun goTo(to: Screen, row: Int = 0) {
+        when {
+            to == screen -> selected = row
+            to in tabs && trail.any { it.screen == to } -> leaveTo(to, row)
+            else -> enter(to, row)
+        }
+    }
+    private val tabs = setOf(Screen.MUSIC, Screen.DIAL, Screen.CALLLOG, Screen.CONTACTS, Screen.WIFI, Screen.BT)
+    /** From a text-message notification: our own Inbox (never the phone's Messages app), on top of the note it came from. */
+    fun openInbox() { noteOpened(); goTo(Screen.INBOX) }
+    /** A notification was opened and so is gone: the note's own page drops out of the way back. */
+    fun noteOpened() { if (screen == Screen.NOTE) leave() }
     private val rememberRow = setOf(Screen.MENU, Screen.SETTINGS, Screen.LOOK, Screen.SOUNDSET, Screen.CONNECTIONS, Screen.THISPHONE)
     private val positions = HashMap<Screen, Int>()
     private fun remember() { if (screen in rememberRow) positions[screen] = selected }
@@ -464,7 +481,7 @@ class LauncherModel(
         if (screen != Screen.CALLMENU || info.phase != CallPhase.ACTIVE) screen = Screen.CALL
     }
     /** Opens the dial screen with a number already typed (a tel: link, or a button in another app). */
-    fun startDial(number: String) { dialNumber = number.filter { it.isDigit() || it in "*#+" }.take(24); screen = Screen.DIAL }
+    fun startDial(number: String) { dialNumber = number.filter { it.isDigit() || it in "*#+" }.take(24); goTo(Screen.DIAL) }
     var dialNumber = ""
         private set
     /** The contact whose number matches what has been dialled, shown under it like a Nokia. */
@@ -532,6 +549,7 @@ class LauncherModel(
     /** The characters being typed as a word, which the skin underlines until the word is accepted. */
     val composingRange: IntRange? get() = if (seq.isEmpty()) null else compStart until (compStart + compLen)
     private val t9: Boolean get() = modeName.startsWith("T9")
+    /** What the caller of [startWrite] named; no longer steers Back, which follows the way here. */
     private var writeBack = Screen.MESSAGES
     private var picking = false
     private var lastDigit = -1
@@ -544,6 +562,12 @@ class LauncherModel(
         private set
     fun notify(text: String) { notice = text }
     fun clearNotice() { notice = null }
+
+    /** Holds a running game where it is (the launcher is being hidden). */
+    fun pauseGames() {
+        if (snake.state == Snake.State.RUNNING) snake.toggle()
+        if (shooter.state == Shooter.State.RUNNING) shooter.toggle()
+    }
 
     fun goHome() { onPreviewStop(); screen = Screen.HOME; selected = 0; dialler = false; trail.clear(); clearSel(); positions.clear() }
 
@@ -649,7 +673,8 @@ class LauncherModel(
         Screen.GAMEHELP -> "Play" to "Back"
         Screen.WEATHER -> "" to "Back"
         Screen.BATTERY -> "" to "Back"
-        Screen.MUSICMENU, Screen.PLAYLISTS, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.WHEREPLACES -> "Select" to "Back"
+        Screen.PLAYLISTS -> "Options" to "Back"
+        Screen.MUSICMENU, Screen.SEARCHRES, Screen.DEVICES, Screen.RADIOMENU, Screen.SPOTIFYMENU, Screen.WHEREPLACES -> "Select" to "Back"
         Screen.WHEREDETAIL -> "Go" to "Back"
         Screen.WHEREJOURNEYS -> "Details" to "Back"
         Screen.WHERELEGS -> "Map" to "Back"
@@ -659,7 +684,8 @@ class LauncherModel(
         Screen.STOPWATCH -> (if (stopwatch.running) "Stop" else "Start") to "Back"
         Screen.RING -> (if (ringKind == "timer") "" else "Snooze") to "Stop"
         Screen.POWERMENU -> "Select" to "Back"
-        Screen.RADIO, Screen.RADIORES -> "Play" to "Back"
+        Screen.RADIO -> "Options" to "Back"
+        Screen.RADIORES -> "Play" to "Back"
         Screen.RADIOBROWSE, Screen.CONNECTIONS, Screen.PHONETYPE -> "Select" to "Back"
         Screen.FIRSTRUN -> "Select" to (if (firstConfirm != null) "Back" else if (wizStep > 0) "Back" else "")
         Screen.TIMEZONE, Screen.LANGUAGE -> "Select" to "Back"
@@ -928,14 +954,15 @@ class LauncherModel(
 
     /** From the dial pad this is a sideways step inside the dialler; from anywhere else it opens on top of where you are. */
     private fun openCallLog(from: Screen): Action {
-        if (from == Screen.DIAL) { dialler = true; screen = Screen.CALLLOG; selected = 0 } else { dialler = false; enter(Screen.CALLLOG) }
+        dialler = from == Screen.DIAL
+        goTo(Screen.CALLLOG)
         return Action.Redraw
     }
 
     private fun callLog(key: Key, digit: Int): Action = move(key, calls.size) ?: when (key) {
         Key.LEFT, Key.SOFT_LEFT -> if (dialler) openContacts(Screen.DIAL) else calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
         Key.OK, Key.CALL -> calls.getOrNull(selected)?.let { Action.Call(it.number) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> if (dialler) exitDialler() else { leave(); Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1071,7 +1098,7 @@ class LauncherModel(
     private fun waLead(): List<String> = if (waSetupAvail || waSetupActive) listOf("Set up WhatsApp") else emptyList()
 
     private fun whatsapp(key: Key, digit: Int): Action = move(key, waLead().size + (if (waLinked) waConvos.size else 1) + 1) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == waLead().size + (if (waLinked) waConvos.size else 1)) { enter(Screen.WASET); Action.Redraw } else if (waLead().isNotEmpty() && selected == 0) { enter(Screen.WASETUP); Action.Redraw } else if (!waLinked) startPair() else waConvos.getOrNull(selected - waLead().size)?.let { convo = it; threadWa = true; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; Action.WaRead(it.address) } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == waLead().size + (if (waLinked) waConvos.size else 1)) { enter(Screen.WASET); Action.Redraw } else if (waLead().isNotEmpty() && selected == 0) { enter(Screen.WASETUP); Action.Redraw } else if (!waLinked) startPair() else waConvos.getOrNull(selected - waLead().size)?.let { convo = it; threadWa = true; goTo(Screen.CHAT, if (it.msgs.isEmpty()) 0 else 1); scroll = 0; Action.WaRead(it.address) } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { threadWa = false; leave(); Action.Redraw }
         Key.END -> { threadWa = false; goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -1079,7 +1106,7 @@ class LauncherModel(
     }
 
     private fun inbox(key: Key, digit: Int): Action = move(key, convos.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; screen = Screen.CHAT; selected = if (it.msgs.isEmpty()) 0 else 1; scroll = 0; if (it.unread > 0) Action.SmsRead(it.address) else Action.Redraw } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> convos.getOrNull(selected)?.let { convo = it; threadWa = false; goTo(Screen.CHAT, if (it.msgs.isEmpty()) 0 else 1); scroll = 0; if (it.unread > 0) Action.SmsRead(it.address) else Action.Redraw } ?: Action.None
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> convos.getOrNull(selected)?.let { Action.Call(it.address) } ?: Action.CallKey
@@ -1093,10 +1120,12 @@ class LauncherModel(
         return move(key, rows) ?: when (key) {
             Key.OK, Key.LEFT, Key.SOFT_LEFT ->
                 if (selected == 0) startWrite(c.address, Screen.CHAT, label = c.name, wa = threadWa)
-                else { val idx = c.msgs.size - selected; screen = Screen.THREAD; selected = idx.coerceIn(0, c.msgs.size - 1); scroll = 0; Action.Redraw }
+                else { val idx = c.msgs.size - selected; goTo(Screen.THREAD, idx.coerceIn(0, c.msgs.size - 1)); scroll = 0; Action.Redraw }
             Key.RIGHT, Key.SOFT_RIGHT -> {
-                if (threadWa) { screen = Screen.WHATSAPP; selected = waConvos.indexOfFirst { it.address == c.address }.coerceAtLeast(0) }
-                else { screen = Screen.INBOX; selected = convos.indexOfFirst { it.address == c.address }.coerceAtLeast(0) }
+                leave()
+                // the lists re-order as chats are read: land on this chat's row, wherever it is now
+                if (screen == Screen.WHATSAPP) selected = waConvos.indexOfFirst { it.address == c.address }.coerceAtLeast(0)
+                if (screen == Screen.INBOX) selected = convos.indexOfFirst { it.address == c.address }.coerceAtLeast(0)
                 Action.Redraw
             }
             Key.CALL -> Action.Call(c.address)
@@ -1121,7 +1150,7 @@ class LauncherModel(
                 else -> Action.None
             }
             Key.OK, Key.LEFT, Key.SOFT_LEFT -> startWrite(c.address, Screen.THREAD, label = c.name, wa = threadWa)
-            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CHAT; selected = (c.msgs.size - selected).coerceIn(0, c.msgs.size); Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { val row = (c.msgs.size - selected).coerceIn(0, c.msgs.size); leave(); if (screen == Screen.CHAT) selected = row; Action.Redraw }
             Key.CALL -> Action.Call(c.address)
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
@@ -1132,11 +1161,11 @@ class LauncherModel(
         writeTo = to; writeText = ""; cursor = 0; writeBack = back; writeMode = 0; lastDigit = -1; commit()
         writeWa = wa; writeLabel = label; writeSearch = false; writeRadio = false; writeWifi = null; writeHead = null; writeDone = null; writeExact = false
         writeField = if (to.isEmpty()) 0 else 1
-        screen = Screen.WRITE
+        goTo(Screen.WRITE)
         return Action.Redraw
     }
 
-    private fun leaveWrite(): Action { screen = writeBack; return Action.Redraw }
+    private fun leaveWrite(): Action { leave(); return Action.Redraw }
 
     private fun write(key: Key, digit: Int, now: Long): Action =
         if (writeField == 0) writeToField(key, digit) else if (writeField == 2) writeMic(key, digit, now) else writeBody(key, digit, now)
@@ -1173,7 +1202,7 @@ class LauncherModel(
         Key.DOWN -> if (voiceShown) { commit(); writeField = 2; Action.Redraw } else Action.None
         Key.LEFT -> { commit(); cursor = (cursor - 1).coerceAtLeast(0); lastDigit = -1; Action.Redraw }
         Key.RIGHT -> { commit(); cursor = (cursor + 1).coerceAtMost(writeText.length); lastDigit = -1; Action.Redraw }
-        Key.OK, Key.SOFT_LEFT -> { commit(); writeDone?.let { f -> writeDone = null; writeHead = null; screen = writeBack; return f(writeText.trim()) }; if (writeWifi != null) { val n = writeWifi!!; screen = Screen.WIFI; selected = 0; writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; resFromFind = true; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; screen = Screen.RADIORES; selected = 0; Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); screen = Screen.SEARCHRES; selected = 0; spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
+        Key.OK, Key.SOFT_LEFT -> { commit(); writeDone?.let { f -> writeDone = null; writeHead = null; leave(); return f(writeText.trim()) }; if (writeWifi != null) { val n = writeWifi!!; leaveTo(Screen.WIFI, 0); writeWifi = null; Action.WifiJoin(n.ssid, writeText, n.caps, n.id) } else if (writeSearch && writeRadio) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); writeRadio = false; writeSearch = false; radioRes = emptyList(); radioStatus = "Searching..."; radioResTitle = "Stations"; leave(); goTo(Screen.RADIORES); Action.RadioSearch(q) } } else if (writeSearch) { if (writeText.isBlank()) Action.None else { val q = writeText.trim(); leave(); goTo(Screen.SEARCHRES); spResults = emptyList(); spStatus = "Searching..."; Action.SpSearch(q) } } else if (writeText.isBlank() || writeTo.isBlank()) Action.None else {
             val a = if (writeWa) Action.SendWa(writeTo, writeText.trim()) else Action.Send(writeTo, writeText.trim())
             leaveTo(Screen.MESSAGES, 0); notice = "Message sent"
             a
@@ -1276,27 +1305,25 @@ class LauncherModel(
     /** From the dial pad, or to pick a recipient while writing, this is a sideways step; from anywhere else it opens on top of where you are. */
     private fun openContacts(from: Screen): Action {
         when (from) {
-            Screen.DIAL -> { dialler = true; screen = Screen.CONTACTS; selected = 0 }
-            Screen.WRITE -> { screen = Screen.CONTACTS; selected = 0 }
-            else -> { dialler = false; enter(Screen.CONTACTS) }
+            Screen.DIAL -> { dialler = true; goTo(Screen.CONTACTS) }
+            // picking a recipient is a step on top of the message, even when Contacts is further down the way here
+            Screen.WRITE -> enter(Screen.CONTACTS)
+            else -> { dialler = false; goTo(Screen.CONTACTS) }
         }
         return Action.Redraw
     }
 
     private fun contactOpen(): Action = contacts.getOrNull(selected)?.let {
-        if (picking) { picking = false; writeTo = it.numbers.firstOrNull().orEmpty(); screen = Screen.WRITE; writeField = 1; Action.Redraw }
-        else { contact = it; screen = Screen.CONTACT; selected = 0; Action.Redraw }
+        if (picking) { picking = false; writeTo = it.numbers.firstOrNull().orEmpty(); leave(); writeField = 1; Action.Redraw }
+        else { contact = it; goTo(Screen.CONTACT); Action.Redraw }
     } ?: Action.None
 
     private fun contactList(key: Key, digit: Int): Action = move(key, contacts.size) ?: when (key) {
-        Key.LEFT, Key.SOFT_LEFT -> if (dialler && !picking) { screen = Screen.DIAL; Action.Redraw } else contactOpen()
+        Key.LEFT, Key.SOFT_LEFT -> if (dialler && !picking) { goTo(Screen.DIAL); Action.Redraw } else contactOpen()
         Key.OK -> contactOpen()
         Key.RIGHT, Key.SOFT_RIGHT -> {
-            when {
-                picking -> { picking = false; screen = Screen.WRITE }
-                dialler -> exitDialler()
-                else -> leave()
-            }
+            picking = false
+            leave()
             Action.Redraw
         }
         Key.END -> { goHome(); Action.Redraw }
@@ -1312,7 +1339,7 @@ class LauncherModel(
                 if (key == Key.CALL && c.numbers.isNotEmpty()) Action.Call(c.numbers[selected.coerceAtMost(c.numbers.size - 1)])
                 else if (selected < c.numbers.size) Action.Call(c.numbers[selected])
                 else startWrite(c.numbers.firstOrNull() ?: "", Screen.CONTACT)
-            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.CONTACTS; selected = contacts.indexOf(c).coerceAtLeast(0); Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { leave(); if (screen == Screen.CONTACTS) selected = contacts.indexOf(c).coerceAtLeast(0); Action.Redraw }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
@@ -1634,7 +1661,7 @@ class LauncherModel(
     fun homeBadgeIndex(): Int = homeFocusTarget()?.takeIf { it.badge != null }?.let { t -> badges.indexOfFirst { it === t.badge } } ?: -1
 
     private fun openNow(): Action = when (nowPages.getOrNull(nowPage)) {
-        "music" -> { provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw }
+        "music" -> { provider = playingProvider ?: provider; goTo(Screen.MUSIC); Action.Redraw }
         "event" -> openCalendar()
         else -> Action.Redraw
     }
@@ -1682,12 +1709,12 @@ class LauncherModel(
     /** A long press of the right soft key on Home: Now playing when music plays, else the Music menu; nothing where the mode has no music. */
     fun openMusicFromHome(): Action {
         if (screen != Screen.HOME || items.none { it.pkg == MUSIC_PKG }) return Action.None
-        if (musicOn) { selected = 0; provider = playingProvider ?: provider; screen = Screen.MUSIC } else enter(Screen.MUSICMENU)
+        if (musicOn) { provider = playingProvider ?: provider; goTo(Screen.MUSIC) } else goTo(Screen.MUSICMENU)
         return Action.Redraw
     }
 
     private fun homeKey(key: Key, digit: Int): Action = when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { screen = Screen.MENU; selected = 0; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { goTo(Screen.MENU); Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> openContacts(Screen.HOME) // Contacts in every mode; Music is a long press of the right soft key (see [openMusicFromHome])
         Key.CALL -> openPhoneMenu()
         Key.DIGIT -> if (digit in 0..9) { dialNumber = digit.toString(); dialler = true; enter(Screen.DIAL); Action.Redraw } else Action.None
@@ -1715,7 +1742,7 @@ class LauncherModel(
 
     private val connectionScreens = setOf(Screen.CONNECTIONS, Screen.WIFI, Screen.WIFINET, Screen.BT, Screen.BTDEV)
     /** The status-line symbols open the connection screens from anywhere: on top of where you are, or sideways when you are already in them. */
-    private fun openConnection(to: Screen) { if (screen in connectionScreens) { screen = to; selected = 0 } else enter(to) }
+    private fun openConnection(to: Screen) { goTo(to) }
 
     private val noTouch = setOf(Screen.SNAKE, Screen.PAIRS, Screen.SHOOTER, Screen.SEEDS)
 
@@ -1857,7 +1884,7 @@ class LauncherModel(
         BadgeKind.MISSED -> openCallLog(Screen.HOME)
         BadgeKind.NOTES -> { enter(Screen.NOTES); Action.Redraw }
         BadgeKind.MAIL -> { mailSentBox = false; enter(Screen.MAILLIST, mailInbox.indexOfFirst { it.unread }.coerceAtLeast(0)); Action.MailSync(false) }
-        BadgeKind.MUSIC -> { provider = playingProvider ?: provider; screen = Screen.MUSIC; Action.Redraw } // music is playing: straight to Now playing
+        BadgeKind.MUSIC -> { provider = playingProvider ?: provider; goTo(Screen.MUSIC); Action.Redraw } // music is playing: straight to Now playing
     }
 
     /** A tap on the weather on the home screen (touch modes only: School blocks touches before they get here). */
@@ -1915,7 +1942,7 @@ class LauncherModel(
     private var noteKeyShown: String? = null
 
     private fun notesKey(key: Key): Action = move(key, notes.size + (if (notes.isEmpty()) 0 else 1)) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (notes.isEmpty()) Action.None else if (selected >= notes.size) Action.ClearNotes else { noteKeyShown = notes[selected].key; screen = Screen.NOTE; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (notes.isEmpty()) Action.None else if (selected >= notes.size) Action.ClearNotes else { noteKeyShown = notes[selected].key; goTo(Screen.NOTE); Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
@@ -1926,8 +1953,8 @@ class LauncherModel(
 
     private fun noteDetailKey(key: Key, digit: Int): Action = when {
         key == Key.OK || key == Key.LEFT || key == Key.SOFT_LEFT -> currentNote?.let { Action.OpenNote(it.key) } ?: Action.None
-        key == Key.DIGIT && digit == 0 -> currentNote?.let { screen = Screen.NOTES; selected = 0; Action.ClearNote(it.key) } ?: Action.None
-        key == Key.RIGHT || key == Key.SOFT_RIGHT -> { screen = Screen.NOTES; Action.Redraw }
+        key == Key.DIGIT && digit == 0 -> currentNote?.let { leave(); selected = 0; Action.ClearNote(it.key) } ?: Action.None
+        key == Key.RIGHT || key == Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         key == Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -1948,18 +1975,18 @@ class LauncherModel(
         val radio = provider == Provider.RADIO
         if (radio && d in 1..9) return if (d <= radioNames.size) Action.RadioPlay(d - 1) else Action.None
         return when {
-            key == Key.SOFT_LEFT -> { menuPlaylist = null; screen = if (radio) Screen.RADIOMENU else Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
+            key == Key.SOFT_LEFT -> { menuPlaylist = null; goTo(if (radio) Screen.RADIOMENU else Screen.SPOTIFYMENU); Action.Redraw }
             key == Key.OK || (d == 5 && !radio) -> when {
                 music.active -> Action.MusicPlayPause
-                radio -> if (radioNames.isNotEmpty()) { screen = Screen.RADIO; selected = 0; Action.Redraw } else Action.None
-                spSignedIn -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }
+                radio -> if (radioNames.isNotEmpty()) { goTo(Screen.RADIO); Action.Redraw } else Action.None
+                spSignedIn -> { goTo(Screen.PLAYLISTS); spStatus = "Loading..."; Action.SpLoad("playlists") }
                 else -> Action.None
             }
             key == Key.RIGHT || (d == 6 && !radio) -> if (music.active) Action.MusicNext else Action.None
             key == Key.LEFT || (d == 4 && !radio) -> if (music.active) Action.MusicPrevious else Action.None
             key == Key.UP || (d == 2 && !radio) -> Action.MusicVolume(true)
             key == Key.DOWN || (d == 8 && !radio) -> Action.MusicVolume(false)
-            key == Key.SOFT_RIGHT -> { goHome(); Action.Redraw } // Now playing is a destination: Back is always home
+            key == Key.SOFT_RIGHT -> { leave(); Action.Redraw }
             key == Key.POUND -> openSourcePicker() // change source
             d == 0 -> Action.SleepStep
             (d == 7 && !radio) || (key == Key.STAR && radio) -> Action.SpectrumToggle
@@ -1979,14 +2006,14 @@ class LauncherModel(
 
     private fun radioMenuKey(key: Key): Action = move(key, radioMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = radioMenuRows.getOrNull(selected)) {
-            "Presets" -> { screen = Screen.RADIO; selected = if (provider == Provider.RADIO && music.active) radioIndex.coerceAtLeast(0) else 0; Action.Redraw }
+            "Presets" -> { goTo(Screen.RADIO, if (provider == Provider.RADIO && music.active) radioIndex.coerceAtLeast(0) else 0); Action.Redraw }
             "Find station" -> { startWrite("", Screen.RADIOMENU); writeField = 1; writeSearch = true; writeRadio = true; Action.Redraw }
-            "Browse stations" -> { browseLevel = 0; screen = Screen.RADIOBROWSE; selected = 0; Action.Redraw }
+            "Browse stations" -> { browseLevel = 0; goTo(Screen.RADIOBROWSE); Action.Redraw }
             "Change source" -> openSourcePicker()
             "Stop music" -> stopMusic(Provider.RADIO)
             else -> Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2016,9 +2043,9 @@ class LauncherModel(
 
     private fun spotifyMenuKey(key: Key): Action = move(key, spotifyMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = spotifyMenuRows.getOrNull(selected)) {
-            "Playlists" -> { screen = Screen.PLAYLISTS; selected = 0; spStatus = "Loading..."; Action.SpLoad("playlists") }
+            "Playlists" -> { goTo(Screen.PLAYLISTS); spStatus = "Loading..."; Action.SpLoad("playlists") }
             "Search" -> startSearch()
-            "Play on..." -> { screen = Screen.DEVICES; selected = 0; spStatus = "Loading..."; Action.SpLoad("devices") }
+            "Play on..." -> { goTo(Screen.DEVICES); spStatus = "Loading..."; Action.SpLoad("devices") }
             "Sign out of Spotify" -> Action.SpSignOut
             "Sign in to Spotify" -> Action.SpSignIn
             "Change source" -> openSourcePicker()
@@ -2027,7 +2054,7 @@ class LauncherModel(
             "Download playlist", "Remove download" -> menuPlaylist?.let { offlineAction(it) } ?: Action.None
             else -> Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.MUSIC; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2036,8 +2063,9 @@ class LauncherModel(
     private val radioRows: List<String> get() = radioNames.ifEmpty { listOf("No stations") }
 
     private fun radioKey(key: Key): Action = move(key, maxOf(radioRows.size, 1)) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected in radioNames.indices) { provider = Provider.RADIO; screen = Screen.MUSIC; Action.RadioPlay(selected) } else Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.RADIOMENU; selected = 0; Action.Redraw }
+        Key.OK -> if (selected in radioNames.indices) { val station = selected; provider = Provider.RADIO; goTo(Screen.MUSIC); Action.RadioPlay(station) } else Action.None
+        Key.LEFT, Key.SOFT_LEFT -> { goTo(Screen.RADIOMENU); Action.Redraw } // Options: find, browse, change source
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2047,7 +2075,6 @@ class LauncherModel(
     var radioStatus = ""
     var radioResTitle = "Stations"
     private var browseLevel = 0
-    private var resFromFind = false
     var writeRadio = false
 
     private val radioBrowseRows: List<String> get() = when (browseLevel) {
@@ -2062,17 +2089,17 @@ class LauncherModel(
             2 -> io.github.durkimat.phoneguard.music.RadioBrowser.countries.getOrNull(selected)?.let { loadRadio("country", it.second, it.first) } ?: Action.None
             else -> when (selected) { 0 -> loadRadio("top", "GB", "Popular in the UK"); 1 -> { browseLevel = 1; selected = 0; Action.Redraw }; 2 -> { browseLevel = 2; selected = 0; Action.Redraw }; else -> Action.None }
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (browseLevel > 0) { selected = browseLevel - 1; browseLevel = 0 } else { screen = Screen.RADIOMENU; selected = radioMenuRows.indexOf("Browse stations").coerceAtLeast(0) }; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { if (browseLevel > 0) { selected = browseLevel - 1; browseLevel = 0 } else leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
-    private fun loadRadio(kind: String, arg: String, title: String): Action { resFromFind = false; radioRes = emptyList(); radioStatus = "Loading..."; radioResTitle = title; screen = Screen.RADIORES; selected = 0; return Action.RadioLoad(kind, arg) }
+    private fun loadRadio(kind: String, arg: String, title: String): Action { radioRes = emptyList(); radioStatus = "Loading..."; radioResTitle = title; goTo(Screen.RADIORES); return Action.RadioLoad(kind, arg) }
 
     private fun radioResKey(key: Key): Action = move(key, maxOf(radioRes.size, 1)) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> radioRes.getOrNull(selected)?.let { provider = Provider.RADIO; screen = Screen.MUSIC; Action.RadioPlayUrl(it.name, it.url) } ?: Action.None
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> radioRes.getOrNull(selected)?.let { provider = Provider.RADIO; goTo(Screen.MUSIC); Action.RadioPlayUrl(it.name, it.url) } ?: Action.None
         Key.STAR -> radioRes.getOrNull(selected)?.let { Action.RadioFav(it.name, it.url) } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { if (resFromFind) { screen = Screen.RADIOMENU; selected = radioMenuRows.indexOf("Find station").coerceAtLeast(0) } else { screen = Screen.RADIOBROWSE; selected = 0 }; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2114,12 +2141,12 @@ class LauncherModel(
     }
 
     private fun switchTo(pkg: String): Action = when {
-        pkg == io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG && items.any { it.pkg == MUSIC_PKG } -> { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.Redraw }
+        pkg == io.github.durkimat.phoneguard.music.MusicController.SPOTIFY_PKG && items.any { it.pkg == MUSIC_PKG } -> { provider = Provider.SPOTIFY; goTo(Screen.MUSIC); Action.Redraw }
         pkg == dialerApp -> openPhoneMenu()
         pkg == messagesApp -> openMessages()
         pkg == contactsApp -> openContacts(Screen.HOME)
         pkg in CAMERA_APPS && items.any { it.pkg == CAMERA_PKG } -> Action.OpenCamera
-        pkg == "com.whatsapp" && waEnabled -> { screen = Screen.WHATSAPP; selected = 0; threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
+        pkg == "com.whatsapp" && waEnabled -> { goTo(Screen.WHATSAPP); threadWa = true; if (waLinked) Action.WaOpen else Action.Redraw }
         else -> Action.Launch(pkg)
     }
 
@@ -2143,8 +2170,8 @@ class LauncherModel(
 
     private fun connectionsKey(key: Key): Action = move(key, connectionRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
-            0 -> { screen = Screen.WIFI; selected = 0; Action.WifiLoad }
-            1 -> { screen = Screen.BT; selected = 0; Action.BtLoad }
+            0 -> { goTo(Screen.WIFI); Action.WifiLoad }
+            1 -> { goTo(Screen.BT); Action.BtLoad }
             else -> { enter(Screen.DATA); Action.DataLoad }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
@@ -2175,8 +2202,8 @@ class LauncherModel(
     }
 
     private fun wifiKey(key: Key): Action = move(key, rows.size) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) Action.WifiToggle else wifiNets.getOrNull(selected - 1)?.let { wifiSel = it; screen = Screen.WIFINET; selected = 0; Action.Redraw } ?: Action.None
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = if (edition == "first_boot") Screen.FIRSTRUN else Screen.CONNECTIONS; selected = 0; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) Action.WifiToggle else wifiNets.getOrNull(selected - 1)?.let { wifiSel = it; goTo(Screen.WIFINET); Action.Redraw } ?: Action.None
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2185,14 +2212,14 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
             val n = wifiSel
             when (wifiNetRows.getOrNull(selected)) {
-                "Connect" -> { screen = Screen.WIFI; selected = 0; if (n != null) Action.WifiConnect(n.id) else Action.Redraw }
-                "Join" -> { screen = Screen.WIFI; selected = 0; if (n != null) Action.WifiJoin(n.ssid, "", n.caps, n.id) else Action.Redraw }
+                "Connect" -> { leaveTo(Screen.WIFI, 0); if (n != null) Action.WifiConnect(n.id) else Action.Redraw }
+                "Join" -> { leaveTo(Screen.WIFI, 0); if (n != null) Action.WifiJoin(n.ssid, "", n.caps, n.id) else Action.Redraw }
                 "Join with password", "Change password" -> if (n != null) { startWrite("", Screen.WIFINET, n.ssid); writeField = 1; writeWifi = n; writeMode = 0; Action.Redraw } else Action.None
-                "Forget" -> { screen = Screen.WIFI; selected = 0; if (n != null) Action.WifiForget(n.id) else Action.Redraw }
+                "Forget" -> { leaveTo(Screen.WIFI, 0); if (n != null) Action.WifiForget(n.id) else Action.Redraw }
                 else -> Action.None
             }
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WIFI; selected = 0; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2201,9 +2228,9 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when {
             selected == 0 -> Action.BtToggle
             selected == 1 -> Action.BtSearch
-            else -> btDevs.getOrNull(selected - 2)?.let { btSel = it; screen = Screen.BTDEV; selected = 0; Action.Redraw } ?: Action.None
+            else -> btDevs.getOrNull(selected - 2)?.let { btSel = it; goTo(Screen.BTDEV); Action.Redraw } ?: Action.None
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = if (edition == "first_boot") Screen.FIRSTRUN else Screen.CONNECTIONS; selected = if (edition == "first_boot") 0 else 1; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
@@ -2212,25 +2239,25 @@ class LauncherModel(
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> {
             val d = btSel
             when (btDevRows.getOrNull(selected)) {
-                "Pair" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtPair(d.address) else Action.Redraw }
-                "Connect" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtConnect(d.address, true) else Action.Redraw }
-                "Disconnect" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtConnect(d.address, false) else Action.Redraw }
-                "Forget" -> { screen = Screen.BT; selected = 0; if (d != null) Action.BtForget(d.address) else Action.Redraw }
+                "Pair" -> { leaveTo(Screen.BT, 0); if (d != null) Action.BtPair(d.address) else Action.Redraw }
+                "Connect" -> { leaveTo(Screen.BT, 0); if (d != null) Action.BtConnect(d.address, true) else Action.Redraw }
+                "Disconnect" -> { leaveTo(Screen.BT, 0); if (d != null) Action.BtConnect(d.address, false) else Action.Redraw }
+                "Forget" -> { leaveTo(Screen.BT, 0); if (d != null) Action.BtForget(d.address) else Action.Redraw }
                 else -> Action.None
             }
         }
-        Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.BT; selected = 0; Action.Redraw }
+        Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
     }
 
-    /** "Change source": the Music menu with Home beneath it, so Back from it goes home however Now playing was reached. */
-    private fun openSourcePicker(): Action { trail.clear(); trail.addLast(Frame(Screen.HOME, 0)); screen = Screen.MUSICMENU; selected = 0; return Action.Redraw }
+    /** "Change source": the Music menu. Back returns the way it came (or drops back to it when it is already on the way here). */
+    private fun openSourcePicker(): Action { goTo(Screen.MUSICMENU); return Action.Redraw }
 
     private fun musicMenuKey(key: Key): Action = move(key, musicMenuRows.size) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (val r = musicMenuRows.getOrNull(selected)) {
-            "Internet Radio" -> { provider = Provider.RADIO; selected = 0; if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) screen = Screen.RADIO else screen = Screen.MUSIC; Action.Redraw }
-            "Spotify" -> { provider = Provider.SPOTIFY; selected = 0; if ((provStatus[Provider.SPOTIFY] ?: 0) == 0 && spSignedIn) { screen = Screen.PLAYLISTS; spStatus = "Loading..."; Action.SpLoad("playlists") } else { screen = Screen.MUSIC; Action.Redraw } }
+            "Internet Radio" -> { provider = Provider.RADIO; goTo(if ((provStatus[Provider.RADIO] ?: 0) == 0 && radioNames.isNotEmpty()) Screen.RADIO else Screen.MUSIC); Action.Redraw }
+            "Spotify" -> { provider = Provider.SPOTIFY; if ((provStatus[Provider.SPOTIFY] ?: 0) == 0 && spSignedIn) { goTo(Screen.PLAYLISTS); spStatus = "Loading..."; Action.SpLoad("playlists") } else { goTo(Screen.MUSIC); Action.Redraw } }
             else -> commonMusicRow(r)
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
@@ -2547,14 +2574,14 @@ class LauncherModel(
 
     /** A spoken "navigate to X": the search runs at once and the places are listed; the child still picks the place. */
     fun searchWhere(text: String): Action {
-        whereRecent = false; whereQuery = text; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0
+        whereRecent = false; whereQuery = text; whereResults = emptyList(); whereStatus = "Searching..."; goTo(Screen.WHEREPLACES)
         return Action.WhereSearch(text)
     }
 
     private fun whereStart(text: String): Action {
         if (text.isEmpty()) {
             val recents = whereRecentsLoader()
-            if (recents.isNotEmpty()) { whereRecent = true; whereResults = recents; whereStatus = ""; screen = Screen.WHEREPLACES; selected = 1.coerceAtMost(recents.size); return Action.Redraw }
+            if (recents.isNotEmpty()) { whereRecent = true; whereResults = recents; whereStatus = ""; goTo(Screen.WHEREPLACES, 1.coerceAtMost(recents.size)); return Action.Redraw }
         }
         return whereWrite(text)
     }
@@ -2565,7 +2592,7 @@ class LauncherModel(
         writeText = text; cursor = text.length
         writeDone = { q ->
             if (q.length < 2) { notice = "Type at least two letters"; whereStart(q) }
-            else { whereRecent = false; whereQuery = q; whereResults = emptyList(); whereStatus = "Searching..."; screen = Screen.WHEREPLACES; selected = 0; Action.WhereSearch(q) }
+            else { whereRecent = false; whereQuery = q; whereResults = emptyList(); whereStatus = "Searching..."; goTo(Screen.WHEREPLACES); Action.WhereSearch(q) }
         }
         return Action.Redraw
     }
@@ -2578,10 +2605,10 @@ class LauncherModel(
 
     /** The Worker needs a position to look for a kind of place and the phone has none: ask for a town, then look around it ([Action.WhereTown]). */
     fun askWhereTown(query: String) {
+        if (screen == Screen.WHEREPLACES) leave() // the question replaces the empty results
         whereTownFor = query; whereRecent = false
         startWrite("", Screen.MENU); writeField = 1; writeHead = "Which town?"; writeText = ""; cursor = 0
-        writeDone = { t -> if (t.length < 2) { notice = "Type at least two letters"; askWhereTown(query); Action.Redraw } else { whereResults = emptyList(); whereStatus = "Searching..."; whereNear = ""; screen = Screen.WHEREPLACES; selected = 0; Action.WhereTown(t, whereTownFor) } }
-        screen = Screen.WRITE
+        writeDone = { t -> if (t.length < 2) { notice = "Type at least two letters"; askWhereTown(query); Action.Redraw } else { whereResults = emptyList(); whereStatus = "Searching..."; whereNear = ""; goTo(Screen.WHEREPLACES); Action.WhereTown(t, whereTownFor) } }
     }
 
     /** The ways to [to] arrived; [from] says where they start. */
@@ -2602,8 +2629,8 @@ class LauncherModel(
             }
             Key.LEFT, Key.UP -> { whereMapLeg = (whereMapLeg - 1).coerceAtLeast(0); Action.Redraw }
             Key.RIGHT, Key.DOWN -> { whereMapLeg = (whereMapLeg + 1).coerceAtMost((whereLegs.size - 1).coerceAtLeast(0)); Action.Redraw }
-            Key.OK -> { val p = wherePlace; if (whereOffRoute && p != null) { whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } else { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw } }
-            Key.SOFT_LEFT, Key.SOFT_RIGHT -> { screen = Screen.WHERELEGS; selected = whereMapLeg; Action.Redraw }
+            Key.OK -> { val p = wherePlace; if (whereOffRoute && p != null) { whereRows = emptyList(); whereStatus = "Finding the way..."; goTo(Screen.WHEREJOURNEYS); Action.WhereRoute(p) } else { leaveTo(Screen.WHERELEGS, whereMapLeg); Action.Redraw } }
+            Key.SOFT_LEFT, Key.SOFT_RIGHT -> { leaveTo(Screen.WHERELEGS, whereMapLeg); Action.Redraw }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
         }
@@ -2612,16 +2639,16 @@ class LauncherModel(
             Screen.WHEREPLACES -> when (key) {
                 Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (whereRecent && selected == 0) whereWrite("") else whereResults.getOrNull(selected - (if (whereRecent) 1 else 0))?.let { p ->
                     wherePlace = p
-                    if (hasDetail(p)) { screen = Screen.WHEREDETAIL; selected = 0; Action.Redraw }
-                    else { whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) }
+                    if (hasDetail(p)) { goTo(Screen.WHEREDETAIL); Action.Redraw }
+                    else { whereRows = emptyList(); whereStatus = "Finding the way..."; goTo(Screen.WHEREJOURNEYS); Action.WhereRoute(p) }
                 } ?: Action.None
-                Key.RIGHT, Key.SOFT_RIGHT -> whereWrite(if (whereRecent) "" else whereQuery)
+                Key.RIGHT, Key.SOFT_RIGHT -> { val typed = !whereRecent; leave(); if (typed) whereWrite(whereQuery) else Action.Redraw } // results retrace to the typing box; recent places were opened directly
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
             Screen.WHEREDETAIL -> when (key) {
-                Key.OK, Key.LEFT, Key.SOFT_LEFT -> wherePlace?.let { p -> whereRows = emptyList(); whereStatus = "Finding the way..."; screen = Screen.WHEREJOURNEYS; selected = 0; Action.WhereRoute(p) } ?: Action.None
-                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0) + (if (whereRecent) 1 else 0); Action.Redraw }
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> wherePlace?.let { p -> whereRows = emptyList(); whereStatus = "Finding the way..."; goTo(Screen.WHEREJOURNEYS); Action.WhereRoute(p) } ?: Action.None
+                Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
@@ -2635,15 +2662,15 @@ class LauncherModel(
                     }
                     whereJourney = row.journey
                     whereLegs = row.journey?.legs ?: whereWalk?.let { listOf(io.github.durkimat.phoneguard.where.Leg("walk", "", "", "", wherePlace?.name.orEmpty(), "", "", it.walkMinutes ?: 0, false, it.walkPoints)) }.orEmpty()
-                    screen = Screen.WHERELEGS; selected = 0; Action.Redraw
+                    goTo(Screen.WHERELEGS); Action.Redraw
                 } ?: Action.None
-                Key.RIGHT, Key.SOFT_RIGHT -> { if (hasDetail(wherePlace)) { screen = Screen.WHEREDETAIL; selected = 0 } else { screen = Screen.WHEREPLACES; selected = whereResults.indexOf(wherePlace).coerceAtLeast(0) + (if (whereRecent) 1 else 0) }; Action.Redraw }
+                Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
             else -> when (key) { // the legs of one journey
-                Key.OK, Key.LEFT, Key.SOFT_LEFT -> { whereMapLeg = selected.coerceIn(0, (whereLegs.size - 1).coerceAtLeast(0)); whereZoom = 0; screen = Screen.WHEREMAP; Action.Redraw }
-                Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.WHEREJOURNEYS; selected = 0; Action.Redraw }
+                Key.OK, Key.LEFT, Key.SOFT_LEFT -> { whereMapLeg = selected.coerceIn(0, (whereLegs.size - 1).coerceAtLeast(0)); whereZoom = 0; goTo(Screen.WHEREMAP); Action.Redraw }
+                Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
                 Key.END -> { goHome(); Action.Redraw }
                 else -> Action.None
             }
@@ -2655,13 +2682,17 @@ class LauncherModel(
     /** The Spotify lists: OK plays the playlist or result, or moves playback to the device. */
     private fun spListKey(key: Key): Action {
         val size = when (screen) { Screen.PLAYLISTS -> spPlaylists.size; Screen.SEARCHRES -> spResults.size; else -> spDevices.size }
+        // on Playlists the left key is Options (the Spotify menu, with the highlighted playlist's Download row); the right key is only ever Back
+        if (screen == Screen.PLAYLISTS && (key == Key.LEFT || key == Key.SOFT_LEFT)) {
+            menuPlaylist = spPlaylists.getOrNull(selected); goTo(Screen.SPOTIFYMENU); return Action.Redraw
+        }
         return move(key, size) ?: when (key) {
             Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (screen) {
-                Screen.PLAYLISTS -> spPlaylists.getOrNull(selected)?.let { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.SpPlay(it.uri) } ?: Action.None
-                Screen.SEARCHRES -> spResults.getOrNull(selected)?.let { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.SpPlay(it.uri) } ?: Action.None
-                else -> spDevices.getOrNull(selected)?.let { provider = Provider.SPOTIFY; screen = Screen.MUSIC; Action.SpTransfer(it.id, it.name) } ?: Action.None
+                Screen.PLAYLISTS -> spPlaylists.getOrNull(selected)?.let { provider = Provider.SPOTIFY; goTo(Screen.MUSIC); Action.SpPlay(it.uri) } ?: Action.None
+                Screen.SEARCHRES -> spResults.getOrNull(selected)?.let { provider = Provider.SPOTIFY; goTo(Screen.MUSIC); Action.SpPlay(it.uri) } ?: Action.None
+                else -> spDevices.getOrNull(selected)?.let { provider = Provider.SPOTIFY; goTo(Screen.MUSIC); Action.SpTransfer(it.id, it.name) } ?: Action.None
             }
-            Key.RIGHT, Key.SOFT_RIGHT -> { menuPlaylist = if (screen == Screen.PLAYLISTS) spPlaylists.getOrNull(selected) else null; screen = Screen.SPOTIFYMENU; selected = 0; Action.Redraw }
+            Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
             Key.STAR -> if (screen != Screen.PLAYLISTS) Action.None else spPlaylists.getOrNull(selected)?.let { sel ->
                 if (sel.uri in spOffline) { notice = "Remove the download to unpin"; Action.Redraw }
                 else when (val t = io.github.durkimat.phoneguard.music.PlaylistOrder.toggle(spPins, sel.uri)) {
@@ -2697,7 +2728,7 @@ class LauncherModel(
         when (key) {
             Key.OK, Key.LEFT, Key.SOFT_LEFT -> startGame(helpGame)
             Key.DIGIT -> if (digit == 5) startGame(helpGame) else return Action.None
-            Key.RIGHT, Key.SOFT_RIGHT -> { screen = Screen.GAMES; selected = helpGame }
+            Key.RIGHT, Key.SOFT_RIGHT -> leave()
             Key.END -> goHome()
             else -> return Action.None
         }
@@ -2706,15 +2737,15 @@ class LauncherModel(
 
     private fun startGame(n: Int) {
         when (n) {
-            0 -> { snake.reset(); screen = Screen.SNAKE }
-            1 -> { pairs.reset(); screen = Screen.PAIRS }
-            2 -> { shooter.reset(); screen = Screen.SHOOTER }
-            else -> { seeds.reset(); screen = Screen.SEEDS }
+            0 -> { snake.reset(); goTo(Screen.SNAKE) }
+            1 -> { pairs.reset(); goTo(Screen.PAIRS) }
+            2 -> { shooter.reset(); goTo(Screen.SHOOTER) }
+            else -> { seeds.reset(); goTo(Screen.SEEDS) }
         }
     }
 
     private fun gameList(key: Key): Action = move(key, 4) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { helpGame = selected; screen = Screen.GAMEHELP; Action.Redraw }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { helpGame = selected; goTo(Screen.GAMEHELP, selected); Action.Redraw }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         else -> Action.None
@@ -2729,7 +2760,7 @@ class LauncherModel(
             Key.LEFT -> snake.steer(3)
             Key.DIGIT -> when (digit) { 2 -> snake.steer(0); 6 -> snake.steer(1); 8 -> snake.steer(2); 4 -> snake.steer(3); 5 -> snake.toggle() }
             Key.OK, Key.SOFT_LEFT -> snake.toggle()
-            Key.SOFT_RIGHT -> { snake.reset(); screen = Screen.GAMES; selected = 0 }
+            Key.SOFT_RIGHT -> { snake.reset(); leave() }
             Key.END -> { snake.reset(); goHome() }
             else -> return Action.None
         }
@@ -2742,7 +2773,7 @@ class LauncherModel(
             Key.UP -> pairs.move(0, -1); Key.DOWN -> pairs.move(0, 1); Key.LEFT -> pairs.move(-1, 0); Key.RIGHT -> pairs.move(1, 0)
             Key.DIGIT -> when (digit) { 2 -> pairs.move(0, -1); 8 -> pairs.move(0, 1); 4 -> pairs.move(-1, 0); 6 -> pairs.move(1, 0); 5 -> pairsPick() }
             Key.OK, Key.SOFT_LEFT -> if (pairs.won) pairs.reset() else pairsPick()
-            Key.SOFT_RIGHT -> { screen = Screen.GAMES; selected = 1 }
+            Key.SOFT_RIGHT -> leave()
             Key.END -> goHome()
             else -> return Action.None
         }
@@ -2769,7 +2800,7 @@ class LauncherModel(
             key == Key.OK || (key == Key.DIGIT && digit == 5) -> shooter.fireDown()
             key == Key.POUND || (key == Key.DIGIT && digit == 0) -> shooter.podToggle()
             key == Key.SOFT_LEFT || key == Key.STAR -> shooter.toggle()
-            key == Key.SOFT_RIGHT -> { shooter.reset(); screen = Screen.GAMES; selected = 2 }
+            key == Key.SOFT_RIGHT -> { shooter.reset(); leave() }
             key == Key.END -> { shooter.reset(); goHome() }
             else -> return Action.None
         }
@@ -2812,7 +2843,7 @@ class LauncherModel(
             Key.LEFT -> seeds.moveCursor(-1); Key.RIGHT -> seeds.moveCursor(1)
             Key.DIGIT -> if (digit in 1..6) { seeds.select(digit - 1); if (!seeds.over) seeds.play() }
             Key.OK, Key.SOFT_LEFT -> if (seeds.over) seeds.reset() else seeds.play()
-            Key.SOFT_RIGHT -> { screen = Screen.GAMES; selected = 3 }
+            Key.SOFT_RIGHT -> leave()
             Key.END -> goHome()
             else -> return Action.None
         }
@@ -2853,7 +2884,7 @@ class LauncherModel(
 
     /** The options of the Phone screen (the left soft key on the dial pad): the Call log and Contacts, both opened as steps inside the dialler. */
     private fun phoneMenuKey(key: Key): Action = move(key, 2) ?: when (key) {
-        Key.OK, Key.LEFT, Key.SOFT_LEFT -> { val row = selected; leave(); if (row == 0) openCallLog(Screen.DIAL) else openContacts(Screen.DIAL) }
+        Key.OK, Key.LEFT, Key.SOFT_LEFT -> if (selected == 0) openCallLog(Screen.DIAL) else openContacts(Screen.DIAL)
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
         Key.END -> { goHome(); Action.Redraw }
         Key.CALL -> Action.CallKey
@@ -2949,7 +2980,7 @@ class LauncherModel(
     private fun calMenuKey(key: Key): Action = move(key, 3) ?: when (key) {
         Key.OK, Key.LEFT, Key.SOFT_LEFT -> when (selected) {
             0 -> { openForm(eventForm(Cal.newEvent(calFrom ?: today, nowMs(), zone, calWritable.firstOrNull()?.id ?: 0))); Action.Redraw }
-            1 -> { screen = Screen.CALMONTH; calDay = calFrom ?: today; selected = 0; calNeeds(calDay) ?: Action.Redraw }
+            1 -> { goTo(Screen.CALMONTH); calDay = calFrom ?: today; calNeeds(calDay) ?: Action.Redraw }
             else -> { calFrom = null; leave(); selected = 0; Action.Redraw }
         }
         Key.RIGHT, Key.SOFT_RIGHT -> { leave(); Action.Redraw }
@@ -2967,7 +2998,7 @@ class LauncherModel(
             Key.STAR -> go(calDay.minusMonths(1))
             Key.POUND -> go(calDay.plusMonths(1))
             Key.DIGIT -> if (digit == 0) go(today) else Action.None
-            Key.OK, Key.SOFT_LEFT -> { leave(); calFrom = calDay; selected = 0; Action.Redraw }
+            Key.OK, Key.SOFT_LEFT -> { leaveTo(Screen.CALENDAR, 0); calFrom = calDay; Action.Redraw } // chosen: the calendar from that day
             Key.SOFT_RIGHT -> { leave(); Action.Redraw }
             Key.END -> { goHome(); Action.Redraw }
             else -> Action.None
@@ -3007,8 +3038,8 @@ class LauncherModel(
         else -> Action.None
     }
 
-    /** Shows a form in place of the screen that opened it, so Back returns to where that was. */
-    private fun openForm(f: Form) { form = f; screen = Screen.FORM; selected = 0 }
+    /** Opens a form on top of the screen (or option menu) it was chosen from. */
+    private fun openForm(f: Form) { form = f; goTo(Screen.FORM) }
 
     private fun formKey(key: Key): Action {
         val f = form ?: run { goHome(); return Action.Redraw }

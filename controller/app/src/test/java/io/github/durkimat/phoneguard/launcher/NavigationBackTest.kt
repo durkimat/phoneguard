@@ -4,8 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * A record of where the right soft key (Back) goes from each screen, and which row it lands on. It pins today's behaviour
- * so the navigation can be reworked (a back stack instead of per-screen "from" variables) without changing what the user sees.
+ * A record of where the right soft key (Back) goes from each screen, and which row it lands on, under the rule in
+ * docs/navigation-rules.md (Back retraces the way the person came).
  */
 class NavigationBackTest {
     private val all = listOf(
@@ -108,8 +108,8 @@ class NavigationBackTest {
 menu: MENU -SOFT_RIGHT-> HOME/0
 phone: DIAL -SOFT_RIGHT-> MENU/0
 phoneOptions: PHONEMENU -SOFT_RIGHT-> DIAL/0
-callLogFromPhoneOptions: CALLLOG -SOFT_RIGHT-> MENU/0
-contactsFromPhoneOptions: CONTACTS -SOFT_RIGHT-> MENU/0
+callLogFromPhoneOptions: CALLLOG -SOFT_RIGHT-> PHONEMENU/0
+contactsFromPhoneOptions: CONTACTS -SOFT_RIGHT-> PHONEMENU/1
 messages: MESSAGES -SOFT_RIGHT-> MENU/1
 texts: INBOX -SOFT_RIGHT-> MESSAGES/0
 writeMessage: WRITE -SOFT_RIGHT-> MESSAGES/1
@@ -147,13 +147,13 @@ language: LANGUAGE -SOFT_RIGHT-> THISPHONE/3
 typing: TYPING -SOFT_RIGHT-> THISPHONE/4
 runningFromSettings: RUNNING -SOFT_RIGHT-> SETTINGS/4
 dialFromHome: DIAL -SOFT_RIGHT-> DIAL/0
-callLogFromHome: CALLLOG -SOFT_RIGHT-> HOME/0
+callLogFromHome: CALLLOG -SOFT_RIGHT-> DIAL/0
 snakeHelp: GAMEHELP -SOFT_RIGHT-> GAMES/0
 contactsFromHome: CONTACTS -SOFT_RIGHT-> HOME/0
 callKeyInMenu: CALLLOG -SOFT_RIGHT-> MENU/0
 callKeyOnHome: DIAL -SOFT_RIGHT-> HOME/0
 musicFromMenu: MUSICMENU -SOFT_RIGHT-> MENU/7
-nowPlaying: MUSIC -SOFT_RIGHT-> HOME/0
+nowPlaying: MUSIC -SOFT_RIGHT-> MUSICMENU/0
 """
         const val GOLDEN_END = """
 menu: MENU -END-> HOME/0

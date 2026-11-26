@@ -11,7 +11,7 @@ class StopMusicTest {
 
     @Test fun stopMusicIsTheLastRowOfAProviderMenuAndOnlyWhileItHasSomething() {
         val m = musicModel(); m.openMusicFromHome(); m.onKey(Key.DIGIT, 1) // Radio presets
-        m.onKey(Key.SOFT_RIGHT); assertEquals(Screen.RADIOMENU, m.screen)
+        m.onKey(Key.SOFT_LEFT); assertEquals(Screen.RADIOMENU, m.screen)
         assertEquals(listOf("Presets", "Find station", "Browse stations", "Change source"), m.rows) // nothing playing or paused: no Stop row
         m.provStatus = mapOf(Provider.RADIO to 1); assertEquals("Stop music", m.rows.last()); assertEquals(listOf("Presets", "Find station", "Browse stations", "Change source", "Stop music"), m.rows)
         val a = m.onKey(Key.DIGIT, 5); assertEquals(Action.MusicStop(Provider.RADIO), a); assertEquals(Screen.HOME, m.screen); assertEquals("Stopped", m.notice)
@@ -19,7 +19,7 @@ class StopMusicTest {
 
     @Test fun spotifyStopRowFollowsSignOut() {
         val m = musicModel(); m.provStatus = mapOf(Provider.SPOTIFY to 2); m.openMusicFromHome()
-        m.onKey(Key.DIGIT, 2); m.onKey(Key.SOFT_RIGHT) // Spotify Now playing screen's menu is reached with the right key from the list; use the soft left on Now playing
+        m.onKey(Key.DIGIT, 2)
         m.goHome(); m.openMusicFromHome(); m.onKey(Key.DIGIT, 2); assertEquals(Screen.MUSIC, m.screen)
         m.onKey(Key.SOFT_LEFT); assertEquals(Screen.SPOTIFYMENU, m.screen)
         assertEquals(listOf("Playlists", "Search", "Play on...", "Change source", "What the marks mean", "Sign out of Spotify", "Stop music"), m.rows)
