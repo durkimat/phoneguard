@@ -424,6 +424,8 @@ class LauncherActivity : Activity() {
     private var demoDot: Triple<Double?, Double?, Float?>? = null
     private fun debugExtras(i: Intent?) {
         i ?: return
+        if (i.getStringExtra("pg_wa_demo") != null) { i.removeExtra("pg_wa_demo"); WhatsApp.loadDemo(this); invalidate(D.WA or D.INFO) }
+        i.getStringExtra("pg_wa_revoke")?.let { i.removeExtra("pg_wa_revoke"); WhatsApp.revoke(this, "gdemo", it); invalidate(D.WA or D.INFO) }
         if (i.getStringExtra("pg_where_demo") != null) { i.removeExtra("pg_where_demo"); demoDot = null; model.loadWhereDemo() }
         i.getStringExtra("pg_where_dot")?.let { v ->
             i.removeExtra("pg_where_dot"); val p = v.split(',')
@@ -591,6 +593,7 @@ class LauncherActivity : Activity() {
         trackWhere()
         redraw()
         if (model.screen != loadedScreen) dirty.getAndUpdate { it or D.SCREEN }
+        loadMessagePicture()
         if (model.screen == Screen.HOME) { ui.removeCallbacks(homeTick); ui.post(homeTick) }
         if (model.screen == Screen.MUSIC) { ui.removeCallbacks(musicTick); ui.postDelayed(musicTick, 1000) }
         if (model.screen == Screen.TIMER || model.screen == Screen.STOPWATCH) { ui.removeCallbacks(clockTick); ui.postDelayed(clockTick, 200) }
@@ -702,6 +705,7 @@ class LauncherActivity : Activity() {
         r.convos?.let { if (!reading) model.convos = it else dirty.getAndUpdate { d -> d or D.CONVOS } }
         if (bits and D.WA != 0) {
             if (r.waLinked || model.waLinked) { r.waStatus?.let { model.waStatus = it }; model.waUnread = r.waUnread }
+            r.waConvos?.let { model.refreshOpenChat(it) } // deletions, edits and fetched media show even while reading
             r.waConvos?.let { if (!reading) model.waConvos = it else dirty.getAndUpdate { d -> d or D.WA } }
         }
         if (model.screen == screen) {
@@ -874,6 +878,14 @@ class LauncherActivity : Activity() {
             Action.SetupOpenOfficial -> {
                 try { startActivity(packageManager.getLaunchIntentForPackage(LauncherData.WHATSAPP)?.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) { model.notify("Could not open WhatsApp") }
                 refresh()
+            }
+            is Action.WaViewMedia -> start(io.github.durkimat.phoneguard.gallery.GalleryActivity.messageMedia(this, a))
+            is Action.WaGetMedia -> {
+                model.waFetching = model.waFetching + a.mid; refresh()
+                Thread {
+                    val why = WhatsApp.fetchMedia(this, a.chat, a.mid)
+                    ui.post { model.waFetching = model.waFetching - a.mid; if (why.isNotEmpty()) model.notify(why); invalidate(D.WA); refresh() }
+                }.start()
             }
             Action.WaOpen -> { WhatsApp.touch(this); invalidate(D.WA or D.INFO); refresh() }
             is Action.WaRead -> { WhatsApp.readChat(this, a.chat); WhatsApp.store(this).markRead(a.chat); invalidate(D.WA or D.INFO); refresh() }
@@ -1365,6 +1377,13 @@ class LauncherActivity : Activity() {
             val note = io.github.durkimat.phoneguard.ScreenLock.takeParentNote(this)
             ui.post { model.lockSet = set; model.lockKnown = known; model.lockParentReady = ready; model.lockBy = if (by == "null") "" else by; if (note) model.notify("Your parent changed your PIN"); refresh() }
         }.start()
+    }
+
+    /** A message page with a picture on the phone: have it ready to draw, and redraw when it is. */
+    private fun loadMessagePicture() {
+        val m = model.shownMsg?.takeIf { model.screen == Screen.THREAD && model.pictureOf(it) == io.github.durkimat.media.Rich.Picture.READY } ?: return
+        val theme = Themes.byId(model.theme)
+        io.github.durkimat.phoneguard.gallery.ChatPictures.ensure(this, m.mediaPath, m.kind == "video" || m.kind == "gif", theme.lcd, theme.ink) { ui.post { refresh() } }
     }
 
     private fun start(i: Intent): Boolean =

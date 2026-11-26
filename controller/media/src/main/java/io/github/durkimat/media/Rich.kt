@@ -28,6 +28,22 @@ object Rich {
     /** Only a message this phone sent (it has WhatsApp's id because we sent it), never anyone else's. */
     fun canDelete(m: WaMsg) = m.mine && m.mid.isNotEmpty() && !m.deleted
 
+    /**
+     * What can be shown of a message's picture, sticker, GIF or video. NONE: not a picture (or deleted, or nothing to show or fetch).
+     * READY: the file is on the phone. FETCH: it is not, but can be asked for.
+     */
+    enum class Picture { NONE, READY, FETCH }
+
+    fun picture(m: WaMsg, exists: (String) -> Boolean): Picture = when {
+        m.deleted || m.kind !in kinds -> Picture.NONE
+        m.mediaPath.isNotEmpty() && exists(m.mediaPath) -> Picture.READY
+        m.mediaRef.isNotEmpty() && m.mid.isNotEmpty() -> Picture.FETCH
+        else -> Picture.NONE
+    }
+
+    /** "Photo", "Sticker", "GIF" or "Video". */
+    fun kindName(kind: String) = when (kind) { "image" -> "Photo"; "sticker" -> "Sticker"; "gif" -> "GIF"; "video" -> "Video"; else -> "File" }
+
     /** The words of a message without the "[photo]" style marker the bridge puts in front of a caption. */
     fun caption(m: WaMsg): String {
         if (m.kind !in kinds) return m.body

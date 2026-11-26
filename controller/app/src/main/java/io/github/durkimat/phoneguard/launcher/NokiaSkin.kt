@@ -1,5 +1,7 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.media.Rich
+import io.github.durkimat.phoneguard.gallery.ChatPictures
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -1023,11 +1025,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
         }
 
+        private val chunky = Paint().apply { isFilterBitmap = false }
+
         private fun thread(c: Canvas, m: LauncherModel, u: Float) {
             val convo = m.openConvo ?: return
             val msg = m.shownMsg ?: return
             titleBar(c, m.title, u)
-            val lines = wrap(msg.body)
+            val lines = m.messageLines(msg)
             val whenText = SimpleDateFormat(if (sameDay(msg.date)) "HH:mm" else "d MMM HH:mm", Locale.UK).format(Date(msg.date))
             val pos = "${m.selected + 1}/${convo.msgs.size}"
             val who = if (msg.mine) "Me" else msg.sender.ifBlank { convo.name }
@@ -1036,9 +1040,30 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             text(c, pos, 464f, 134f, 24f, u, align = Paint.Align.RIGHT)
             val page = lines.drop(m.scroll).take(m.pageLines)
             page.forEachIndexed { n, s -> text(c, s, 16f, 176f + n * 36f, BODY, u) }
+            if (m.scroll == 0 && m.pictureOf(msg) != Rich.Picture.NONE) messagePicture(c, m, msg, u)
             if (m.scroll > 0) arrowV(c, 456f, 150f, -1, u)
             if (m.scroll + m.pageLines < lines.size) arrowV(c, 456f, 548f, 1, u)
             softKeys(c, m.softKeys.first, m.softKeys.second, u)
+        }
+
+        /** A message's picture in the first lines of its page: dithered like the gallery, or a framed box saying what it is; what OK does is written along its foot. */
+        private fun messagePicture(c: Canvas, m: LauncherModel, msg: Msg, u: Float) {
+            val left = 16f; val top = 148f; val w = 448f; val h = 290f
+            val ready = m.pictureOf(msg) == Rich.Picture.READY
+            val b = if (ready) ChatPictures.peek(msg.mediaPath, lcd, ink) else null
+            if (b != null) {
+                val s = minOf(w / b.width, h / b.height); val dw = b.width * s; val dh = b.height * s
+                c.drawBitmap(b, null, RectF((left + (w - dw) / 2) * u, (top + (h - dh) / 2) * u, (left + (w + dw) / 2) * u, (top + (h + dh) / 2) * u), chunky)
+            } else {
+                stroke.strokeWidth = 2 * u
+                c.drawRect(left * u, top * u, (left + w) * u, (top + h) * u, stroke)
+                text(c, if (ready) "Loading..." else Rich.kindName(msg.kind), 240f, top + 130f, 36f, u, bold = true, align = Paint.Align.CENTER)
+            }
+            val hint = m.pictureHint ?: return
+            val band = measureBold(hint, 26f) + 28f
+            fill.color = ink
+            c.drawRect((240f - band / 2) * u, (top + h - 46f) * u, (240f + band / 2) * u, (top + h - 8f) * u, fill)
+            text(c, hint, 240f, top + h - 18f, 26f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         }
 
         /** Cuts a long line to fit the screen, ending in "..." (previews of messages are often longer than one line). */

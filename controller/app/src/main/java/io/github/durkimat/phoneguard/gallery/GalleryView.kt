@@ -8,6 +8,7 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.view.View
 import io.github.durkimat.phoneguard.launcher.Fonts
 import io.github.durkimat.phoneguard.launcher.Themes
@@ -51,6 +52,12 @@ class GalleryView(context: Context, private val model: GalleryModel, themeId: St
     @Volatile var thumb: (GItem) -> Bitmap? = { null }
     /** The viewer's picture, dithered or colour (see [model]); null while loading. */
     @Volatile var big: Bitmap? = null
+    /** An animated sticker, drawn (and moving) when the viewer is in colour. */
+    var anim: Drawable? = null
+        set(v) { field?.callback = null; field = v; v?.callback = this; postInvalidate() }
+
+    override fun verifyDrawable(who: Drawable): Boolean = who === anim || super.verifyDrawable(who)
+
     /** Shown over the viewer for a moment ("Cannot open"). */
     @Volatile var notice: String? = null
 
@@ -74,7 +81,7 @@ class GalleryView(context: Context, private val model: GalleryModel, themeId: St
         c.drawColor(lcd)
         c.drawRect(0f, 0f, width.toFloat(), 52 * u, fill)
         val n = model.items.size
-        val title = if (model.view == GView.FOLDERS) "Folders" else fit(model.album.name, 30f, 300f, u) + if (n > 0) "  ${model.sel + 1}/$n" else ""
+        val title = if (model.view == GView.FOLDERS) "Folders" else fit(model.album.name, 30f, 300f, u) + model.viewerTitle
 
         text(c, title, 240f, 36f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
         stroke.strokeWidth = 2 * u
@@ -118,7 +125,13 @@ class GalleryView(context: Context, private val model: GalleryModel, themeId: St
         stroke.strokeWidth = 2 * u
         c.drawRect((BOX_L - 3) * u, (BOX_T - 3) * u, (BOX_L + BOX_W + 3) * u, (BOX_T + BOX_H + 3) * u, stroke)
         val b = big
-        if (b != null) {
+        val moving = anim
+        if (model.colour && moving != null && moving.intrinsicWidth > 0) {
+            val s = minOf(BOX_W / moving.intrinsicWidth, BOX_H / moving.intrinsicHeight)
+            val dw = moving.intrinsicWidth * s; val dh = moving.intrinsicHeight * s
+            moving.setBounds(((BOX_L + (BOX_W - dw) / 2) * u).toInt(), ((BOX_T + (BOX_H - dh) / 2) * u).toInt(), ((BOX_L + (BOX_W + dw) / 2) * u).toInt(), ((BOX_T + (BOX_H + dh) / 2) * u).toInt())
+            moving.draw(c)
+        } else if (b != null) {
             val s = minOf(BOX_W / b.width, BOX_H / b.height)
             val dw = b.width * s; val dh = b.height * s
             c.drawBitmap(b, null, RectF((BOX_L + (BOX_W - dw) / 2) * u, (BOX_T + (BOX_H - dh) / 2) * u, (BOX_L + (BOX_W + dw) / 2) * u, (BOX_T + (BOX_H + dh) / 2) * u), if (model.colour) smooth else chunky)
@@ -126,7 +139,7 @@ class GalleryView(context: Context, private val model: GalleryModel, themeId: St
         val it = model.current
         if (it != null && it.video) playBadge(c, 240f - 30f, BOX_T + BOX_H / 2 - 22f, 60f, 44f, u)
         notice?.let { c.drawRect(60 * u, 250 * u, 420 * u, 310 * u, fill); text(c, it, 240f, 292f, 30f, u, bold = true, align = Paint.Align.CENTER, color = lcd) }
-        if (it != null) text(c, fit((if (it.video) "Video ${GalleryData.clock(it.seconds)}  " else "") + it.name, 22f, 456f, u), 240f, 566f, 22f, u, align = Paint.Align.CENTER)
+        if (it != null) text(c, fit((if (it.video && !it.loops) "Video ${GalleryData.clock(it.seconds)}  " else "") + it.name, 22f, 456f, u), 240f, 566f, 22f, u, align = Paint.Align.CENTER)
     }
 
     private fun folders(c: Canvas, u: Float) {

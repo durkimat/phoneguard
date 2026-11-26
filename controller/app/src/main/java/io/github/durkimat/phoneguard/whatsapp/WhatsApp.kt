@@ -84,14 +84,15 @@ object WhatsApp {
                     if (state == "history" || state == "connected") scheduleRename(app)
                     if (state == "logged_out") {
                         // the link was removed on the main phone: the bridge still holds the deleted device, so drop it and let the next Link start clean
-                        setLinked(app, false); st.wipe(); pairCode = null
+                        setLinked(app, false); st.wipe(); tidyMedia(app); pairCode = null
                         Thread { try { close(); status = "logged_out"; fire() } catch (_: Throwable) {} }.start()
                     }
                     fire()
                 }
                 override fun onPairCode(code: String) { pairCode = code; Log.log(app, "whatsapp: pairing code ready"); fire() }
                 override fun onMessage(m: WaMessage) {
-                    st.add(m.chat, m.chatName, nameFor(app, m.senderId, m.sender), m.senderId, m.id, m.text, m.ts, m.fromMe, history = m.history); fire(slow = m.history)
+                    st.add(m.chat, m.chatName, nameFor(app, m.senderId, m.sender), m.senderId, m.id, m.text, m.ts, m.fromMe, history = m.history, extra = m.extra); fire(slow = m.history)
+                    if (m.extra.mediaPath.isNotEmpty()) tidyMedia(app)
                     // a new message gets the child's WhatsApp tune (not our own, not the backlog); the system's ringer mode and Do Not Disturb apply to it
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (!m.history && !m.fromMe && now - lastTone > 3_000L) { lastTone = now; io.github.durkimat.phoneguard.notes.MessageAlert.fire(app, io.github.durkimat.phoneguard.alarm.ToneStore.WA) }
@@ -103,6 +104,9 @@ object WhatsApp {
                     if (changed) fire()
                 }
                 override fun onLog(line: String) { Log.log(app, "whatsapp: $line") }
+                // "delete for everyone" must take the picture with it; an edit changes the words
+                override fun onRevoke(chat: String, targetId: String) { revoke(app, chat, targetId) }
+                override fun onEdit(chat: String, targetId: String, text: String, ts: Long) { if (st.applyEdit(chat, targetId, text)) fire() }
                 override fun onCommand(text: String, ts: Long, id: String) { WaAdmin.onCommand(app, text, ts) }
                 override fun onCall(chat: String, chatName: String, ts: Long, rejected: Boolean) {
                     // a call cannot be answered here: it is noted in the chat so nobody wonders who rang
@@ -187,6 +191,7 @@ object WhatsApp {
         val ids = parts.filter { it.startsWith("gid:", ignoreCase = true) }.map { it.substring(4).trim().lowercase().removeSuffix("@g.us") }.filter { it.isNotEmpty() }.toSet()
         val numbers = parts.filterNot { it.startsWith("g:", ignoreCase = true) || it.startsWith("gid:", ignoreCase = true) }.map { n -> n.filter { it.isDigit() } }.filter { it.isNotEmpty() }.toSet()
         store(c).keepOnly(numbers, groups, all, ids)
+        tidyMedia(c) // pictures from chats that are no longer allowed go too
     }
 
     /**
@@ -253,6 +258,90 @@ object WhatsApp {
     }
 
     private const val IDLE_MS = 3 * 60_000L
+
+    // ---- pictures, stickers, GIFs and videos
+
+    private val tidier = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    /** Removes media files no message points at any more (and the oldest beyond the size limit). */
+    fun tidyMedia(c: Context) {
+        val app = c.applicationContext
+        tidier.execute { try { io.github.durkimat.media.Media.cleanup(app, store(app).mediaPathsInUse()) } catch (_: Exception) { } }
+    }
+
+    /**
+     * Debug builds only, for the emulator (the bridge cannot run there): a made-up linked account and family chat with a photo, a
+     * sticker, a video, one photo not yet fetched and one message to delete. Files named demo-sticker.webp, demo-anim.webp or
+     * demo-video.mp4 already in the media folder are used; the photo and a still sticker are drawn here.
+     */
+    fun loadDemo(c: Context) {
+        if (!io.github.durkimat.phoneguard.BuildConfig.DEBUG) return
+        val dir = java.io.File(c.filesDir, "wa/media").apply { mkdirs() }
+        fun draw(name: String, w: Int, h: Int, format: android.graphics.Bitmap.CompressFormat, paint: (android.graphics.Canvas, android.graphics.Paint) -> Unit): String {
+            val f = java.io.File(dir, name)
+            val b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+            paint(android.graphics.Canvas(b), android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG))
+            f.outputStream().use { b.compress(format, 90, it) }
+            return f.absolutePath
+        }
+        val photo = draw("demo-photo.jpg", 1200, 900, android.graphics.Bitmap.CompressFormat.JPEG) { cv, p ->
+            p.shader = android.graphics.LinearGradient(0f, 0f, 0f, 900f, 0xFF86B6F0.toInt(), 0xFFE8F2FF.toInt(), android.graphics.Shader.TileMode.CLAMP); cv.drawPaint(p); p.shader = null
+            p.color = 0xFFFFD84A.toInt(); cv.drawCircle(950f, 200f, 120f, p)
+            p.color = 0xFF4F8F3A.toInt(); cv.drawOval(-300f, 560f, 900f, 1300f, p); p.color = 0xFF2F6A2A.toInt(); cv.drawOval(400f, 640f, 1600f, 1300f, p)
+            p.color = 0xFF8A3B22.toInt(); cv.drawRect(330f, 430f, 610f, 640f, p); p.color = 0xFF3A2418.toInt(); cv.drawRect(440f, 520f, 510f, 640f, p)
+        }
+        val still = java.io.File(dir, "demo-sticker.webp").takeIf { it.isFile }?.absolutePath ?: draw("demo-sticker.webp", 512, 512, android.graphics.Bitmap.CompressFormat.WEBP_LOSSLESS) { cv, p ->
+            p.color = 0xFFFFCC33.toInt(); cv.drawCircle(256f, 256f, 220f, p); p.color = 0xFF402000.toInt(); cv.drawCircle(180f, 200f, 34f, p); cv.drawCircle(332f, 200f, 34f, p)
+            p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 28f; cv.drawArc(140f, 150f, 372f, 390f, 20f, 140f, false, p)
+        }
+        setLinked(c, true)
+        val st = store(c); st.wipe()
+        val now = System.currentTimeMillis() / 1000
+        fun add(n: Int, sender: String, text: String, extra: io.github.durkimat.wacore.WaExtra = io.github.durkimat.wacore.WaExtra()) =
+            st.add("gdemo", "Family", sender, "4470000000$n", "D$n", text, now - 600 + n * 60, false, extra = extra)
+        fun media(kind: String, path: String, size: Long = 0, seconds: Int = 0, animated: Boolean = false, mime: String = "") =
+            io.github.durkimat.wacore.WaExtra(kind, path, "demo-ref", size, mime, seconds, animated = animated)
+        add(1, "Mum", "Dinner at 6?")
+        add(2, "Dad", "[photo]", media("image", java.io.File(dir, "not-fetched.jpg").absolutePath, size = 240_000))
+        add(3, "Nan", "[video] The garden", media("video", java.io.File(dir, "demo-video.mp4").absolutePath, size = 1_400_000, seconds = 4))
+        java.io.File(dir, "demo-anim.webp").takeIf { it.isFile }?.let { add(4, "Dad", "[sticker]", media("sticker", it.absolutePath, animated = true, mime = "image/webp")) }
+        add(5, "Mum", "[sticker]", media("sticker", still, mime = "image/webp"))
+        add(6, "Dad", "A message to delete")
+        add(7, "Mum", "[photo] Look at our house on the hill, taken this morning before the rain came in", media("image", photo, mime = "image/jpeg"))
+        io.github.durkimat.phoneguard.gallery.ChatPictures.clear()
+        fire()
+    }
+
+    /** Someone deleted a message for everyone: its words and its picture go from this phone. */
+    fun revoke(c: Context, chat: String, mid: String) {
+        val path = store(c).applyRevoke(chat, mid)
+        if (!path.isNullOrEmpty()) { java.io.File(path).delete(); io.github.durkimat.phoneguard.gallery.ChatPictures.clear() }
+        fire()
+    }
+
+    /**
+     * Fetches one message's media because the child asked for it, connecting first if needed. Videos need Wi-Fi (or another
+     * unmetered network). Returns "" when the file is on the phone, otherwise the reason in plain words. Blocks: call off the main thread.
+     */
+    fun fetchMedia(c: Context, chat: String, mid: String): String {
+        val st = store(c)
+        val m = st.find(chat, mid) ?: return "That message is gone"
+        if (m.deleted || m.mediaRef.isEmpty()) return "Not available"
+        if (m.kind == "video" && !io.github.durkimat.media.Media.unmetered(c)) return "Videos need Wi-Fi"
+        if (m.mediaSize > io.github.durkimat.media.Rich.MAX_VIDEO_BYTES) return "Too big for this phone"
+        if (policy(c) == "off") return "WhatsApp is off now"
+        return try {
+            main.removeCallbacks(idleOff); main.postDelayed(idleOff, IDLE_MS)
+            if (!isConnected()) { connect(c); for (i in 1..20) { if (isConnected()) break; Thread.sleep(500) } }
+            val b = open(c)
+            if (b == null || !isConnected()) return "Not connected. Try again"
+            st.setMediaPath(chat, mid, b.downloadMedia(m.mediaRef, mid, m.mime))
+            tidyMedia(c); fire(); ""
+        } catch (e: Throwable) {
+            Log.log(c, "whatsapp: could not get media: ${e.javaClass.simpleName}")
+            "Could not get it. It may have expired"
+        }
+    }
 
     /** The WhatsApp check setting of the mode in force: "off", "open", "30" or "60". */
     fun policy(c: Context): String = Engine.effective(Store.config(c), Store.boost(c), Clock.now()).wa
@@ -372,7 +461,10 @@ object WhatsApp {
         }
         return "error: Something went wrong. Try again"
     }
-    fun connect(c: Context): String = try { open(c)?.connect(); "ok" } catch (e: Throwable) {
+    fun connect(c: Context): String = try {
+        // pictures, stickers and GIFs arrive by themselves only on Wi-Fi (the child's mobile data is limited); otherwise OK on the message asks
+        open(c)?.let { it.setMedia(io.github.durkimat.media.Media.unmetered(c)); it.connect() }; "ok"
+    } catch (e: Throwable) {
         Log.log(c, "whatsapp: connect failed (${plain(e)})")
         if (staleDevice(e)) { setLinked(c, false); close() }
         "error: " + plain(e)
@@ -428,7 +520,7 @@ object WhatsApp {
     /** Unlinks the account: the bridge connects if it has to, then everything stored is wiped and the bridge is reset so a new link starts clean. */
     @Synchronized fun logout(c: Context): String = try {
         open(c)?.logout()
-        store(c).wipe()
+        store(c).wipe(); tidyMedia(c)
         setLinked(c, false)
         pairCode = null
         close() // the old client is finished; the next open() starts a fresh, unlinked one

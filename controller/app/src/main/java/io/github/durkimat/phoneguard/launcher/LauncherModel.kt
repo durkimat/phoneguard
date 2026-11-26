@@ -1,5 +1,6 @@
 package io.github.durkimat.phoneguard.launcher
 
+import io.github.durkimat.media.Rich
 import io.github.durkimat.phoneguard.alarm.Alarm
 import io.github.durkimat.phoneguard.alarm.AlarmMath
 import io.github.durkimat.phoneguard.alarm.ClockPrefs
@@ -124,6 +125,8 @@ const val GRID_GAP = 8f
 
 /** The entry the launcher adds to its own menu; it opens the launcher's Settings, not an app. */
 const val SETTINGS_PKG = "pg:settings"
+/** How many text lines of a message page its picture takes. */
+const val PICTURE_LINES = 8
 const val CAMERA_PKG = "pg:camera"
 const val GALLERY_PKG = "pg:gallery"
 const val MUSIC_PKG = "pg:music"
@@ -240,6 +243,10 @@ sealed class Action {
     object PowerOff : Action()
     object PowerRestart : Action()
     object PowerClose : Action()
+    /** Show a message's picture, sticker, GIF or video full screen. [who] and [caption] are for the viewer's title and strip. */
+    data class WaViewMedia(val path: String, val kind: String, val animated: Boolean, val seconds: Int, val who: String, val caption: String) : Action()
+    /** Fetch a message's media: the child pressed OK on one that is not on the phone yet. */
+    data class WaGetMedia(val chat: String, val mid: String) : Action()
     /** Open the themed camera. */
     object OpenCamera : Action()
     /** Open the gallery of the phone's pictures and videos. */
@@ -493,6 +500,55 @@ class LauncherModel(
     /** Splits text into the lines that fit the screen. The skin sets this, because only it knows the font. */
     var wrapper: (String) -> List<String> = { listOf(it) }
     var pageLines = 11
+    /**
+     * The open WhatsApp chat is a copy, so that a message arriving cannot shift what is being read. What happens to a message
+     * already on it must still show at once: deleted for everyone, edited, or its media fetched. Messages are matched by
+     * WhatsApp's id and replaced where they are; none are added, removed or moved.
+     */
+    fun refreshOpenChat(fresh: List<Convo>) {
+        val open = convo?.takeIf { threadWa } ?: return
+        val now = fresh.firstOrNull { it.address == open.address }?.msgs?.filter { it.mid.isNotEmpty() }?.associateBy { it.mid } ?: return
+        val msgs = open.msgs.map { now[it.mid] ?: it }
+        if (msgs == open.msgs) return
+        convo = open.copy(msgs = msgs)
+        if (screen == Screen.THREAD && scroll > 0 && shownMsg?.let { scroll >= messageLines(it).size } == true) scroll = 0
+    }
+
+    /** Whether a media file a message points at is on the phone (the activity's answer; tests give their own). */
+    var mediaExists: (String) -> Boolean = { java.io.File(it).isFile }
+    /** Messages whose media is being fetched now, by WhatsApp's id. */
+    var waFetching: Set<String> = emptySet()
+
+    fun pictureOf(m: Msg): Rich.Picture = Rich.picture(m, mediaExists)
+
+    /**
+     * The lines of one message as its page shows them. A picture takes the first [PICTURE_LINES] lines (left empty here, the skin
+     * draws it there) and its caption follows, so the ordinary paging of a long message works for a long caption too.
+     */
+    fun messageLines(m: Msg): List<String> = when {
+        m.deleted -> wrapper("This message was deleted")
+        pictureOf(m) != Rich.Picture.NONE -> Rich.caption(m).trim().let { c -> List(PICTURE_LINES) { "" } + (if (c.isEmpty()) emptyList() else wrapper(c)) }
+        else -> wrapper(m.body)
+    }
+
+    /** What OK does on the message being read, in the words drawn on its picture; null for a message with none. */
+    val pictureHint: String? get() {
+        val m = shownMsg?.takeIf { screen == Screen.THREAD } ?: return null
+        val name = Rich.kindName(m.kind)
+        val length = if (m.kind == "video" && m.seconds > 0) " " + Rich.duration(m.seconds) else ""
+        return when (pictureOf(m)) {
+            Rich.Picture.NONE -> null
+            Rich.Picture.READY -> if (m.kind == "video" || m.kind == "gif") "OK: play$length" else "OK: view"
+            Rich.Picture.FETCH -> if (m.mid in waFetching) "Getting..." else "OK: get ${name.lowercase()}$length" + if (m.mediaSize > 0) " (${Rich.size(m.mediaSize)})" else ""
+        }
+    }
+
+    /** OK on a message with a picture: view it, or ask for it. Null when the message has none (OK then replies, as the left key does). */
+    private fun openPicture(c: Convo, m: Msg): Action? = when (pictureOf(m)) {
+        Rich.Picture.NONE -> null
+        Rich.Picture.READY -> Action.WaViewMedia(m.mediaPath, m.kind, m.animated, m.seconds, if (m.mine) "Me" else m.sender.ifBlank { c.name }, Rich.caption(m).trim())
+        Rich.Picture.FETCH -> if (m.mid in waFetching) Action.None else Action.WaGetMedia(c.address, m.mid)
+    }
     var scroll = 0
         private set
     private var convo: Convo? = null
@@ -784,7 +840,7 @@ class LauncherModel(
         // the messages of the open chat, newest first, behind a "Reply" entry; each is a one-line preview
         Screen.CHAT -> listOf("Reply") + (convo?.msgs ?: emptyList()).asReversed().map {
             val who = if (!it.mine && it.sender.isNotBlank()) NameStyle.short(it.sender, waNameStyle) + ": " else ""
-            (if (it.mine) "> " else "< ") + who + it.body.lineSequence().firstOrNull().orEmpty()
+            (if (it.mine) "> " else "< ") + who + (if (it.deleted) "(deleted)" else it.body.lineSequence().firstOrNull().orEmpty())
         }
         Screen.CALENDAR -> agenda.map { Cal.agendaRow(it, today, zone) }.ifEmpty { listOf("No events") }
         Screen.CALMENU -> listOf("Add event", "Month view", "Go to today")
@@ -1137,7 +1193,7 @@ class LauncherModel(
     private fun thread(key: Key, digit: Int): Action {
         val c = convo ?: run { goHome(); return Action.Redraw }
         val msg = c.msgs.getOrNull(selected)
-        val lines = msg?.let { wrapper(it.body).size } ?: 0
+        val lines = msg?.let { messageLines(it).size } ?: 0
         return when (key) {
             Key.DOWN -> when {
                 scroll + pageLines < lines -> { scroll += pageLines; Action.Redraw }
@@ -1149,7 +1205,8 @@ class LauncherModel(
                 selected > 0 -> { selected--; scroll = 0; Action.Redraw }
                 else -> Action.None
             }
-            Key.OK, Key.LEFT, Key.SOFT_LEFT -> startWrite(c.address, Screen.THREAD, label = c.name, wa = threadWa)
+            Key.OK -> msg?.let { openPicture(c, it) } ?: startWrite(c.address, Screen.THREAD, label = c.name, wa = threadWa)
+            Key.LEFT, Key.SOFT_LEFT -> startWrite(c.address, Screen.THREAD, label = c.name, wa = threadWa)
             Key.RIGHT, Key.SOFT_RIGHT -> { val row = (c.msgs.size - selected).coerceIn(0, c.msgs.size); leave(); if (screen == Screen.CHAT) selected = row; Action.Redraw }
             Key.CALL -> Action.Call(c.address)
             Key.END -> { goHome(); Action.Redraw }

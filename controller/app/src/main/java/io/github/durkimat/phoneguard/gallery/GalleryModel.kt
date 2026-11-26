@@ -5,7 +5,11 @@ import io.github.durkimat.media.GridNav
 import io.github.durkimat.phoneguard.launcher.Key
 
 /** One photo or video on the phone. [bucket] is the folder name Android gives it ("Camera", "Screenshots"); [seconds] is a video's length. */
-data class GItem(val uri: String, val video: Boolean, val name: String, val time: Long, val bucket: String, val seconds: Int = 0)
+data class GItem(
+    val uri: String, val video: Boolean, val name: String, val time: Long, val bucket: String, val seconds: Int = 0,
+    /** A GIF plays round and round; an animated sticker moves when it is shown in colour. */
+    val loops: Boolean = false, val animated: Boolean = false,
+)
 
 /** A folder of the phone's pictures. [all] is the one album that holds everything. */
 data class Album(val name: String, val items: List<GItem>, val all: Boolean = false)
@@ -66,6 +70,10 @@ class GalleryModel(val cols: Int = COLS, val visibleRows: Int = ROWS) {
     var loaded = false
         private set
 
+    /** True when this is the full view of one message's media: there is no grid behind it, and Back leaves. */
+    var single = false
+        private set
+
     val album: Album get() = albums[albumIndex]
     val items: List<GItem> get() = album.items
     val current: GItem? get() = items.getOrNull(sel)
@@ -73,6 +81,14 @@ class GalleryModel(val cols: Int = COLS, val visibleRows: Int = ROWS) {
     fun setItems(all: List<GItem>) {
         albums = albums(all); albumIndex = defaultAlbum(albums); sel = 0; top = 0; view = GView.GRID; loaded = true
     }
+
+    /** One picture on its own, under [title] (who sent it). */
+    fun showOne(item: GItem, title: String) {
+        single = true; albums = listOf(Album(title, listOf(item), all = true)); albumIndex = 0; sel = 0; top = 0; view = GView.VIEWER; loaded = true
+    }
+
+    /** The viewer's title: the folder and where you are in it, or for a single picture just who sent it. */
+    val viewerTitle: String get() = if (single || items.isEmpty()) "" else "  ${sel + 1}/${items.size}"
 
     /** The tiles on screen now, as indexes into [items]. */
     fun visible(margin: Int = 0): IntRange {
@@ -130,7 +146,7 @@ class GalleryModel(val cols: Int = COLS, val visibleRows: Int = ROWS) {
                 if (c != null && c.video) GAction.Play(c) else { colour = !colour; GAction.ShowItem }
             }
             key == Key.DIGIT && digit == 1 -> { colour = !colour; GAction.ShowItem }
-            key == Key.SOFT_RIGHT -> { view = GView.GRID; GAction.Redraw }
+            key == Key.SOFT_RIGHT -> if (single) GAction.Exit else { view = GView.GRID; GAction.Redraw }
             key == Key.END -> GAction.Home
             else -> GAction.None
         }

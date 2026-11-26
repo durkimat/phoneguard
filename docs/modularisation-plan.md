@@ -57,7 +57,13 @@ Original plan:
 - The camera's own gallery switches to the same data layer.
 - Parent switch per mode; storage permission handled in the provisioning flow.
 
-### Slice 3: media in Phone Guard's WhatsApp screens
+### Slice 3: media in Phone Guard's WhatsApp screens — BUILT 2026-11-26, checked in the emulator with made-up messages; NOT yet run against real WhatsApp
+
+As built: Phone Guard now keeps what a message carries (it used to drop it). Pictures, stickers and GIFs up to 5 MB download by themselves only on an unmetered network (checked at each connect); otherwise, and for history, OK on the message fetches it. Videos only on unmetered networks, up to 100 MB. The message page shows the picture (dithered) above its caption; OK views it full screen in the gallery's viewer (1 = colour, animated stickers move in colour, GIFs loop); the left key still replies. Delete-for-everyone removes the words and the file, edits apply, unlinking and allow-list removals clear the files, 200 MB cache limit. No per-mode media switch yet (owner: no restriction for now; it needs the companion page too). Not done: sending media, reactions and emoji (slice 4).
+
+To check on a real phone: a photo, sticker, GIF and video from another account; fetch on mobile data (photo yes, video refused); a history message (WhatsApp may have expired the file); delete for everyone and edit while the message is open; unlink and confirm `files/wa/media` is empty; mobile data used; and whether the 30/60-minute check, which disconnects about 10 s after connecting, cuts off downloads or delays the message alert.
+
+Original plan:
 
 - `WhatsApp.kt` stops showing `[photo]` markers and renders via `:media` using `Rich.snippet`/`caption` for the list, the viewer for full screen.
 - Per-mode switch and limits through the existing `SetMedia` bridge call; downloads on request over Wi-Fi only (reuse `Media.unmetered`).
