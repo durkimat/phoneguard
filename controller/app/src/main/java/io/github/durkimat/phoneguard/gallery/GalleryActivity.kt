@@ -140,6 +140,7 @@ class GalleryActivity : AppCompatActivity() {
     private fun play(item: GItem) {
         playing = true; paused = false
         video.visibility = android.view.View.VISIBLE
+        view.visibility = android.view.View.INVISIBLE // only the video on the black background
         video.setOnPreparedListener { it.isLooping = false; video.start() }
         video.setOnCompletionListener { stopPlay() }
         video.setOnErrorListener { _, _, _ -> stopPlay(); view.notice = "Cannot play"; view.invalidate(); true }
@@ -151,6 +152,7 @@ class GalleryActivity : AppCompatActivity() {
         playing = false
         try { video.stopPlayback() } catch (_: Exception) { }
         video.visibility = android.view.View.GONE
+        view.visibility = android.view.View.VISIBLE
         view.invalidate()
     }
 

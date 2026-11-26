@@ -11,7 +11,10 @@ rig/run_controller.sh     # the controller tests (use -s via ANDROID_SERIAL if t
 rig/emulator.sh stop
 ```
 
-## Without root or KVM (a container or sandbox), tried 2026-11-26
+## In a container or sandbox without root, tried 2026-11-26
+**With `/dev/kvm` passed through (the normal case now):** `rig/emulator.sh start` boots in about 23 s from nothing (it fetched its own libraries), install takes about a second, and key events and screenshots are quick. The gallery was checked this way: Extras > Gallery by keys, grid scrolling, colour toggle, folders, full view, video playback.
+
+**Without KVM (fallback):**
 `rig/emulator.sh start` now copes with a machine that has no `/dev/kvm` and no root: `rig/emulator-libs.sh` unpacks the libraries the emulator is missing (libpulse, libXi and their dependencies) into `~/.cache/pg-emulator-libs`, and the emulator runs in software (`-accel off`). Results on a 16-core Ryzen: boots in about 2.5 minutes, screenshots (`adb exec-out screencap -p`) and key events work, and our apps run, but it is slow: `adb` calls take 2 to 4 seconds, Android shows "System UI isn't responding" under load (tap Wait), and an app takes about a minute to start the first time. Good for looking at a screen and driving it with keys; poor for timing. With `/dev/kvm` the same setup would be fast, so exposing KVM to the session is the real fix. An activity that is not exported (the gallery, the camera) cannot be started by `adb shell am start` as the shell user: run `adb root` first, or go through the menu with key events. The emulator's own navigation bar covers the bottom 72 px of the 480x640 screen, so our soft-key row is hidden there; it is not on the phone.
 
 ## What works (tried 2026-11-09)
