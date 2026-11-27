@@ -196,15 +196,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         }
 
         private val stripedBar = StripedTopBar(
-            bell = { c, x, y, k, u -> bellIcon(c, x, y, k, u) },
-            stopwatch = { c, x, y, k, u -> timerIcon(c, x, y, k, u) },
             battery = { c, pct, charging, u -> battery(c, pct, charging, u) },
         )
 
         private fun statusLine(c: Canvas, i: HomeInfo, u: Float, clock: Boolean) {
             val m = model
             if (m != null && m.stripedTopBar) {
-                stripedBar.draw(this, c, BarState(i.signalBars, i.data, i.wifi, i.bt, io.github.durkimat.phoneguard.keys.Torch.on, i.alarmSet, timerLeft(i) > 0,
+                stripedBar.draw(this, c, BarState(i.signalBars, i.data, i.wifi, i.bt, io.github.durkimat.phoneguard.keys.Torch.on,
                     i.time.takeIf { clock }, i.batteryPct, i.charging,
                     m.homeFocusTarget()?.takeIf { it.b <= BAR_BOX_BOTTOM }?.let { it.l to it.r }), m.font, u)
                 return
@@ -262,15 +260,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 if (i.bt == 2) slash(c, cx, u)
             }
             // a small torch while the LED is on (drawn only because the screen is on and showing our screens)
-            if (io.github.durkimat.phoneguard.keys.Torch.on) {
-                stroke.strokeWidth = 2.5f * u
-                c.drawRect(228 * u, 20 * u, 252 * u, 28 * u, stroke)                        // the head
-                c.drawRect(231 * u, 28 * u, 249 * u, 42 * u, stroke)                         // the body
-                c.drawLine(225 * u, 14 * u, 220 * u, 9 * u, stroke); c.drawLine(240 * u, 12 * u, 240 * u, 5 * u, stroke); c.drawLine(255 * u, 14 * u, 260 * u, 9 * u, stroke) // the light
-            }
-            // a small bell while an alarm is switched on or the timer is running
-            if (i.alarmSet) bellIcon(c, BAR_BELL_X, 22.5f, 1f, u)
-            if (timerLeft(i) > 0) timerIcon(c, if (i.alarmSet) BAR_TIMER_X else BAR_BELL_X, 22.5f, 1f, u) // beside the bell while a timer runs
+            if (io.github.durkimat.phoneguard.keys.Torch.on) torch(c, stroke, u)
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
         }
@@ -858,7 +848,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
             text(c, i.time, 240f, clockY(model?.homeTitled == true), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
-            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if ((i.alarmText.isNotEmpty() || timerLeft(i) > 0) && model?.homeTitled == true) 352f else if (Themes.byId(model?.theme).skin == "mac") 332f else 336f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
+            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), dateY(model?.homeTitled == true, i.alarmText.isNotEmpty() || timerLeft(i) > 0), 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
             // just under the clock: a bell and the next alarm's time, and a stopwatch face and the timer's time left, nothing else.
             // Both go on one line when they fit (the long-digit fonts may not), otherwise one under the other.
             val left = timerLeft(i)

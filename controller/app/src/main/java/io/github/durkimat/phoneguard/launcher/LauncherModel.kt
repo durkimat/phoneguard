@@ -90,14 +90,15 @@ fun dataY(mac: Boolean) = if (mac) DATA_MAC_SHIFT else 5f
 fun weatherCy(mac: Boolean) = if (mac) 174f else 134f
 /** The clock's baseline. */
 fun clockY(mac: Boolean) = if (mac) 296f else 274f
+/** The date's baseline. Without a Mac title bar it has one place, spaced from the alarm and timer line under the clock; under a title bar it moves down only when that line shows. */
+fun dateY(titled: Boolean, lineUnderClock: Boolean) = if (!titled) DATE_BASE else if (lineUnderClock) 352f else 332f
+const val DATE_BASE = 348f
 /** The slot for Now playing, the next event and the rain note: where the weather used to be, the same in every look. */
 fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
 /** The box of zone 5 (the strip), its highlight and its touch area, and how long the slide between its pages takes. */
 const val NOW_TOP = 366f
 /** The height of the highlight boxes in the top bar (design pixels); the symbols sit on a middle line of 23. */
-/** The plain top bar: where the alarm bell and the running timer sit, and the clock (its size, baseline and widest allowed width). */
-const val BAR_BELL_X = 278f
-const val BAR_TIMER_X = 304f
+/** The plain top bar's clock: its size, baseline and widest allowed width. Alarms and the timer show under the home clock, not in the bar. */
 const val BAR_CLOCK_SIZE = 27f
 const val BAR_CLOCK_BASE = 32f
 const val BAR_CLOCK_ROOM = 83f

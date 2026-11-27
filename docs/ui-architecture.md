@@ -109,6 +109,10 @@ by the tap and highlight areas alike); the torch is smaller; torch, alarm and ti
 unused is drawn at about 3:1 and a switched-off one has a solid slash with a gap either side. Checked on the emulator against 0.5.2 by pixel
 comparison: the Nokia look and a Platinum Mac window are unchanged.
 
+### Top bar symbols (2026-11-27)
+Every symbol fits heights 10 to 36 and **looks** balanced in them, not only measures so. The bar carries what the phone is connected to, the torch,
+the clock and the battery. Alarms and the running timer are not in it: they show under the home clock.
+
 Proposed from mock-ups but **not agreed or built**: the same top bar places for the Nokia look, fixed content areas shared by all looks (only the Nokia
 icon grid would change), a standard for pop-ups (notice, message, question, picker) and the half-screen emoji box.
 

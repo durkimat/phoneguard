@@ -8,7 +8,7 @@ import android.graphics.RectF
 
 /** What the top bar shows. Wi-Fi, Bluetooth and data: -1 not shown, 0 on but unused, 1 in use, 2 switched off. [time] null: no clock. */
 data class BarState(
-    val signalBars: Int, val data: Int, val wifi: Int, val bt: Int, val torch: Boolean, val alarm: Boolean, val timer: Boolean,
+    val signalBars: Int, val data: Int, val wifi: Int, val bt: Int, val torch: Boolean,
     val time: String?, val batteryPct: Int, val charging: Boolean,
     /** The left and right of the highlight box in the bar, if one is shown: the stripes clear it. */
     val chosen: Pair<Float, Float>? = null,
@@ -20,8 +20,6 @@ data class BarState(
  * time, so the finished bar is kept and drawn again only when something on it changes.
  */
 internal class StripedTopBar(
-    private val bell: (Canvas, Float, Float, Float, Float) -> Unit,
-    private val stopwatch: (Canvas, Float, Float, Float, Float) -> Unit,
     private val battery: (Canvas, Int, Boolean, Float) -> Unit,
 ) {
     private var key: List<Any?>? = null
@@ -105,18 +103,11 @@ internal class StripedTopBar(
                 moveTo(180 * u, 16 * u); lineTo(196 * u, 30 * u); lineTo(188 * u, 36 * u); lineTo(188 * u, 10 * u); lineTo(196 * u, 16 * u); lineTo(180 * u, 30 * u)
             }, stroke)
         }
-        // what is switched on: torch, alarm, timer, each in its own place
-        if (s.torch) {
-            stroke.strokeWidth = 2.5f * u
-            c.drawRect(224 * u, 17 * u, 240 * u, 23 * u, stroke); c.drawRect(226.5f * u, 23 * u, 237.5f * u, 35 * u, stroke)
-            c.drawLine(223 * u, 13 * u, 220 * u, 10 * u, stroke); c.drawLine(232 * u, 12.5f * u, 232 * u, 9 * u, stroke); c.drawLine(241 * u, 13 * u, 244 * u, 10 * u, stroke)
-        }
-        if (s.alarm) bell(c, 266f, 22.5f, 1.05f, u)
-        if (s.timer) stopwatch(c, 298f, 22.5f, 1.2f, u)
+        if (s.torch) torch(c, stroke, u)
         fill.color = ink; stroke.color = ink
         battery(c, s.batteryPct, s.charging, u)
         val time = s.time ?: return null
-        // a wide typeface is set smaller rather than allowed to reach the timer
+        // a wide typeface is set smaller rather than allowed to reach the other symbols
         val wide = pen.measureBold(time, CLOCK_SIZE, TEXT) / u
         val size = if (wide > CLOCK_ROOM) CLOCK_SIZE * CLOCK_ROOM / wide else CLOCK_SIZE
         val drawn = minOf(wide, CLOCK_ROOM)
@@ -137,3 +128,18 @@ internal class StripedTopBar(
         const val CLOCK_ROOM = 84f
     }
 }
+
+/**
+ * The torch symbol of every look's top bar, while the light is on. Like the other symbols it fills heights 10 to 36 around the middle
+ * line of 23, and it sits one step (50) after Bluetooth. The rays are drawn heavy enough that it does not look as if it has sunk.
+ */
+internal fun torch(c: Canvas, stroke: Paint, u: Float) {
+    stroke.strokeWidth = 3f * u
+    val x = TORCH_X
+    c.drawLine((x - 7) * u, 15.5f * u, (x - 10) * u, 11.5f * u, stroke); c.drawLine(x * u, 15 * u, x * u, 10 * u, stroke); c.drawLine((x + 7) * u, 15.5f * u, (x + 10) * u, 11.5f * u, stroke)
+    stroke.strokeWidth = 2.8f * u
+    c.drawRect((x - 9) * u, 19.5f * u, (x + 9) * u, 24.5f * u, stroke) // the head
+    c.drawRect((x - 6) * u, 24.5f * u, (x + 6) * u, 34.6f * u, stroke) // the body
+}
+
+internal const val TORCH_X = 238f

@@ -61,10 +61,16 @@ class StripeWrapTest {
         assertEquals(none, none.inForce(null)); assertFalse(none.usesAndroid(null))
     }
 
-    @Test fun thePlainBarsBellAndTimerLeaveRoomForTheBiggerClock() {
+    @Test fun theTopBarHasRoomBetweenTheTorchAndTheClock() {
         val clockLeft = 480f - 14 - 56 + 1 - 8 - BAR_CLOCK_ROOM // its right edge, less its widest
-        assertTrue("clear of the stopwatch", clockLeft - (BAR_TIMER_X + 10) >= 5f)
-        assertTrue("clear of the torch, which ends at 262", BAR_BELL_X - 10 >= 262 + 5)
-        assertTrue("bell clear of the stopwatch", BAR_TIMER_X - BAR_BELL_X >= 24f)
+        assertTrue(clockLeft - (TORCH_X + 12) >= 20f)
+        assertEquals("one step after Bluetooth, as the radios are from each other", 50f, TORCH_X - 188f, 0f)
+    }
+
+    @Test fun theDateHasOnePlaceBelowTheLineUnderTheClock() {
+        assertEquals(DATE_BASE, dateY(false, true), 0f); assertEquals(DATE_BASE, dateY(false, false), 0f)
+        assertTrue("a clear gap under the alarm and timer line", DATE_BASE - (clockY(false) + 28f) >= 44f)
+        assertTrue("its descenders stay above the strip", DATE_BASE + 10f <= NOW_TOP)
+        assertEquals(352f, dateY(true, true), 0f); assertEquals(332f, dateY(true, false), 0f)
     }
 }
