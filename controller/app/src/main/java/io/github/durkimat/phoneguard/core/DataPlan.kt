@@ -26,6 +26,15 @@ data class DataPlan(
 ) {
     val set: Boolean get() = allowance > 0
 
+    /**
+     * The plan in force. One saved on this phone (it has an allowance) wins outright: its allowance, renewal day and correction drive
+     * everything shown. Without one, Android's own plan, if there is one, gives the allowance and the renewal day.
+     */
+    fun inForce(android: AndroidPlan.Plan?): DataPlan = if (set || android == null) this else copy(allowance = android.allowance, renewDay = android.day, start = "")
+
+    /** Whether the allowance in force is Android's. */
+    fun usesAndroid(android: AndroidPlan.Plan?): Boolean = !set && android != null
+
     /** The period that contains [now]: its start and end (exclusive), in epoch milliseconds. */
     fun period(now: Long, zone: ZoneId = ZoneId.systemDefault()): Pair<Long, Long> {
         val today = ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(now), zone).toLocalDate()

@@ -218,7 +218,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             battery(c, i.batteryPct, i.charging, u)
             val bx = 480f - 14 - 56 + 1f // where the battery starts
             // the time, where the percentage used to be (the home screen has its big clock)
-            if (clock) text(c, i.time, bx - 8, 30f, 22f, u, align = Paint.Align.RIGHT) // the same middle line as the icons (the battery's centre is y 23)
+            if (clock) {
+                // the same middle line as the icons (the battery's centre is y 23); a wide typeface is set smaller rather than reach the stopwatch
+                val wide = measureBold(i.time, BAR_CLOCK_SIZE, TEXT) / u
+                text(c, i.time, bx - 8, BAR_CLOCK_BASE, if (wide > BAR_CLOCK_ROOM) BAR_CLOCK_SIZE * BAR_CLOCK_ROOM / wide else BAR_CLOCK_SIZE, u, align = Paint.Align.RIGHT)
+            }
             // Wi-Fi: a dot and three arcs, solid when connected, faint when on with no connection, faint with a slash when switched off (not drawn where the mode hides it)
             if (i.wifi >= 0) {
                 val faint = i.wifi != 1
@@ -265,8 +269,8 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 c.drawLine(225 * u, 14 * u, 220 * u, 9 * u, stroke); c.drawLine(240 * u, 12 * u, 240 * u, 5 * u, stroke); c.drawLine(255 * u, 14 * u, 260 * u, 9 * u, stroke) // the light
             }
             // a small bell while an alarm is switched on or the timer is running
-            if (i.alarmSet) bellIcon(c, 298f, 22.5f, 1f, u)
-            if (timerLeft(i) > 0) timerIcon(c, if (i.alarmSet) 326f else 298f, 22.5f, 1f, u) // beside the bell while a timer runs
+            if (i.alarmSet) bellIcon(c, BAR_BELL_X, 22.5f, 1f, u)
+            if (timerLeft(i) > 0) timerIcon(c, if (i.alarmSet) BAR_TIMER_X else BAR_BELL_X, 22.5f, 1f, u) // beside the bell while a timer runs
             stroke.strokeWidth = 2 * u
             c.drawLine(0f, 46 * u, width.toFloat(), 46 * u, stroke)
         }

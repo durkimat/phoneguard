@@ -133,7 +133,7 @@ internal class StripedTopBar(
         const val NO_SIM = "No SIM"
         const val NO_SIM_LEFT = 14f
         const val NO_SIM_SIZE = 24f
-        const val CLOCK_SIZE = 27f
-        const val CLOCK_ROOM = 86f
+        const val CLOCK_SIZE = 22f
+        const val CLOCK_ROOM = 84f
     }
 }

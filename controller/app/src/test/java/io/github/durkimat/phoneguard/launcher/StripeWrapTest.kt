@@ -50,4 +50,21 @@ class StripeWrapTest {
         fun gb(b: Long) = io.github.durkimat.phoneguard.core.DataPlan.gbText(b)
         assertEquals("10", gb(10_000_000_000L)); assertEquals("7.5", gb(7_500_000_000L)); assertEquals("12.75", gb(12_750_000_000L)); assertEquals("0.5", gb(500_000_000L))
     }
+
+    @Test fun aPlanSavedOnThePhoneTakesPriorityOverAndroids() {
+        val android = io.github.durkimat.phoneguard.core.AndroidPlan.parse("warn=2000000000 limit=30000000000 day=3")
+        val mine = io.github.durkimat.phoneguard.core.DataPlan(allowance = 10_000_000_000L, renewDay = 14, correctionMb = 250)
+        assertEquals(mine, mine.inForce(android)); assertFalse(mine.usesAndroid(android))
+        val none = io.github.durkimat.phoneguard.core.DataPlan(warnPct = 20)
+        val used = none.inForce(android)
+        assertEquals(30_000_000_000L, used.allowance); assertEquals(3, used.renewDay); assertEquals(20, used.warnPct); assertTrue(none.usesAndroid(android))
+        assertEquals(none, none.inForce(null)); assertFalse(none.usesAndroid(null))
+    }
+
+    @Test fun thePlainBarsBellAndTimerLeaveRoomForTheBiggerClock() {
+        val clockLeft = 480f - 14 - 56 + 1 - 8 - BAR_CLOCK_ROOM // its right edge, less its widest
+        assertTrue("clear of the stopwatch", clockLeft - (BAR_TIMER_X + 10) >= 5f)
+        assertTrue("clear of the torch, which ends at 262", BAR_BELL_X - 10 >= 262 + 5)
+        assertTrue("bell clear of the stopwatch", BAR_TIMER_X - BAR_BELL_X >= 24f)
+    }
 }

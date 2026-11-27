@@ -95,6 +95,12 @@ fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
 /** The box of zone 5 (the strip), its highlight and its touch area, and how long the slide between its pages takes. */
 const val NOW_TOP = 366f
 /** The height of the highlight boxes in the top bar (design pixels); the symbols sit on a middle line of 23. */
+/** The plain top bar: where the alarm bell and the running timer sit, and the clock (its size, baseline and widest allowed width). */
+const val BAR_BELL_X = 278f
+const val BAR_TIMER_X = 304f
+const val BAR_CLOCK_SIZE = 27f
+const val BAR_CLOCK_BASE = 32f
+const val BAR_CLOCK_ROOM = 83f
 const val BAR_BOX_TOP = 4f
 const val BAR_BOX_BOTTOM = 42f
 const val NOW_BOTTOM = 478f
@@ -3440,7 +3446,7 @@ class LauncherModel(
     var dataPlan = io.github.durkimat.phoneguard.core.DataPlan()
     var dataSims: List<Pair<Int, String>> = emptyList()
     var dataRenews = ""
-    /** The allowance and renewal day are Android's own (its data warning or limit), which take the place of the ones saved on the phone. */
+    /** The allowance and renewal day are Android's own (its data warning or limit), as none is saved on the phone. */
     var dataFromAndroid = false
     /** The phone has no SIM it can read: the top bar says so where the signal bars would be. */
     var noSim = false
@@ -3491,7 +3497,7 @@ class LauncherModel(
                 gb.isNotBlank() && bytes <= 0 -> { notice = "Allowance in GB, like 10 or 7.5"; Action.Redraw }
                 start.isNotBlank() && io.github.durkimat.phoneguard.core.DataPlan.parseDate(start) == null -> { notice = "Date like 2026-12-12"; Action.Redraw }
                 corr.isNotBlank() && corr.toLongOrNull() == null -> { notice = "Correction is a whole number of MB"; Action.Redraw }
-                else -> { leave(); notice = if (dataFromAndroid && (bytes != p0.allowance || day != p0.renewDay || start.isNotBlank())) "Android's data plan still sets allowance and renewal" else "Saved"; Action.SaveDataPlan(io.github.durkimat.phoneguard.core.DataPlan(bytes, day, start, warn, corr.toLongOrNull() ?: 0L, sim)) }
+                else -> { leave(); notice = "Saved"; Action.SaveDataPlan(io.github.durkimat.phoneguard.core.DataPlan(bytes, day, start, warn, corr.toLongOrNull() ?: 0L, sim)) }
             }
         }
     }
