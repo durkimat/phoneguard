@@ -36,4 +36,18 @@ class StripeWrapTest {
         look("mac", "stripes"); val striped = m.clockTarget(); look("green", "stripes")
         assertEquals(m.clockTarget().t, striped.t, 0f)
     }
+
+    @Test fun theTopBarsHighlightBoxesSitSquarelyRoundTheirSymbols() {
+        val m = LauncherModel(); m.wifiShown = true; m.btShown = true
+        val boxes = m.homeTargets().associateBy { it.kind }
+        for ((kind, centre) in listOf("wifi" to 138f, "bt" to 188f)) { val b = boxes.getValue(kind); assertEquals(kind, centre, (b.l + b.r) / 2, 0.01f) }
+        for (b in listOf("signal", "wifi", "bt").map { boxes.getValue(it) }) { assertEquals(BAR_BOX_TOP, b.t, 0f); assertEquals(BAR_BOX_BOTTOM, b.b, 0f) }
+        assertEquals("centred on the middle line of the symbols", 23f, (BAR_BOX_TOP + BAR_BOX_BOTTOM) / 2, 0f)
+        assertTrue(boxes.getValue("signal").r < boxes.getValue("wifi").l && boxes.getValue("wifi").r < boxes.getValue("bt").l)
+    }
+
+    @Test fun theAllowanceComesBackExactlyAsEntered() {
+        fun gb(b: Long) = io.github.durkimat.phoneguard.core.DataPlan.gbText(b)
+        assertEquals("10", gb(10_000_000_000L)); assertEquals("7.5", gb(7_500_000_000L)); assertEquals("12.75", gb(12_750_000_000L)); assertEquals("0.5", gb(500_000_000L))
+    }
 }

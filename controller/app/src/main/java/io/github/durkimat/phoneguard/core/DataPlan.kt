@@ -42,6 +42,9 @@ data class DataPlan(
     }
 
     companion object {
+        /** An allowance in GB exactly as it was entered: 7.5 stays 7.5, 12.75 stays 12.75. */
+        fun gbText(bytes: Long): String = java.math.BigDecimal.valueOf(bytes).movePointLeft(9).stripTrailingZeros().toPlainString()
+
         fun parseDate(s: String): LocalDate? = try { if (s.isBlank()) null else LocalDate.parse(s.trim()) } catch (_: Exception) { null }
     }
 }

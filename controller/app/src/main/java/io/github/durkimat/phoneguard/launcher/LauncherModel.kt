@@ -94,6 +94,9 @@ fun clockY(mac: Boolean) = if (mac) 296f else 274f
 fun homeSlotY(@Suppress("UNUSED_PARAMETER") mac: Boolean) = 392f
 /** The box of zone 5 (the strip), its highlight and its touch area, and how long the slide between its pages takes. */
 const val NOW_TOP = 366f
+/** The height of the highlight boxes in the top bar (design pixels); the symbols sit on a middle line of 23. */
+const val BAR_BOX_TOP = 4f
+const val BAR_BOX_BOTTOM = 42f
 const val NOW_BOTTOM = 478f
 /** Zone 5's two text lines (baselines), a lone line's baseline, the progress bar's top and the dots' centre. */
 const val NOW_LINE1 = 402f
@@ -1772,10 +1775,11 @@ class LauncherModel(
     }
 
     fun homeTargets(): List<HomeTarget> = buildList {
-        if (dataShown || wifiShown) add(HomeTarget("signal", 0f, 0f, 105f, 46f))
-        if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
-        if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
-        if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 404f, 4f, 474f, 42f)) // the battery page lives under Settings: hidden where the mode hides Settings
+        // the top bar's boxes: one height, each centred on what it holds with the same room round it
+        if (dataShown || wifiShown) add(HomeTarget("signal", 8f, BAR_BOX_TOP, if (dataShown || noSim) 105f else 64f, BAR_BOX_BOTTOM))
+        if (wifiShown) add(HomeTarget("wifi", 114f, BAR_BOX_TOP, 162f, BAR_BOX_BOTTOM))
+        if (btShown) add(HomeTarget("bt", 172f, BAR_BOX_TOP, 204f, BAR_BOX_BOTTOM))
+        if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 404f, BAR_BOX_TOP, 474f, BAR_BOX_BOTTOM)) // the battery page lives under Settings: hidden where the mode hides Settings
         if (dataView != null) { val y = dataY(homeTitled); add(HomeTarget("data", 8f, if (homeTitled) 52f + y else 58f, 472f, if (homeTitled) 88f + y else 97f)) }
         if (weather != null) { val cy = weatherCy(homeTitled); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         add(clockTarget())
@@ -3436,6 +3440,10 @@ class LauncherModel(
     var dataPlan = io.github.durkimat.phoneguard.core.DataPlan()
     var dataSims: List<Pair<Int, String>> = emptyList()
     var dataRenews = ""
+    /** The allowance and renewal day are Android's own (its data warning or limit), which take the place of the ones saved on the phone. */
+    var dataFromAndroid = false
+    /** The phone has no SIM it can read: the top bar says so where the signal bars would be. */
+    var noSim = false
     /** The by-app page: the rows (or [dataAppsStatus] while loading or when nothing was used). Set by the activity. */
     var dataApps: List<String> = emptyList()
         private set
@@ -3447,7 +3455,9 @@ class LauncherModel(
     private val dataRows: List<String> get() {
         val v = dataView ?: return dataToggleRow + listOf(if (dataPlan.set) "No reading yet" else "No data plan set", if (dataPlan.set) "Change plan" else "Set up plan")
         return dataToggleRow + listOf("Used: " + io.github.durkimat.phoneguard.core.DataView.amount(v.used) + " (" + (v.fraction * 100).toInt() + "%)", "Left: " + io.github.durkimat.phoneguard.core.DataView.amount(v.left),
-            "Allowance: " + io.github.durkimat.phoneguard.core.DataView.amount(v.allowance), "Renews: " + dataRenews.ifEmpty { "-" }, "By app", "Change plan")
+            "Allowance: " + io.github.durkimat.phoneguard.core.DataView.amount(v.allowance), "Renews: " + dataRenews.ifEmpty { "-" }) +
+            listOf(if (dataFromAndroid) "Set by: Android" else "Set by: this phone") + (if (dataPlan.correctionMb != 0L) listOf("Correction: " + (if (dataPlan.correctionMb > 0) "+" else "") + dataPlan.correctionMb + " MB") else emptyList()) +
+            listOf("By app", "Change plan")
     }
 
     private fun dataKey(key: Key): Action = move(key, dataRows.size) ?: when (key) {
@@ -3464,7 +3474,7 @@ class LauncherModel(
 
     private fun dataForm(): Form {
         val p0 = dataPlan
-        var gb = if (p0.set) io.github.durkimat.phoneguard.core.DataView.amount(p0.allowance).removeSuffix(" GB") else ""
+        var gb = if (p0.set) io.github.durkimat.phoneguard.core.DataPlan.gbText(p0.allowance) else ""
         var day = p0.renewDay; var start = p0.start; var warn = p0.warnPct; var corr = p0.correctionMb.toString(); var sim = p0.subId
         val rows: () -> List<FormRow> = { buildList {
             add(FormRow("Allowance GB", { gb.ifBlank { "-" } }, { gb = it.trim().replace(',', '.') }, { gb }, exact = true))
@@ -3481,7 +3491,7 @@ class LauncherModel(
                 gb.isNotBlank() && bytes <= 0 -> { notice = "Allowance in GB, like 10 or 7.5"; Action.Redraw }
                 start.isNotBlank() && io.github.durkimat.phoneguard.core.DataPlan.parseDate(start) == null -> { notice = "Date like 2026-12-12"; Action.Redraw }
                 corr.isNotBlank() && corr.toLongOrNull() == null -> { notice = "Correction is a whole number of MB"; Action.Redraw }
-                else -> { leave(); notice = "Saved"; Action.SaveDataPlan(io.github.durkimat.phoneguard.core.DataPlan(bytes, day, start, warn, corr.toLongOrNull() ?: 0L, sim)) }
+                else -> { leave(); notice = if (dataFromAndroid && (bytes != p0.allowance || day != p0.renewDay || start.isNotBlank())) "Android's data plan still sets allowance and renewal" else "Saved"; Action.SaveDataPlan(io.github.durkimat.phoneguard.core.DataPlan(bytes, day, start, warn, corr.toLongOrNull() ?: 0L, sim)) }
             }
         }
     }

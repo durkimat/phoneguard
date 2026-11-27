@@ -10,6 +10,8 @@ import android.graphics.RectF
 data class BarState(
     val signalBars: Int, val data: Int, val wifi: Int, val bt: Int, val torch: Boolean, val alarm: Boolean, val timer: Boolean,
     val time: String?, val batteryPct: Int, val charging: Boolean,
+    /** The left and right of the highlight box in the bar, if one is shown: the stripes clear it. */
+    val chosen: Pair<Float, Float>? = null,
 )
 
 /**
@@ -48,6 +50,7 @@ internal class StripedTopBar(
         if (s.signalBars < 0) StripeWrap.block(clear, w, h, 0, px(7f), px(NO_SIM_LEFT + pen.measureBold(NO_SIM, NO_SIM_SIZE, TEXT) / u + GAP), px(40f))
         if (clockLeft != null) StripeWrap.block(clear, w, h, px(clockLeft - GAP), px(7f), px(CLOCK_RIGHT + GAP), px(40f)) // and the time as one word
 
+        s.chosen?.let { (l, r) -> StripeWrap.block(clear, w, h, px(l - GAP), 0, px(r + GAP), h) }
         val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         // the colour of the window title's stripes
@@ -130,7 +133,7 @@ internal class StripedTopBar(
         const val NO_SIM = "No SIM"
         const val NO_SIM_LEFT = 14f
         const val NO_SIM_SIZE = 24f
-        const val CLOCK_SIZE = 22f
-        const val CLOCK_ROOM = 84f
+        const val CLOCK_SIZE = 27f
+        const val CLOCK_ROOM = 86f
     }
 }

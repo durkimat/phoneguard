@@ -156,12 +156,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
                 Screen.CALL -> callScreen(c, m, u)
                 else -> menu(c, m, u)
             }
-            m.homeFocusTarget()?.let { t -> // the symbol chosen with the keypad on the home screen
-                stroke.strokeWidth = 3f * u; stroke.color = ink
-                c.drawRoundRect(RectF(t.l * u, t.t * u, t.r * u, t.b * u), 8f * u, 8f * u, stroke)
-            }
+            val chosen = m.homeFocusTarget() // the symbol chosen with the keypad on the home screen
+            if (chosen != null && chosen.b > BAR_BOX_BOTTOM) focusBox(c, chosen, u)
             m.notice?.let { notice(c, it, u) }
             chrome.endContent(this, c, m, u)
+            if (chosen != null && chosen.b <= BAR_BOX_BOTTOM) focusBox(c, chosen, u) // the top bar is outside a window's content
             syncTravel = frameTravel
         }
 
@@ -172,6 +171,11 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             p.letterSpacing = if (role == DISPLAY) fc.tracking else 0f
             c.drawText(if (role == LABEL && fc.caps) s.uppercase() else s, x * u, y * u, p)
             p.letterSpacing = 0f
+        }
+
+        private fun focusBox(c: Canvas, t: LauncherModel.HomeTarget, u: Float) {
+            stroke.strokeWidth = 3f * u; stroke.color = ink
+            c.drawRoundRect(RectF(t.l * u, t.t * u, t.r * u, t.b * u), 8f * u, 8f * u, stroke)
         }
 
         private fun battery(c: Canvas, pct: Int, charging: Boolean, u: Float) {
@@ -201,7 +205,8 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             val m = model
             if (m != null && m.stripedTopBar) {
                 stripedBar.draw(this, c, BarState(i.signalBars, i.data, i.wifi, i.bt, io.github.durkimat.phoneguard.keys.Torch.on, i.alarmSet, timerLeft(i) > 0,
-                    i.time.takeIf { clock }, i.batteryPct, i.charging), m.font, u)
+                    i.time.takeIf { clock }, i.batteryPct, i.charging,
+                    m.homeFocusTarget()?.takeIf { it.b <= BAR_BOX_BOTTOM }?.let { it.l to it.r }), m.font, u)
                 return
             }
             if (i.signalBars < 0) text(c, "No SIM", 14f, 32f, 24f, u)
