@@ -174,27 +174,44 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
             p.letterSpacing = 0f
         }
 
+        private fun battery(c: Canvas, pct: Int, charging: Boolean, u: Float) {
+            // battery: outline, level, nub
+            val bx = 480f - 14 - 56 + 1f // the nub's last ink column is 466, like the data bar's and the right soft key's
+            stroke.strokeWidth = 3 * u
+            c.drawRect(bx * u, 10 * u, (bx + 52) * u, 36 * u, stroke)
+            c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
+            c.drawRect((bx + 5) * u, 15 * u, (bx + 5 + 42f * pct / 100f) * u, 31 * u, fill)
+            // the level reads inside the icon: ink over the empty part, the background colour over the filled part
+            val label = if (charging) "+${pct}" else "${pct}%"
+            val lx = bx + 26f
+            val level = (bx + 5 + 42f * pct / 100f) * u
+            c.save(); c.clipRect(level, 15 * u, (bx + 47) * u, 31 * u)
+            text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER); c.restore()
+            c.save(); c.clipRect((bx + 5) * u, 15 * u, level, 31 * u)
+            text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER, color = lcd); c.restore()
+        }
+
+        private val stripedBar = StripedTopBar(
+            bell = { c, x, y, k, u -> bellIcon(c, x, y, k, u) },
+            stopwatch = { c, x, y, k, u -> timerIcon(c, x, y, k, u) },
+            battery = { c, pct, charging, u -> battery(c, pct, charging, u) },
+        )
+
         private fun statusLine(c: Canvas, i: HomeInfo, u: Float, clock: Boolean) {
+            val m = model
+            if (m != null && m.stripedTopBar) {
+                stripedBar.draw(this, c, BarState(i.signalBars, i.data, i.wifi, i.bt, io.github.durkimat.phoneguard.keys.Torch.on, i.alarmSet, timerLeft(i) > 0,
+                    i.time.takeIf { clock }, i.batteryPct, i.charging), m.font, u)
+                return
+            }
             if (i.signalBars < 0) text(c, "No SIM", 14f, 32f, 24f, u)
             else for (b in 0 until 4) {
                 val h = 8f + 7f * b
                 val r = RectF((14 + b * 12) * u, (36 - h) * u, (14 + b * 12 + 8) * u, 36 * u)
                 if (b < i.signalBars) c.drawRect(r, fill) else { stroke.strokeWidth = 2 * u; c.drawRect(r, stroke) }
             }
-            // battery: outline, level, nub
-            val bx = 480f - 14 - 56 + 1f // the nub's last ink column is 466, like the data bar's and the right soft key's
-            stroke.strokeWidth = 3 * u
-            c.drawRect(bx * u, 10 * u, (bx + 52) * u, 36 * u, stroke)
-            c.drawRect((bx + 52) * u, 17 * u, (bx + 56) * u, 29 * u, fill)
-            c.drawRect((bx + 5) * u, 15 * u, (bx + 5 + 42f * i.batteryPct / 100f) * u, 31 * u, fill)
-            // the level reads inside the icon: ink over the empty part, the background colour over the filled part
-            val label = if (i.charging) "+${i.batteryPct}" else "${i.batteryPct}%"
-            val lx = bx + 26f
-            val level = (bx + 5 + 42f * i.batteryPct / 100f) * u
-            c.save(); c.clipRect(level, 15 * u, (bx + 47) * u, 31 * u)
-            text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER); c.restore()
-            c.save(); c.clipRect((bx + 5) * u, 15 * u, level, 31 * u)
-            text(c, label, lx, 29f, 17f, u, bold = true, align = Paint.Align.CENTER, color = lcd); c.restore()
+            battery(c, i.batteryPct, i.charging, u)
+            val bx = 480f - 14 - 56 + 1f // where the battery starts
             // the time, where the percentage used to be (the home screen has its big clock)
             if (clock) text(c, i.time, bx - 8, 30f, 22f, u, align = Paint.Align.RIGHT) // the same middle line as the icons (the battery's centre is y 23)
             // Wi-Fi: a dot and three arcs, solid when connected, faint when on with no connection, faint with a slash when switched off (not drawn where the mode hides it)
@@ -497,7 +514,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
          * slides the old one off and the new one on.
          */
         private fun homeLower(c: Canvas, m: LauncherModel, i: HomeInfo, u: Float) {
-            val mac = Themes.byId(m.theme).skin == "mac"
+            val mac = m.homeTitled
             val slot = homeSlotY(mac)
             m.weather?.let { weatherStrip(c, it, weatherCy(mac), i.time, u) }
             val pages = m.nowPages
@@ -808,7 +825,7 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         /** Mobile data on the home screen, one line under the status strip: what is left in words and the share used as a bar; at 10% or less left, an inverted banner instead. */
         private fun dataWidget(c: Canvas, v: io.github.durkimat.phoneguard.core.DataView, time: String, u: Float) {
-            val y = dataY(Themes.byId(model?.theme).skin == "mac") // the Mac look has a title bar and a frame: the line sits just inside it
+            val y = dataY(model?.homeTitled == true) // under a Mac title bar the line sits just inside it
             if (v.low) {
                 fill.color = ink; c.drawRect(14f * u, (60f + y) * u, 466f * u, (88f + y) * u, fill)
                 text(c, ellipsize(v.bannerText, 440f, 24f), 240f, 83f + y, 24f, u, bold = true, align = Paint.Align.CENTER, color = lcd)
@@ -831,13 +848,13 @@ open class PaintedSkin(private val chrome: Chrome, override val id: String) : La
 
         private fun home(c: Canvas, i: HomeInfo, u: Float) {
             // deliberately no mode name or banner: in School this must look like any plain phone
-            text(c, i.time, 240f, clockY(Themes.byId(model?.theme).skin == "mac"), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
-            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if ((i.alarmText.isNotEmpty() || timerLeft(i) > 0) && Themes.byId(model?.theme).skin == "mac") 352f else if (Themes.byId(model?.theme).skin == "mac") 332f else 336f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
+            text(c, i.time, 240f, clockY(model?.homeTitled == true), 120f, u, bold = true, align = Paint.Align.CENTER, role = DISPLAY)
+            text(c, i.date, 240f + BandGeometry.DATE_NUDGE + BandGeometry.axisShift(BandGeometry.divider(clockColonX(i.time, u))), if ((i.alarmText.isNotEmpty() || timerLeft(i) > 0) && model?.homeTitled == true) 352f else if (Themes.byId(model?.theme).skin == "mac") 332f else 336f, 36f, u, align = Paint.Align.CENTER) // on the axis, with the divider and the data bar
             // just under the clock: a bell and the next alarm's time, and a stopwatch face and the timer's time left, nothing else.
             // Both go on one line when they fit (the long-digit fonts may not), otherwise one under the other.
             val left = timerLeft(i)
             if (i.alarmText.isNotEmpty() || left > 0) {
-                val mac = Themes.byId(model?.theme).skin == "mac"
+                val mac = model?.homeTitled == true
                 p.typeface = faces[TEXT] ?: Typeface.MONOSPACE; p.textSize = 24f * scaleOf(TEXT) * u
                 val items = listOfNotNull(i.alarmText.takeIf { it.isNotEmpty() }?.let { true to it }, if (left > 0) false to timerText(left) else null)
                 // one line: if the long-digit fonts make it wider than the screen allows, everything on it shrinks together (stacking would hit the date)

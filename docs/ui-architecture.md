@@ -88,3 +88,27 @@ The ids exist in four places (the phone, the integration's `schedule.py`, the ca
 1. `NavigationBackTest`, `NavigationDataTest`: hand-picked paths pinned to a golden list of where Back goes.
 2. `JourneyTest`: breadth first over every screen reachable by key presses, in seven setups (list and grid main menus, WhatsApp on, off and unlinked, three themes). Checks no key crashes, the highlight is always on the list, Back and End always reach Home, Back undoes a step in on the same row, a number key equals Down + OK, and every screen is reachable. A new screen with no route in, or a Back that strands you, fails here.
 3. `rig/journey.py walk`: the same idea on the real app. Debug builds log what is on screen to logcat (`PGState`: screen, row, depth, layout, row count, look; never any row text) and the script presses real keys on the emulator or a test phone, visiting every screen it can reach without side effects. It catches what the model tests cannot: key mapping, the activity, other activities that take over the screen, the home request the red key sends. `rig/journey.py looks OUT` cycles every preset and Appearance choice and screenshots Home, Menu and Settings for each.
+
+## Design rules for looks
+
+Agreed with the owner one at a time, as mock-ups prove them. A look may change how things are drawn, not what keys do or how Back works.
+
+### Pattern behind symbols (provisional until it has been judged on the J36; 2026-11-27)
+When a look puts a pattern behind icons or other symbols:
+1. The pattern clears a small gap that **follows each shape's outline**, not a box round it.
+2. A shape that reads as one, such as the battery, is clear inside.
+3. Words (a time) get one smooth clear area, not a gap round each character.
+4. Tiny leftover pieces of pattern are left out.
+5. The pattern must not make a symbol, or its state, harder to recognise.
+6. It does not move anything: spacing and places come from the shared layout.
+
+First use (app 0.5.3): the Mac look with **striped** windows. `StripedTopBar.kt` draws the symbols alone, `StripeWrap.kt` works out the gaps from their
+shapes (3 px, pieces under 6 px dropped), and the finished bar is kept until something on it changes, so a new symbol needs no box drawn for it.
+In that look only: the home screen has no "Home" title bar and sits where the other looks put it (`LauncherModel.homeTitled`, used by the drawing and
+by the tap and highlight areas alike); the torch is smaller; torch, alarm and timer have fixed places; the radios keep theirs; a radio that is on but
+unused is drawn at about 3:1 and a switched-off one has a solid slash with a gap either side. Checked on the emulator against 0.5.2 by pixel
+comparison: the Nokia look and a Platinum Mac window are unchanged.
+
+Proposed from mock-ups but **not agreed or built**: the same top bar places for the Nokia look, fixed content areas shared by all looks (only the Nokia
+icon grid would change), a standard for pop-ups (notice, message, question, picker) and the half-screen emoji box.
+

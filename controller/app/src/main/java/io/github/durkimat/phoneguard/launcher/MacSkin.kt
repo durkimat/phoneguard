@@ -8,16 +8,19 @@ import android.graphics.RectF
 class MacChrome : Chrome {
     private var macTitle = ""
     private var macKeys: Pair<String, String>? = null
+    /** The home screen of the striped look: the window has no title bar, as the stripes are on the top bar. */
+    private var untitled = false
     private var deskCache: Pair<Pair<Theme, String>, android.graphics.BitmapShader>? = null
 
     override val gridInset = 5f
 
     override fun background(pen: Pen, c: Canvas, t: Theme, m: LauncherModel, u: Float) {
         macTitle = if (m.screen == Screen.HOME) "Home" else m.title; macKeys = null
+        untitled = m.screen == Screen.HOME && m.stripedTopBar
         pen.desktop(c, t, u)
     }
-    override fun beginContent(pen: Pen, c: Canvas, u: Float) { c.save(); c.clipRect(11 * u, 94 * u, 469 * u, 569 * u) }
-    override fun endContent(pen: Pen, c: Canvas, m: LauncherModel, u: Float) { c.restore(); pen.titleBar(c, m, u); pen.buttons(c, u) }
+    override fun beginContent(pen: Pen, c: Canvas, u: Float) { c.save(); c.clipRect(11 * u, (if (untitled) 55 else 94) * u, 469 * u, 569 * u) }
+    override fun endContent(pen: Pen, c: Canvas, m: LauncherModel, u: Float) { c.restore(); if (!untitled) pen.titleBar(c, m, u); pen.buttons(c, u) }
     override fun title(pen: Pen, c: Canvas, s: String, u: Float): Boolean { macTitle = s; return true }
     override fun softKeys(pen: Pen, c: Canvas, left: String, right: String, u: Float): Boolean { macKeys = left to right; return true }
     override fun fieldTitle(s: String): Boolean { macTitle = s; return true }

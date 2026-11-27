@@ -421,6 +421,10 @@ class LauncherModel(
     var accent: Int? = null
     /** Window frame, colour, wallpaper, shadow, analyser and the three typefaces (see [Style]). */
     var style: Style = Style()
+    /** The Mac look with striped windows: the stripes are on the top bar, wrapping its symbols, and the home screen has no title bar of its own. */
+    val stripedTopBar: Boolean get() = Themes.byId(theme).skin == "mac" && style.windows == "stripes"
+    /** The home screen sits under a Mac title bar, so what is on it starts lower. */
+    val homeTitled: Boolean get() = Themes.byId(theme).skin == "mac" && !stripedTopBar
     private var choiceKey = ""
 
     /** The phone's contacts, sorted by name. The activity fills this in. */
@@ -1772,8 +1776,8 @@ class LauncherModel(
         if (wifiShown) add(HomeTarget("wifi", 105f, 0f, 175f, 46f))
         if (btShown) add(HomeTarget("bt", 176f, 0f, 215f, 46f))
         if (items.any { it.pkg == SETTINGS_PKG }) add(HomeTarget("battery", 404f, 4f, 474f, 42f)) // the battery page lives under Settings: hidden where the mode hides Settings
-        if (dataView != null) { val y = dataY(Themes.byId(theme).skin == "mac"); add(HomeTarget("data", 8f, if (Themes.byId(theme).skin == "mac") 52f + y else 58f, 472f, if (Themes.byId(theme).skin == "mac") 88f + y else 97f)) }
-        if (weather != null) { val mac = Themes.byId(theme).skin == "mac"; val cy = weatherCy(mac); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
+        if (dataView != null) { val y = dataY(homeTitled); add(HomeTarget("data", 8f, if (homeTitled) 52f + y else 58f, 472f, if (homeTitled) 88f + y else 97f)) }
+        if (weather != null) { val cy = weatherCy(homeTitled); add(HomeTarget("weather", 8f, cy - 34f, 472f, cy + 34f)) }
         add(clockTarget())
         if (nowPages.isNotEmpty()) add(HomeTarget("now", 8f, NOW_TOP, 472f, NOW_BOTTOM))
         badges.forEachIndexed { n, b -> val cx = badgeX(n, badges.size); add(HomeTarget("badge", (cx - 62f).coerceAtLeast(2f), ACT_BOX_TOP, (cx + 62f).coerceAtMost(478f), ACT_BOX_BOTTOM, b)) }
@@ -1961,7 +1965,7 @@ class LauncherModel(
             return Action.None
         }
         if (screen == Screen.HOME) {
-            if (weather != null && y in (weatherCy(Themes.byId(theme).skin == "mac") - 34f)..(weatherCy(Themes.byId(theme).skin == "mac") + 34f)) return openWeather()
+            if (weather != null && y in (weatherCy(homeTitled) - 34f)..(weatherCy(homeTitled) + 34f)) return openWeather()
             clockTarget().let { if (x in it.l..it.r && y in it.t..it.b) return openClock() }
             if (nowPages.isNotEmpty() && y in NOW_TOP..NOW_BOTTOM) return openNow()
             if (y in ACT_TAP_TOP..ACT_TAP_BOTTOM && badges.isNotEmpty()) return openBadge(badges[badgeAt(x)])
@@ -2432,7 +2436,7 @@ class LauncherModel(
     }
 
     /** Where the clock sits on the home screen, for the keypad highlight and a touch. */
-    fun clockTarget(): HomeTarget { val y = clockY(Themes.byId(theme).skin == "mac"); return HomeTarget("clock", 50f, y - 100f, 430f, y + 12f) }
+    fun clockTarget(): HomeTarget { val y = clockY(homeTitled); return HomeTarget("clock", 50f, y - 100f, 430f, y + 12f) }
 
     fun openTimer(): Action { enter(Screen.TIMER); return Action.Redraw }
 
