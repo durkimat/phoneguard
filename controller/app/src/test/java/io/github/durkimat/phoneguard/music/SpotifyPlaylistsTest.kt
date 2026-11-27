@@ -15,6 +15,11 @@ class SpotifyPlaylistsTest {
         assertEquals("10 tracks", items[0].sub); assertEquals("List 2", items[1].label)
     }
 
+    @Test fun theTrackCountIsReadUnderSpotifysNewNameAndTheOld() {
+        val text = """{"items":[{"uri":"a","name":"New","items":{"total":12}},{"uri":"b","name":"Old","tracks":{"total":7}},{"uri":"c","name":"Not theirs"}],"next":null}"""
+        assertEquals(listOf("12 tracks", "7 tracks", ""), Spotify.parsePlaylistPage(text).first.map { it.sub })
+    }
+
     @Test fun theLastPageHasNoNext() { assertFalse(Spotify.parsePlaylistPage(page(2, null)).second) }
 
     @Test fun anEmptyPageIsEmpty() { val (items, more) = Spotify.parsePlaylistPage("""{"items":[],"next":null}"""); assertTrue(items.isEmpty()); assertFalse(more) }

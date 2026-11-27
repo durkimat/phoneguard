@@ -2,7 +2,7 @@
 // sealed to the phone before it leaves the browser, so the Worker and Cloudflare only ever hold ciphertext.
 import { seal } from "/seal.js";
 
-export const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "streaming", "playlist-read-private", "user-library-read"];
+export const SCOPES = ["user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing", "streaming", "playlist-read-private", "playlist-read-collaborative", "user-library-read"];
 export const SLOT = "spotify.refresh";
 const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 

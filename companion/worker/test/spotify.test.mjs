@@ -8,6 +8,10 @@ let n = 0; const ok = (m) => { n++; console.log("  ok  " + m); };
 const src = readFileSync(new URL("../src/page/spotify.js", import.meta.url), "utf8").replace('"/seal.js"', JSON.stringify(new URL("../src/seal.js", import.meta.url).href));
 const S = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
 
+// signing in from the parent page must give the phone everything signing in on the phone would
+const phone = /const val SCOPES = "([^"]+)"/.exec(readFileSync(new URL("../../../controller/app/src/main/java/io/github/durkimat/phoneguard/music/Spotify.kt", import.meta.url), "utf8"))[1].split(" ");
+assert.deepEqual(phone.filter((s) => !S.SCOPES.includes(s)), []); ok("the page asks for every permission the phone itself asks for");
+
 const { verifier, challenge } = await S.makePkce();
 assert.ok(verifier.length >= 43 && verifier.length <= 128 && /^[A-Za-z0-9_-]+$/.test(verifier)); assert.equal(challenge, crypto.createHash("sha256").update(verifier).digest("base64url")); ok("PKCE verifier length and S256 challenge are correct");
 const u = new URL(S.authorizeUrl({ clientId: "c".repeat(32), origin: "https://pg.example.workers.dev", challenge, state: "st" }));

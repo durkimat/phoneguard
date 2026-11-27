@@ -173,11 +173,14 @@ object Spotify {
     const val PLAYLIST_PAGE = 50
     const val PLAYLIST_CAP = 300
 
+    /** How many tracks a playlist has: Spotify calls the field "items" since February 2026 ("tracks" before, and still for some apps); 0 when it says neither. */
+    private fun trackCount(playlist: JSONObject): Int = (playlist.optJSONObject("items") ?: playlist.optJSONObject("tracks"))?.optInt("total") ?: 0
+
     /** One page of /me/playlists: its playlists ("N tracks" kept) and whether Spotify says there is another page. */
     fun parsePlaylistPage(text: String): Pair<List<SpItem>, Boolean> {
         val j = JSONObject(text)
         val a = j.optJSONArray("items") ?: JSONArray()
-        val items = (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { SpItem(it.optString("uri"), it.optString("name"), (it.optJSONObject("tracks")?.optInt("total") ?: 0).let { n -> if (n > 0) "$n tracks" else "" }) }
+        val items = (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { SpItem(it.optString("uri"), it.optString("name"), trackCount(it).let { n -> if (n > 0) "$n tracks" else "" }) }
         return items to (!j.isNull("next") && j.optString("next").isNotEmpty())
     }
 
